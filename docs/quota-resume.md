@@ -150,3 +150,8 @@ uv run --frozen ai-company demo --task examples/demo-task.json
 | `deploy/systemd/ai-company-quota.*` | 매분 실행하는 사용자 서비스·타이머 |
 | `scripts/verify_quota_timer.py` | 실제 타이머와 모의 CLI의 프로세스 간 재개 검증 |
 | `README.md`, `AGENTS.md`, `docs/` | 운영 범위·기존 개발 루프와의 구분·인수인계 |
+
+## 후속 역할 배정기
+
+[flow dispatcher](flow-dispatcher.md)는 이 세션 큐를 유지하면서 적격 제공자 이관과 개발·검수 루프를 추가한다.
+기존 운영 큐는 자동 이행하지 않는다. 새 flow 소유 세션은 일반 session worker에서 제외하고 전용 배정기가 관리한다.
