@@ -1,0 +1,12 @@
+[Unit]
+Description=Check ai-company durable session queue every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
+RandomizedDelaySec=5s
+Persistent=true
+Unit=ai-company-quota.service
+
+[Install]
+WantedBy=timers.target
