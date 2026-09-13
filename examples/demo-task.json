@@ -1,0 +1,14 @@
+{
+  "task_id": "demo-001",
+  "version": 1,
+  "goal": "하네스가 작업 맥락을 전달하고 검수 반려 뒤 자동 수정과 재검수까지 이어간다.",
+  "acceptance": [
+    "최초 검수의 지적 ID와 근거가 수정 담당에게 전달된다.",
+    "현재 모의 커밋의 검사와 재검수가 모두 통과한다."
+  ],
+  "repository": "HyungwonPark/ai-company",
+  "base_sha": "2a4754ec9597066804ece8825e1a09f07439a726",
+  "allowed_paths": ["src/", "tests/"],
+  "required_checks": ["unit"],
+  "max_repairs": 3
+}
