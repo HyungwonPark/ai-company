@@ -47,6 +47,7 @@ Codex는 저장된 식별자를 사용해 `codex exec resume <session_id>`로 �
 
 ## 이어서 작업하기
 
+- **후속 구현 목표:** [역할별 에이전트 자동 이관과 작업 흐름 유지](docs/agent-failover.md). 사용량 제한 시 적격 대체자에게 우선 이관하고, 대체자가 없을 때 예약 대기합니다. Astra Ultra의 PM·최종 검수 역할과 일반 프로그램 배정기를 분리하는 요구사항이며, 현재 구현 완료를 뜻하지 않습니다.
 - [하네스·루프 및 서버 연결 계획](docs/plans/2026-09-13-bootstrap-and-v0.1.md)
 - [구현 구조와 복구 경계](docs/harness-foundation.md)
 - [서버 세션 인수인계](docs/server-handoff.md)
