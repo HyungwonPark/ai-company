@@ -1,0 +1,14 @@
+[Unit]
+Description=ai-company due CLI session worker
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/ai-company/workspaces/harness-loop-foundation
+Environment=PATH=%h/.local/bin:%h/.nvm/versions/node/v22.13.0/bin:/usr/bin:/bin
+Environment=LANGSMITH_TRACING=false
+Environment=LANGCHAIN_TRACING_V2=false
+ExecStart=%h/ai-company/workspaces/harness-loop-foundation/.venv/bin/ai-company session worker --state-dir %h/ai-company/state/sessions
+TimeoutStartSec=3700
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=yes
