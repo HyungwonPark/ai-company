@@ -1,7 +1,8 @@
-"""Loopback HTTP adapter for the persistent management store; no execution endpoint."""
+"""Origin-bound HTTP adapter on loopback or an explicit private proxy interface."""
 
 import hashlib
 import hmac
+import ipaddress
 from http import cookies
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
@@ -39,9 +40,29 @@ def read_token(path):
 class ManagementHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, address, root, token_file, *, web_root=None, public_origin=None, clock=time.time):
+    def __init__(self, address, root, token_file, *, web_root=None, public_origin=None, private_bind=False, clock=time.time):
+        parsed = None
+        if public_origin is not None:
+            if any(c.isspace() or ord(c) < 32 for c in public_origin) or any(c in public_origin for c in "?#"):
+                raise ValueError("public_origin must be an exact HTTP(S) origin")
+            parsed = urlsplit(public_origin)
+            if (parsed.scheme not in ("http", "https") or parsed.path or parsed.username is not None
+                    or parsed.password is not None or not parsed.hostname):
+                raise ValueError("public_origin must be an exact HTTP(S) origin without credentials or a path")
+            if parsed.port == 0:
+                raise ValueError("public_origin port must be positive")
+            if parsed.scheme != "https" and parsed.hostname not in ("localhost", "127.0.0.1"):
+                raise ValueError("Public origin requires HTTPS")
+        if private_bind and (parsed is None or parsed.scheme != "https"):
+            raise ValueError("Private interface binding requires an explicit HTTPS public_origin")
         if address[0] not in ("127.0.0.1", "localhost"):
-            raise ValueError("Management server must bind to IPv4 loopback")
+            try:
+                interface = ipaddress.IPv4Address(address[0])
+            except ipaddress.AddressValueError as exc:
+                raise ValueError("Management server requires a literal private IPv4 interface") from exc
+            networks = ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+            if not private_bind or not any(interface in ipaddress.IPv4Network(n) for n in networks):
+                raise ValueError("Management server requires loopback or an explicitly permitted RFC1918 interface")
         self.root = Path(root).resolve()
         self.login_token = read_token(token_file)
         self.web_root = Path(web_root).resolve() if web_root else None
@@ -52,13 +73,7 @@ class ManagementHTTPServer(ThreadingHTTPServer):
         with_store.close()
         super().__init__(address, ManagementHandler)
         self.origin = public_origin or "http://" + address[0] + ":" + str(self.server_port)
-        parsed = urlsplit(self.origin)
-        if parsed.scheme not in ("http", "https") or parsed.path or parsed.query or parsed.fragment or parsed.username or not parsed.hostname:
-            self.server_close()
-            raise ValueError("public_origin must be an exact HTTP(S) origin without a path")
-        if public_origin and parsed.scheme != "https" and parsed.hostname not in ("localhost", "127.0.0.1"):
-            self.server_close()
-            raise ValueError("Public origin requires HTTPS")
+        parsed = parsed or urlsplit(self.origin)
         self.authority = parsed.netloc
         self.secure_cookie = parsed.scheme == "https"
 
@@ -252,8 +267,8 @@ class ManagementHandler(BaseHTTPRequestHandler):
                 store.close()
 
 
-def serve(root, token_file, *, host="127.0.0.1", port=8765, web_root=None, public_origin=None):
-    server = ManagementHTTPServer((host, port), root, token_file, web_root=web_root or Path(__file__).parent / "web", public_origin=public_origin)
+def serve(root, token_file, *, host="127.0.0.1", port=8765, web_root=None, public_origin=None, private_bind=False):
+    server = ManagementHTTPServer((host, port), root, token_file, web_root=web_root or Path(__file__).parent / "web", public_origin=public_origin, private_bind=private_bind)
     try:
         server.serve_forever(poll_interval=0.25)
     finally:
