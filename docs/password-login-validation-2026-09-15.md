@@ -5,7 +5,7 @@
 
 ## 최소 길이 후속 변경
 
-사용자 요청에 따라 최소 길이를 **10자**로 변경했다. 현재 실행 소스는
+사용자 요청에 따라 최소 길이를 **10자**로 변경했다. 이 최소 길이 변경의 실행 소스는
 `92bbcf522d58e3f00bfa24505a7626e4da0f5db4`, 이미지는
 `sha256:b97eb71b5e74fc6aefaf4e6cc639f8dbaed5bdbf294760bec6b731a8ddab45a0`이다.
 로컬 인증 검사 7개와 [회귀 CI](https://github.com/HyungwonPark/ai-company/actions/runs/34907582731),
