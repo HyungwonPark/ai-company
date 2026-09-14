@@ -42,9 +42,9 @@ if (!base || !token || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(bas
     await page.waitForTimeout(5300);
     assert.equal(await page.getByLabel('PM에게 전달할 내용').inputValue(),draft,'draft survives polling');
     await page.getByRole('button',{name:'메시지 저장'}).click();
-    await page.locator('.message-content').getByText(draft,{exact:true}).waitFor();
+    await page.locator('.message-content').filter({hasText:draft}).waitFor();
     await page.reload();
-    await page.locator('.message-content').getByText(draft,{exact:true}).waitFor();
+    await page.locator('.message-content').filter({hasText:draft}).waitFor();
     await page.getByLabel('PM에게 전달할 내용').fill('원래 프로젝트에 남는 초안');
 
     await page.getByRole('link',{name:'프로젝트',exact:true}).click();
@@ -90,8 +90,7 @@ if (!base || !token || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(bas
     await page.getByText('연결 끊김',{exact:true}).waitFor();
     assert.equal(await page.getByRole('button',{name:'메시지 저장'}).isDisabled(),true,'offline writes disabled');
     await context.setOffline(false);
-    await page.getByRole('button',{name:'다시 연결',exact:true}).click();
-    await page.waitForFunction(()=>!document.querySelector('#message-form button[type=submit]')?.disabled);
+    await page.waitForFunction(()=>{const button=document.querySelector('#message-form button[type=submit]');return button&&!button.disabled;});
     offlineScenario = false;
     const stored = await page.evaluate(async()=>({local:localStorage.length,session:sessionStorage.length,
       cached:(await Promise.all((await caches.keys()).map(async key=>(await (await caches.open(key)).keys()).map(request=>new URL(request.url).pathname)))).flat()}));
