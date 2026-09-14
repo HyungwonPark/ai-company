@@ -3,14 +3,16 @@
 This module records intent and evidence. It never invokes a model or deploys an artifact.
 """
 
+import copy
 import json
 import re
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import Field, StrictInt
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
 
 from ai_company.contracts import Contract, Digest, Text, digest
 from ai_company.sessions import SessionQueue
@@ -67,6 +69,31 @@ class PlanConfirmationInput(Contract):
     idempotency_key: str = Field(pattern=r"^[a-zA-Z0-9_.:-]{8,128}$")
 
 
+class ValidationDelegationAuthorization(BaseModel):
+    """Trusted local receipt; never accepted from an HTTP request or model output."""
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=False)
+    source_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}$")
+    source: Literal["explicit_user_reply"]
+    received_at: float = Field(gt=0, allow_inf_nan=False, strict=True)
+    received_at_utc: str | None = Field(default=None, max_length=40)
+    receipt_clock: str | None = Field(default=None, min_length=1, max_length=500)
+    original_text: str = Field(min_length=1, max_length=64000)
+    plan_digest: Digest
+    allowed_paths: list[str] = Field(min_length=1, max_length=161)
+    max_new_validations: StrictInt = Field(ge=1, le=1)
+    applies_to: Literal["new_execution_after_receipt_only"]
+
+    @model_validator(mode="after")
+    def check_utc_receipt_time(self):
+        if self.received_at_utc is not None:
+            parsed = datetime.fromisoformat(self.received_at_utc.replace("Z", "+00:00"))
+            if parsed.tzinfo is None or parsed.utcoffset() != timezone.utc.utcoffset(parsed):
+                raise ValueError("received_at_utc must specify UTC")
+            if parsed.timestamp() != self.received_at:
+                raise ValueError("received_at_utc must equal received_at")
+        return self
+
+
 class ManagementStore:
     def __init__(self, root: Path, *, clock=time.time):
         self.root, self.clock = Path(root).resolve(), clock
@@ -90,6 +117,8 @@ class ManagementStore:
             CREATE TABLE IF NOT EXISTS management_pm_requests(message_id TEXT PRIMARY KEY, project_id TEXT NOT NULL, document TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS management_plans(id TEXT PRIMARY KEY, project_id TEXT NOT NULL, document TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS management_runs(id TEXT PRIMARY KEY, project_id TEXT NOT NULL, document TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS management_delegations(id TEXT PRIMARY KEY, source_id TEXT NOT NULL UNIQUE,
+                project_id TEXT NOT NULL, document TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS management_confirmations(project_id TEXT NOT NULL, idempotency_key TEXT NOT NULL,
                 request_digest TEXT NOT NULL, document TEXT NOT NULL, PRIMARY KEY(project_id,idempotency_key));
             CREATE TRIGGER IF NOT EXISTS management_flow_insert AFTER INSERT ON flow_tasks BEGIN
@@ -282,7 +311,8 @@ class ManagementStore:
         with self.db:
             self.db.execute("BEGIN IMMEDIATE")
             previous = self.get_run(document["id"])
-            immutable = ("id", "project_id", "plan_id", "plan_digest", "role_ids", "harness_version", "created_at", "configuration_digest", "mode")
+            immutable = ("id", "project_id", "plan_id", "plan_digest", "role_ids", "harness_version", "created_at", "configuration_digest", "mode",
+                         "parent_run_id", "delegation_id", "delegation_digest")
             if any(document.get(key) != previous.get(key) for key in immutable):
                 raise ManagementError("run_mismatch", "Confirmed execution identity is immutable")
             if expected_state is not None and previous["state"] != expected_state:
@@ -291,6 +321,92 @@ class ManagementStore:
             self.db.execute("UPDATE management_runs SET document=? WHERE id=?", (json.dumps(document), document["id"]))
             self._event(document["project_id"], "run_updated", document["id"])
         return document
+
+    def get_delegation(self, delegation_id):
+        row = self.db.execute("SELECT document FROM management_delegations WHERE id=?", (delegation_id,)).fetchone()
+        if not row:
+            raise ManagementError("not_found", "Validation delegation not found", 404)
+        return json.loads(row[0])
+
+    def delegate_validation(self, plan_digest, authorization):
+        """Create one fresh validation from an explicit local receipt, never approve old work.
+
+        Only the trusted local worker calls this method. No HTTP route or model
+        tool may assert that a reply is authorized on the master's behalf.
+        """
+        receipt = ValidationDelegationAuthorization.model_validate(authorization)
+        if receipt.plan_digest != plan_digest or not receipt.original_text.strip():
+            raise ManagementError("delegation_mismatch", "Receipt must bind the exact requested plan and preserve the user's reply")
+        raw_authorization = copy.deepcopy(authorization)
+        authorization_digest = digest(raw_authorization)
+        with self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            prior = self.db.execute("SELECT document FROM management_delegations WHERE source_id=?", (receipt.source_id,)).fetchone()
+            if prior:
+                delegation = json.loads(prior[0])
+                if delegation["authorization_digest"] != authorization_digest or delegation["plan_digest"] != plan_digest:
+                    raise ManagementError("delegation_replay", "This user reply already authorizes a different immutable receipt")
+                if (digest(delegation["authorization"]) != authorization_digest
+                        or digest({key: value for key, value in delegation.items() if key != "digest"}) != delegation["digest"]):
+                    raise ManagementError("delegation_mismatch", "Stored delegation receipt changed")
+                run = self.get_run(delegation["run_id"])
+                if (run.get("delegation_id"), run.get("delegation_digest"), run.get("plan_digest"), run.get("parent_run_id")) != (
+                        delegation["id"], delegation["digest"], plan_digest, delegation["parent_run_id"]):
+                    raise ManagementError("delegation_mismatch", "Delegated validation identity changed")
+                return {"delegation": delegation, "run": run}
+            created_at = self.clock()
+            if receipt.received_at >= created_at:
+                raise ManagementError("authorization_not_effective", "A validation must be created after the explicit reply was received")
+            rows = self.db.execute("SELECT id,project_id,document FROM management_plans WHERE json_extract(document,'$.digest')=?", (plan_digest,)).fetchall()
+            if len(rows) != 1:
+                raise ManagementError("plan_mismatch", "Delegation requires one exact persisted plan digest")
+            row = rows[0]; plan = json.loads(row[2])
+            if (plan.get("id") != row[0] or plan.get("project_id") != row[1]
+                    or digest(self._plan_binding(plan)) != plan_digest or plan.get("status") != "confirmed" or not plan.get("run_id")):
+                raise ManagementError("plan_mismatch", "The approved plan must remain confirmed and unchanged")
+            project = self._project(plan["project_id"])
+            parent = self.get_run(plan["run_id"])
+            if (project.get("source") == "fixture" or plan.get("source") == "fixture" or plan.get("mode") != "live" or parent.get("mode") != "live"):
+                raise ManagementError("fixture_only", "Explicit validation delegation requires a live plan and parent run")
+            if (parent.get("project_id"), parent.get("plan_id"), parent.get("plan_digest"), parent.get("configuration_digest")) != (
+                    project["id"], plan["id"], plan_digest, plan["configuration_digest"]):
+                raise ManagementError("delegation_mismatch", "Parent validation configuration or plan binding changed")
+            if (project.get("request_revision", 0) != plan["request_revision"] or digest(project["goal"]) != plan["goal_digest"]
+                    or project["harness_version"] != parent["harness_version"]):
+                raise ManagementError("stale_plan", "Current project goal, request revision or active harness differs from the confirmed plan")
+            harness_row = self.db.execute("SELECT document FROM management_harnesses WHERE project_id=? AND version=?",
+                                          (project["id"], parent["harness_version"])).fetchone()
+            harness = json.loads(harness_row[0]) if harness_row else {}
+            expected_content = json.dumps(plan["content"], ensure_ascii=False, indent=2)
+            if (harness.get("status") != "active" or harness.get("plan_id") != plan["id"]
+                    or harness.get("content") != expected_content or harness.get("digest") != digest(expected_content)):
+                raise ManagementError("stale_plan", "Active harness content differs from the exact confirmed plan")
+            expected_paths = {path for role in plan["content"]["roles"] for path in role["allowed_paths"]} | {".ai-company-ci/request.json"}
+            if len(receipt.allowed_paths) != len(set(receipt.allowed_paths)) or set(receipt.allowed_paths) != expected_paths:
+                raise ManagementError("delegation_scope", "Delegated paths must exactly match the plan roles plus the CI request artifact")
+            if set(parent["role_ids"]) != {role["key"] for role in plan["content"]["roles"]}:
+                raise ManagementError("delegation_mismatch", "Confirmed role ownership changed")
+            for role in plan["content"]["roles"]:
+                role_row = self.db.execute("SELECT document FROM management_roles WHERE id=? AND project_id=?",
+                                           (parent["role_ids"][role["key"]], project["id"])).fetchone()
+                saved_role = json.loads(role_row[0]) if role_row else {}
+                if (saved_role.get("active") is not True or saved_role.get("plan_id") != plan["id"]
+                        or any(saved_role.get(key) != value for key, value in role.items())):
+                    raise ManagementError("delegation_mismatch", "Role responsibility or ownership differs from the confirmed plan")
+            run_id = uuid4().hex
+            delegation = {"id": uuid4().hex, "source_id": receipt.source_id, "project_id": project["id"],
+                          "plan_id": plan["id"], "plan_digest": plan_digest, "parent_run_id": parent["id"], "run_id": run_id,
+                          "authorization": raw_authorization, "authorization_digest": authorization_digest, "created_at": created_at}
+            delegation["digest"] = digest(delegation)
+            run = {"id": run_id, "project_id": project["id"], "plan_id": plan["id"], "plan_digest": plan_digest,
+                   "state": "pending", "role_ids": copy.deepcopy(parent["role_ids"]), "harness_version": parent["harness_version"],
+                   "configuration_digest": parent["configuration_digest"], "mode": "live", "created_at": created_at, "updated_at": created_at,
+                   "parent_run_id": parent["id"], "delegation_id": delegation["id"], "delegation_digest": delegation["digest"]}
+            self.db.execute("INSERT INTO management_delegations VALUES (?,?,?,?)", (delegation["id"], receipt.source_id, project["id"], json.dumps(delegation)))
+            self.db.execute("INSERT INTO management_runs VALUES (?,?,?)", (run_id, project["id"], json.dumps(run)))
+            self._event(project["id"], "validation_delegated", delegation["id"])
+            self._event(project["id"], "run_pending", run_id)
+        return {"delegation": delegation, "run": run}
 
     def confirm_plan(self, project_id, plan_id, value):
         value = PlanConfirmationInput.model_validate(value)
@@ -542,6 +658,7 @@ class ManagementStore:
         requests = [json.loads(r[0]) for r in self.db.execute("SELECT document FROM management_pm_requests WHERE project_id=? ORDER BY rowid", (project_id,))]
         plans = [json.loads(r[0]) for r in self.db.execute("SELECT document FROM management_plans WHERE project_id=? ORDER BY rowid", (project_id,))]
         runs = [json.loads(r[0]) for r in self.db.execute("SELECT document FROM management_runs WHERE project_id=? ORDER BY rowid", (project_id,))]
+        delegations = [json.loads(r[0]) for r in self.db.execute("SELECT document FROM management_delegations WHERE project_id=? ORDER BY rowid", (project_id,))]
         requests_by_id = {request["request_id"]: request for request in requests}
         for plan in plans:
             request = requests_by_id.get(plan["request_id"])
@@ -558,7 +675,7 @@ class ManagementStore:
             readiness["execution_mode"] = runs[-1]["mode"]
         project.pop("fixture_tasks", None); project.pop("fixture_reports", None)
         return {"project": project, "roles": roles, "tasks": tasks, "reports": reports, "approvals": approvals,
-                "messages": messages, "harnesses": harnesses, "readiness": readiness, "pm_requests": requests, "plans": plans, "runs": runs}
+                "messages": messages, "harnesses": harnesses, "readiness": readiness, "pm_requests": requests, "plans": plans, "runs": runs, "delegations": delegations}
 
     def seed_demo(self):
         """Explicit fixture initialization; refuse any existing execution or project data."""

@@ -35,6 +35,32 @@ class Automation:
         self.dispatcher.close()
         self.store.close()
 
+    def delegate(self, authorization):
+        """Trusted operator intake; never inferred from a model or HTTP body."""
+        if not isinstance(authorization, dict):
+            raise ExecutionBlocked("delegation requires a structured operator receipt")
+        with controller_lock(self.root / "automation-coordinator", blocking=True):
+            rows = self.store.db.execute("SELECT document FROM management_plans WHERE json_extract(document,'$.digest')=?",
+                                         (authorization.get("plan_digest"),)).fetchall()
+            if len(rows) != 1:
+                raise ExecutionBlocked("delegation requires one exact stored plan digest")
+            plan = json.loads(rows[0][0])
+            if plan["configuration_digest"] != self.configuration_digest or plan["mode"] != self.config.mode:
+                raise ExecutionBlocked("delegation cannot change the confirmed execution configuration")
+            return self.store.delegate_validation(plan["digest"], authorization)
+
+    def _delegation(self, run):
+        if not run.get("delegation_id"):
+            return None
+        record = self.store.get_delegation(run["delegation_id"])
+        if (record["digest"] != run["delegation_digest"]
+                or digest({k: v for k, v in record.items() if k != "digest"}) != record["digest"]
+                or record["run_id"] != run["id"] or record["plan_digest"] != run["plan_digest"]
+                or record["parent_run_id"] != run["parent_run_id"]
+                or run["created_at"] <= record["authorization"]["received_at"]):
+            raise ExecutionBlocked("delegation does not authorize this new execution and exact plan")
+        return record
+
     def _task(self, task_id, goal, acceptance, base_sha, paths):
         return Task(task_id=task_id, goal=goal, acceptance=tuple(acceptance),
                     repository=self.config.repository, base_sha=base_sha,
@@ -159,6 +185,8 @@ class Automation:
             context = {"confirmed_plan": plan.model_dump(mode="json"), "role": role.model_dump(mode="json"),
                        "plan_digest": run["plan_digest"], "revision": revision,
                        "repair_findings": prior.get("repair_findings", [])}
+            if run.get("delegation_id"):
+                context["master_delegation"] = self._delegation(run)
             state = self.dispatcher.submit(self._spec(task, clone, "contribution", context))
         self.store.link_task(run["project_id"], run["role_ids"][key], task_id, title=role.name)
         run["roles"][key] = {**prior, **self._execution(state), "revision": revision}
@@ -168,9 +196,11 @@ class Automation:
         task_id = "integration-" + digest([run["id"], revision])[:48]
         state = self._existing(task_id)
         if state is None:
+            delegation = self._delegation(run)
+            paths = (delegation["authorization"]["allowed_paths"] if delegation else
+                     [*self.config.allowed_paths, ".ai-company-ci/request.json"])
             task = self._task(task_id, "Integrate and independently verify: " + plan.summary[:7800],
-                              plan.completion_criteria, self.config.base_sha,
-                              [*self.config.allowed_paths, ".ai-company-ci/request.json"])
+                              plan.completion_criteria, self.config.base_sha, paths)
             contributions = {}
             authors = []
             for role in plan.roles:
@@ -199,8 +229,10 @@ class Automation:
                 published, remote_ci = {}, None
             request = self.store.get_pm_request(self.store.get_plan(run["project_id"], run["plan_id"])["request_id"])
             pm_state = self.dispatcher.get(request["execution"]["task_id"])
-            state = self.dispatcher.submit(self._spec(task, clone, "integration",
-                {"confirmed_plan": plan.model_dump(mode="json"), "plan_digest": run["plan_digest"]},
+            context = {"confirmed_plan": plan.model_dump(mode="json"), "plan_digest": run["plan_digest"]}
+            if run.get("delegation_id"):
+                context["master_delegation"] = self._delegation(run)
+            state = self.dispatcher.submit(self._spec(task, clone, "integration", context,
                 remote_ci=remote_ci, inherited_authors=tuple(authors),
                 inherited_pm_sessions=tuple(pm_state["pm_sessions"])))
         spec = FlowSpec.model_validate(state["specification"])
@@ -273,6 +305,7 @@ class Automation:
         if plan_record["digest"] != run["plan_digest"] or digest(self.store._plan_binding(plan_record)) != run["plan_digest"]:
             raise ExecutionBlocked("confirmed plan binding changed")
         plan = self._validate_plan(plan_record["content"])
+        self._delegation(run)
         run.setdefault("roles", {})
         run.setdefault("revision", 0)
         for role in plan.roles:

@@ -46,6 +46,11 @@ if (!base || !token || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(bas
         reviewer:{verdict:'REVISE',summary:'모의 독립 검수: 입력 경계를 보완하세요.',candidate_sha:'a'.repeat(40),execution_id:'b'.repeat(64),findings:[{finding_id:'boundary',detail:'<script>window.reviewInjected=true</script>',evidence:'모의 경계 입력 검사'}]},
         final:{verdict:'PASS',summary:'모의 Astra 최종 검수: 같은 후보의 변경을 확인했습니다.',candidate_sha:'a'.repeat(40),execution_id:'c'.repeat(64),findings:[],resolved_findings:['boundary']}
       };
+      snapshot.runs=[
+        {id:'fixture-prior-block',plan_id:'fixture-plan',plan_digest:'d'.repeat(64),state:'blocked',mode:'fixture',harness_version:1},
+        {id:'fixture-new-validation',plan_id:'fixture-plan',plan_digest:'d'.repeat(64),state:'pending',mode:'fixture',harness_version:1,parent_run_id:'fixture-prior-block',delegation_id:'fixture-delegation'}
+      ];
+      snapshot.delegations=[{id:'fixture-delegation',source_id:'fixture-message',plan_digest:'d'.repeat(64),parent_run_id:'fixture-prior-block',run_id:'fixture-new-validation',authorization_digest:'e'.repeat(64),digest:'f'.repeat(64),authorization:{original_text:'모의 위임 원문 <script>window.delegationInjected=true</script>',received_at:'2026-09-14T14:00:00+00:00',plan_digest:'d'.repeat(64),allowed_paths:['src/api/'],max_new_validations:1}}];
       await route.fulfill({response,json:snapshot});
     });
     for(const [status,text] of [['WAITING_QUOTA','사용량 대기'],['WAITING_RETRY','재시도 대기'],['WAITING_CAPACITY','후보 복귀 대기'],['RUNNING','진행 중']]){
@@ -55,6 +60,16 @@ if (!base || !token || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(bas
       await page.locator('.role').first().getByText('재확인 예약',{exact:false}).waitFor();
     }
     await page.locator('.role').first().getByText('담당자 이관 이력 1건',{exact:true}).waitFor();
+    const delegated=page.locator('[data-run-id="fixture-new-validation"]');
+    await delegated.getByText('위임받은 검증 클라이언트',{exact:true}).waitFor();
+    await delegated.getByText('위임 원문과 승인 범위 확인',{exact:true}).click();
+    await delegated.getByText('1회',{exact:true}).waitFor();
+    await delegated.getByText('2026-09-14T14:00:00+00:00',{exact:true}).waitFor();
+    await delegated.getByText('d'.repeat(64),{exact:true}).waitFor();
+    await delegated.getByText('모의 위임 원문 <script>window.delegationInjected=true</script>',{exact:true}).waitFor();
+    assert.equal(await delegated.getByRole('button').count(),0,'delegation evidence is read-only');
+    assert.equal(await page.evaluate(()=>Boolean(window.delegationInjected)),false,'delegation original text is escaped');
+    await page.locator('[data-run-id="fixture-prior-block"]').getByText('차단',{exact:true}).waitFor();
     await page.locator('.nav').getByRole('link',{name:'보고서',exact:true}).click();
     await page.getByText('모델 검수 의견 2건',{exact:true}).click();
     await page.getByRole('heading',{name:'독립 검수 의견',exact:true}).waitFor();
@@ -231,7 +246,7 @@ if (!base || !token || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(bas
     // Resource errors caused by deliberately toggling offline are expected, CSP/JS errors are not.
     const unexpected=failures.filter(message=>!message.includes('ERR_INTERNET_DISCONNECTED')&&!message.includes('Failed to fetch'));
     assert.deepEqual(unexpected,[],'no browser JavaScript/CSP failures');
-    console.log(JSON.stringify({status:'PASS',views:5,mobile_width:360,checks:['fixture labels','parallel role columns','message persistence','draft navigation/polling','project isolation','harness draft','bound approval persistence','stored plan confirmation (fixture)','confirmation response-loss idempotency','stale plan rejection','plan project switch','PM wait navigation','review opinions/candidate/findings (response fixtures)','review HTML escaping','mobile dialog action access','quota/retry/capacity/handoff rendering (response fixtures)','offline writes','no authenticated caches','no browser errors'],artifacts:output}));
+    console.log(JSON.stringify({status:'PASS',views:5,mobile_width:360,checks:['fixture labels','parallel role columns','message persistence','draft navigation/polling','project isolation','harness draft','bound approval persistence','stored plan confirmation (fixture)','confirmation response-loss idempotency','stale plan rejection','plan project switch','PM wait navigation','review opinions/candidate/findings (response fixtures)','review HTML escaping','mobile dialog action access','read-only delegated validation provenance (response fixture)','prior blocked run retained','delegation HTML escaping','quota/retry/capacity/handoff rendering (response fixtures)','offline writes','no authenticated caches','no browser errors'],artifacts:output}));
   } catch(error) {
     await page.screenshot({path:`${output}/failure.png`,fullPage:true}).catch(()=>{});
     console.error(JSON.stringify({scope:'UI fixture failure',url:page.url(),project:await page.locator('#project-select').inputValue().catch(()=>null),active_view:await page.locator('.nav a[aria-current=page]').getAttribute('aria-label').catch(()=>null)}));

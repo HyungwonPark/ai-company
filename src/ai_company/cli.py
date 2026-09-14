@@ -61,9 +61,11 @@ def main() -> int:
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8765)
     automate = commands.add_parser("automate", help="coordinate confirmed PM plans using the existing Dispatcher")
-    automate.add_argument("action", choices=("tick", "worker", "status"))
+    automate.add_argument("action", choices=("tick", "worker", "status", "delegate"))
     automate.add_argument("--state-dir", type=Path, required=True)
     automate.add_argument("--config", type=Path, required=True, help="trusted local server configuration JSON")
+    automate.add_argument("--authorization-file", type=Path,
+                          help="explicit master's exact-plan, single-validation delegation receipt; delegate only")
     automate.add_argument("--max-seconds", type=float, default=1800,
                           help="bounded foreground worker lifetime; no timer or service is installed")
     args = parser.parse_args()
@@ -108,7 +110,13 @@ def automation_command(args) -> int:
             raise ValueError("max-seconds must be positive and at most 86400")
         config = AutomationConfig.model_validate_json(args.config.read_text())
         worker = Automation(args.state_dir, config)
-        if args.action == "status":
+        if args.action == "delegate":
+            if not args.authorization_file:
+                raise ValueError("delegate requires the explicit master's authorization receipt")
+            result = worker.delegate(json.loads(args.authorization_file.read_text()))
+        elif args.authorization_file:
+            raise ValueError("authorization-file is only accepted by delegate")
+        elif args.action == "status":
             result = {"pm_requests": worker.store.pm_requests(), "runs": worker.store.run_records()}
         elif args.action == "tick":
             result = worker.run_once()

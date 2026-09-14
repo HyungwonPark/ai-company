@@ -53,6 +53,22 @@ uv run --frozen ai-company automate status --state-dir "$VALIDATION_STATE" \
 worker 종료 뒤 예약은 SQLite에 남는다. 다시 같은 명령을 실행하면 같은 명세로 재개한다.
 확인되지 않은 실행·외부 Git 변경·인증 실패는 무조건 재생하지 않고 차단 사유를 표시한다.
 
+## 한 번의 명시적 검증 위임
+
+이미 확정된 특정 계획으로 새 검증을 명시적으로 위임받았을 때만 trusted local operator가
+다음 명령으로 원문·수신 시각·계획 digest를 기록한다. 모델이나 HTTP 요청이 위임을 추론하지 않는다.
+
+```bash
+uv run --frozen ai-company automate delegate --state-dir "$VALIDATION_STATE" \
+  --config "$AUTOMATION_CONFIG" --authorization-file "$MASTER_DELEGATION_RECEIPT"
+```
+
+원래 계획·하네스·정책·역할 경로와 CI 메타데이터 범위가 일치해야 한다. 위임 수신 이후의
+새 run 한 건만 생성하며 이전 실행은 바꾸지 않는다. 같은 출처 ID/원문을 다시 입력하면 같은
+run을 반환한다. 다른 계획이나 변경된 원문으로 출처 ID를 재사용하는 것은 거부한다.
+원문과 수신 시각을 포함한 위임 digest는 새 역할 및 통합 검수의 immutable context에도 연결한다.
+이 방식은 **위임받은 검증 클라이언트**의 실행이며 마스터의 실제 브라우저 조작으로 표시하지 않는다.
+
 ## 설정 근거와 보존
 
 기존 `FlowPolicy`의 기본값은 `runtime_metadata`이며 strict 모델/effort/Ultracode 검증을 유지한다.
