@@ -78,9 +78,14 @@ if (!base || !token || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(bas
     await page.reload();
     await page.getByText('승인 기록됨',{exact:true}).first().waitFor();
 
+    assert.equal(await page.locator('#project-select').inputValue(),fixtureId,'approval reload retains fixture project');
+    await page.getByText('모의 예시 데이터',{exact:true}).waitFor();
     await page.setViewportSize({width:360,height:800});
     for(const [view, title] of [['progress','역할별 진행'],['manager','매니저'],['reports','보고서'],['approvals','승인'],['project','프로젝트']]) {
       await page.getByRole('link',{name:title,exact:true}).click();
+      await page.waitForFunction(expected => document.querySelector('.nav a[aria-current=page]')?.getAttribute('href')?.startsWith(`#${expected}?`), view);
+      assert.equal(await page.locator('#project-select').inputValue(),fixtureId,`${view} keeps selected fixture`);
+      await page.getByText('모의 예시 데이터',{exact:true}).waitFor();
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${view} fits 360px`);
       await page.screenshot({path:`${output}/mobile-${view}.png`,fullPage:true});
     }

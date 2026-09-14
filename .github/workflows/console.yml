@@ -26,6 +26,17 @@ jobs:
           node --check src/ai_company/web/sw.js
           npm install --prefix "$RUNNER_TEMP/ui-tooling" --no-audit --no-fund @playwright/test@1.63.0
           google-chrome --version
+      - name: Prepare Korean fonts without system installation
+        run: |
+          mkdir -p "$RUNNER_TEMP/ui-fonts" "$HOME/.local/share/fonts"
+          cd "$RUNNER_TEMP/ui-fonts"
+          apt-get download fonts-noto-cjk
+          for font_package in ./*.deb; do
+            dpkg-deb -x "$font_package" extracted
+          done
+          cp extracted/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc "$HOME/.local/share/fonts/"
+          fc-cache -f "$HOME/.local/share/fonts"
+          fc-match 'sans:lang=ko'
       - name: Test persistent console with sandboxed Chrome
         env:
           CHROME_CHANNEL: chrome
