@@ -520,7 +520,8 @@ class ManagementStore:
                           "active": active or None, "agents": state["specification"].get("agents", []), "handoffs": state.get("executions", []),
                           "repair_reason": state.get("findings", [])})
             reports.append({"id": "flow-" + linked["id"], "title": linked["title"], "summary": state["status"] + ": " + state.get("reason", ""),
-                            "source": "system", "created_at": state.get("updated_at", 0), "evidence": self._evidence(state), "verification": state.get("verification")})
+                            "source": "system", "created_at": state.get("updated_at", 0), "evidence": self._evidence(state),
+                            "verification": state.get("verification"), "review_reports": state.get("reviews", {})})
         if project["source"] == "fixture":
             tasks = project.get("fixture_tasks", [])
             reports = project.get("fixture_reports", [])

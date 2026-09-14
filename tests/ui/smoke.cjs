@@ -42,6 +42,10 @@ if (!base || !token || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(bas
       Object.assign(role,{status:recoveryState,wait_reason:'모의 주입: 계정 제한 후 복귀 예약',resume_at:Date.now()/1000+600,
         handoffs:recoveryState==='RUNNING'?[{source:'fixture',from:'fixture-a',to:'fixture-b',reason:'모의 제한 이관'}]:[]});
       for(const task of snapshot.tasks.filter(task=>task.role_id===role.id))task.status=recoveryState;
+      snapshot.reports[0].review_reports={
+        reviewer:{verdict:'REVISE',summary:'모의 독립 검수: 입력 경계를 보완하세요.',candidate_sha:'a'.repeat(40),execution_id:'b'.repeat(64),findings:[{finding_id:'boundary',detail:'<script>window.reviewInjected=true</script>',evidence:'모의 경계 입력 검사'}]},
+        final:{verdict:'PASS',summary:'모의 Astra 최종 검수: 같은 후보의 변경을 확인했습니다.',candidate_sha:'a'.repeat(40),execution_id:'c'.repeat(64),findings:[],resolved_findings:['boundary']}
+      };
       await route.fulfill({response,json:snapshot});
     });
     for(const [status,text] of [['WAITING_QUOTA','사용량 대기'],['WAITING_RETRY','재시도 대기'],['WAITING_CAPACITY','후보 복귀 대기'],['RUNNING','진행 중']]){
@@ -51,6 +55,18 @@ if (!base || !token || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(bas
       await page.locator('.role').first().getByText('재확인 예약',{exact:false}).waitFor();
     }
     await page.locator('.role').first().getByText('담당자 이관 이력 1건',{exact:true}).waitFor();
+    await page.locator('.nav').getByRole('link',{name:'보고서',exact:true}).click();
+    await page.getByText('모델 검수 의견 2건',{exact:true}).click();
+    await page.getByRole('heading',{name:'독립 검수 의견',exact:true}).waitFor();
+    await page.getByRole('heading',{name:'Astra 최종 검수 의견',exact:true}).waitFor();
+    assert.equal(await page.locator('.review-reports').getByText('a'.repeat(40),{exact:true}).count(),2,'both review opinions expose their candidate');
+    await page.locator('.review-reports').getByText('<script>window.reviewInjected=true</script>',{exact:true}).waitFor();
+    assert.equal(await page.evaluate(()=>Boolean(window.reviewInjected)),false,'review text is escaped');
+    await page.setViewportSize({width:360,height:800});
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'review details fit mobile');
+    await page.screenshot({path:`${output}/mobile-review-opinions.png`,fullPage:true});
+    await page.setViewportSize({width:1440,height:1000});
+    await page.locator('.nav').getByRole('link',{name:'역할별 진행',exact:true}).click();
     await page.unroute(`**/api/projects/${fixtureId}/overview`);
     await page.getByRole('button',{name:'새로고침'}).click();
 
@@ -103,6 +119,10 @@ if (!base || !token || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(bas
     await page.setViewportSize({width:360,height:800});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'plan dialog fits mobile');
     await page.screenshot({path:`${output}/mobile-plan-confirm.png`,fullPage:true});
+    await page.getByRole('button',{name:'이 계획 확정',exact:true}).scrollIntoViewIfNeeded();
+    assert.equal(await page.getByRole('button',{name:'이 계획 확정',exact:true}).isVisible(),true);
+    assert.equal(await page.getByRole('button',{name:'이 계획 확정',exact:true}).evaluate(button=>{const r=button.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}),true,'mobile plan confirmation is reachable inside the scrolling dialog');
+    await page.screenshot({path:`${output}/mobile-plan-confirm-actions.png`});
     await page.setViewportSize({width:1440,height:1000});
     // Hash navigation while a dialog is open must discard that project's approval form.
     await page.evaluate(project=>{location.hash=`manager?project=${project}`;}, fixtureId);
@@ -211,7 +231,7 @@ if (!base || !token || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(bas
     // Resource errors caused by deliberately toggling offline are expected, CSP/JS errors are not.
     const unexpected=failures.filter(message=>!message.includes('ERR_INTERNET_DISCONNECTED')&&!message.includes('Failed to fetch'));
     assert.deepEqual(unexpected,[],'no browser JavaScript/CSP failures');
-    console.log(JSON.stringify({status:'PASS',views:5,mobile_width:360,checks:['fixture labels','parallel role columns','message persistence','draft navigation/polling','project isolation','harness draft','bound approval persistence','stored plan confirmation (fixture)','confirmation response-loss idempotency','stale plan rejection','plan project switch','PM wait navigation','quota/retry/capacity/handoff rendering (response fixtures)','offline writes','no authenticated caches','no browser errors'],artifacts:output}));
+    console.log(JSON.stringify({status:'PASS',views:5,mobile_width:360,checks:['fixture labels','parallel role columns','message persistence','draft navigation/polling','project isolation','harness draft','bound approval persistence','stored plan confirmation (fixture)','confirmation response-loss idempotency','stale plan rejection','plan project switch','PM wait navigation','review opinions/candidate/findings (response fixtures)','review HTML escaping','mobile dialog action access','quota/retry/capacity/handoff rendering (response fixtures)','offline writes','no authenticated caches','no browser errors'],artifacts:output}));
   } catch(error) {
     await page.screenshot({path:`${output}/failure.png`,fullPage:true}).catch(()=>{});
     console.error(JSON.stringify({scope:'UI fixture failure',url:page.url(),project:await page.locator('#project-select').inputValue().catch(()=>null),active_view:await page.locator('.nav a[aria-current=page]').getAttribute('aria-label').catch(()=>null)}));
