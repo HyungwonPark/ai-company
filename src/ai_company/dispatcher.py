@@ -468,6 +468,21 @@ class Dispatcher:
                 with self.db:
                     self._save(state, "shared_capacity_wait")
                 return False
+        if job["status"] == "WAITING_RETRY":
+            _, available, _ = self._candidates(spec, state)
+            if not any(a.agent_id == active["agent_id"] for a in available):
+                # A transient retry keeps its owner, but another task may have
+                # exhausted or disabled the same account while it was waiting.
+                agent = next(a for a in spec.agents if a.agent_id == active["agent_id"])
+                group = self.db.execute("SELECT state,resume_at FROM quota_groups WHERE group_id=?",
+                                        (agent.quota_group,)).fetchone()
+                wake = (group[1] if group and group[0] == "COOLDOWN" and group[1] > self.clock()
+                        else self.clock() + spec.policy.retry.backoff_max_seconds)
+                state.update(status="WAITING_CAPACITY", resume_at=max(job["resume_at"] or self.clock(), wake),
+                             reason="same-session retry waiting for shared account capacity")
+                with self.db:
+                    self._save(state, "shared_retry_capacity_wait")
+                return False
         if job["status"] == "WAITING_QUOTA" and not job["session_id"]:
             self._handle_job(state, spec, job)
             return True

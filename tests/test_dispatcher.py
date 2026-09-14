@@ -432,3 +432,77 @@ else:
         self.assertEqual(self.state()['snapshot']['head_commit'],head)
         self.assertEqual(self.state()['active']['agent_id'],'claude')
         self.assertEqual(self.state()['usage']['executions'],1)
+
+    def test_retry_resume_waits_for_other_task_recovered_shared_quota(self):
+        self.submit();self.crash_after_wait('transient_network')
+        self.tick()
+        other=self.spec.model_copy(update={'task':self.task.model_copy(update={'task_id':'other-quota'})})
+        self.dispatcher.submit(other);self.script=[self.quota()]
+        with patch.object(self.dispatcher,'_handle_job',side_effect=Crash()):
+            with self.assertRaises(Crash):self.dispatcher.run_once()
+        self.restart();self.now=2000;self.tick()
+        self.assertEqual(len(self.calls),2)
+        self.assertEqual(self.state()['active']['agent_id'],'astra')
+        self.assertEqual(self.state()['active']['session_id'],'session-1')
+        self.assertEqual(self.state()['status'],'WAITING_CAPACITY')
+        self.assertEqual(self.state()['resume_at'],5030)
+        self.assertEqual(self.dispatcher.get('other-quota')['usage']['executions'],1)
+
+    def test_retry_resume_respects_disabled_unknown_and_cooldown_without_switching(self):
+        self.submit();self.crash_after_wait('transient_network');self.tick()
+        for group_state in ('DISABLED','UNKNOWN','COOLDOWN'):
+            with self.subTest(group_state=group_state):
+                with self.dispatcher.db:
+                    self.dispatcher.db.execute("UPDATE quota_groups SET state=?,resume_at=? WHERE group_id='codex-shared'",(group_state,self.now+10000))
+                self.now=max(self.now,self.state()['resume_at']);self.tick()
+                self.assertEqual(len(self.calls),1)
+                self.assertEqual(self.state()['active']['agent_id'],'astra')
+                self.assertEqual(self.state()['active']['session_id'],'session-1')
+        self.now=self.state()['resume_at'];self.tick()
+        self.assertEqual(len(self.calls),2)
+        self.assertEqual(self.calls[-1]['agent'],'astra')
+        self.assertEqual(self.calls[-1]['session_id'],'session-1')
+
+    def test_retry_fact_transaction_crash_rolls_back_checkpoint_and_observation(self):
+        self.submit();self.crash_after_wait('transient_network',dirty=True)
+        job_id=self.state()['active']['job_id']
+        checkpoint=copy.deepcopy(self.dispatcher.queue.get(job_id)['checkpoint'])
+        save=self.dispatcher._save
+        def fail_save(state,kind):
+            if kind=='waiting_result_observed':raise Crash()
+            return save(state,kind)
+        with patch.object(self.dispatcher,'_save',side_effect=fail_save):
+            with self.assertRaises(Crash):self.tick()
+        self.restart()
+        self.assertEqual(self.state()['usage']['executions'],0)
+        self.assertEqual(self.state()['active'].get('waiting_observed_attempts',0),0)
+        self.assertEqual(self.dispatcher.queue.get(job_id)['checkpoint'],checkpoint)
+        self.tick();s=self.state()
+        self.assertEqual(s['usage']['executions'],1)
+        self.assertEqual(s['active']['waiting_observed_attempts'],1)
+        self.assertIn('src/partial.txt',[f['path'] for f in self.dispatcher.queue.get(job_id)['checkpoint']['files']])
+        self.assertEqual(self.dispatcher.db.execute("SELECT state FROM quota_groups WHERE group_id='codex-shared'").fetchone()[0],'AVAILABLE')
+
+    def test_retry_fact_commit_crash_does_not_recount_before_resume(self):
+        self.submit();self.crash_after_wait('transient_network',dirty=True);self.now=2000
+        with patch.object(self.dispatcher,'_tick',side_effect=Crash()):
+            with self.assertRaises(Crash):self.tick()
+        self.restart();self.assertEqual(self.state()['usage']['executions'],1)
+        self.assertEqual(self.state()['active']['waiting_observed_attempts'],1)
+        self.tick();s=self.state()
+        self.assertEqual(s['usage']['executions'],2)
+        self.assertEqual(s['usage']['runtime_seconds'],4)
+        self.assertAlmostEqual(s['usage']['cost_usd'],.2)
+        self.assertEqual(len(s['authors']),1)
+        self.assertEqual(self.calls[-1]['session_id'],'session-1')
+
+    def test_retry_fact_external_change_requires_reconciliation_and_preserves_usage(self):
+        self.submit();self.crash_after_wait('transient_network',dirty=True)
+        (self.repo/'src/partial.txt').write_text('changed after saved execution')
+        self.tick();s=self.state()
+        self.assertEqual(s['status'],'NEEDS_RECONCILIATION')
+        self.assertEqual(s['usage']['executions'],1)
+        self.assertAlmostEqual(s['usage']['cost_usd'],.1)
+        self.assertEqual(len(s['authors']),1)
+        self.assertEqual(len(self.calls),1)
+        self.assertEqual(self.dispatcher.db.execute("SELECT state FROM quota_groups WHERE group_id='codex-shared'").fetchone()[0],'AVAILABLE')

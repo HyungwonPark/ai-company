@@ -101,3 +101,38 @@ class EvidenceTests(FlowFixture):
     def test_unapproved_reusable_workflow_definition_is_not_implicitly_trusted(self):
         self.run['referenced_workflows']=[{'path':'other/repo/.github/workflows/build.yml@main','sha':'c'*40}]
         self.assertIsNone(self.remote())
+
+    def test_run_source_and_target_must_match_approved_workflow(self):
+        for key,value in (('path','.github/workflows/unapproved.yml'),
+                          ('repository',{'full_name':'other/repo'}),
+                          ('head_sha','c'*40),('id',77)):
+            with self.subTest(field=key):
+                original=self.run[key];self.run[key]=value
+                self.assertIsNone(self.remote())
+                self.run[key]=original
+
+    def test_required_check_and_job_must_belong_to_successful_run(self):
+        check=self.responses[f'repos/owner/repo/commits/{self.head}/check-runs?per_page=100']['check_runs'][0]
+        check['check_suite']['id']=77
+        self.assertIsNone(self.remote());check['check_suite']['id']=7
+        for key,value in (('run_id',77),('head_sha','c'*40),('name','another-check'),
+                          ('conclusion','failure'),('status','in_progress')):
+            with self.subTest(field=key):
+                original=self.job[key];self.job[key]=value
+                self.assertIsNone(self.remote())
+                self.job[key]=original
+
+    def test_pr_or_run_changed_during_lookup_is_not_approved(self):
+        for target in ('pr','run'):
+            with self.subTest(target=target):
+                calls={}
+                def changing(path,raw=False):
+                    result=self.api(path,raw)
+                    calls[path]=calls.get(path,0)+1
+                    if target=='pr' and path=='repos/owner/repo/pulls/1' and calls[path]>1:
+                        return dict(result,head={'sha':'c'*40})
+                    if target=='run' and path=='repos/owner/repo/actions/runs/5' and calls[path]>1:
+                        return dict(result,run_attempt=2)
+                    return result
+                with patch.object(self.verifier,'_api',side_effect=changing):
+                    self.assertIsNone(self.remote())

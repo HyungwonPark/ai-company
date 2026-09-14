@@ -1,5 +1,8 @@
 # PR #5 추가 검수 수정 (2026-09-14)
 
+후속 공유 한도 재시도 수정, 148개 테스트, 현재 standalone worker와 실제 호출 재검증은
+[후속 검증 기록](pr5-followup-validation.md)을 참고한다.
+
 기준은 PR #5의 `79af8279f266aea42bb9fedf5d862d48cb797289`이며 같은 구현 브랜치에서 수정했다.
 운영 quota timer, 기존 checkout과 큐는 변경하지 않았다.
 
