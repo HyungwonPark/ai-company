@@ -57,12 +57,19 @@ def main() -> int:
     manage_actions = manage.add_subparsers(dest="manage_action", required=True)
     serve = manage_actions.add_parser("serve")
     serve.add_argument("--state-dir", type=Path, required=True)
-    serve.add_argument("--token-file", type=Path, required=True)
+    authentication = serve.add_mutually_exclusive_group(required=True)
+    authentication.add_argument("--token-file", type=Path)
+    authentication.add_argument("--password-login", action="store_true")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8765)
     serve.add_argument("--public-origin", help="exact externally served HTTPS origin for Host, Origin and secure cookies")
     serve.add_argument("--private-bind", action="store_true",
                        help="permit a specific RFC1918 interface behind a private proxy; requires HTTPS public-origin")
+    create_user = manage_actions.add_parser("create-user", help="issue a temporary password to a new master account")
+    create_user.add_argument("--state-dir", type=Path, required=True)
+    create_user.add_argument("--username", required=True)
+    create_user.add_argument("--temporary-password-file", type=Path, required=True,
+                             help="new private output file; existing accounts/files are never overwritten")
     automate = commands.add_parser("automate", help="coordinate confirmed PM plans using the existing Dispatcher")
     automate.add_argument("action", choices=("tick", "worker", "status", "delegate"))
     automate.add_argument("--state-dir", type=Path, required=True)
@@ -76,11 +83,18 @@ def main() -> int:
         return automation_command(args)
     if args.command == "manage":
         from ai_company.management_server import serve
+        from ai_company.management import ManagementError
         try:
-            serve(args.state_dir, args.token_file, host=args.host, port=args.port,
+            if args.manage_action == "create-user":
+                from ai_company.password_auth import issue_user
+                issue_user(args.state_dir, args.username, args.temporary_password_file)
+                print(json.dumps({"status": "CREATED", "username": args.username,
+                                  "password_change_required": True, "temporary_valid_hours": 24}))
+                return 0
+            serve(args.state_dir, args.token_file, password_login=args.password_login, host=args.host, port=args.port,
                   public_origin=args.public_origin, private_bind=args.private_bind)
             return 0
-        except (ExecutionBlocked, OSError, ValueError) as exc:
+        except (ExecutionBlocked, ManagementError, OSError, ValueError) as exc:
             print(json.dumps({"status": "BLOCKED", "reason": str(exc)}, ensure_ascii=False))
             return 2
     if args.command == "flow":

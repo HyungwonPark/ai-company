@@ -19,6 +19,7 @@ from urllib.parse import parse_qs, unquote, urlsplit
 from pydantic import ValidationError
 
 from ai_company.management import ManagementError, ManagementStore
+from ai_company import password_auth
 
 
 MAX_BODY = 65536
@@ -40,7 +41,9 @@ def read_token(path):
 class ManagementHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, address, root, token_file, *, web_root=None, public_origin=None, private_bind=False, clock=time.time):
+    def __init__(self, address, root, token_file=None, *, password_login=False, web_root=None, public_origin=None, private_bind=False, clock=time.time):
+        if bool(token_file) == bool(password_login):
+            raise ValueError("Choose exactly one of token_file or password_login")
         parsed = None
         if public_origin is not None:
             if any(c.isspace() or ord(c) < 32 for c in public_origin) or any(c in public_origin for c in "?#"):
@@ -64,13 +67,22 @@ class ManagementHTTPServer(ThreadingHTTPServer):
             if not private_bind or not any(interface in ipaddress.IPv4Network(n) for n in networks):
                 raise ValueError("Management server requires loopback or an explicitly permitted RFC1918 interface")
         self.root = Path(root).resolve()
-        self.login_token = read_token(token_file)
+        self.password_login = password_login
+        self.login_token = read_token(token_file) if token_file else None
         self.web_root = Path(web_root).resolve() if web_root else None
         self.clock = clock
         self.login_failures = {}
         self.auth_lock = threading.Lock()
         with_store = ManagementStore(self.root, clock=clock)
-        with_store.close()
+        try:
+            password_auth.initialize(with_store.db)
+            users = with_store.db.execute("SELECT COUNT(*) FROM console_users").fetchone()[0]
+            if password_login and not users:
+                raise ValueError("Create a master account with manage create-user before serving")
+            if not password_login and users:
+                raise ValueError("Password accounts exist; token login is disabled for this state")
+        finally:
+            with_store.close()
         super().__init__(address, ManagementHandler)
         self.origin = public_origin or "http://" + address[0] + ":" + str(self.server_port)
         parsed = parsed or urlsplit(self.origin)
@@ -120,6 +132,8 @@ class ManagementHandler(BaseHTTPRequestHandler):
         if not re.fullmatch(r"[A-Za-z0-9_-]{43}", token):
             return None
         hashed = hashlib.sha256(token.encode()).hexdigest()
+        if self.server.password_login:
+            return password_auth.session(store.db, hashed, self.server.clock())
         row = store.db.execute("SELECT csrf,expires_at FROM management_auth WHERE token_hash=?", (hashed,)).fetchone()
         if row and row[1] > self.server.clock():
             return {"hash": hashed, "csrf_token": row[0]}
@@ -146,6 +160,9 @@ class ManagementHandler(BaseHTTPRequestHandler):
             raise ManagementError("invalid_json", "A valid JSON object is required", 400) from exc
 
     def _login(self, store, value):
+        if self.server.password_login:
+            self._password_action(store, value)
+            return
         if set(value) != {"token"} or not isinstance(value["token"], str) or len(value["token"]) > 4096:
             raise ManagementError("invalid_login", "Token is required", 400)
         identity = self.client_address[0]
@@ -167,6 +184,19 @@ class ManagementHandler(BaseHTTPRequestHandler):
                 store.db.execute("DELETE FROM management_auth WHERE token_hash=?", (old["hash"],))
             store.db.execute("INSERT INTO management_auth VALUES (?,?,?)", (hashlib.sha256(session.encode()).hexdigest(), csrf, self.server.clock() + SESSION_SECONDS))
         self._json(200, {"authenticated": True, "csrf_token": csrf}, self._cookie(session))
+
+    def _password_action(self, store, value, current=None):
+        # Bound memory/CPU use: only one scrypt operation can be in flight per server.
+        if not self.server.auth_lock.acquire(blocking=False):
+            raise ManagementError("rate_limited", "Another login is being processed; try again", 429)
+        try:
+            if current:
+                token, result = password_auth.change_password(store.db, value, current, self.server.clock())
+            else:
+                token, result = password_auth.login(store.db, value, self.server.clock(), self._session(store))
+        finally:
+            self.server.auth_lock.release()
+        self._json(200, password_auth.public_session(result), self._cookie(token))
 
     def _static(self, path):
         if not self.server.web_root:
@@ -208,7 +238,9 @@ class ManagementHandler(BaseHTTPRequestHandler):
             store = ManagementStore(self.server.root, clock=self.server.clock)
             session = self._session(store)
             if path == "/api/session" and not write:
-                self._json(200, {"authenticated": bool(session), **({"csrf_token": session["csrf_token"]} if session else {})})
+                result = (password_auth.public_session(session) if self.server.password_login else
+                          {"authenticated": bool(session), **({"csrf_token": session["csrf_token"]} if session else {})})
+                self._json(200, result)
                 return
             if path == "/api/login" and write:
                 self._login(store, self._body())
@@ -222,9 +254,15 @@ class ManagementHandler(BaseHTTPRequestHandler):
                 if value:
                     raise ManagementError("invalid_body", "Logout body must be empty", 400)
                 with store.db:
-                    store.db.execute("DELETE FROM management_auth WHERE token_hash=?", (session["hash"],))
+                    table = "console_sessions" if self.server.password_login else "management_auth"
+                    store.db.execute(f"DELETE FROM {table} WHERE token_hash=?", (session["hash"],))
                 self._json(200, {"authenticated": False}, self._cookie("", 0))
                 return
+            if path == "/api/password" and write and self.server.password_login:
+                self._password_action(store, value, session)
+                return
+            if session.get("password_change_required"):
+                raise ManagementError("password_change_required", "Change the temporary password before using the workspace", 403)
             if path == "/api/projects":
                 result = {"project": store.create_project(value)} if write else {"projects": store.list_projects()}
                 self._json(201 if write else 200, result)
@@ -267,8 +305,8 @@ class ManagementHandler(BaseHTTPRequestHandler):
                 store.close()
 
 
-def serve(root, token_file, *, host="127.0.0.1", port=8765, web_root=None, public_origin=None, private_bind=False):
-    server = ManagementHTTPServer((host, port), root, token_file, web_root=web_root or Path(__file__).parent / "web", public_origin=public_origin, private_bind=private_bind)
+def serve(root, token_file=None, *, password_login=False, host="127.0.0.1", port=8765, web_root=None, public_origin=None, private_bind=False):
+    server = ManagementHTTPServer((host, port), root, token_file, password_login=password_login, web_root=web_root or Path(__file__).parent / "web", public_origin=public_origin, private_bind=private_bind)
     try:
         server.serve_forever(poll_interval=0.25)
     finally:

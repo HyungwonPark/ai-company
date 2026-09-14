@@ -1,15 +1,15 @@
 /* Run only against an isolated --demo management server.
    NODE_PATH=/tmp/ai-company-ui-check/node_modules BASE_URL=http://127.0.0.1:PORT
-   TEST_TOKEN=<isolated token> node tests/ui/smoke.cjs
+   TEST_PASSWORD=<isolated password> node tests/ui/smoke.cjs
    No project dependency or production service is modified. */
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const base = process.env.BASE_URL;
-const token = process.env.TEST_TOKEN;
+const password = process.env.TEST_PASSWORD;
 const output = process.env.UI_OUTPUT || '/tmp/ai-company-ui-check/artifacts';
-if (!base || !token || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(base).hostname)) {
-  throw new Error('An isolated localhost BASE_URL and TEST_TOKEN are required.');
+if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(base).hostname)) {
+  throw new Error('An isolated localhost BASE_URL and TEST_PASSWORD are required.');
 }
 (async () => {
   const browser = await chromium.launch({headless:true, chromiumSandbox:true,
@@ -25,8 +25,31 @@ if (!base || !token || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(bas
   await fs.mkdir(output, {recursive:true});
   try {
     await page.goto(base);
-    await page.getByLabel('접근 토큰', {exact:true}).fill(token);
-    await page.getByRole('button', {name:'작업 공간 열기'}).click();
+    assert.equal(await page.getByLabel('아이디',{exact:true}).inputValue(),'edward');
+    assert.equal(await page.getByLabel('접근 토큰',{exact:true}).count(),0);
+    await page.getByLabel('비밀번호',{exact:true}).fill(password);
+    await page.getByRole('button',{name:'로그인',exact:true}).click();
+    await page.getByRole('heading',{name:'비밀번호 변경',exact:true}).waitFor();
+    await page.reload();
+    await page.getByRole('heading',{name:'비밀번호 변경',exact:true}).waitFor();
+    assert.equal(await page.locator('.nav').count(),0,'temporary login has no management navigation');
+    expectedHTTPFailure=true;
+    assert.equal(await page.evaluate(async()=> (await fetch('/api/projects')).status),403);
+    expectedHTTPFailure=false;
+    await page.setViewportSize({width:360,height:800});
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'password form fits mobile');
+    await page.screenshot({path:`${output}/mobile-password-change.png`,fullPage:true});
+    await page.getByLabel('현재 비밀번호',{exact:true}).fill(password);
+    await page.getByLabel('새 비밀번호',{exact:true}).fill('browser fixture new passphrase');
+    await page.getByLabel('새 비밀번호 확인',{exact:true}).fill('browser fixture wrong confirmation');
+    await page.getByRole('button',{name:'비밀번호 변경 후 계속'}).click();
+    await page.getByText('새 비밀번호가 서로 일치하지 않습니다.',{exact:true}).waitFor();
+    await page.getByLabel('새 비밀번호 확인',{exact:true}).fill('browser fixture new passphrase');
+    await page.getByRole('button',{name:'비밀번호 변경 후 계속'}).click();
+    await page.locator('.nav').waitFor();
+    await page.reload();
+    await page.locator('.nav').waitFor();
+    await page.setViewportSize({width:1440,height:1000});
     await page.getByRole('heading', {name:'각자의 흐름으로, 같은 목표를 향해'}).waitFor();
     await page.getByText('모의 예시 데이터', {exact:true}).waitFor();
     assert.equal(await page.locator('.role').count(), 4, 'four parallel fixture roles');

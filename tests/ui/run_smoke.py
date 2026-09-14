@@ -11,6 +11,9 @@ import secrets
 import subprocess
 import tempfile
 import threading
+import time
+
+from ai_company import password_auth
 
 from ai_company.management import ManagementStore
 from ai_company.management_server import ManagementHTTPServer
@@ -36,23 +39,23 @@ def main():
     repository = Path(__file__).resolve().parents[2]
     with tempfile.TemporaryDirectory(prefix="ai-company-ui-") as directory:
         root = Path(directory)
-        token = secrets.token_urlsafe(48)
-        token_path = root / "login-token"
-        with os.fdopen(os.open(token_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as handle:
-            handle.write(token)
+        password = secrets.token_urlsafe(24)
         store = ManagementStore(root / "state")
         try:
+            password_auth.initialize(store.db)
+            with store.db:
+                password_auth.create_user(store.db, "edward", password, time.time())
             store.seed_demo()
             plans = [seed_plan(store, name) for name in ("UI plan confirmation fixture", "UI stale plan fixture")]
         finally:
             store.close()
         server = ManagementHTTPServer(
-            ("127.0.0.1", 0), root / "state", token_path,
+            ("127.0.0.1", 0), root / "state", password_login=True,
             web_root=repository / "src" / "ai_company" / "web",
         )
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
-        env = {**os.environ, "BASE_URL": f"http://127.0.0.1:{server.server_port}", "TEST_TOKEN": token, "PLAN_FIXTURES": json.dumps(plans)}
+        env = {**os.environ, "BASE_URL": f"http://127.0.0.1:{server.server_port}", "TEST_PASSWORD": password, "PLAN_FIXTURES": json.dumps(plans)}
         try:
             result = subprocess.run(
                 ["node", str(repository / "tests" / "ui" / "smoke.cjs")],
