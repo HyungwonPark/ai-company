@@ -4,6 +4,7 @@ This module records intent and evidence. It never invokes a model or deploys an 
 """
 
 import json
+import re
 import time
 from pathlib import Path
 from typing import Literal
@@ -60,6 +61,12 @@ class DecisionInput(Contract):
     idempotency_key: str = Field(pattern=r"^[a-zA-Z0-9_.:-]{8,128}$")
 
 
+class PlanConfirmationInput(Contract):
+    plan_digest: Digest
+    base_harness_version: StrictInt = Field(ge=1)
+    idempotency_key: str = Field(pattern=r"^[a-zA-Z0-9_.:-]{8,128}$")
+
+
 class ManagementStore:
     def __init__(self, root: Path, *, clock=time.time):
         self.root, self.clock = Path(root).resolve(), clock
@@ -80,6 +87,11 @@ class ManagementStore:
             CREATE TABLE IF NOT EXISTS management_events(id INTEGER PRIMARY KEY AUTOINCREMENT,
                 project_id TEXT NOT NULL, document TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS management_auth(token_hash TEXT PRIMARY KEY, csrf TEXT NOT NULL, expires_at REAL NOT NULL);
+            CREATE TABLE IF NOT EXISTS management_pm_requests(message_id TEXT PRIMARY KEY, project_id TEXT NOT NULL, document TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS management_plans(id TEXT PRIMARY KEY, project_id TEXT NOT NULL, document TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS management_runs(id TEXT PRIMARY KEY, project_id TEXT NOT NULL, document TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS management_confirmations(project_id TEXT NOT NULL, idempotency_key TEXT NOT NULL,
+                request_digest TEXT NOT NULL, document TEXT NOT NULL, PRIMARY KEY(project_id,idempotency_key));
             CREATE TRIGGER IF NOT EXISTS management_flow_insert AFTER INSERT ON flow_tasks BEGIN
                 INSERT INTO management_events(project_id,document)
                 SELECT project_id,json_object('kind','flow_updated','subject_id',NEW.task_id,
@@ -111,7 +123,7 @@ class ManagementStore:
         value = ProjectInput.model_validate(value)
         project_id = uuid4().hex
         project = {"id": project_id, "name": value.name, "goal": value.goal, "status": "PLANNING",
-                   "harness_version": 1, "source": "unverified", "created_at": self.clock()}
+                   "harness_version": 1, "request_revision": 0, "source": "unverified", "created_at": self.clock()}
         content = json.dumps({"goal": value.goal, "roles": [r.model_dump() for r in value.roles]}, ensure_ascii=False, indent=2)
         harness = {"version": 1, "status": "active", "content": content, "digest": digest(content), "created_at": self.clock()}
         with self.db:
@@ -127,14 +139,213 @@ class ManagementStore:
         return [json.loads(r[0]) for r in self.db.execute("SELECT document FROM management_projects ORDER BY rowid")]
 
     def post_message(self, project_id, value):
-        self._project(project_id)
         value = MessageInput.model_validate(value)
         message = {"id": uuid4().hex, "role": "user", "content": value.content,
                    "status": "awaiting_pm", "created_at": self.clock()}
         with self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            project = self._project(project_id)
+            revision = project.get("request_revision", 0) + 1
+            harness_row = self.db.execute("SELECT document FROM management_harnesses WHERE project_id=? AND version=?",
+                                          (project_id, project["harness_version"])).fetchone()
+            harness = json.loads(harness_row[0])
+            request = {"request_id": message["id"], "message_id": message["id"], "project_id": project_id,
+                       "state": "pending", "request_revision": revision, "base_harness_version": project["harness_version"],
+                       "base_harness_digest": digest(harness["content"]), "goal_digest": digest(project["goal"]),
+                       "goal": project["goal"], "content": value.content, "source": project["source"],
+                       "created_at": self.clock(), "updated_at": self.clock(), "execution": None, "plan_id": None,
+                       "configuration_digest": None, "mode": None}
+            project["request_revision"] = revision
+            self.db.execute("UPDATE management_projects SET document=? WHERE id=?", (json.dumps(project), project_id))
             self.db.execute("INSERT INTO management_messages VALUES (?,?,?)", (message["id"], project_id, json.dumps(message)))
+            self.db.execute("INSERT INTO management_pm_requests VALUES (?,?,?)", (message["id"], project_id, json.dumps(request)))
             self._event(project_id, "pm_request_saved", message["id"])
         return message
+
+    def pm_requests(self, project_id=None):
+        if project_id is None:
+            rows = self.db.execute("SELECT document FROM management_pm_requests ORDER BY rowid")
+        else:
+            self._project(project_id)
+            rows = self.db.execute("SELECT document FROM management_pm_requests WHERE project_id=? ORDER BY rowid", (project_id,))
+        return [json.loads(row[0]) for row in rows]
+
+    def get_pm_request(self, request_id):
+        row = self.db.execute("SELECT document FROM management_pm_requests WHERE message_id=?", (request_id,)).fetchone()
+        if not row:
+            raise ManagementError("not_found", "PM request not found", 404)
+        return json.loads(row[0])
+
+    def save_pm_request(self, document, *, expected_state=None):
+        """Worker-only state persistence; execution ownership is held by its worker lock."""
+        with self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            previous = self.get_pm_request(document["request_id"])
+            immutable = ("request_id", "message_id", "project_id", "request_revision", "base_harness_version",
+                         "base_harness_digest", "goal_digest", "goal", "content", "source", "created_at")
+            if any(document.get(key) != previous.get(key) for key in immutable):
+                raise ManagementError("request_mismatch", "PM request snapshot is immutable")
+            for key in ("configuration_digest", "mode"):
+                if previous.get(key) is not None and document.get(key) != previous[key]:
+                    raise ManagementError("configuration_mismatch", "PM execution configuration is immutable after claim")
+            if document.get("configuration_digest") is not None or document.get("mode") is not None:
+                if not re.fullmatch(r"[0-9a-f]{64}", str(document.get("configuration_digest"))) or document.get("mode") not in ("live", "fixture"):
+                    raise ManagementError("configuration_missing", "Worker must bind a valid configuration digest and mode")
+            if expected_state is not None and previous["state"] != expected_state:
+                raise ManagementError("request_conflict", "PM request state changed")
+            if previous["state"] in ("completed", "stale"):
+                if document == previous:
+                    return previous
+                raise ManagementError("request_complete", "Completed PM request cannot be replayed")
+            document = {**document, "updated_at": self.clock()}
+            self.db.execute("UPDATE management_pm_requests SET document=? WHERE message_id=?", (json.dumps(document), document["request_id"]))
+            self._event(document["project_id"], "pm_request_updated", document["request_id"])
+        return document
+
+    @staticmethod
+    def _plan_binding(plan):
+        fields = ("id", "request_id", "project_id", "base_harness_version", "base_harness_digest", "request_revision", "goal_digest", "content", "configuration_digest", "mode", "source", "evidence")
+        return {key: plan[key] for key in fields}
+
+    def get_plan(self, project_id, plan_id):
+        row = self.db.execute("SELECT document FROM management_plans WHERE id=? AND project_id=?", (plan_id, project_id)).fetchone()
+        if not row:
+            raise ManagementError("not_found", "Plan not found", 404)
+        return json.loads(row[0])
+
+    def _request_current(self, request, project):
+        row = self.db.execute("SELECT document FROM management_harnesses WHERE project_id=? AND version=?",
+                              (project["id"], project["harness_version"])).fetchone()
+        harness = json.loads(row[0]) if row else {}
+        return (project.get("request_revision", 0) == request["request_revision"]
+                and digest(project["goal"]) == request["goal_digest"]
+                and project["harness_version"] == request["base_harness_version"]
+                and digest(harness.get("content")) == request["base_harness_digest"])
+
+    def request_is_current(self, request_id):
+        request = self.get_pm_request(request_id)
+        return self._request_current(request, self._project(request["project_id"]))
+
+    def complete_pm_request(self, request_id, plan_content, *, expected_state="running", evidence=None):
+        from ai_company.automation_contracts import PMPlanContent
+        content = PMPlanContent.model_validate(plan_content).model_dump(mode="json")
+        with self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            request = self.get_pm_request(request_id)
+            project = self._project(request["project_id"])
+            if request.get("plan_id"):
+                old = self.get_plan(project["id"], request["plan_id"])
+                if old["content"] != content or old.get("evidence") != evidence:
+                    raise ManagementError("result_conflict", "PM request already completed with another result")
+                return old
+            if request["state"] != expected_state:
+                raise ManagementError("request_conflict", "PM request no longer owns this completion")
+            if not re.fullmatch(r"[0-9a-f]{64}", str(request.get("configuration_digest"))) or request.get("mode") not in ("live", "fixture"):
+                raise ManagementError("configuration_missing", "PM completion requires its claimed server configuration")
+            if request["mode"] == "live" and isinstance(evidence, dict) and (evidence.get("source") == "fixture" or evidence.get("scope") == "fixture"):
+                raise ManagementError("fixture_only", "Fixture PM evidence cannot produce a live proposal")
+            current = self._request_current(request, project)
+            plan = {"id": uuid4().hex, "request_id": request_id, "project_id": project["id"],
+                    "status": "proposed" if current else "stale", "content": content,
+                    **{key: request[key] for key in ("request_revision", "base_harness_version", "base_harness_digest", "goal_digest")},
+                    "created_at": self.clock(), "evidence": evidence, "source": (evidence or {}).get("source", request["source"]),
+                    "configuration_digest": request["configuration_digest"], "mode": request["mode"]}
+            plan["digest"] = digest(self._plan_binding(plan))
+            request.update(state="completed" if current else "stale", plan_id=plan["id"], updated_at=self.clock())
+            user_row = self.db.execute("SELECT document FROM management_messages WHERE id=?", (request_id,)).fetchone()
+            user = json.loads(user_row[0]); user["status"] = request["state"]
+            assistant = {"id": uuid4().hex, "role": "assistant", "content": content["summary"], "status": plan["status"],
+                         "plan_id": plan["id"], "request_id": request_id, "created_at": self.clock(), "evidence": evidence,
+                         "source": plan["source"]}
+            self.db.execute("INSERT INTO management_plans VALUES (?,?,?)", (plan["id"], project["id"], json.dumps(plan)))
+            self.db.execute("UPDATE management_pm_requests SET document=? WHERE message_id=?", (json.dumps(request), request_id))
+            self.db.execute("UPDATE management_messages SET document=? WHERE id=?", (json.dumps(user), request_id))
+            self.db.execute("INSERT INTO management_messages VALUES (?,?,?)", (assistant["id"], project["id"], json.dumps(assistant)))
+            self._event(project["id"], "pm_plan_proposed" if current else "pm_plan_stale", plan["id"])
+        return plan
+
+    def run_records(self, project_id=None):
+        if project_id is None:
+            rows = self.db.execute("SELECT document FROM management_runs ORDER BY rowid")
+        else:
+            self._project(project_id)
+            rows = self.db.execute("SELECT document FROM management_runs WHERE project_id=? ORDER BY rowid", (project_id,))
+        return [json.loads(row[0]) for row in rows]
+
+    def get_run(self, run_id):
+        row = self.db.execute("SELECT document FROM management_runs WHERE id=?", (run_id,)).fetchone()
+        if not row:
+            raise ManagementError("not_found", "Run not found", 404)
+        return json.loads(row[0])
+
+    def save_run(self, document, *, expected_state=None):
+        with self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            previous = self.get_run(document["id"])
+            immutable = ("id", "project_id", "plan_id", "plan_digest", "role_ids", "harness_version", "created_at", "configuration_digest", "mode")
+            if any(document.get(key) != previous.get(key) for key in immutable):
+                raise ManagementError("run_mismatch", "Confirmed execution identity is immutable")
+            if expected_state is not None and previous["state"] != expected_state:
+                raise ManagementError("run_conflict", "Run state changed")
+            document = {**document, "updated_at": self.clock()}
+            self.db.execute("UPDATE management_runs SET document=? WHERE id=?", (json.dumps(document), document["id"]))
+            self._event(document["project_id"], "run_updated", document["id"])
+        return document
+
+    def confirm_plan(self, project_id, plan_id, value):
+        value = PlanConfirmationInput.model_validate(value)
+        request_digest = digest({"plan_id": plan_id, **value.model_dump()})
+        with self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            project = self._project(project_id)
+            if project["source"] == "fixture":
+                raise ManagementError("fixture_only", "Fixture projects cannot authorize executable runs")
+            plan = self.get_plan(project_id, plan_id)
+            prior = self.db.execute("SELECT request_digest,document FROM management_confirmations WHERE project_id=? AND idempotency_key=?",
+                                    (project_id, value.idempotency_key)).fetchone()
+            if prior:
+                if prior[0] != request_digest:
+                    raise ManagementError("idempotency_conflict", "Key already used for another confirmation")
+                return json.loads(prior[1])
+            if value.plan_digest != plan["digest"] or digest(self._plan_binding(plan)) != plan["digest"]:
+                raise ManagementError("plan_mismatch", "Plan contents changed; reload before confirming")
+            if plan["status"] == "confirmed":
+                raise ManagementError("already_confirmed", "Plan already has a run")
+            request = self.get_pm_request(plan["request_id"])
+            if (plan["status"] != "proposed" or value.base_harness_version != plan["base_harness_version"]
+                    or not self._request_current(request, project)):
+                raise ManagementError("stale_plan", "Goal, conversation or active harness changed; request a fresh plan")
+            # Keep prior roles for their existing task history. Only newly confirmed
+            # roles become the active plan; existing flow policies are never edited.
+            for row in self.db.execute("SELECT id,document FROM management_roles WHERE project_id=?", (project_id,)).fetchall():
+                old = json.loads(row[1]); old["active"] = False
+                self.db.execute("UPDATE management_roles SET document=? WHERE id=?", (json.dumps(old), row[0]))
+            role_ids = {}
+            for role in plan["content"]["roles"]:
+                role_id = uuid4().hex; role_ids[role["key"]] = role_id
+                document = {"id": role_id, **role, "active": True, "plan_id": plan_id}
+                self.db.execute("INSERT INTO management_roles VALUES (?,?,?)", (role_id, project_id, json.dumps(document)))
+            version = self.db.execute("SELECT MAX(version) FROM management_harnesses WHERE project_id=?", (project_id,)).fetchone()[0] + 1
+            old_row = self.db.execute("SELECT document FROM management_harnesses WHERE project_id=? AND version=?", (project_id, project["harness_version"])).fetchone()
+            old_harness = json.loads(old_row[0]); old_harness["status"] = "superseded"
+            self.db.execute("UPDATE management_harnesses SET document=? WHERE project_id=? AND version=?", (json.dumps(old_harness), project_id, project["harness_version"]))
+            text = json.dumps(plan["content"], ensure_ascii=False, indent=2)
+            harness = {"version": version, "base_version": project["harness_version"], "status": "active", "content": text,
+                       "digest": digest(text), "plan_id": plan_id, "created_at": self.clock()}
+            self.db.execute("INSERT INTO management_harnesses VALUES (?,?,?)", (project_id, version, json.dumps(harness)))
+            run = {"id": uuid4().hex, "project_id": project_id, "plan_id": plan_id, "plan_digest": plan["digest"],
+                   "state": "pending", "role_ids": role_ids, "harness_version": version, "created_at": self.clock(), "updated_at": self.clock(),
+                   "configuration_digest": plan["configuration_digest"], "mode": plan["mode"]}
+            plan.update(status="confirmed", run_id=run["id"], confirmed_at=self.clock())
+            project.update(harness_version=version, status="PLAN_CONFIRMED")
+            result = {"plan": plan, "run": run}
+            self.db.execute("UPDATE management_projects SET document=? WHERE id=?", (json.dumps(project), project_id))
+            self.db.execute("UPDATE management_plans SET document=? WHERE id=?", (json.dumps(plan), plan_id))
+            self.db.execute("INSERT INTO management_runs VALUES (?,?,?)", (run["id"], project_id, json.dumps(run)))
+            self.db.execute("INSERT INTO management_confirmations VALUES (?,?,?,?)", (project_id, value.idempotency_key, request_digest, json.dumps(result)))
+            self._event(project_id, "plan_confirmed", plan_id)
+            self._event(project_id, "run_pending", run["id"])
+        return result
 
     def save_harness(self, project_id, value):
         value = HarnessInput.model_validate(value)
@@ -194,14 +405,22 @@ class ManagementStore:
             self._event(project_id, "task_linked", flow_task_id)
         return item
 
-    def request_approval(self, project_id, value):
+    def request_approval(self, project_id, value, *, idempotency_key=None):
         project = self._project(project_id)
         subject = ApprovalSubject.model_validate(value).model_dump(mode="json")
         if subject["expires_at"] <= self.clock():
             raise ManagementError("expired", "Approval must have a future expiry")
-        item = {"id": uuid4().hex, "project_id": project_id, **subject, "status": "pending",
+        approval_id = digest([project_id, idempotency_key])[:32] if idempotency_key else uuid4().hex
+        item = {"id": approval_id, "project_id": project_id, **subject, "status": "pending",
                 "source": project["source"], "subject_digest": digest({"project_id": project_id, **subject}), "created_at": self.clock()}
         with self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            existing = self.db.execute("SELECT document FROM management_approvals WHERE id=?", (approval_id,)).fetchone()
+            if existing:
+                previous = json.loads(existing[0])
+                if previous["subject_digest"] != item["subject_digest"]:
+                    raise ManagementError("idempotency_conflict", "Approval key already binds another candidate")
+                return previous
             self.db.execute("INSERT INTO management_approvals VALUES (?,?,?)", (item["id"], project_id, json.dumps(item)))
             self._event(project_id, "approval_requested", item["id"])
         return item
@@ -319,12 +538,23 @@ class ManagementStore:
             if item["expires_at"] <= self.clock() and item["status"] in ("pending", "approved"):
                 item["status"] = "expired"
         messages = [json.loads(r[0]) for r in self.db.execute("SELECT document FROM management_messages WHERE project_id=? ORDER BY rowid", (project_id,))]
+        requests = [json.loads(r[0]) for r in self.db.execute("SELECT document FROM management_pm_requests WHERE project_id=? ORDER BY rowid", (project_id,))]
+        plans = [json.loads(r[0]) for r in self.db.execute("SELECT document FROM management_plans WHERE project_id=? ORDER BY rowid", (project_id,))]
+        runs = [json.loads(r[0]) for r in self.db.execute("SELECT document FROM management_runs WHERE project_id=? ORDER BY rowid", (project_id,))]
+        requests_by_id = {request["request_id"]: request for request in requests}
+        for plan in plans:
+            request = requests_by_id.get(plan["request_id"])
+            if plan["status"] == "proposed" and (request is None or not self._request_current(request, project)):
+                plan["status"] = "stale"
         # A linked real task is execution evidence, not proof of end-to-end readiness.
         readiness = {"mode": "fixture" if project["source"] == "fixture" else "unverified",
                      "pm": "awaiting_worker" if any(m["status"] == "awaiting_pm" for m in messages) else "unverified", "execution": "unverified"}
+        if requests:
+            latest_state = requests[-1]["state"]
+            readiness["pm"] = {"pending": "awaiting_worker", "completed": "plan_proposed"}.get(latest_state, latest_state)
         project.pop("fixture_tasks", None); project.pop("fixture_reports", None)
         return {"project": project, "roles": roles, "tasks": tasks, "reports": reports, "approvals": approvals,
-                "messages": messages, "harnesses": harnesses, "readiness": readiness}
+                "messages": messages, "harnesses": harnesses, "readiness": readiness, "pm_requests": requests, "plans": plans, "runs": runs}
 
     def seed_demo(self):
         """Explicit fixture initialization; refuse any existing execution or project data."""

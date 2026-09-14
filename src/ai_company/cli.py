@@ -60,7 +60,15 @@ def main() -> int:
     serve.add_argument("--token-file", type=Path, required=True)
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8765)
+    automate = commands.add_parser("automate", help="coordinate confirmed PM plans using the existing Dispatcher")
+    automate.add_argument("action", choices=("tick", "worker", "status"))
+    automate.add_argument("--state-dir", type=Path, required=True)
+    automate.add_argument("--config", type=Path, required=True, help="trusted local server configuration JSON")
+    automate.add_argument("--max-seconds", type=float, default=1800,
+                          help="bounded foreground worker lifetime; no timer or service is installed")
     args = parser.parse_args()
+    if args.command == "automate":
+        return automation_command(args)
     if args.command == "manage":
         from ai_company.management_server import serve
         try:
@@ -86,6 +94,40 @@ def main() -> int:
         return 2
     print(json.dumps(state, ensure_ascii=False, indent=2))
     return 0 if state["status"] == "DEMO_READY" else 2
+
+
+def automation_command(args) -> int:
+    import time
+    import math
+    from ai_company.automation import Automation
+    from ai_company.automation_contracts import AutomationConfig
+    from ai_company.management import ManagementError
+    worker = None
+    try:
+        if not math.isfinite(args.max_seconds) or not 0 < args.max_seconds <= 86400:
+            raise ValueError("max-seconds must be positive and at most 86400")
+        config = AutomationConfig.model_validate_json(args.config.read_text())
+        worker = Automation(args.state_dir, config)
+        if args.action == "status":
+            result = {"pm_requests": worker.store.pm_requests(), "runs": worker.store.run_records()}
+        elif args.action == "tick":
+            result = worker.run_once()
+        else:
+            until = time.monotonic() + args.max_seconds
+            while time.monotonic() < until:
+                result = worker.run_once()
+                print(json.dumps({"pm": [{"request_id": r["request_id"], "state": r["state"]} for r in result["pm_requests"]],
+                                  "runs": [{"id": r["id"], "state": r["state"]} for r in result["runs"]]}), flush=True)
+                time.sleep(min(config.poll_seconds, max(0, until - time.monotonic())))
+            result = {"status": "worker_stopped", "reason": "bounded foreground lifetime reached; durable state retained"}
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
+    except (ExecutionBlocked, ValidationError, ManagementError, OSError, ValueError) as exc:
+        print(json.dumps({"status": "BLOCKED", "reason": str(exc)}, ensure_ascii=False))
+        return 2
+    finally:
+        if worker:
+            worker.close()
 
 
 def session_command(args) -> int:

@@ -9,3 +9,6 @@
 .mobile-logout{display:none}.mb-12{margin-bottom:12px}.mt-8{margin-top:8px}.mt-20{margin-top:20px}.mt-28{margin-top:28px}
 
 .agent-row>div{min-width:0}.agent-row strong{overflow-wrap:anywhere}
+
+/* Plans share the existing report surface and preserve mobile reading order. */
+.pm-status{border-block:1px solid var(--line);padding:16px 0;margin-top:18px}.pm-status h3{margin-bottom:8px}.request-row{padding:10px 0}.request-row p{font-size:12px;margin:6px 0}.plan-list,.run-list{display:grid;gap:16px;margin-top:26px}.plan-list>.section-line,.run-list>.section-line{margin-bottom:0}.plan h3,.run-list h3{margin:0;overflow-wrap:anywhere}.plan-roles .role-config{padding:18px 0}.plan-roles .detail-grid{margin:12px 0 0}.plan-completion{padding:14px 0;font-size:13px}.plan-completion p{white-space:pre-wrap;margin-top:5px;overflow-wrap:anywhere}.plan-ack{display:flex;align-items:center;gap:12px;min-height:44px;font-size:13px;margin:18px 0}.plan-ack input{width:20px;height:20px;flex-shrink:0}.plan .section-line,.run-list .section-line{flex-wrap:wrap}

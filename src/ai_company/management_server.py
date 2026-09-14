@@ -214,6 +214,12 @@ class ManagementHandler(BaseHTTPRequestHandler):
                 result = {"project": store.create_project(value)} if write else {"projects": store.list_projects()}
                 self._json(201 if write else 200, result)
                 return
+            confirmation = re.fullmatch(r"/api/projects/([0-9a-f]{32})/plans/([0-9a-f]{32})/confirm", path)
+            if confirmation:
+                if not write:
+                    raise ManagementError("method_not_allowed", "Method not allowed", 405)
+                self._json(200, store.confirm_plan(confirmation[1], confirmation[2], value))
+                return
             match = re.fullmatch(r"/api/projects/([0-9a-f]{32})/(overview|messages|harness|events|approvals/([0-9a-f]{32})/decisions)", path)
             if not match:
                 raise ManagementError("not_found", "Endpoint not found", 404)

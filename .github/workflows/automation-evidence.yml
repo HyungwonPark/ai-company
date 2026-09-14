@@ -1,0 +1,102 @@
+name: Automation evidence
+
+on:
+  pull_request:
+  push:
+    branches: ['automation/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  automation-checks:
+    name: automation-checks
+    if: startsWith(github.head_ref || github.ref_name, 'automation/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Install locked dependencies
+        run: |
+          python -m pip install uv==0.12.11
+          uv sync --frozen
+      - name: Verify repository regression and Android association preparation
+        run: |
+          uv run --frozen python -m unittest discover -s tests -v
+          uv run --frozen python -m unittest discover -s deploy/examples -p 'test_*.py' -v
+          uv run --frozen ai-company demo --task examples/demo-task.json --state-dir "$RUNNER_TEMP/automation-demo"
+      - name: Bind tested candidate and workflow execution
+        env:
+          EVIDENCE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVIDENCE_PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          EVIDENCE_REPOSITORY: ${{ github.repository }}
+          EVIDENCE_RUN_ID: ${{ github.run_id }}
+          EVIDENCE_RUN_ATTEMPT: ${{ github.run_attempt }}
+          EVIDENCE_WORKFLOW_REF: ${{ github.workflow_ref }}
+          EVIDENCE_WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: |
+          python - <<'PY'
+          # AUTOMATION_EVIDENCE_SCRIPT: exercised by test_automation_git.py.
+          import json
+          import os
+          from pathlib import Path
+          import platform
+          import re
+          import subprocess
+
+          def git(*args):
+              return subprocess.check_output(['git', *args], text=True).strip()
+
+          head = git('rev-parse', 'HEAD')
+          if head != os.environ['EVIDENCE_HEAD_SHA']:
+              raise SystemExit('checkout HEAD does not match the triggering candidate')
+          if git('status', '--porcelain=v1', '--untracked-files=all'):
+              raise SystemExit('checks left candidate files modified or untracked')
+          request = json.loads(git('show', 'HEAD:.ai-company-ci/request.json'))
+          for key in ('task_digest', 'policy_digest'):
+              if not re.fullmatch(r'[0-9a-f]{64}', str(request.get(key, ''))):
+                  raise SystemExit('missing or malformed request digest: ' + key)
+          base = request.get('base_sha', '')
+          if not re.fullmatch(r'[0-9a-f]{40}', base):
+              raise SystemExit('missing or malformed base SHA')
+          pr_base = os.environ.get('EVIDENCE_PR_BASE_SHA', '')
+          if pr_base and base != pr_base:
+              raise SystemExit('request does not match actual PR base')
+          subprocess.check_call(['git', 'merge-base', '--is-ancestor', base, head])
+          workflow_ref = os.environ['EVIDENCE_WORKFLOW_REF']
+          prefix = os.environ['EVIDENCE_REPOSITORY'] + '/.github/workflows/automation-evidence.yml@'
+          if not workflow_ref.startswith(prefix):
+              raise SystemExit('unexpected workflow execution identity')
+          workflow_sha = os.environ['EVIDENCE_WORKFLOW_SHA']
+          if not re.fullmatch(r'[0-9a-f]{40}', workflow_sha):
+              raise SystemExit('missing workflow definition SHA')
+          run_id, attempt = int(os.environ['EVIDENCE_RUN_ID']), int(os.environ['EVIDENCE_RUN_ATTEMPT'])
+          if run_id < 1 or attempt < 1:
+              raise SystemExit('invalid workflow execution numbers')
+          evidence = {
+              'head_sha': head, 'tested_sha': head, 'base_sha': base,
+              'task_digest': request['task_digest'], 'policy_digest': request['policy_digest'],
+              'run_id': run_id, 'run_attempt': attempt,
+              'workflow_ref': workflow_ref, 'workflow_sha': workflow_sha,
+              'environment': {'source': 'github-actions', 'runner_os': os.environ.get('RUNNER_OS'),
+                              'python': platform.python_version()},
+          }
+          output = Path(os.environ['RUNNER_TEMP']) / 'ai-company-evidence'
+          output.mkdir(exist_ok=True)
+          (output / 'evidence.json').write_text(json.dumps(evidence, sort_keys=True) + '\n')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ai-company-evidence
+          path: ${{ runner.temp }}/ai-company-evidence/evidence.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
