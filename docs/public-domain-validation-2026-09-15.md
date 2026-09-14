@@ -64,7 +64,8 @@ Host와 Origin은 설정된 origin에 정확히 일치해야 한다. Forwarded �
 [소스 CI](https://github.com/HyungwonPark/ai-company/actions/runs/34861601342)와
 [UI CI](https://github.com/HyungwonPark/ai-company/actions/runs/34861601353)가 통과했다.
 로컬 관련 관리/PM 회귀 26개도 통과했다. 기존 복구·사용량·독립 검수·CI 출처 계약은 바꾸지 않았다.
-별도 `Deployed console connectivity` CI는 배포된 도메인에 인증 없는 GET만 보낸다.
+[외부 연결 CI](https://github.com/HyungwonPark/ai-company/actions/runs/34863723180)는
+배포된 두 도메인에 인증 없는 GET만 보내 HTTPS 화면·HTTP 리다이렉트·API 401·커플 로그인 이동을 통과했다.
 그 결과는 현재 연결 확인이며 해당 CI 커밋이 배포됐다는 증적이나 마스터 UI 검증이 아니다.
 
 ## 실제 실패와 원복
