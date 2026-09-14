@@ -26,5 +26,7 @@ jobs:
         run: uv sync --frozen
       - name: Check workflow and recovery behavior
         run: uv run --frozen python -m unittest discover -s tests -v
+      - name: Validate independent Android association preparation
+        run: uv run --frozen python -m unittest discover -s deploy/examples -p "test_*.py" -v
       - name: Run simulated rejection and repair
         run: uv run --frozen ai-company demo --task examples/demo-task.json --state-dir "$RUNNER_TEMP/ai-company-demo"

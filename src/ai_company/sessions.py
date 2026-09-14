@@ -24,7 +24,7 @@ from pydantic import Field, field_validator
 
 from ai_company.contracts import Contract, Key, Task, Text, digest
 from ai_company.runtime import ExecutionBlocked
-from ai_company.storage import controller_lock
+from ai_company.storage import controller_lock, suspended_lock
 
 
 class RetryPolicy(Contract):
@@ -255,24 +255,24 @@ class SessionQueue:
             return self.get(job_id)
 
     def _recover_interrupted_workers(self) -> None:
-        # Called only while holding the worker lock. Even a dead process may have
-        # committed external effects, so expiry alone must NEVER replay RUNNING.
-        for job in self.list_jobs():
-            if execution_alive(job["process"]):
-                continue
-            if job["status"] == "RUNNING":
-                job.update(status="NEEDS_RECONCILIATION", reason="worker interrupted; inspect execution facts before resuming",
-                           lease_owner=None, lease_until=None, resume_at=None)
-                with self.db:
-                    self._save(job)
-            elif job["status"] != "NEEDS_RECONCILIATION":
-                # Recover a crash after the result transaction but before clearing
-                # the repository guard. Only this queue's durable fact can clear it.
-                try:
-                    with repository_lock(job["repository_snapshot"]):
+        # A live worker retains the repository lock even before on_spawn. Never
+        # infer a crash from process=None or an expired lease while it owns it.
+        for candidate in self.list_jobs():
+            try:
+                with repository_lock(candidate["repository_snapshot"]):
+                    job = self.get(candidate["job_id"])
+                    if execution_alive(job["process"]):
+                        continue
+                    if job["status"] == "RUNNING":
+                        job.update(status="NEEDS_RECONCILIATION",
+                                   reason="worker interrupted; inspect execution facts before resuming",
+                                   lease_owner=None, lease_until=None, resume_at=None)
+                        with self.db:
+                            self._save(job)
+                    elif job["status"] != "NEEDS_RECONCILIATION":
                         self._clear_guard(job)
-                except (ExecutionBlocked, OSError, ValueError):
-                    pass
+            except (ExecutionBlocked, OSError, ValueError):
+                pass
 
     @staticmethod
     def _guard_path(job: dict) -> Path:
@@ -435,7 +435,7 @@ class SessionQueue:
             from ai_company.adapters.session_cli import run_session
             executor = run_session
         try:
-            with controller_lock(self.root / "session-worker"):
+            with controller_lock(self.root / "session-worker") as worker_lock:
                 self._recover_interrupted_workers()
                 due = [job for job in self.list_jobs()
                        if job["status"] in ("READY", "WAITING_QUOTA", "WAITING_RETRY")
@@ -448,7 +448,10 @@ class SessionQueue:
                                 continue
                             job = self._claim(candidate["job_id"])
                             if job is not None:
-                                return self._run_claimed(job, executor)
+                                def execute_unlocked(*args, **kwargs):
+                                    with suspended_lock(worker_lock):
+                                        return executor(*args, **kwargs)
+                                return self._run_claimed(job, execute_unlocked)
                     except (ExecutionBlocked, OSError, ValueError) as exc:
                         # A busy repository is not an agent failure; leave it queued.
                         if isinstance(exc, ExecutionBlocked) and "another session owns" in str(exc):
