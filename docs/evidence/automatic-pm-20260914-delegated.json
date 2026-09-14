@@ -1,0 +1,322 @@
+{
+  "date": "2026-09-14",
+  "preserved_base": "352a31a79223fb77f377dbec578651ac665001f2",
+  "implementation_pr": 8,
+  "configuration_digest": "e65c1459c90ba0fa313242bd908a02431e6f0bb9255f0e849053beab4edaa972",
+  "run_id": "42eb1c2d3f3d4b44903a83a6ecd1ccf4",
+  "run_state": "awaiting_approval",
+  "candidate_pr": 10,
+  "authorization": {
+    "plan_digest": "4062ae815eb9becc85139ab54063e6551293b85068809287eab46e461f9bc6eb",
+    "delegation_digest": "363519520ccec00df757e7726d692adf80e6fbee60b2cb238440af309274a35a",
+    "authorization_digest": "88b26877be1f30fae51205bfadf8ab19945364b56ea812893efcdf6876bc4d23",
+    "received_at": 1789390994.0,
+    "run_created_at": 1789391887.0174606,
+    "allowed_paths": [
+      "src/ai_company/pilot_status.py",
+      "tests/test_pilot_status.py",
+      ".ai-company-ci/request.json"
+    ],
+    "max_new_validations": 1,
+    "parent_run_id": "8f6d0475a8f34818aff5991d720074d9",
+    "parent_state": "blocked",
+    "raw_receipt_storage": "private persistent delegation ledger"
+  },
+  "candidate_sha": "87d4e296d0228663dadf02259d9db0641c9b8597",
+  "dispatcher_status": "MERGE_READY",
+  "verification": {
+    "head_sha": "87d4e296d0228663dadf02259d9db0641c9b8597",
+    "task_digest": "333f9e67e0cda6830d55ef2d0be11b8d2ad7a62e92063e7e3b5ae7872b4bd499",
+    "policy_digest": "65a7c536b1c097ed2f363b4647dbc3d2a579e09317b61787029361b90c267a5c",
+    "checks": [
+      {
+        "name": "pilot-unit",
+        "success": true,
+        "exit_code": 0
+      }
+    ],
+    "passed": true,
+    "runtime_seconds": 0.21522741205990314,
+    "remote": {
+      "base_sha": "e4eb29dd62ded0e587b35a3eab6d35f4c2b44529",
+      "environment": {
+        "python": "3.12.14",
+        "runner_os": "Linux",
+        "source": "github-actions"
+      },
+      "head_sha": "87d4e296d0228663dadf02259d9db0641c9b8597",
+      "policy_digest": "65a7c536b1c097ed2f363b4647dbc3d2a579e09317b61787029361b90c267a5c",
+      "run_attempt": 1,
+      "run_id": 34848798486,
+      "task_digest": "333f9e67e0cda6830d55ef2d0be11b8d2ad7a62e92063e7e3b5ae7872b4bd499",
+      "tested_sha": "87d4e296d0228663dadf02259d9db0641c9b8597",
+      "workflow_ref": "HyungwonPark/ai-company/.github/workflows/automation-evidence.yml@refs/pull/10/merge",
+      "workflow_sha": "799608c48a51a6063848a8862e77d150ced9c0ff",
+      "source": "github",
+      "workflow_id": 357814570,
+      "workflow_digest": "b8cf72b47b143ea7e84227c122e5ba2a9a2b3406ebdcdd881681ed3a3ca09b14",
+      "artifact_id": 10348479607,
+      "check_ids": [
+        103991200063
+      ]
+    }
+  },
+  "reviews": {
+    "reviewer": {
+      "execution_id": "c6a634588fc03e560fcc76a446d2e85bd9ee11df7a3bfe711ceb6f588cb15ffd",
+      "generation": 1,
+      "role": "reviewer",
+      "task_digest": "333f9e67e0cda6830d55ef2d0be11b8d2ad7a62e92063e7e3b5ae7872b4bd499",
+      "policy_digest": "65a7c536b1c097ed2f363b4647dbc3d2a579e09317b61787029361b90c267a5c",
+      "candidate_sha": "87d4e296d0228663dadf02259d9db0641c9b8597",
+      "verification_digest": "068861506f25d1fcf3c229f39db1125413ee8926782ca03f8607e4bfa6dabaa9",
+      "verdict": "PASS",
+      "findings": [],
+      "resolved_findings": [],
+      "summary": "Independently inspected the exact candidate, clean worktree, complete base-to-HEAD diff, and matching file hashes. Implementation satisfies the contract; tests cover all required cases. Changes are limited to the two code/test paths and explicitly authorized CI request metadata. Inspected pilot-unit log reports eight passing tests; supplied remote evidence binds the same candidate, task, and policy. No tests were rerun or files changed. Authorization is recorded as delegated validation, not actual master UI confirmation. Remote provenance was not independently re-fetched; designated final review remains pending. This PASS covers the reviewer stage only."
+    },
+    "final": {
+      "execution_id": "4780cf09b06891e3317c72c4b7f425e10d71084b141784f9c63dc77e9c94d63a",
+      "generation": 2,
+      "role": "final",
+      "task_digest": "333f9e67e0cda6830d55ef2d0be11b8d2ad7a62e92063e7e3b5ae7872b4bd499",
+      "policy_digest": "65a7c536b1c097ed2f363b4647dbc3d2a579e09317b61787029361b90c267a5c",
+      "candidate_sha": "87d4e296d0228663dadf02259d9db0641c9b8597",
+      "verification_digest": "068861506f25d1fcf3c229f39db1125413ee8926782ca03f8607e4bfa6dabaa9",
+      "verdict": "PASS",
+      "findings": [],
+      "resolved_findings": [],
+      "summary": "Independently inspected exact HEAD, clean worktree, complete diff, matching file hashes, source, and tests. The implementation and coverage satisfy the contract; changes remain within explicitly authorized paths. Inspected pilot-unit log records eight passing tests. Supplied verification and current runner records bind remote CI and independent reviewer PASS to this candidate. No pending findings. Authorization represents delegated-client automatic flow validation, not actual master UI confirmation. No files changed or tests rerun. Remote evidence was not independently re-fetched; the runner must record this final report and validate final runtime configuration."
+    }
+  },
+  "executions": [
+    {
+      "logical_task": "role-fa176118587f9398f9b7735cb1d95f38b056b82966cf87ca",
+      "role": "developer",
+      "status": "SESSION_COMPLETED",
+      "session_id": "01a0a011-adb1-79e2-9859-ae94ac1ac612",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "high",
+      "configuration_evidence": {
+        "source": "codex_rollout",
+        "scope": "cli_turn_configuration",
+        "status": "observed",
+        "session_id": "01a0a011-adb1-79e2-9859-ae94ac1ac612",
+        "cli_version": "0.154.0",
+        "contexts": [
+          {
+            "turn_id": "01a0a011-ae6a-7933-be76-930cc2c2d4ae",
+            "model": "gpt-6-astra",
+            "reasoning_effort": "high",
+            "recorded_at": 1789391910.111
+          }
+        ],
+        "backend_model_verified": false
+      },
+      "duration_seconds": 49.61749750887975,
+      "cgroup_stopped": true,
+      "runner_commit": {
+        "source": "runner_commit",
+        "input_sha": "e4eb29dd62ded0e587b35a3eab6d35f4c2b44529",
+        "report_digest": "9eec14d83c4819f80658ca50bcdc6e590b14e7d61fdfee342ce9eecd04ef029b",
+        "spec_digest": "b3f1aa4d7fbb569472dfcabbac4d287ca980c574500c2cf388755292ca793a0e",
+        "execution_id": "27b8f7f8718a1781fcd3aca85087b6157a6e38c73d224ed36bd4d50dd6fb8c6d",
+        "candidate_sha": "ec35276647f63e1f9a70a9d741c7a5fc7adf515e",
+        "tree_sha": "43f644f987a49cfdef06bdac9ad8a4a9ecefc7ed",
+        "paths": [
+          "src/ai_company/pilot_status.py"
+        ]
+      }
+    },
+    {
+      "logical_task": "role-6d8dfa4874ed2d70ffa8e8dcc3f4a6da050ad2b8de5b0a2c",
+      "role": "developer",
+      "status": "SESSION_COMPLETED",
+      "session_id": "01a0a011-af2b-7971-9c6d-2190463c1971",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "high",
+      "configuration_evidence": {
+        "source": "codex_rollout",
+        "scope": "cli_turn_configuration",
+        "status": "observed",
+        "session_id": "01a0a011-af2b-7971-9c6d-2190463c1971",
+        "cli_version": "0.154.0",
+        "contexts": [
+          {
+            "turn_id": "01a0a011-afbd-7c53-b7d2-9cbef47924c8",
+            "model": "gpt-6-astra",
+            "reasoning_effort": "high",
+            "recorded_at": 1789391910.214
+          }
+        ],
+        "backend_model_verified": false
+      },
+      "duration_seconds": 206.06880593998358,
+      "cgroup_stopped": true,
+      "runner_commit": {
+        "source": "runner_commit",
+        "input_sha": "e4eb29dd62ded0e587b35a3eab6d35f4c2b44529",
+        "report_digest": "c6d97f7ae8891344749099a7979b330496c8169b9f738224775b236bc9089698",
+        "spec_digest": "9472c100dc0c1c1a263f643c04e971405ed533892fd212366c31931a9ad374b8",
+        "execution_id": "4c1656fb40326300201ccafbf12f41d1dd555080c339a6994aaf885d3854bdfa",
+        "candidate_sha": "3e4ed902e632407934a5c3a69aa66579858ed2b8",
+        "tree_sha": "a37fe252603bf0817372920cb08e2674a15489f2",
+        "paths": [
+          "tests/test_pilot_status.py"
+        ]
+      }
+    },
+    {
+      "logical_task": "integration-b4bcb1a0fa2a93d2ed084e50c1cacd87ed1c5a8a758aa375",
+      "role": "reviewer",
+      "status": "SESSION_COMPLETED",
+      "session_id": "01a0a017-0781-76a3-a005-411b6dd568e2",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "high",
+      "configuration_evidence": {
+        "source": "codex_rollout",
+        "scope": "cli_turn_configuration",
+        "status": "observed",
+        "session_id": "01a0a017-0781-76a3-a005-411b6dd568e2",
+        "cli_version": "0.154.0",
+        "contexts": [
+          {
+            "turn_id": "01a0a017-0820-7331-9074-6fa29388ee4b",
+            "model": "gpt-6-astra",
+            "reasoning_effort": "high",
+            "recorded_at": 1789392261.762
+          }
+        ],
+        "backend_model_verified": false
+      },
+      "duration_seconds": 48.16182923479937,
+      "cgroup_stopped": true,
+      "runner_commit": null
+    },
+    {
+      "logical_task": "integration-b4bcb1a0fa2a93d2ed084e50c1cacd87ed1c5a8a758aa375",
+      "role": "final",
+      "status": "SESSION_COMPLETED",
+      "session_id": "01a0a017-ccdd-74b1-b372-f4b2d268fbbd",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "ultra",
+      "configuration_evidence": {
+        "source": "codex_rollout",
+        "scope": "cli_turn_configuration",
+        "status": "observed",
+        "session_id": "01a0a017-ccdd-74b1-b372-f4b2d268fbbd",
+        "cli_version": "0.154.0",
+        "contexts": [
+          {
+            "turn_id": "01a0a017-cd5a-7cf2-bde4-8888b0ac8e6a",
+            "model": "gpt-6-astra",
+            "reasoning_effort": "ultra",
+            "recorded_at": 1789392310.975
+          }
+        ],
+        "backend_model_verified": false
+      },
+      "duration_seconds": 171.5044386149384,
+      "cgroup_stopped": true,
+      "runner_commit": null
+    }
+  ],
+  "parallel": {
+    "independent_git_common_dirs": true,
+    "intervals": [
+      {
+        "task_id": "role-fa176118587f9398f9b7735cb1d95f38b056b82966cf87ca",
+        "started_at": 1789391907.80992,
+        "finished_at": 1789391957.5315285
+      },
+      {
+        "task_id": "role-6d8dfa4874ed2d70ffa8e8dcc3f4a6da050ad2b8de5b0a2c",
+        "started_at": 1789391908.1682377,
+        "finished_at": 1789392114.3255074
+      }
+    ],
+    "overlap_seconds": 49.363290786743164
+  },
+  "master_approval": [
+    {
+      "id": "849f6de73d722f1ba2f4c5537111f6a0",
+      "status": "pending",
+      "action": "Accept this candidate and its report; deployment and merge require separate authorization",
+      "artifact_sha": "87d4e296d0228663dadf02259d9db0641c9b8597",
+      "environment": "draft-pr",
+      "subject_digest": "af46f2bb8dfc999bde7c39b7cc51c7a2cf8cd6e319142e59010dacc13e49b245"
+    }
+  ],
+  "cli_unit_states": {
+    "ai-company-run-c33c8eaf189d4f258816cb0fb190a460.service": {
+      "MainPID": "0",
+      "LoadState": "not-found",
+      "ActiveState": "inactive"
+    },
+    "ai-company-run-8aacd8a88a8d48e886bd6821810cc96a.service": {
+      "MainPID": "0",
+      "LoadState": "not-found",
+      "ActiveState": "inactive"
+    },
+    "ai-company-run-ebedb1e0f4114a52ae5d582d3656b645.service": {
+      "MainPID": "0",
+      "LoadState": "not-found",
+      "ActiveState": "inactive"
+    },
+    "ai-company-run-8c6969897cfa4fffb674a1696741a54c.service": {
+      "MainPID": "0",
+      "LoadState": "not-found",
+      "ActiveState": "inactive"
+    }
+  },
+  "host_preservation": {
+    "baseline_unchanged": true,
+    "queue_count": 0,
+    "timer": "ActiveState=active\nUnitFileState=enabled\n",
+    "services": {
+      "app": {
+        "status": "running",
+        "health": "healthy",
+        "restarts": 0
+      },
+      "caddy": {
+        "status": "running",
+        "health": "healthy",
+        "restarts": 0
+      },
+      "db": {
+        "status": "running",
+        "health": "healthy",
+        "restarts": 0
+      },
+      "backup": {
+        "status": "running",
+        "health": null,
+        "restarts": 0
+      }
+    },
+    "restrictions": {
+      "kernel.unprivileged_userns_clone": "1",
+      "kernel.apparmor_restrict_unprivileged_userns": "1"
+    },
+    "apparmor_profile_sha256": "11d39094f044f0cda0febb3ad517b830301da6b2ce929664af09ee9e4dd264f9"
+  },
+  "validation_actor": "Master-delegated validation client, one new run for the exact pre-existing PM proposal; not actual master browser confirmation",
+  "browser_validation": "Separate fixture: sandboxed Chrome desktop/mobile and PM wait/report/approval regressions",
+  "unverified": [
+    "Claude applied effort/Ultracode and dynamic Workflow",
+    "Backend model verification",
+    "Public domain and Android device connection"
+  ],
+  "deployment_performed": false,
+  "merge_performed": false,
+  "result": "PASS: delegated validation client automatic flow reached candidate approval request; no master decision recorded",
+  "pm_proposal": {
+    "reused_exact_proposal": true,
+    "plan_digest": "4062ae815eb9becc85139ab54063e6551293b85068809287eab46e461f9bc6eb",
+    "session_id": "01a09ff2-74de-7142-bfd9-0f018428e3f3",
+    "effort_evidence": "Previously observed Codex CLI ultra configuration; this PM proposal was not regenerated after delegation"
+  },
+  "verification_digest": "068861506f25d1fcf3c229f39db1125413ee8926782ca03f8607e4bfa6dabaa9",
+  "public_record_scope": "Summary: raw delegation text, full execution payloads and check log paths omitted; review reports included. Verification digest refers to the immutable original, not this redacted projection."
+}
