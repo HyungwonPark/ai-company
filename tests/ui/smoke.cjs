@@ -40,11 +40,14 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'password form fits mobile');
     await page.screenshot({path:`${output}/mobile-password-change.png`,fullPage:true});
     await page.getByLabel('현재 비밀번호',{exact:true}).fill(password);
-    await page.getByLabel('새 비밀번호',{exact:true}).fill('browser fixture new passphrase');
+    await page.getByLabel('새 비밀번호',{exact:true}).fill('123456789');
+    assert.equal(await page.locator('#new-password').evaluate(input=>input.validity.tooShort),true,'9 characters are rejected');
+    await page.getByLabel('새 비밀번호',{exact:true}).fill('new-pass10');
+    assert.equal(await page.locator('#new-password').evaluate(input=>input.checkValidity()),true,'10 characters are accepted');
     await page.getByLabel('새 비밀번호 확인',{exact:true}).fill('browser fixture wrong confirmation');
     await page.getByRole('button',{name:'비밀번호 변경 후 계속'}).click();
     await page.getByText('새 비밀번호가 서로 일치하지 않습니다.',{exact:true}).waitFor();
-    await page.getByLabel('새 비밀번호 확인',{exact:true}).fill('browser fixture new passphrase');
+    await page.getByLabel('새 비밀번호 확인',{exact:true}).fill('new-pass10');
     await page.getByRole('button',{name:'비밀번호 변경 후 계속'}).click();
     await page.locator('.nav').waitFor();
     await page.reload();
@@ -266,7 +269,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.equal(stored.cached.some(path=>path.startsWith('/api/')),false,'no authenticated API cache');
     await page.locator('.mobile-logout').click();
     await page.getByRole('heading',{name:'작업 공간에 로그인',exact:true}).waitFor();
-    await page.getByLabel('비밀번호',{exact:true}).fill('browser fixture new passphrase');
+    await page.getByLabel('비밀번호',{exact:true}).fill('new-pass10');
     await page.getByRole('button',{name:'로그인',exact:true}).click();
     await page.locator('.nav').waitFor();
     await page.getByRole('button',{name:'비밀번호 변경',exact:true}).click();

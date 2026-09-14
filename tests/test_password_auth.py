@@ -20,7 +20,7 @@ class PasswordHTTPTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.now = 1000
         self.password = "temporary-fixture-password"
-        self.new_password = "a different long fixture phrase"
+        self.new_password = "new-pass10"
         store = ManagementStore(self.root / "state")
         auth.initialize(store.db)
         with store.db:
@@ -101,7 +101,7 @@ class PasswordHTTPTests(unittest.TestCase):
         for headers in ({"Origin": "https://evil.example"}, {"Host": "talenta-edward.life"},
                         {"X-CSRF-Token": "wrong"}, {"Sec-Fetch-Site": "cross-site"}):
             self.assertEqual(self.change(**headers)[0], 403)
-        for new, code in (("short", "weak_password"), (self.password, "password_reused")):
+        for new, code in (("123456789", "weak_password"), (self.password, "password_reused")):
             response = self.request("POST", "/api/password", {"current_password": self.password, "new_password": new})
             self.assertEqual(response[1]["error"]["code"], code)
         response = self.request("POST", "/api/password", {"current_password": "wrong", "new_password": self.new_password})

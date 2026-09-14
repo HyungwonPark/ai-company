@@ -79,8 +79,8 @@ def issue_user(root, username, destination, *, clock=time.time):
 
 
 def validate_password(password):
-    if not isinstance(password, str) or not 15 <= len(password) <= 128 or not password.strip():
-        raise ManagementError("weak_password", "Use a password of 15–128 characters", 400)
+    if not isinstance(password, str) or not 10 <= len(password) <= 128 or not password.strip():
+        raise ManagementError("weak_password", "Use a password of 10–128 characters", 400)
 
 
 def session(db, hashed, now):

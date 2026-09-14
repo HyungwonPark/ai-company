@@ -38,7 +38,7 @@ ai-company manage create-user --state-dir /path/to/state --username edward \
 The command creates a random 24-character temporary password in a new mode-0600
 file. It does not print the password and refuses existing users/files. Deliver the
 password privately to its owner. It expires after 24 hours. Login grants only the
-password-change page until the owner sets a different password (15–128 characters).
+password-change page until the owner sets a different password (10–128 characters).
 The change requires the current password, same-origin request and session CSRF;
 it rotates the session and invalidates all previous sessions for that account.
 The account menu also allows later changes. Browsers may use their password manager;
