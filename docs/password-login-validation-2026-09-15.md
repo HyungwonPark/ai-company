@@ -3,7 +3,18 @@
 2026-09-15 KST. 사용자가 토큰 대신 아이디 `edward`, 임시 비밀번호 발급 후 변경을 요청했다.
 실제 접속 주소는 **https://hyungwon.cloud**다. 비밀번호 원문은 이 문서·Git·PR에 저장하지 않는다.
 
-## 실제 적용
+## 최소 길이 후속 변경
+
+사용자 요청에 따라 최소 길이를 **10자**로 변경했다. 현재 실행 소스는
+`92bbcf522d58e3f00bfa24505a7626e4da0f5db4`, 이미지는
+`sha256:b97eb71b5e74fc6aefaf4e6cc639f8dbaed5bdbf294760bec6b731a8ddab45a0`이다.
+로컬 인증 검사 7개와 [회귀 CI](https://github.com/HyungwonPark/ai-company/actions/runs/34907582731),
+[브라우저 CI](https://github.com/HyungwonPark/ai-company/actions/runs/34907582728)가 통과했다.
+9자 거부, 10자 변경·재로그인, 실제 배포본의 서버 검증과 HTTPS 화면의 10자 입력 제한을 확인했다.
+계정 레코드와 기존 커플 서비스 프로세스는 그대로이며 계정 발급·비밀번호 변경을 대신 수행하지 않았다.
+실제 적용 기록은 `.ai-company/password-min10-20260915/applied.json`에 보관한다.
+
+## 최초 비밀번호 로그인 적용
 
 - 실행 소스: `e429cd64e4fa6425e0a1b9d1e5e8e56f92c9da80` (초안 PR #8).
 - 이미지: `sha256:dea3e4dd7832b786bd5142119285c5b44a3d35b7144b52d36a540bd225b13651`.
