@@ -154,6 +154,7 @@ class CoordinatorTests(unittest.TestCase):
         self.worker.close(); self.worker = self.open()
         result = self.finish()
         self.assertEqual(result["state"], "fixture_complete", result)
+        self.assertEqual(self.worker.store.overview(self.project["id"])["readiness"]["execution"], "fixture_complete")
         sha = result["integration"]["candidate_sha"]
         self.assertEqual(set(self.checks + self.remotes), {sha})
         state = self.worker.dispatcher.get(result["integration"]["task_id"])

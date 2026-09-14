@@ -298,6 +298,13 @@ class Dispatcher:
         completed_stage = state["stage"]
         state["last_completed_stage"] = completed_stage
         state.update(stage=progress["next_stage"], status=progress["status"], resume_at=self.clock())
+        if state["status"] == "READY":
+            state["reason"] = {"developer": "implementation stage is ready",
+                               "check": "candidate awaits required checks",
+                               "reviewer": "required local and remote checks passed; independent review is ready",
+                               "final": "independent review passed; designated final review is ready",
+                               "gate": "final review passed; remote evidence will be refreshed"}.get(
+                                   state["stage"], "next stage is ready")
         if spec.execution_scope == "planning" and completed_stage == "pm" and verdict == "PASS":
             state.update(stage="pm", status="PLAN_READY", resume_at=None, reason="PM proposal is ready for master confirmation")
         elif spec.execution_scope == "contribution" and completed_stage == "developer" and verdict == "DONE":

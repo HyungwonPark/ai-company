@@ -553,6 +553,9 @@ class ManagementStore:
         if requests:
             latest_state = requests[-1]["state"]
             readiness["pm"] = {"pending": "awaiting_worker", "completed": "plan_proposed"}.get(latest_state, latest_state)
+        if runs:
+            readiness["execution"] = runs[-1]["state"]
+            readiness["execution_mode"] = runs[-1]["mode"]
         project.pop("fixture_tasks", None); project.pop("fixture_reports", None)
         return {"project": project, "roles": roles, "tasks": tasks, "reports": reports, "approvals": approvals,
                 "messages": messages, "harnesses": harnesses, "readiness": readiness, "pm_requests": requests, "plans": plans, "runs": runs}
