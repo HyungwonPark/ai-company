@@ -265,11 +265,20 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.equal(stored.session,0,'no bearer token in sessionStorage');
     assert.equal(stored.cached.some(path=>path.startsWith('/api/')),false,'no authenticated API cache');
     await page.locator('.mobile-logout').click();
-    await page.getByRole('heading',{name:'작업 공간에 연결',exact:true}).waitFor();
+    await page.getByRole('heading',{name:'작업 공간에 로그인',exact:true}).waitFor();
+    await page.getByLabel('비밀번호',{exact:true}).fill('browser fixture new passphrase');
+    await page.getByRole('button',{name:'로그인',exact:true}).click();
+    await page.locator('.nav').waitFor();
+    await page.getByRole('button',{name:'비밀번호 변경',exact:true}).click();
+    await page.getByRole('heading',{name:'비밀번호 변경',exact:true}).waitFor();
+    await page.getByRole('button',{name:'취소',exact:true}).click();
+    await page.locator('.nav').waitFor();
+    await page.locator('.mobile-logout').click();
+    await page.getByRole('heading',{name:'작업 공간에 로그인',exact:true}).waitFor();
     // Resource errors caused by deliberately toggling offline are expected, CSP/JS errors are not.
     const unexpected=failures.filter(message=>!message.includes('ERR_INTERNET_DISCONNECTED')&&!message.includes('Failed to fetch'));
     assert.deepEqual(unexpected,[],'no browser JavaScript/CSP failures');
-    console.log(JSON.stringify({status:'PASS',views:5,mobile_width:360,checks:['fixture labels','parallel role columns','message persistence','draft navigation/polling','project isolation','harness draft','bound approval persistence','stored plan confirmation (fixture)','confirmation response-loss idempotency','stale plan rejection','plan project switch','PM wait navigation','review opinions/candidate/findings (response fixtures)','review HTML escaping','mobile dialog action access','read-only delegated validation provenance (response fixture)','prior blocked run retained','delegation HTML escaping','quota/retry/capacity/handoff rendering (response fixtures)','offline writes','no authenticated caches','no browser errors'],artifacts:output}));
+    console.log(JSON.stringify({status:'PASS',views:5,mobile_width:360,checks:['username/password login','temporary password gate and reload','mobile password change','confirmation mismatch','new password relogin','fixture labels','parallel role columns','message persistence','draft navigation/polling','project isolation','harness draft','bound approval persistence','stored plan confirmation (fixture)','confirmation response-loss idempotency','stale plan rejection','plan project switch','PM wait navigation','review opinions/candidate/findings (response fixtures)','review HTML escaping','mobile dialog action access','read-only delegated validation provenance (response fixture)','prior blocked run retained','delegation HTML escaping','quota/retry/capacity/handoff rendering (response fixtures)','offline writes','no authenticated caches','no browser errors'],artifacts:output}));
   } catch(error) {
     await page.screenshot({path:`${output}/failure.png`,fullPage:true}).catch(()=>{});
     console.error(JSON.stringify({scope:'UI fixture failure',url:page.url(),project:await page.locator('#project-select').inputValue().catch(()=>null),active_view:await page.locator('.nav a[aria-current=page]').getAttribute('aria-label').catch(()=>null)}));
