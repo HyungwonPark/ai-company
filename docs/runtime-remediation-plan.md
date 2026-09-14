@@ -67,20 +67,30 @@ root-owned binary와 profile로 제한하지만 이 경로를 사용하는 **다
 적용될 수 있다**. 완전한 무영향 변경으로 분류하지 않는다. 기존 AppArmor attachment가
 생겼으면 중복 로드하지 않고 충돌부터 해결한다. [공식 Codex sandbox 안내](https://learn.chatgpt.com/docs/sandboxing)
 
-## 마스터 승인에 올릴 적용 순서
+## 승인된 범위와 적용 순서
 
-대상은 이 서버의 `/usr/bin/bwrap` 및 `/etc/apparmor.d/bwrap-userns-restrict`와 해당 kernel
-profile 둘이다. 아래 명령은 **검토용이며 아직 실행하지 않았다**. 승인에는 이 문서의 commit,
-패키지/profile digest, 서버, 30분 이내 점검 창, 추가 결제 없음, 적용/되돌리기 실행자를 묶는다.
-문서나 패키지가 바뀌면 승인을 재검토한다.
+마스터는 2026-09-14에 위 digest의 bubblewrap 패키지와 단일 AppArmor 파일 적용,
+실제 worker 및 허용·비허용 쓰기/네트워크/자식 종료/기존 서비스 검증, 실패 시 신규 실행 중지와
+이번 변경의 되돌리기를 승인했다. 대상은 이 서버의 `/usr/bin/bwrap`,
+`/etc/apparmor.d/bwrap-userns-restrict`와 그 파일의 kernel profile 둘이다.
+기존 파일·프로필 발견 시 덮어쓰지 않고 재검토한다. 운영 timer 전환·배포·자동 병합은 제외한다.
+이 범위의 승인을 다시 요구하지 않는다. 현재 차단은 아래에 기록한 sudo 인증 부재다.
+
+아래 명령은 **미실행 수동 절차**이며 전체 블록을 자동 실행하는 설치기가 아니다.
+인증된 실행자는 각 중단 조건과 되돌리기 절차를 확인한 뒤 단계별로 진행해야 한다.
 
 1. 기존 profile/바이너리가 여전히 없는지, 패키지 simulation이 같은지, 기존 서비스 health와
-   timer/queue baseline이 같은지 확인한다. `sudo aa-status`와 `rg`로 profile 이름·attachment
+   timer/queue baseline이 같은지 확인한다. 컨테이너 상태뿐 아니라 ID, StartedAt, PID,
+   RestartCount도 비교하여 재시작을 놓치지 않는다. root `dpkg --audit`와 현재 패키지 transaction을
+   확인한다. 다른 transaction이나 미구성 패키지가 있으면 중단한다. simulation의 Inst뿐 아니라
+   Conf/Remv/Purg도 검사하여 bubblewrap 외의 변경·구성이 없음을 확인한다.
+   `sudo aa-status`와 `rg`로 profile 이름·attachment
    충돌을 검사한다. 별도 작업은 중단하지 않는다. 기존 큐에는 진단 작업을 넣지 않는다.
 2. 지정 digest의 파일을 root 소유 staging 디렉터리로 복사한 뒤 다시 hash를 검사한다.
    사용자 쓰기 가능한 원본과 root 실행 사이의 교체 위험을 없앤다. 아래 `${...}` 값은 이
    단계에서 사용할 전용 staging 경로는 `/var/tmp/ai-company-bwrap-20260914-reviewed`다.
-   기존에 같은 경로가 있으면 자동 덮어쓰지 말고 멈춘다. rollback backup 경로도 승인 시 고정한다.
+   기존에 같은 경로가 있으면 자동 덮어쓰지 말고 멈춘다. 이번 파일의 rollback 보관 경로는
+   staging 내 `rolled-back-profile`로 한정하며 이 경로가 이미 있어도 멈춘다.
 3. 승인된 패키지·profile만 적용한다. `apparmor_parser`는 이미 있는 도구를 사용한다.
 
 ```bash
@@ -100,12 +110,16 @@ sudo sha256sum "${AI_COMPANY_ROOT_STAGE}/bubblewrap_0.9.0-1ubuntu0.1_arm64.deb" 
   "${AI_COMPANY_ROOT_STAGE}/bwrap-userns-restrict"
 sudo apt-get --simulate install --no-install-recommends \
   "${AI_COMPANY_ROOT_STAGE}/bubblewrap_0.9.0-1ubuntu0.1_arm64.deb"
-# STOP unless only the reviewed bubblewrap package is added, with no upgrade/removal.
+# STOP unless Inst/Conf affect only bubblewrap and dpkg has no pending unrelated work.
+# Recheck both sysctl values are 1 immediately before installation.
 sudo apt-get install --no-install-recommends \
   "${AI_COMPANY_ROOT_STAGE}/bubblewrap_0.9.0-1ubuntu0.1_arm64.deb"
+# Check immediately after package postinst, before loading the profile.
+sysctl kernel.unprivileged_userns_clone kernel.apparmor_restrict_unprivileged_userns
 stat -c '%U:%G %a %n' /usr/bin/bwrap
 # Require root:root, executable, no setuid/setgid, no file capabilities; never chmod +s.
 getcap /usr/bin/bwrap
+# STOP if profile/local includes/loaded attachments now exist; never overwrite.
 sudo install -o root -g root -m 0644 \
   "${AI_COMPANY_ROOT_STAGE}/bwrap-userns-restrict" /etc/apparmor.d/bwrap-userns-restrict
 sudo apparmor_parser --skip-kernel-load --skip-cache /etc/apparmor.d/bwrap-userns-restrict
@@ -149,6 +163,49 @@ workspace-write permission state를 사용해야 한다. credentials나 기존 �
 전역 두 값은 1을 유지하고, 이전 bundled bwrap 실패 상태가 복구되었음을 기록한다.
 기존 profile/binary가 사전 점검 때 존재했다면 이 삭제 절차를 사용하지 않고 원본 복원안을
 새로 검토한다. 기존 timer, 큐, Caddy, Docker Compose 파일을 교체할 단계는 없다.
+
+
+## 2026-09-14 승인 후 사전 점검 결과
+
+19:34 KST 읽기 전용 [점검 스크립트](../scripts/preflight-reviewed-bwrap.py)를 실행했다.
+결과는 `PREFLIGHT_ONLY`이며 설치/격리 성공 결과가 아니다.
+
+- 두 전역 값 모두 `1`; 읽을 수 있는 명시적 sysctl assignment에도 비-1 override가 없다.
+- 지정 package/profile SHA-256 일치. 대상 바이너리, profile, optional local include, staging 경로 없음.
+- local DEB simulation은 bubblewrap의 Inst/Conf만 포함한다. 신규 1, 업그레이드·삭제 0.
+  비-root `dpkg --audit` 출력은 비어 있다. root audit와 transaction 충돌 검사는 미실시다.
+- 운영 timer는 active/enabled, 큐는 0건. 기존 timer/service/Caddy/Compose digest는 직전 기록과 같다.
+  app/caddy/db는 running/healthy, backup은 running이며 healthcheck가 없다.
+  네 컨테이너의 RestartCount는 모두 0; ID/StartedAt/PID를 다음 비교용 기준선에 포함했다.
+- `sudo -n true`는 `sudo: a password is required`로 실패한다. 도구의 승인 실행도 uid1002
+  edward로 실행되므로 root 인증을 대신하지 않는다. sudo 정책이나 그룹 권한은 변경하지 않았다.
+- root의 loaded AppArmor profile 확인, 패키지 설치, profile 로드, 적용 후 제한값 및 실제 worker
+  검증은 **미실시**다. 패키지·profile·staging에 변경이 없으므로 되돌릴 호스트 변경도 없다.
+
+현재 Codex 0.154.0의 진단 명령은 명시적 permission profile을 요구한다.
+아래의 일회성 설정은 구성 파일을 변경하지 않고 기존 bwrap 오류까지 도달했다.
+이는 진단 명령의 옵션 수용 증거이며 실제 worker의 적용 구성 증거가 아니다.
+
+```bash
+/home/edward/.local/bin/codex sandbox -P quota_probe \
+  -c 'permissions.quota_probe.filesystem={ ":root"="read", ":workspace_roots"={"."="write"} }' \
+  -c 'permissions.quota_probe.network.enabled=false' -C /tmp -- /usr/bin/true
+# exit 1: bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted
+```
+
+검수 미완료 자동 설치 초안은 제거했다. 재개 시 자동화한다면 다음 조건을 먼저 충족해야 한다.
+
+1. 실행 전 진단 unit 식별자를 영속 기록하고, controller 종료 후 모든 해당 cgroup의 종료를 확인한다.
+   native adapter의 on_spawn 이후 기록만으로는 프로세스 시작 직후 중단 공백을 보장하지 못한다.
+2. 파일 생성과 profile 로드를 별도로 추적한다. 부분 복사 실패가 파일을 남길 수 있으며,
+   로드하지 않은 profile의 unload 실패 때문에 다른 정리를 생략하면 안 된다.
+3. apt/dpkg 중단 뒤 자식 transaction이 계속 실행 중인지 확인한다. 실행 중인 패키지 작업과
+   rollback을 동시에 진행하지 않는다. 확인할 수 없으면 자동 완료로 보고하지 않는다.
+4. 하나의 정리 실패가 다른 신규 실행 종료나 두 전역 값 검사를 생략하게 하지 않는다.
+   종료·원복이 불확실하면 새 실행을 중단한 상태와 수동 복구 필요 사항을 보고한다.
+
+인증된 서버 터미널을 사용할 수 있게 된 뒤 같은 승인 범위로 재개한다.
+비밀번호를 문서·채팅에 기록하거나 전역 sudo 권한을 추가하는 절차는 포함하지 않는다.
 
 ## 모델 설정의 확인 수준과 다음 근거
 
