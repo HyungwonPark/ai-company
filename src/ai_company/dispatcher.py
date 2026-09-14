@@ -178,7 +178,7 @@ class Dispatcher:
                 raise ExecutionBlocked("fixture mode requires an explicit fixture executor")
             return run_session(provider, worktree, prompt, session_id, **kwargs, model=agent.model,
                                reasoning_effort=agent.reasoning_effort, ultracode_enabled=agent.ultracode_enabled, output_schema=StageReport.model_json_schema(),
-                               permission="workspace-write" if state["stage"] == "developer" else "read-only", isolate_cgroup=True,
+                               permission="workspace-write" if state["stage"] == "developer" else "read-only", isolate_cgroup=True, capture_configuration=True,
                                max_cost_usd=(spec.policy.max_cost_usd - state["usage"]["cost_usd"]
                                              if spec.policy.max_cost_usd is not None else None))
         return execute
@@ -257,30 +257,71 @@ class Dispatcher:
         with self.db:
             self._save(state, "graph_advanced")
 
+    def _ingest_waiting_result(self, state, spec, job):
+        """Commit execution facts once, before any capacity/ownership decision."""
+        active = state["active"]
+        if active.get("waiting_observed_attempts", 0) >= job["attempt_count"]:
+            return
+        agent = next(a for a in spec.agents if a.agent_id == active["agent_id"])
+        # Accounting, author attribution, shared cooldown and observation marker
+        # share one transaction. A crash before commit leaves the fact pending.
+        with self.db:
+            self._consume(state, spec, job)
+            if job["status"] == "WAITING_QUOTA":
+                resume = job["resume_at"] or spec.policy.retry.next_time(
+                    self.clock(), job["retry_count"], 0, job["reset_at"])[0]
+                self.db.execute("""UPDATE quota_groups SET
+                    state=CASE WHEN state IN ('DISABLED','UNKNOWN') THEN state ELSE 'COOLDOWN' END,
+                    resume_at=MAX(COALESCE(resume_at,0),?), reason=? WHERE group_id=?""",
+                    (resume, job["last_category"], agent.quota_group))
+            try:
+                with repository_lock(job["repository_snapshot"]):
+                    if execution_alive(job["process"]) or self.queue._read_guard(job):
+                        raise ExecutionBlocked("saved waiting execution has an unresolved process/guard")
+                    actual = repository_snapshot(Path(spec.worktree))
+                    if actual != job["repository_snapshot"]:
+                        raise ExecutionBlocked("repository differs from the saved waiting execution fact")
+                    for key in ("repository", "git_common_dir", "worktree"):
+                        if actual[key] != state["snapshot"][key]:
+                            raise ExecutionBlocked("waiting execution changed repository identity")
+                    state["snapshot"] = actual
+                    active["input_snapshot"] = actual
+                    bundle = handoff(spec, state, active, self.root / "handoffs" / state["task_id"] /
+                                     active["execution_id"] / ("attempt-" + str(job["attempt_count"])))
+                    active["handoff"] = bundle
+                    # Preserve immutable submission binding; this is execution
+                    # checkpoint data, including the same expected report IDs.
+                    job["checkpoint"] = dict(bundle, expected_report=job["checkpoint"]["expected_report"])
+                    self.queue._save(job)
+                    state.update(status="READY" if job["status"] == "WAITING_QUOTA" else "WAITING_CAPACITY",
+                                 resume_at=self.clock() if job["status"] == "WAITING_QUOTA"
+                                 else job["resume_at"], reason="saved waiting execution observed")
+            except (ExecutionBlocked, OSError, ValueError) as exc:
+                # Even external mutation must not erase actual cost or cooldown.
+                state.update(status="NEEDS_RECONCILIATION", resume_at=None, reason=str(exc))
+            active["waiting_observed_attempts"] = job["attempt_count"]
+            self._save(state, "waiting_result_observed")
+
     def _handle_job(self, state, spec, job):
-        self._consume(state, spec, job)
         active = state["active"]
         agent = next(a for a in spec.agents if a.agent_id == active["agent_id"])
         if job["status"] in ("WAITING_QUOTA", "WAITING_RETRY"):
-            state["snapshot"] = job["repository_snapshot"]
-            active["input_snapshot"] = state["snapshot"]
+            self._ingest_waiting_result(state, spec, job)
+            if state["status"] == "NEEDS_RECONCILIATION":
+                return
             if job["status"] == "WAITING_QUOTA":
-                resume = job["resume_at"] or spec.policy.retry.next_time(self.clock(), job["retry_count"], 0, job["reset_at"])[0]
-                with self.db:
-                    self.db.execute("UPDATE quota_groups SET state='COOLDOWN',resume_at=?,reason=? WHERE group_id=?",
-                                    (resume, job["last_category"], agent.quota_group))
-                    self._save(state, "quota_recorded")
-                eligible, available, times = self._candidates(spec, state, exclude=(agent.agent_id,))
+                _, available, times = self._candidates(spec, state, exclude=(agent.agent_id,))
                 if available and budget_available(state, spec.policy):
                     self._assign(state, spec, available[0], previous=active)
                 elif not job["session_id"]:
                     state.update(status="NEEDS_RECONCILIATION", resume_at=None,
                                  reason="quota has no resumable session and no eligible replacement")
                 else:
-                    self._wait(state, spec, times + [resume])
+                    self._wait(state, spec, times + [job["resume_at"]])
             else:
                 state.update(status="WAITING_CAPACITY", resume_at=job["resume_at"], reason="transient network retry; no provider switch")
         elif job["status"] == "SESSION_COMPLETED":
+            self._consume(state, spec, job)
             report = self.accept_report(state, spec, job)
             state["snapshot"] = job["repository_snapshot"]
             handoff(spec, state, active, self.root / "handoffs" / state["task_id"] / active["execution_id"])
@@ -295,8 +336,10 @@ class Dispatcher:
             self._advance(state, spec, report.verdict)
             return
         elif job["status"] == "NEEDS_CONTEXT_HANDOFF":
+            self._consume(state, spec, job)
             state.update(status="NEEDS_CONTEXT_HANDOFF", resume_at=None, reason="context checkpoint requires a new session")
         elif job["status"] in ("BLOCKED", "NEEDS_RECONCILIATION"):
+            self._consume(state, spec, job)
             state.update(status=job["status"], resume_at=None, reason=job["reason"])
             if job["last_category"] == "authentication":
                 self.db.execute("UPDATE quota_groups SET state='DISABLED',reason='authentication' WHERE group_id=?", (agent.quota_group,))
@@ -425,6 +468,9 @@ class Dispatcher:
                 with self.db:
                     self._save(state, "shared_capacity_wait")
                 return False
+        if job["status"] == "WAITING_QUOTA" and not job["session_id"]:
+            self._handle_job(state, spec, job)
+            return True
         if job["status"] == "WAITING_QUOTA":
             eligible, available, times = self._candidates(spec, state)
             alternative = [a for a in available if a.agent_id != active["agent_id"]]
@@ -448,6 +494,14 @@ class Dispatcher:
 
     def run_once(self):
         with controller_lock(self.root / "dispatcher"):
+            # Observe ALL saved waits before choosing work: otherwise another
+            # task could use an account whose cooldown died with the worker.
+            for pending in self.tasks():
+                active = pending["active"]
+                if active and active["job_id"]:
+                    fact = self.queue.get(active["job_id"])
+                    if fact["status"] in ("WAITING_QUOTA", "WAITING_RETRY"):
+                        self._ingest_waiting_result(pending, FlowSpec.model_validate(pending["specification"]), fact)
             for state in sorted(self.tasks(), key=lambda s: (s["resume_at"] or float("inf"), s["task_id"])):
                 if state["resume_at"] is None or state["resume_at"] > self.clock():
                     continue

@@ -313,7 +313,7 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
                 on_spawn: Callable[[dict], None] | None = None,
                 executable: str | None = None, model: str | None = None,
                 reasoning_effort: str | None = None, ultracode_enabled: bool = False, output_schema: dict | None = None,
-                permission: str | None = None, isolate_cgroup: bool = False, max_cost_usd: float | None = None) -> SessionOutcome:
+                permission: str | None = None, capture_configuration: bool = False, isolate_cgroup: bool = False, max_cost_usd: float | None = None) -> SessionOutcome:
     """Run once and return; never sleep for quota reset or retry a session here."""
     if provider not in {"codex", "claude"}:
         raise ValueError("provider must be codex or claude")
@@ -323,6 +323,7 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
         raise ValueError("Invalid explicit session ID")
     if ultracode_enabled and (provider != "claude" or reasoning_effort != "xhigh"):
         raise ValueError("Ultracode requires Claude with xhigh reasoning")
+    started_at = time.time()
     started = time.monotonic()
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -331,6 +332,7 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
         fd, schema_path = tempfile.mkstemp(prefix="schema-", suffix=".json", dir=output_dir)
         with os.fdopen(fd, "w") as schema_file:
             json.dump(output_schema, schema_file)
+    configuration_request = "configuration-" + uuid4().hex
     argv = [executable or provider]
     if provider == "codex":
         argv += ["exec"]
@@ -350,6 +352,8 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
         argv += ["-"]
     else:
         argv += ["-p", "--output-format", "stream-json", "--verbose"]
+        if capture_configuration:
+            argv += ["--input-format", "stream-json"]
         if session_id is not None:
             argv += ["--resume", session_id]
         if model is not None:
@@ -385,7 +389,13 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
     process = None
     failure = None
     with os.fdopen(out_fd, "wb") as stdout, os.fdopen(err_fd, "wb") as stderr, tempfile.TemporaryFile() as stdin:
-        stdin.write(prompt.encode("utf-8"))
+        if provider == "claude" and capture_configuration:
+            records = [{"type": "control_request", "request_id": configuration_request, "request": {"subtype": "initialize"}},
+                       {"type": "user", "message": {"role": "user", "content": prompt},
+                        "parent_tool_use_id": None, "session_id": session_id or ""}]
+            stdin.write(("\n".join(json.dumps(r) for r in records) + "\n").encode("utf-8"))
+        else:
+            stdin.write(prompt.encode("utf-8"))
         stdin.seek(0)
         try:
             process = subprocess.Popen(argv, cwd=worktree, shell=False, stdin=stdin,
@@ -452,6 +462,11 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
                     continue
                 if not isinstance(event, dict):
                     continue
+                if capture_configuration and provider == "claude":
+                    from ai_company.adapters.configuration_evidence import claude_control_configuration
+                    evidence = claude_control_configuration(event, configuration_request, model)
+                    if evidence:
+                        outcome.result["configuration_evidence"] = evidence
                 if event.get("type") in {"system", "response.completed", "turn.completed"}:
                     if isinstance(event.get("ultracode"), bool):
                         observed_ultracode.add(event["ultracode"])
@@ -476,4 +491,9 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
         outcome.result.update(observed_models=sorted(observed_models), observed_efforts=sorted(observed_efforts),
                               auxiliary_models=sorted(auxiliary_models - observed_models),
                               observed_ultracode=sorted(observed_ultracode), structured_output=payload)
+    if capture_configuration and provider == "codex" and outcome.session_id:
+        from ai_company.adapters.configuration_evidence import codex_turn_configuration
+        outcome.result["configuration_evidence"] = codex_turn_configuration(
+            outcome.session_id, Path(worktree), started_at, time.time(),
+            Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))))
     return outcome

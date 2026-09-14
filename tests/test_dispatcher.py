@@ -179,7 +179,7 @@ class DispatcherTests(FlowFixture):
     def test_09_alive_old_process_prevents_transfer(self):
         self.submit(); self.script=[self.quota()]
         with patch('ai_company.dispatcher.execution_alive',return_value=True): s=self.tick()
-        self.assertEqual(s['status'],'BLOCKED'); self.assertEqual(s['generation'],1)
+        self.assertEqual(s['status'],'NEEDS_RECONCILIATION'); self.assertEqual(s['generation'],1)
 
     def test_10_late_old_result_rejected(self):
         self.submit(); self.script=[self.quota()]; self.tick(); s=self.state(); stale=copy.deepcopy(s)
@@ -336,3 +336,99 @@ else:
         self.dispatcher.executor=dirty
         self.assertEqual(self.tick()['status'],'BLOCKED')
         self.assertIn('uncommitted',self.state()['reason'])
+
+    def crash_after_wait(self, category, *, dirty=False):
+        original=self.dispatcher.executor
+        def execute(*args,**kwargs):
+            if dirty:
+                (self.repo/'src/partial.txt').write_text('persisted partial edit')
+            self.script=[SessionOutcome(category,reset_at=5000 if category=='quota' else None)]
+            return original(*args,**kwargs)
+        self.dispatcher.executor=execute
+        with patch.object(self.dispatcher,'_handle_job',side_effect=Crash()):
+            with self.assertRaises(Crash):self.tick()
+        self.restart()
+
+    def test_quota_fact_crash_recovers_partial_files_usage_author_and_cooldown(self):
+        self.submit();self.crash_after_wait('quota',dirty=True)
+        self.assertEqual(self.state()['usage']['executions'],0)
+        self.tick();s=self.state()
+        self.assertEqual(s['active']['agent_id'],'claude')
+        self.assertEqual(s['usage']['executions'],1)
+        self.assertEqual(s['usage']['runtime_seconds'],2)
+        self.assertAlmostEqual(s['usage']['cost_usd'],.1)
+        self.assertEqual(s['authors'],[{'provider':'codex','session_id':'session-1'}])
+        self.assertEqual(self.dispatcher.db.execute("SELECT resume_at FROM quota_groups WHERE group_id='codex-shared'").fetchone()[0],5030)
+        self.assertIn('src/partial.txt',[f['path'] for f in s['active']['handoff']['files']])
+        self.restart();self.tick();self.assertEqual(self.state()['usage']['executions'],2)
+        self.assertEqual(self.calls[-1]['agent'],'claude')
+
+    def test_retry_fact_crash_recovers_before_same_session_resume_once(self):
+        self.submit();self.crash_after_wait('transient_network',dirty=True)
+        self.tick();s=self.state()
+        self.assertEqual(s['usage']['executions'],1);self.assertEqual(len(self.calls),1)
+        self.assertEqual(s['active']['session_id'],'session-1')
+        self.assertEqual(self.dispatcher.db.execute("SELECT state FROM quota_groups WHERE group_id='codex-shared'").fetchone()[0],'AVAILABLE')
+        self.restart();self.tick();self.assertEqual(self.state()['usage']['executions'],1)
+        self.now=s['resume_at'];self.tick()
+        self.assertEqual(self.calls[-1]['session_id'],'session-1')
+        self.assertEqual(self.state()['usage']['executions'],2)
+
+    def test_quota_fact_crash_blocks_external_change_but_preserves_accounting(self):
+        self.submit();self.crash_after_wait('quota',dirty=True)
+        (self.repo/'src/partial.txt').write_text('external change after completed CLI')
+        self.tick();s=self.state()
+        self.assertEqual(s['status'],'NEEDS_RECONCILIATION');self.assertEqual(len(self.calls),1)
+        self.assertEqual(s['usage']['executions'],1);self.assertEqual(len(s['authors']),1)
+        self.assertEqual(self.dispatcher.db.execute("SELECT state FROM quota_groups WHERE group_id='codex-shared'").fetchone()[0],'COOLDOWN')
+
+    def test_quota_fact_recovered_before_other_task_assignment(self):
+        self.submit();self.crash_after_wait('quota')
+        other=self.spec.model_copy(update={'task':self.task.model_copy(update={'task_id':'aaa-independent'})})
+        self.dispatcher.submit(other);self.dispatcher.run_once()
+        self.assertEqual(self.calls[-1]['agent'],'claude')
+        self.assertEqual(self.state()['usage']['executions'],1)
+
+    def test_crash_after_fact_commit_before_assignment_does_not_recount(self):
+        self.submit();self.crash_after_wait('quota',dirty=True)
+        with patch.object(self.dispatcher,'_tick',side_effect=Crash()):
+            with self.assertRaises(Crash):self.tick()
+        self.assertEqual(self.state()['usage']['executions'],1)
+        self.restart();self.tick()
+        self.assertEqual(self.state()['active']['agent_id'],'claude')
+        self.assertEqual(self.state()['usage']['executions'],1)
+        self.assertEqual(len(self.state()['authors']),1)
+
+    def test_crash_inside_fact_transaction_rolls_back_marker_and_accounting(self):
+        self.submit();self.crash_after_wait('quota',dirty=True)
+        save=self.dispatcher._save
+        def fail_save(state,kind):
+            if kind=='waiting_result_observed':raise Crash()
+            return save(state,kind)
+        with patch.object(self.dispatcher,'_save',side_effect=fail_save):
+            with self.assertRaises(Crash):self.tick()
+        self.restart();self.assertEqual(self.state()['usage']['executions'],0)
+        self.tick();self.assertEqual(self.state()['usage']['executions'],1)
+        self.assertEqual(self.state()['active']['agent_id'],'claude')
+
+    def test_quota_recovery_before_same_session_resume_preserves_old_attempt(self):
+        policy=self.spec.policy.model_copy(update={'candidates':dict(self.spec.policy.candidates,developer=('astra',))})
+        self.submit(self.spec.model_copy(update={'policy':policy}));self.crash_after_wait('quota',dirty=True)
+        self.now=6000;self.tick()
+        self.assertEqual(self.calls[-1]['session_id'],'session-1')
+        self.assertEqual(self.state()['usage']['executions'],2)
+        self.assertEqual(self.state()['usage']['runtime_seconds'],4)
+        self.assertAlmostEqual(self.state()['usage']['cost_usd'],.2)
+
+    def test_quota_fact_recovers_committed_head_before_handoff(self):
+        self.submit();original=self.dispatcher.executor
+        def commit_then_limit(*args,**kwargs):
+            (self.repo/'src/partial.txt').write_text('committed before quota');self.commit()
+            self.script=[self.quota()];return original(*args,**kwargs)
+        self.dispatcher.executor=commit_then_limit
+        with patch.object(self.dispatcher,'_handle_job',side_effect=Crash()):
+            with self.assertRaises(Crash):self.tick()
+        head=self.git('rev-parse','HEAD');self.restart();self.tick()
+        self.assertEqual(self.state()['snapshot']['head_commit'],head)
+        self.assertEqual(self.state()['active']['agent_id'],'claude')
+        self.assertEqual(self.state()['usage']['executions'],1)

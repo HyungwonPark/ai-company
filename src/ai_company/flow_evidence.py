@@ -12,6 +12,7 @@ import os
 import shutil
 from uuid import uuid4
 from zipfile import ZipFile
+from urllib.parse import quote
 
 from ai_company.contracts import digest
 from ai_company.flow_contracts import FlowSpec
@@ -128,15 +129,17 @@ class Verifier:
     def remote(self, spec: FlowSpec, state: dict) -> dict | None:
         if spec.remote_ci is None:
             return None
-        policy = spec.remote_ci
-        repo = spec.task.repository
+        policy, repo = spec.remote_ci, spec.task.repository
+        path = policy.trusted_workflow_path
+        if not re.fullmatch(r"\.github/workflows/[A-Za-z0-9_.-]+\.ya?ml", path):
+            raise ExecutionBlocked("approved workflow must be a repository workflow file")
         pr = self._api(f"repos/{repo}/pulls/{policy.pr_number}")
-        head, base, tested = pr["head"]["sha"], pr["base"]["sha"], pr.get("merge_commit_sha")
+        head, base, merge = pr["head"]["sha"], pr["base"]["sha"], pr.get("merge_commit_sha")
         if head != state["snapshot"]["head_commit"] or base != spec.task.base_sha:
             return None
-        content = self._api(f"repos/{repo}/contents/{policy.trusted_workflow_path}?ref={head}")
-        if sha256(base64.b64decode(content["content"])).hexdigest() != policy.trusted_workflow_digest:
-            raise ExecutionBlocked("CI workflow differs from the approved definition")
+        approved = self._api(f"repos/{repo}/actions/workflows/{quote(Path(path).name)}")
+        if approved.get("path") != path or not isinstance(approved.get("id"), int):
+            raise ExecutionBlocked("approved workflow identity cannot be resolved")
         checks = self._api(f"repos/{repo}/commits/{head}/check-runs?per_page=100")["check_runs"]
         required = []
         for name in policy.required_checks:
@@ -144,36 +147,82 @@ class Verifier:
             if not matching:
                 return None
             latest = max(matching, key=lambda c: c["id"])
-            if latest.get("app", {}).get("slug") != "github-actions":
-                return None
-            if latest["head_sha"] != head or latest["status"] != "completed" or latest["conclusion"] != "success":
+            if (latest.get("app", {}).get("slug") != "github-actions" or latest["head_sha"] != head
+                    or latest["status"] != "completed" or latest["conclusion"] != "success"):
                 return None
             required.append(latest)
-        runs = {int(m.group(1)) for c in required
-                if (m := re.search(r"/actions/runs/(\d+)", c.get("details_url", "")))}
-        if len(runs) != 1:
+        # URLs locate a run; they are not proof that a check belongs to it.
+        located = [re.fullmatch(r"https://github\.com/" + re.escape(repo)
+                               + r"/actions/runs/(\d+)(?:/job/\d+)?", c.get("details_url", "")) for c in required]
+        if not all(located) or len({m.group(1) for m in located}) != 1:
             return None
-        run_id = runs.pop()
+        run_id = int(located[0].group(1))
         run = self._api(f"repos/{repo}/actions/runs/{run_id}")
-        if run["head_sha"] != head or run["conclusion"] != "success":
+        if (run.get("id") != run_id or run.get("workflow_id") != approved["id"] or run.get("path") != path
+                or run.get("repository", {}).get("full_name") != repo or run.get("head_sha") != head
+                or run.get("status") != "completed" or run.get("conclusion") != "success"
+                or run.get("referenced_workflows") or not isinstance(run.get("check_suite_id"), int)):
             return None
+        # Support only events whose workflow definition ref we can establish.
+        if run.get("event") == "pull_request" and merge:
+            workflow_sha = merge
+            workflow_ref = f"{repo}/{path}@refs/pull/{policy.pr_number}/merge"
+        elif run.get("event") in ("push", "workflow_dispatch") and run.get("head_branch"):
+            workflow_sha = head
+            workflow_ref = f"{repo}/{path}@refs/heads/{run['head_branch']}"
+        else:
+            return None
+        for commit in {head, workflow_sha}:
+            content = self._api(f"repos/{repo}/contents/{path}?ref={commit}")
+            if sha256(base64.b64decode(content["content"])).hexdigest() != policy.trusted_workflow_digest:
+                raise ExecutionBlocked("executed CI workflow differs from the approved definition")
+        attempt = run.get("run_attempt")
+        if not isinstance(attempt, int) or attempt < 1:
+            return None
+        jobs = self._api(f"repos/{repo}/actions/runs/{run_id}/attempts/{attempt}/jobs?per_page=100")["jobs"]
+        for check in required:
+            if check.get("check_suite", {}).get("id") != run.get("check_suite_id"):
+                return None
+            owners = [j for j in jobs if j.get("check_run_url") == f"https://api.github.com/repos/{repo}/check-runs/{check['id']}"]
+            if len(owners) != 1:
+                return None
+            job = owners[0]
+            if (job.get("run_id"), job.get("run_attempt"), job.get("head_sha"), job.get("name"),
+                    job.get("status"), job.get("conclusion")) != (run_id, attempt, head, check["name"], "completed", "success"):
+                return None
         artifacts = self._api(f"repos/{repo}/actions/runs/{run_id}/artifacts")["artifacts"]
         matches = [a for a in artifacts if a["name"] == policy.attestation_artifact and not a["expired"]]
         if len(matches) != 1 or matches[0]["size_in_bytes"] > 1_000_000:
             return None
-        data = self._api(f"repos/{repo}/actions/artifacts/{matches[0]['id']}/zip", raw=True)
+        artifact = self._api(f"repos/{repo}/actions/artifacts/{matches[0]['id']}")
+        if (artifact.get("id") != matches[0]["id"] or artifact.get("name") != policy.attestation_artifact
+                or artifact.get("expired") is not False or artifact.get("size_in_bytes", 1_000_001) > 1_000_000
+                or artifact.get("workflow_run", {}).get("id") != run_id
+                or artifact.get("workflow_run", {}).get("head_sha") != head):
+            return None
+        data = self._api(f"repos/{repo}/actions/artifacts/{artifact['id']}/zip", raw=True)
+        if len(data) > 1_000_000:
+            raise ExecutionBlocked("CI artifact exceeds its size limit")
         with ZipFile(BytesIO(data)) as archive:
+            if archive.namelist().count("evidence.json") != 1:
+                raise ExecutionBlocked("CI artifact has ambiguous attestation entries")
             info = archive.getinfo("evidence.json")
             if info.file_size > 64_000:
                 raise ExecutionBlocked("CI attestation exceeds its size limit")
             attestation = json.loads(archive.read(info))
         expected = {"head_sha": head, "base_sha": base, "task_digest": digest(spec.task),
-                    "policy_digest": digest(spec.policy), "run_id": run_id}
+                    "policy_digest": digest(spec.policy), "run_id": run_id, "run_attempt": attempt,
+                    "workflow_ref": workflow_ref, "workflow_sha": workflow_sha}
         if any(attestation.get(k) != v for k, v in expected.items()):
             return None
-        if not attestation.get("tested_sha") or attestation["tested_sha"] not in {head, tested}:
+        if not attestation.get("tested_sha") or attestation["tested_sha"] not in {head, merge}:
             return None
         current = self._api(f"repos/{repo}/pulls/{policy.pr_number}")
-        if (current["head"]["sha"], current["base"]["sha"]) != (head, base):
+        current_run = self._api(f"repos/{repo}/actions/runs/{run_id}")
+        if ((current["head"]["sha"], current["base"]["sha"], current.get("merge_commit_sha")) != (head, base, merge)
+                or any(current_run.get(k) != run.get(k) for k in
+                       ("workflow_id", "path", "head_sha", "run_attempt", "status", "conclusion", "check_suite_id"))):
             return None
-        return {**attestation, "source": "github", "check_ids": [c["id"] for c in required]}
+        return {**attestation, "source": "github", "workflow_id": approved["id"],
+                "workflow_digest": policy.trusted_workflow_digest, "artifact_id": artifact["id"],
+                "check_ids": [c["id"] for c in required]}

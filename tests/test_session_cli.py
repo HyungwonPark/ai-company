@@ -324,5 +324,18 @@ class SessionCliTests(unittest.TestCase):
         self.assertTrue(service_alive('unrelated-operating-service.service'))
 
 
+    def test_claude_configuration_capture_uses_control_and_user_records(self):
+        self.fixture([{'type':'system','subtype':'init','session_id':'session-1','model':'claude-opus-5'},
+                      {'type':'result','session_id':'session-1','subtype':'success','is_error':False}])
+        result=self.run_cli(provider='claude',model='claude-opus-5',reasoning_effort='xhigh',
+                            ultracode_enabled=True,capture_configuration=True)
+        invocation=json.loads((self.worktree/'invocation.json').read_text())
+        records=[json.loads(line) for line in invocation['stdin'].splitlines()]
+        self.assertEqual(records[0]['type'],'control_request')
+        self.assertEqual(records[1]['message']['content'],'resume checkpoint\n')
+        self.assertIn('--input-format',invocation['argv'])
+        self.assertEqual(result.result['observed_efforts'],[])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -113,3 +113,8 @@ rollback도 새 이행 기록을 만들고 현재 누적 사용량은 유지한�
 이 도구는 기존 디렉터리 교체를 거부하고 `fixture/flow-proof` 저장소·fixture 큐만 다룬다.
 
 실제 서버 결과와 남은 제약은 [검증 기록](flow-validation-2026-09-14.md)을 참고한다.
+
+## PR #5 검수 수정
+
+대기 결과 commit 직후 중단 복구, 실제 CI workflow/run/attempt 출처 검증, 설정 근거 및 bwrap 최소 재현은
+[추가 검수 수정 기록](pr5-review-fixes.md)에 정리했다. 신규 CI producer는 workflow ref/SHA/attempt를 포함한다.

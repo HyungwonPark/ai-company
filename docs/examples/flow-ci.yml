@@ -32,7 +32,9 @@ jobs:
           assert tested == os.environ['HEAD_SHA']
           assert spec['task']['base_sha'] == os.environ['BASE_SHA']
           evidence = dict(head_sha=os.environ['HEAD_SHA'], base_sha=os.environ['BASE_SHA'], tested_sha=tested,
-                          task_digest=digest(spec['task']), policy_digest=digest(spec['policy']), run_id=int(os.environ['GITHUB_RUN_ID']))
+                          task_digest=digest(spec['task']), policy_digest=digest(spec['policy']), run_id=int(os.environ['GITHUB_RUN_ID']),
+                          run_attempt=int(os.environ['GITHUB_RUN_ATTEMPT']), workflow_ref=os.environ['GITHUB_WORKFLOW_REF'],
+                          workflow_sha=os.environ['GITHUB_WORKFLOW_SHA'])
           pathlib.Path('evidence.json').write_text(json.dumps(evidence))
           PY
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

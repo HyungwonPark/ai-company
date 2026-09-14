@@ -99,3 +99,5 @@ uv run --frozen ai-company demo --task examples/demo-task.json
 실제 후보 활성화에는 모델/effort/Ultracode의 권위 있는 실행 메타데이터 연결,
 현재 서버의 허용된 샌드박스 실행 경로, 해당 실제 작업의 원격 checkout attestation이 추가로 필요하다.
 이 근거가 없는 후보를 다른 모델로 대체하거나 최종 승인을 생략하지 않는다.
+
+추가 검수에서 재현한 두 결함의 수정과 후속 실사용 점검은 [PR #5 검수 수정](pr5-review-fixes.md)에 기록했다.
