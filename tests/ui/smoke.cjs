@@ -27,6 +27,12 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.goto(base);
     assert.equal(await page.getByLabel('아이디',{exact:true}).inputValue(),'edward');
     assert.equal(await page.getByLabel('접근 토큰',{exact:true}).count(),0);
+    await page.screenshot({path:`${output}/desktop-login.png`,fullPage:true});
+    await page.setViewportSize({width:360,height:800});
+    await page.screenshot({path:`${output}/mobile-login.png`,fullPage:true});
+    await page.setViewportSize({width:800,height:360});
+    await page.screenshot({path:`${output}/landscape-login.png`,fullPage:true});
+    await page.setViewportSize({width:1440,height:1000});
     await page.getByLabel('비밀번호',{exact:true}).fill(password);
     await page.getByRole('button',{name:'로그인',exact:true}).click();
     await page.getByRole('heading',{name:'비밀번호 변경',exact:true}).waitFor();
@@ -268,7 +274,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.equal(stored.session,0,'no bearer token in sessionStorage');
     assert.equal(stored.cached.some(path=>path.startsWith('/api/')),false,'no authenticated API cache');
     await page.locator('.mobile-logout').click();
-    await page.getByRole('heading',{name:'작업 공간에 로그인',exact:true}).waitFor();
+    await page.getByRole('heading',{name:'AI Company',exact:true}).waitFor();
     await page.getByLabel('비밀번호',{exact:true}).fill('new-pass10');
     await page.getByRole('button',{name:'로그인',exact:true}).click();
     await page.locator('.nav').waitFor();
@@ -277,7 +283,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.getByRole('button',{name:'취소',exact:true}).click();
     await page.locator('.nav').waitFor();
     await page.locator('.mobile-logout').click();
-    await page.getByRole('heading',{name:'작업 공간에 로그인',exact:true}).waitFor();
+    await page.getByRole('heading',{name:'AI Company',exact:true}).waitFor();
     // Resource errors caused by deliberately toggling offline are expected, CSP/JS errors are not.
     const unexpected=failures.filter(message=>!message.includes('ERR_INTERNET_DISCONNECTED')&&!message.includes('Failed to fetch'));
     assert.deepEqual(unexpected,[],'no browser JavaScript/CSP failures');
