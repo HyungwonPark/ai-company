@@ -142,9 +142,16 @@ if (!base || !token || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(bas
     await page.getByRole('region',{name:'자동 실행'}).waitFor();
     await page.getByText(confirmed.runs[0].id,{exact:true}).waitFor();
 
-    await page.locator('.nav').getByRole('link',{name:'매니저',exact:true}).click();
-    await page.locator('#project-select').selectOption(staleFixture.project_id);
-    await page.getByRole('button',{name:'계획 검토·확정'}).click();
+    // Switch view and project in one browser turn, before the queued hashchange fires.
+    // Navigation must not let the old progress view overwrite the manager fragment.
+    await page.evaluate(project=>{
+      document.querySelector('.nav a[aria-label="매니저"]').click();
+      const picker=document.querySelector('#project-select');
+      picker.value=project;picker.dispatchEvent(new Event('change',{bubbles:true}));
+    },staleFixture.project_id);
+    await page.locator(`.plan[data-plan-id="${staleFixture.plan_id}"]`).waitFor();
+    assert.equal(await page.locator('.nav a[aria-current=page]').getAttribute('aria-label'),'매니저','immediate project switch retains the requested view');
+    await page.locator(`.plan[data-plan-id="${staleFixture.plan_id}"]`).getByRole('button',{name:'계획 검토·확정'}).click();
     await page.getByLabel('역할·허용 경로·완료 기준을 확인했습니다.').check();
     // Another authenticated client revises the request after the master opened the plan.
     const revised = await page.evaluate(async project=>{
@@ -205,5 +212,9 @@ if (!base || !token || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(bas
     const unexpected=failures.filter(message=>!message.includes('ERR_INTERNET_DISCONNECTED')&&!message.includes('Failed to fetch'));
     assert.deepEqual(unexpected,[],'no browser JavaScript/CSP failures');
     console.log(JSON.stringify({status:'PASS',views:5,mobile_width:360,checks:['fixture labels','parallel role columns','message persistence','draft navigation/polling','project isolation','harness draft','bound approval persistence','stored plan confirmation (fixture)','confirmation response-loss idempotency','stale plan rejection','plan project switch','PM wait navigation','quota/retry/capacity/handoff rendering (response fixtures)','offline writes','no authenticated caches','no browser errors'],artifacts:output}));
+  } catch(error) {
+    await page.screenshot({path:`${output}/failure.png`,fullPage:true}).catch(()=>{});
+    console.error(JSON.stringify({scope:'UI fixture failure',url:page.url(),project:await page.locator('#project-select').inputValue().catch(()=>null),active_view:await page.locator('.nav a[aria-current=page]').getAttribute('aria-label').catch(()=>null)}));
+    throw error;
   } finally { await browser.close(); }
 })().catch(error=>{console.error(error.stack||error.message);process.exitCode=1;});

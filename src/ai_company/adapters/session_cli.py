@@ -19,6 +19,7 @@ import time
 from typing import Callable
 from uuid import uuid4
 import shutil
+import copy
 
 
 @dataclass
@@ -28,6 +29,28 @@ class SessionOutcome:
     reset_at: float | None = None
     message: str = ""
     result: dict | None = None
+
+
+def codex_output_schema(schema: dict) -> dict:
+    """Codex's strict response format requires every declared property.
+
+    Pydantic defaults affect local validation, but must not make fields optional
+    on the provider wire. Preserve the caller's schema and nullable alternatives.
+    """
+    result = copy.deepcopy(schema)
+    def visit(node):
+        if isinstance(node, dict):
+            if node.get("type") == "object" and "properties" in node:
+                node["required"] = list(node["properties"])
+                node["additionalProperties"] = False
+            node.pop("default", None)
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value)
+    visit(result)
+    return result
 
 
 # Structured provider codes, not arbitrary strings found in command output.
@@ -331,7 +354,7 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
     if output_schema is not None:
         fd, schema_path = tempfile.mkstemp(prefix="schema-", suffix=".json", dir=output_dir)
         with os.fdopen(fd, "w") as schema_file:
-            json.dump(output_schema, schema_file)
+            json.dump(codex_output_schema(output_schema) if provider == "codex" else output_schema, schema_file)
     configuration_request = "configuration-" + uuid4().hex
     argv = [executable or provider]
     if provider == "codex":
