@@ -37,7 +37,22 @@ def main() -> int:
             child.add_argument("--retry-policy", type=Path, help="immutable retry and execution limits JSON")
         elif action in ("status", "handoff"):
             child.add_argument("--job-id", required=action == "handoff")
+    flow = commands.add_parser("flow", help="durable role allocation and development/review loop")
+    flow_actions = flow.add_subparsers(dest="flow_action", required=True)
+    for action in ("submit", "status", "worker", "context-handoff", "migrate-policy", "rollback-policy"):
+        child = flow_actions.add_parser(action)
+        child.add_argument("--state-dir", type=Path, default=Path(".ai-company/flows"))
+        if action in ("submit", "migrate-policy"):
+            child.add_argument("--spec", type=Path, required=True)
+        if action in ("status", "context-handoff", "migrate-policy"):
+            child.add_argument("--task-id", required=action != "status")
+        if action == "rollback-policy":
+            child.add_argument("--migration-id", required=True)
+        if action in ("migrate-policy", "rollback-policy"):
+            child.add_argument("--reason", required=True)
     args = parser.parse_args()
+    if args.command == "flow":
+        return flow_command(args)
     if args.command == "session":
         return session_command(args)
     if not 0 <= args.reject_first <= 20:
@@ -87,6 +102,38 @@ def session_command(args) -> int:
     # The worker completed its bounded scheduling pass even if the task is blocked.
     # Persisted states, not service restarts, govern all future retry decisions.
     return 0
+
+
+def flow_command(args) -> int:
+    from ai_company.dispatcher import Dispatcher
+    from ai_company.flow_contracts import FlowSpec
+    dispatcher = None
+    try:
+        dispatcher = Dispatcher(args.state_dir)
+        if args.flow_action == "submit":
+            result = dispatcher.submit(FlowSpec.model_validate_json(args.spec.read_text()))
+        elif args.flow_action == "worker":
+            result = dispatcher.run_once()
+        elif args.flow_action == "context-handoff":
+            result = dispatcher.context_handoff(args.task_id)
+        elif args.flow_action == "migrate-policy":
+            result = dispatcher.migrate_policy(args.task_id, FlowSpec.model_validate_json(args.spec.read_text()), args.reason)
+        elif args.flow_action == "rollback-policy":
+            result = dispatcher.rollback_policy(args.migration_id, args.reason)
+        else:
+            result = dispatcher.get(args.task_id) if args.task_id else dispatcher.tasks()
+        keys = ("task_id", "status", "stage", "reason", "generation", "resume_at", "usage", "migration_id")
+        def public(record):
+            return {k: record[k] for k in keys if k in record}
+        print(json.dumps([public(r) for r in result] if isinstance(result, list) else public(result),
+                         ensure_ascii=False, indent=2))
+        return 0
+    except (ExecutionBlocked, ValidationError, OSError, ValueError) as exc:
+        print(json.dumps({"status": "BLOCKED", "reason": str(exc)}, ensure_ascii=False))
+        return 2
+    finally:
+        if dispatcher:
+            dispatcher.close()
 
 
 if __name__ == "__main__":

@@ -284,5 +284,58 @@ class SessionCliTests(unittest.TestCase):
         self.assertTrue(Path(first.result["stdout_path"]).exists())
 
 
+    def test_ultracode_new_and_resume_preserve_separate_settings(self):
+        for sid in (None, 'session-1'):
+            with self.subTest(session=sid):
+                self.fixture([{'type':'system','subtype':'init','session_id':'session-1','model':'claude-opus-5',
+                               'effort':'xhigh','ultracode':True},
+                              {'type':'result','session_id':'session-1','subtype':'success','is_error':False,
+                               'modelUsage':{'claude-opus-5':{},'claude-haiku-4-5':{}}}])
+                outcome=self.run_cli(provider='claude',session_id=sid,model='claude-opus-5',
+                                     reasoning_effort='xhigh',ultracode_enabled=True)
+                argv=json.loads((self.worktree/'invocation.json').read_text())['argv']
+                self.assertEqual(argv[argv.index('--effort')+1],'ultracode')
+                self.assertEqual(outcome.result['requested_effort'],'xhigh')
+                self.assertEqual(outcome.result['observed_models'],['claude-opus-5'])
+                self.assertEqual(outcome.result['auxiliary_models'],['claude-haiku-4-5'])
+                self.assertEqual(outcome.result['observed_ultracode'],[True])
+
+    def test_codex_new_and_resume_preserve_model_effort_schema(self):
+        for sid in (None, 'session-1'):
+            self.fixture([{'type':'thread.started','thread_id':'session-1'},{'type':'turn.completed'}])
+            outcome=self.run_cli(session_id=sid,model='gpt-6-astra',reasoning_effort='high',
+                                 output_schema={'type':'object','properties':{},'additionalProperties':False})
+            argv=json.loads((self.worktree/'invocation.json').read_text())['argv']
+            self.assertIn('model_reasoning_effort="high"',argv)
+            self.assertEqual(argv[argv.index('--model')+1],'gpt-6-astra')
+            self.assertTrue(Path(argv[argv.index('--output-schema')+1]).is_file())
+            self.assertEqual(outcome.result['observed_efforts'],[])
+
+    def test_unknown_or_active_workflow_cgroup_prevents_termination_claim(self):
+        from unittest.mock import patch
+        from ai_company.adapters.session_cli import service_alive
+        from ai_company.sessions import execution_alive
+        import subprocess
+        unit='ai-company-run-'+'a'*32+'.service'
+        with patch('ai_company.adapters.session_cli.subprocess.run',return_value=subprocess.CompletedProcess([],0,'LoadState=loaded\nActiveState=active\nControlGroup=\n','')):
+            self.assertTrue(service_alive(unit))
+            self.assertTrue(execution_alive({'boot_id':Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
+                                            'pgid':99999999,'systemd_unit':unit}))
+        self.assertTrue(service_alive('unrelated-operating-service.service'))
+
+
+    def test_claude_configuration_capture_uses_control_and_user_records(self):
+        self.fixture([{'type':'system','subtype':'init','session_id':'session-1','model':'claude-opus-5'},
+                      {'type':'result','session_id':'session-1','subtype':'success','is_error':False}])
+        result=self.run_cli(provider='claude',model='claude-opus-5',reasoning_effort='xhigh',
+                            ultracode_enabled=True,capture_configuration=True)
+        invocation=json.loads((self.worktree/'invocation.json').read_text())
+        records=[json.loads(line) for line in invocation['stdin'].splitlines()]
+        self.assertEqual(records[0]['type'],'control_request')
+        self.assertEqual(records[1]['message']['content'],'resume checkpoint\n')
+        self.assertIn('--input-format',invocation['argv'])
+        self.assertEqual(result.result['observed_efforts'],[])
+
+
 if __name__ == "__main__":
     unittest.main()

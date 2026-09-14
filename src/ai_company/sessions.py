@@ -142,6 +142,10 @@ def execution_alive(identity: dict | None) -> bool:
         boot = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
         if identity.get("boot_id") != boot:
             return False
+        if identity.get("systemd_unit"):
+            from ai_company.adapters.session_cli import service_alive
+            if service_alive(identity["systemd_unit"]):
+                return True
         pgid = int(identity["pgid"])
         if pgid <= 1:
             return True
@@ -208,13 +212,17 @@ class SessionQueue:
         self.db.execute("INSERT INTO session_events(job_id, occurred_at, document) VALUES (?, ?, ?)",
                         (job["job_id"], self.clock(), json.dumps(job, ensure_ascii=False)))
 
-    def submit(self, spec: SessionSpec) -> dict:
+    def submit(self, spec: SessionSpec, *, execution_key: str | None = None,
+               managed_by: str | None = None) -> dict:
         # Never trust model_copy/model_construct to bypass contract validation.
         spec = SessionSpec.model_validate(spec.model_dump(mode="json"))
         normalized = spec.model_dump(mode="json")
         normalized["worktree"] = str(Path(spec.worktree).resolve())
         binding = digest(normalized)
-        job_id = digest({"task_id": spec.task.task_id, "agent_id": spec.agent_id})
+        identity = {"task_id": spec.task.task_id, "agent_id": spec.agent_id}
+        if execution_key is not None:
+            identity["execution_key"] = execution_key
+        job_id = digest(identity)
         existing = self.db.execute("SELECT binding FROM session_jobs WHERE job_id=?", (job_id,)).fetchone()
         if existing:
             if existing[0] != binding:
@@ -236,6 +244,8 @@ class SessionQueue:
                        reset_at=None, lease_owner=None, lease_until=None, process=None,
                        last_category=None, result=None, handoff_count=0, previous_sessions=[],
                        created_at=now, updated_at=now)
+            if managed_by is not None:
+                job["managed_by"] = managed_by
             with self.db:
                 self.db.execute("INSERT OR IGNORE INTO session_jobs VALUES (?, ?, ?, ?, NULL, NULL, ?)",
                                 (job_id, binding, "READY", now, json.dumps(job, ensure_ascii=False)))
@@ -420,7 +430,7 @@ class SessionQueue:
         status = "NEEDS_RECONCILIATION" if category == "reconciliation" else "BLOCKED"
         return self._finish(job, status, "non-retryable session outcome: " + category, owner)
 
-    def run_once(self, *, executor=None) -> dict:
+    def run_once(self, *, executor=None, job_id: str | None = None) -> dict:
         if executor is None:
             from ai_company.adapters.session_cli import run_session
             executor = run_session
@@ -429,6 +439,7 @@ class SessionQueue:
                 self._recover_interrupted_workers()
                 due = [job for job in self.list_jobs()
                        if job["status"] in ("READY", "WAITING_QUOTA", "WAITING_RETRY")
+                       and (job["job_id"] == job_id if job_id else not job.get("managed_by"))
                        and job["resume_at"] is not None and job["resume_at"] <= self.clock()]
                 for candidate in sorted(due, key=lambda item: (item["resume_at"], item["job_id"])):
                     try:

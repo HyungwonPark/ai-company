@@ -1,0 +1,112 @@
+[
+  {
+    "agent_id": "astra-pm",
+    "provider": "codex",
+    "requested_label": "Astra Ultra",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "ultra",
+    "ultracode_enabled": false,
+    "verified_ultracode": null,
+    "roles": [
+      "pm"
+    ],
+    "capabilities": [
+      "structured_result",
+      "read_repository",
+      "write_repository"
+    ],
+    "allowed_paths": [
+      "src/",
+      "tests/"
+    ],
+    "credential_ref": "codex-existing-account",
+    "quota_group": "codex-shared-account",
+    "enabled": true,
+    "verified_model": null,
+    "verified_effort": null,
+    "verification_evidence": null
+  },
+  {
+    "agent_id": "astra-high",
+    "provider": "codex",
+    "requested_label": "Astra High",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "high",
+    "ultracode_enabled": false,
+    "verified_ultracode": null,
+    "roles": [
+      "developer",
+      "reviewer"
+    ],
+    "capabilities": [
+      "structured_result",
+      "read_repository",
+      "write_repository"
+    ],
+    "allowed_paths": [
+      "src/",
+      "tests/"
+    ],
+    "credential_ref": "codex-existing-account",
+    "quota_group": "codex-shared-account",
+    "enabled": true,
+    "verified_model": null,
+    "verified_effort": null,
+    "verification_evidence": null
+  },
+  {
+    "agent_id": "claude-opus",
+    "provider": "claude",
+    "requested_label": "Claude Code Opus5 Ultracode",
+    "model": "claude-opus-5",
+    "reasoning_effort": "xhigh",
+    "ultracode_enabled": true,
+    "verified_ultracode": null,
+    "roles": [
+      "developer",
+      "reviewer"
+    ],
+    "capabilities": [
+      "structured_result",
+      "read_repository",
+      "write_repository"
+    ],
+    "allowed_paths": [
+      "src/",
+      "tests/"
+    ],
+    "credential_ref": "claude-existing-account",
+    "quota_group": "claude-shared-account",
+    "enabled": true,
+    "verified_model": null,
+    "verified_effort": null,
+    "verification_evidence": null
+  },
+  {
+    "agent_id": "astra-final",
+    "provider": "codex",
+    "requested_label": "Astra Ultra",
+    "model": "gpt-6-astra",
+    "reasoning_effort": "ultra",
+    "ultracode_enabled": false,
+    "verified_ultracode": null,
+    "roles": [
+      "final"
+    ],
+    "capabilities": [
+      "structured_result",
+      "read_repository",
+      "write_repository"
+    ],
+    "allowed_paths": [
+      "src/",
+      "tests/"
+    ],
+    "credential_ref": "codex-existing-account",
+    "quota_group": "codex-shared-account",
+    "enabled": true,
+    "verified_model": null,
+    "verified_effort": null,
+    "verification_evidence": null
+  }
+]

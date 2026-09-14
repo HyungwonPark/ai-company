@@ -54,3 +54,9 @@ Codex는 저장된 식별자를 사용해 `codex exec resume <session_id>`로 �
 - [사용량 제한 대기·재개와 컨텍스트 인수인계](docs/quota-resume.md)
 
 최종 수정일: 2026-09-13, v0.1 기반 구현
+
+## 역할 이관과 개발·검수 후속 초안
+
+`ai-company flow`는 공유 계정 한도를 고려한 배정, quota 이관/예약 복구, 실제 CLI 결과와 개발·검수 그래프를 연결한다.
+운영 방법은 [flow dispatcher](docs/flow-dispatcher.md), 모의·실제 호출의 검증 범위와 차단 요인은 [서버 검증 기록](docs/flow-validation-2026-09-14.md)을 참고한다.
+기존 `session` 큐는 그대로 유지하며, 새 flow는 검증된 모델 설정과 현재 후보의 원격 CI 증적 없이는 실제 병합 준비를 승인하지 않는다.

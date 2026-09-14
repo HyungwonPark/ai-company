@@ -17,6 +17,8 @@ import subprocess
 import tempfile
 import time
 from typing import Callable
+from uuid import uuid4
+import shutil
 
 
 @dataclass
@@ -274,10 +276,44 @@ def _terminate_group(process: subprocess.Popen, pgid: int) -> bool:
     return False
 
 
+def service_alive(unit: str) -> bool:
+    """Fail closed for an unqueryable unit; only inspect our isolated run units."""
+    if not re.fullmatch(r"ai-company-run-[0-9a-f]{32}\.service", unit):
+        return True
+    try:
+        result = subprocess.run(["systemctl", "--user", "show", unit, "--property=LoadState,ActiveState,ControlGroup"],
+                                capture_output=True, text=True, timeout=10)
+        fields = dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
+        if fields.get("LoadState") == "not-found":
+            return False
+        if result.returncode or fields.get("ActiveState") not in {"inactive", "failed"}:
+            return True
+        group = fields.get("ControlGroup", "")
+        if group:
+            events = Path("/sys/fs/cgroup") / group.lstrip("/") / "cgroup.events"
+            if events.exists() and "populated 1" in events.read_text():
+                return True
+        return False
+    except (OSError, subprocess.TimeoutExpired):
+        return True
+
+
+def stop_service(unit: str) -> bool:
+    if not re.fullmatch(r"ai-company-run-[0-9a-f]{32}\.service", unit):
+        return False
+    try:
+        subprocess.run(["systemctl", "--user", "stop", unit], capture_output=True, timeout=15)
+        return not service_alive(unit)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def run_session(provider: str, worktree: Path, prompt: str, session_id: str | None, *,
                 timeout_seconds: float = 300, output_dir: Path,
                 on_spawn: Callable[[dict], None] | None = None,
-                executable: str | None = None) -> SessionOutcome:
+                executable: str | None = None, model: str | None = None,
+                reasoning_effort: str | None = None, ultracode_enabled: bool = False, output_schema: dict | None = None,
+                permission: str | None = None, capture_configuration: bool = False, isolate_cgroup: bool = False, max_cost_usd: float | None = None) -> SessionOutcome:
     """Run once and return; never sleep for quota reset or retry a session here."""
     if provider not in {"codex", "claude"}:
         raise ValueError("provider must be codex or claude")
@@ -285,25 +321,81 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
         raise ValueError("timeout_seconds must be positive and finite")
     if session_id is not None and not _valid_session_id(session_id):
         raise ValueError("Invalid explicit session ID")
+    if ultracode_enabled and (provider != "claude" or reasoning_effort != "xhigh"):
+        raise ValueError("Ultracode requires Claude with xhigh reasoning")
+    started_at = time.time()
+    started = time.monotonic()
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    schema_path = None
+    if output_schema is not None:
+        fd, schema_path = tempfile.mkstemp(prefix="schema-", suffix=".json", dir=output_dir)
+        with os.fdopen(fd, "w") as schema_file:
+            json.dump(output_schema, schema_file)
+    configuration_request = "configuration-" + uuid4().hex
     argv = [executable or provider]
     if provider == "codex":
         argv += ["exec"]
         if session_id is not None:
             argv += ["resume", session_id]
-        argv += ["--json", "-"]
+        argv += ["--json"]
+        if model is not None:
+            argv += ["--model", model]
+        if reasoning_effort is not None:
+            argv += ["-c", "model_reasoning_effort=" + json.dumps(reasoning_effort)]
+        if permission is not None:
+            if permission not in {"read-only", "workspace-write"}:
+                raise ValueError("unsupported session permission")
+            argv += ["-c", "sandbox_mode=" + json.dumps(permission)]
+        if schema_path:
+            argv += ["--output-schema", schema_path]
+        argv += ["-"]
     else:
         argv += ["-p", "--output-format", "stream-json", "--verbose"]
+        if capture_configuration:
+            argv += ["--input-format", "stream-json"]
         if session_id is not None:
             argv += ["--resume", session_id]
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if model is not None:
+            argv += ["--model", model]
+        if reasoning_effort is not None:
+            argv += ["--effort", "ultracode" if ultracode_enabled else reasoning_effort]
+        if output_schema is not None:
+            argv += ["--json-schema", json.dumps(output_schema)]
+        if permission is not None:
+            if permission not in {"read-only", "workspace-write"}:
+                raise ValueError("unsupported session permission")
+            argv += ["--permission-mode", "dontAsk", "--tools",
+                     "Read,Grep,Glob,Workflow,Task,TaskOutput,TaskStop,Skill" if permission == "read-only"
+                     else "Read,Grep,Glob,Edit,Write,Bash,Workflow,Task,TaskOutput,TaskStop,Skill"]
+        if max_cost_usd is not None:
+            argv += ["--max-budget-usd", str(max_cost_usd)]
+    resolved_executable = shutil.which(argv[0]) or argv[0]
+    unit = None
+    if isolate_cgroup:
+        unit = "ai-company-run-" + uuid4().hex + ".service"
+        argv[0] = shutil.which(argv[0]) or argv[0]
+        env_args = ["--setenv=PATH=" + os.environ.get("PATH", "/usr/bin:/bin")]
+        for key in ("CLAUDE_CODE_EFFORT_LEVEL", "CLAUDE_CODE_DISABLE_WORKFLOWS"):
+            if key in os.environ:
+                env_args.append("--setenv=" + key + "=" + os.environ[key])
+        argv = ["systemd-run", "--user", "--quiet", "--wait", "--collect", "--pipe",
+                "--service-type=exec", "--unit=" + unit, "--property=KillMode=control-group",
+                "--property=TimeoutStopSec=5", "--property=UMask=0077",
+                "--property=WorkingDirectory=" + str(Path(worktree).resolve()), *env_args, "--", *argv]
     out_fd, out_name = tempfile.mkstemp(prefix="stdout-", suffix=".jsonl", dir=output_dir)
     err_fd, err_name = tempfile.mkstemp(prefix="stderr-", suffix=".log", dir=output_dir)
-    metadata = {"stdout_path": out_name, "stderr_path": err_name}
+    metadata = {"stdout_path": out_name, "stderr_path": err_name, "executable_path": resolved_executable}
     process = None
     failure = None
     with os.fdopen(out_fd, "wb") as stdout, os.fdopen(err_fd, "wb") as stderr, tempfile.TemporaryFile() as stdin:
-        stdin.write(prompt.encode("utf-8"))
+        if provider == "claude" and capture_configuration:
+            records = [{"type": "control_request", "request_id": configuration_request, "request": {"subtype": "initialize"}},
+                       {"type": "user", "message": {"role": "user", "content": prompt},
+                        "parent_tool_use_id": None, "session_id": session_id or ""}]
+            stdin.write(("\n".join(json.dumps(r) for r in records) + "\n").encode("utf-8"))
+        else:
+            stdin.write(prompt.encode("utf-8"))
         stdin.seek(0)
         try:
             process = subprocess.Popen(argv, cwd=worktree, shell=False, stdin=stdin,
@@ -313,6 +405,8 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
                 raise RuntimeError("Cannot identify spawned CLI process")
             spawn_record = {key: identity[key] for key in ("pid", "pgid", "proc_start_ticks")}
             spawn_record["boot_id"] = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+            if unit:
+                spawn_record["systemd_unit"] = unit
             if on_spawn is not None:
                 on_spawn(spawn_record)
             process.wait(timeout=timeout_seconds)
@@ -338,15 +432,68 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
                 _terminate_group(process, process.pid)
             raise
         finally:
+            if unit and not stop_service(unit):
+                failure = SessionOutcome("reconciliation", session_id=session_id, message="CLI cgroup termination unconfirmed")
             stdout.flush()
             stderr.flush()
             os.fsync(stdout.fileno())
             os.fsync(stderr.fileno())
+    if unit:
+        metadata["systemd_unit"] = unit
+        metadata["cgroup_stopped"] = not service_alive(unit)
     metadata["exit_code"] = None if process is None else process.returncode
+    metadata["duration_seconds"] = time.monotonic() - started
     observed = _read_outcome(provider, Path(out_name), session_id,
                              process.returncode if process is not None else -1)
     outcome = failure or observed
     if failure is not None and observed.category != "reconciliation":
         outcome.session_id = observed.session_id
     outcome.result = {**(outcome.result or {}), **metadata}
+    if model is not None:
+        outcome.result["requested_model"] = model
+        outcome.result["requested_effort"] = reasoning_effort
+        outcome.result["requested_ultracode"] = ultracode_enabled
+        observed_models, observed_efforts, auxiliary_models, observed_ultracode, payload = set(), set(), set(), set(), None
+        with Path(out_name).open(errors="replace") as stream:
+            for line in stream:
+                try:
+                    event = json.loads(line)
+                except ValueError:
+                    continue
+                if not isinstance(event, dict):
+                    continue
+                if capture_configuration and provider == "claude":
+                    from ai_company.adapters.configuration_evidence import claude_control_configuration
+                    evidence = claude_control_configuration(event, configuration_request, model)
+                    if evidence:
+                        outcome.result["configuration_evidence"] = evidence
+                if event.get("type") in {"system", "response.completed", "turn.completed"}:
+                    if isinstance(event.get("ultracode"), bool):
+                        observed_ultracode.add(event["ultracode"])
+                    if isinstance(event.get("model"), str):
+                        observed_models.add(event["model"])
+                    if isinstance(event.get("reasoning_effort", event.get("effort")), str):
+                        observed_efforts.add(event.get("reasoning_effort", event.get("effort")))
+                if provider == "claude" and isinstance(event.get("message"), dict):
+                    actual = event["message"].get("model")
+                    if event.get("type") == "assistant" and isinstance(actual, str):
+                        observed_models.add(actual)
+                if provider == "claude" and event.get("type") == "result":
+                    payload = event.get("structured_output", payload)
+                    for actual in event.get("modelUsage", {}):
+                        auxiliary_models.add(actual)
+                item = event.get("item", {})
+                if provider == "codex" and event.get("type") == "item.completed" and item.get("type") == "agent_message":
+                    try:
+                        payload = json.loads(item.get("text", ""))
+                    except ValueError:
+                        pass
+        outcome.result.update(observed_models=sorted(observed_models), observed_efforts=sorted(observed_efforts),
+                              auxiliary_models=sorted(auxiliary_models - observed_models),
+                              observed_ultracode=sorted(observed_ultracode), structured_output=payload)
+    if capture_configuration and provider == "codex" and outcome.session_id:
+        from ai_company.adapters.configuration_evidence import codex_turn_configuration
+        outcome.result["configuration_evidence"] = codex_turn_configuration(
+            outcome.session_id, Path(worktree), started_at, time.time(),
+            Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))))
     return outcome
