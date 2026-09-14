@@ -50,7 +50,25 @@ def main() -> int:
             child.add_argument("--migration-id", required=True)
         if action in ("migrate-policy", "rollback-policy"):
             child.add_argument("--reason", required=True)
+        if action == "worker":
+            child.add_argument("--parallel", type=int, choices=(1, 2), default=1,
+                               help="bounded independent flow workers; separate Git clones required")
+    manage = commands.add_parser("manage", help="serve the authenticated project console")
+    manage_actions = manage.add_subparsers(dest="manage_action", required=True)
+    serve = manage_actions.add_parser("serve")
+    serve.add_argument("--state-dir", type=Path, required=True)
+    serve.add_argument("--token-file", type=Path, required=True)
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
+    if args.command == "manage":
+        from ai_company.management_server import serve
+        try:
+            serve(args.state_dir, args.token_file, host=args.host, port=args.port)
+            return 0
+        except (ExecutionBlocked, OSError, ValueError) as exc:
+            print(json.dumps({"status": "BLOCKED", "reason": str(exc)}, ensure_ascii=False))
+            return 2
     if args.command == "flow":
         return flow_command(args)
     if args.command == "session":
@@ -113,7 +131,20 @@ def flow_command(args) -> int:
         if args.flow_action == "submit":
             result = dispatcher.submit(FlowSpec.model_validate_json(args.spec.read_text()))
         elif args.flow_action == "worker":
-            result = dispatcher.run_once()
+            if args.parallel == 1:
+                result = dispatcher.run_once()
+            else:
+                from concurrent.futures import ThreadPoolExecutor
+                # Each thread owns its SQLite connection. No daemon, timer or
+                # background retry loop is introduced by a scheduling pass.
+                def once(_):
+                    worker = Dispatcher(args.state_dir)
+                    try:
+                        return worker.run_once()
+                    finally:
+                        worker.close()
+                with ThreadPoolExecutor(max_workers=args.parallel) as workers:
+                    result = list(workers.map(once, range(args.parallel)))
         elif args.flow_action == "context-handoff":
             result = dispatcher.context_handoff(args.task_id)
         elif args.flow_action == "migrate-policy":

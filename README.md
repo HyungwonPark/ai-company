@@ -60,3 +60,17 @@ Codex는 저장된 식별자를 사용해 `codex exec resume <session_id>`로 �
 `ai-company flow`는 공유 계정 한도를 고려한 배정, quota 이관/예약 복구, 실제 CLI 결과와 개발·검수 그래프를 연결한다.
 운영 방법은 [flow dispatcher](docs/flow-dispatcher.md), 모의·실제 호출의 검증 범위와 차단 요인은 [서버 검증 기록](docs/flow-validation-2026-09-14.md)을 참고한다.
 기존 `session` 큐는 그대로 유지하며, 새 flow는 검증된 모델 설정과 현재 후보의 원격 CI 증적 없이는 실제 병합 준비를 승인하지 않는다.
+
+
+## 역할별 병렬 운영과 관리 콘솔 후속 초안
+
+[통합 목표·작업 분담](docs/plans/company-control-plane.md)을 기준으로 PR #5의 복구·CI 출처
+검증 위에 역할별 관리 기반을 확장합니다. 별도 Git clone의 독립 작업은
+`ai-company flow worker --state-dir <새 상태 경로> --parallel 2`로 한 번 배정합니다.
+같은 Git common dir의 worktree는 기존 안전 잠금으로 직렬화됩니다.
+
+[관리 API](docs/management-api.md)는 같은 SQLite의 프로젝트·역할·대화·하네스·승인 기록을
+제공합니다. 콘솔 UI는 후속 PR에서 연결합니다. 실제 PM 응답·하네스의 자동 실행 연결,
+실제 개발 완주와 공개 도메인/TWA는 아직 완료되지 않았습니다.
+[격리 복구안](docs/runtime-remediation-plan.md)과 [도메인·TWA 준비](docs/domain-twa-plan.md)를
+확인하세요. 기존 운영 서비스·timer·queue는 변경하지 않습니다.

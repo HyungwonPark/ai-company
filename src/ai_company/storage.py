@@ -15,17 +15,30 @@ from ai_company.runtime import ExecutionBlocked, ReconciliationRequired
 
 
 @contextmanager
-def controller_lock(root: Path) -> Iterator[None]:
+def controller_lock(root: Path, *, blocking: bool = False):
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     with (root / "controller.lock").open("a") as lock:
         try:
-            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(lock, fcntl.LOCK_EX | (0 if blocking else fcntl.LOCK_NB))
         except BlockingIOError as exc:
             raise ExecutionBlocked("another controller is using this state directory") from exc
         try:
-            yield
+            yield lock
         finally:
             fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+@contextmanager
+def suspended_lock(lock):
+    """Release only a scheduling lock; callers retain task/repository ownership."""
+    if lock is None:
+        yield
+        return
+    fcntl.flock(lock, fcntl.LOCK_UN)
+    try:
+        yield
+    finally:
+        fcntl.flock(lock, fcntl.LOCK_EX)
 
 
 class Ledger:

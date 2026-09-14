@@ -1,5 +1,6 @@
 """Deterministic role assignment and failover over the persistent session queue."""
 
+from contextlib import ExitStack
 import json
 from pathlib import Path
 import time
@@ -15,7 +16,7 @@ from ai_company.flow_evidence import Verifier, allowed, handoff
 from ai_company.flow_graph import build_graph
 from ai_company.runtime import ExecutionBlocked
 from ai_company.sessions import _git, SessionQueue, SessionSpec, execution_alive, repository_lock, repository_snapshot
-from ai_company.storage import controller_lock
+from ai_company.storage import controller_lock, suspended_lock
 
 
 class Dispatcher:
@@ -25,6 +26,7 @@ class Dispatcher:
         self.db = self.queue.db
         self.verifier = verifier or Verifier(self.root)
         self.executor = executor
+        self._scheduler_lock = None
         self.db.executescript("""
             CREATE TABLE IF NOT EXISTS flow_tasks(task_id TEXT PRIMARY KEY, document TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS flow_events(id INTEGER PRIMARY KEY, task_id TEXT NOT NULL,
@@ -173,10 +175,10 @@ class Dispatcher:
                        "return PASS, REVISE with evidence, or BLOCK. Do not merge or deploy. "
                        "Do not claim a different model or change acceptance criteria.")
             if self.executor:
-                return self.executor(agent, state, provider, worktree, prompt, session_id, **kwargs)
+                return self._external(self.executor, agent, state, provider, worktree, prompt, session_id, **kwargs)
             if spec.mode != "live":
                 raise ExecutionBlocked("fixture mode requires an explicit fixture executor")
-            return run_session(provider, worktree, prompt, session_id, **kwargs, model=agent.model,
+            return self._external(run_session, provider, worktree, prompt, session_id, **kwargs, model=agent.model,
                                reasoning_effort=agent.reasoning_effort, ultracode_enabled=agent.ultracode_enabled, output_schema=StageReport.model_json_schema(),
                                permission="workspace-write" if state["stage"] == "developer" else "read-only", isolate_cgroup=True, capture_configuration=True,
                                max_cost_usd=(spec.policy.max_cost_usd - state["usage"]["cost_usd"]
@@ -381,21 +383,22 @@ class Dispatcher:
             if repository_snapshot(Path(spec.worktree)) != state["snapshot"]:
                 raise ExecutionBlocked("candidate changed; new implementation/check/review cycle required")
             if state["stage"] == "gate":
-                remote = self.verifier.remote(spec, state)
-                if not remote or remote != state["verification"]["remote"]:
-                    state.update(stage="check", verification=None, reviews={}, status="WAITING_CHECKS",
-                                 resume_at=self.clock() + 60, reason="remote evidence changed; fresh checks and review required")
-                elif repository_snapshot(Path(spec.worktree)) != state["snapshot"]:
-                    raise ExecutionBlocked("candidate changed while checking remote evidence")
-                elif not state["findings"] and all(state["reviews"].get(role, {}).get("verdict") == "PASS" for role in ("reviewer", "final")):
-                    state.update(status="MERGE_READY" if spec.mode == "live" else "DEMO_READY",
-                                 resume_at=self.clock() + 60 if spec.mode == "live" else None,
-                                 reason="current candidate, required checks and independent final review agree")
-                else:
-                    raise ExecutionBlocked("final gate is missing required review evidence")
-                with self.db:
-                    self._save(state, "gate_checked")
-                return True
+                with repository_lock(state["snapshot"]):
+                    remote = self._external(self.verifier.remote, spec, state)
+                    if not remote or remote != state["verification"]["remote"]:
+                        state.update(stage="check", verification=None, reviews={}, status="WAITING_CHECKS",
+                                     resume_at=self.clock() + 60, reason="remote evidence changed; fresh checks and review required")
+                    elif repository_snapshot(Path(spec.worktree)) != state["snapshot"]:
+                        raise ExecutionBlocked("candidate changed while checking remote evidence")
+                    elif not state["findings"] and all(state["reviews"].get(role, {}).get("verdict") == "PASS" for role in ("reviewer", "final")):
+                        state.update(status="MERGE_READY" if spec.mode == "live" else "DEMO_READY",
+                                     resume_at=self.clock() + 60 if spec.mode == "live" else None,
+                                     reason="current candidate, required checks and independent final review agree")
+                    else:
+                        raise ExecutionBlocked("final gate is missing required review evidence")
+                    with self.db:
+                        self._save(state, "gate_checked")
+                    return True
             with repository_lock(state["snapshot"]):
                 guard = {"job_id": "flow-check-" + state["task_id"], "repository_snapshot": state["snapshot"],
                          "process": None, "lease_owner": "check-" + str(state["generation"])}
@@ -406,7 +409,7 @@ class Dispatcher:
                     with self.db:
                         self._save(state, "check_started")
                     self.queue._write_guard(guard)
-                    state["verification"] = self.verifier.check(spec, state)
+                    state["verification"] = self._external(self.verifier.check, spec, state)
                     state["usage"]["runtime_seconds"] += state["verification"].get("runtime_seconds", 0)
                     state["status"] = "READY"
                     with self.db:
@@ -425,7 +428,7 @@ class Dispatcher:
                                           for c in state["verification"]["checks"] if not c["success"]]
                     self._advance(state, spec, checks_passed=False)
                     return True
-                remote = self.verifier.remote(spec, state)
+                remote = self._external(self.verifier.remote, spec, state)
                 if remote is None:
                     state.update(status="WAITING_CHECKS", resume_at=self.clock() + 60, reason="required remote checkout attestation missing")
                     with self.db:
@@ -507,28 +510,121 @@ class Dispatcher:
         self._handle_job(state, spec, result)
         return True
 
+    def _external(self, function, *args, **kwargs):
+        # The per-task and repository locks remain held. SQLite transactions must
+        # be committed before this boundary; other roles can schedule meanwhile.
+        if self.db.in_transaction:
+            raise ExecutionBlocked("cannot run external work inside a scheduler transaction")
+        with suspended_lock(self._scheduler_lock):
+            return function(*args, **kwargs)
+
+    def _orphaned_executions(self):
+        reserved = set()
+        for state in self.tasks():
+            try:
+                with controller_lock(self.root / "flow-owners" / digest(state["task_id"])):
+                    active = state["active"]
+                    job = (self.queue.get(active["job_id"]) if active and active["job_id"] else
+                           {"job_id": "flow-check-" + state["task_id"], "repository_snapshot": state["snapshot"],
+                            "process": None})
+                    marker = self.queue._read_guard(job)
+                    matches = marker and (marker["job_id"], marker["queue_root"]) == (job["job_id"], str(self.queue.root))
+                    unknown_or_live_guard = matches and (marker.get("process") is None or execution_alive(marker["process"]))
+                    if execution_alive(job["process"]) or unknown_or_live_guard:
+                        reserved.add(str(self.queue._guard_path(job)))
+            except ExecutionBlocked as exc:
+                if "another controller" not in str(exc):
+                    return 2  # Unreadable ownership cannot authorize extra work.
+            except (OSError, ValueError):
+                return 2
+        return len(reserved)
+
+    def _recover_queue(self):
+        try:
+            with controller_lock(self.queue.root / "session-worker"):
+                self.queue._recover_interrupted_workers()
+        except ExecutionBlocked as exc:
+            if "another controller" not in str(exc):
+                raise
+
+    def _observe_waits(self):
+        for pending in self.tasks():
+            active = pending["active"]
+            if active and active["job_id"]:
+                fact = self.queue.get(active["job_id"])
+                if fact["status"] in ("WAITING_QUOTA", "WAITING_RETRY"):
+                    self._ingest_waiting_result(pending, FlowSpec.model_validate(pending["specification"]), fact)
+
+    def _occupied_slots(self):
+        occupied = 0
+        for slot in range(2):
+            try:
+                with controller_lock(self.root / "flow-slots" / str(slot)):
+                    pass
+            except ExecutionBlocked:
+                occupied += 1
+        return occupied
+
     def run_once(self):
-        with controller_lock(self.root / "dispatcher"):
-            # Observe ALL saved waits before choosing work: otherwise another
-            # task could use an account whose cooldown died with the worker.
-            for pending in self.tasks():
-                active = pending["active"]
-                if active and active["job_id"]:
-                    fact = self.queue.get(active["job_id"])
-                    if fact["status"] in ("WAITING_QUOTA", "WAITING_RETRY"):
-                        self._ingest_waiting_result(pending, FlowSpec.model_validate(pending["specification"]), fact)
-            for state in sorted(self.tasks(), key=lambda s: (s["resume_at"] or float("inf"), s["task_id"])):
-                if state["resume_at"] is None or state["resume_at"] > self.clock():
-                    continue
-                try:
-                    if self._tick(state):
-                        return self.get(state["task_id"])
-                except Exception as exc:
-                    state.update(status="NEEDS_RECONCILIATION" if isinstance(exc, OSError) else "BLOCKED",
-                                 reason=str(exc) if isinstance(exc, ExecutionBlocked) else type(exc).__name__, resume_at=None)
-                    with self.db:
-                        self._save(state, "guard_blocked")
-            return {"status": "IDLE", "reason": "no executable task; durable reservations retained"}
+        with controller_lock(self.root / "dispatcher", blocking=True) as scheduler_lock:
+            self._scheduler_lock = scheduler_lock
+            try:
+                # Re-observe after every external yield. Task snapshots and
+                # capacity decisions from before another worker ran are stale.
+                capacity_blocked = False
+                self._recover_queue()
+                self._observe_waits()
+                for candidate in sorted(self.tasks(), key=lambda s: (s["resume_at"] or float("inf"), s["task_id"])):
+                    self._recover_queue()
+                    self._observe_waits()
+                    orphaned = self._orphaned_executions()
+                    with ExitStack() as ownership:
+                        try:
+                            ownership.enter_context(controller_lock(self.root / "flow-owners" / digest(candidate["task_id"])))
+                        except ExecutionBlocked:
+                            continue
+                        state = self.get(candidate["task_id"])
+                        if state["resume_at"] is None or state["resume_at"] > self.clock():
+                            continue
+                        # Recovery must not need an execution slot. These two
+                        # paths only persist uncertain facts, never call a model.
+                        active = state["active"]
+                        uncertain = active and active["job_id"] and self.queue.get(active["job_id"])["status"] == "NEEDS_RECONCILIATION"
+                        if state["status"] == "CHECK_RUNNING" or uncertain:
+                            self._tick(state)
+                            return self.get(state["task_id"])
+                        # Live CLI orphans retain virtual slots after flock is
+                        # released by a dead controller. Reads/recovery still work.
+                        if self._occupied_slots() + orphaned >= 2:
+                            capacity_blocked = True
+                            continue
+                        # Waiting tasks release the slot after a bounded pass.
+                        for slot in range(2):
+                            try:
+                                ownership.enter_context(controller_lock(self.root / "flow-slots" / str(slot)))
+                                break
+                            except ExecutionBlocked:
+                                continue
+                        else:
+                            capacity_blocked = True
+                            continue
+                        try:
+                            if self._tick(state):
+                                return self.get(state["task_id"])
+                        except Exception as exc:
+                            if isinstance(exc, ExecutionBlocked) and "another session owns" in str(exc):
+                                # Separate Git clones can run concurrently. Shared
+                                # common dirs keep the original cross-queue guard.
+                                continue
+                            state.update(status="NEEDS_RECONCILIATION" if isinstance(exc, OSError) else "BLOCKED",
+                                         reason=str(exc) if isinstance(exc, ExecutionBlocked) else type(exc).__name__, resume_at=None)
+                            with self.db:
+                                self._save(state, "guard_blocked")
+                return {"status": "BUSY" if capacity_blocked else "IDLE",
+                        "reason": "execution capacity reserved by active or orphaned workers" if capacity_blocked
+                        else "no executable task; durable reservations retained"}
+            finally:
+                self._scheduler_lock = None
 
     def context_handoff(self, task_id):
         with controller_lock(self.root / "dispatcher"):
