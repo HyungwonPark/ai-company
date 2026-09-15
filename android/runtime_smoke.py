@@ -16,7 +16,9 @@ def adb(*args, timeout=20):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--directory', type=Path, required=True)
-    root = parser.parse_args().directory
+    parser.add_argument('--emulator-pid', type=int)
+    args = parser.parse_args()
+    root = args.directory
     apks = list(root.glob('ai-company-*.apk'))
     assert len(apks) == 1
     apk = apks[0]
@@ -25,9 +27,15 @@ def main():
               'login_attempted': False, 'approval_submitted': False}
     try:
         deadline = time.monotonic() + 360
+        next_report = time.monotonic()
         while time.monotonic() < deadline:
+            if args.emulator_pid is not None and not Path('/proc/' + str(args.emulator_pid)).exists():
+                raise RuntimeError('Emulator process exited before Android boot; see emulator.log')
             if adb('shell', 'getprop', 'sys.boot_completed').stdout.strip() == '1':
                 break
+            if time.monotonic() >= next_report:
+                print('Waiting for Android boot; remaining seconds:', int(deadline - time.monotonic()), flush=True)
+                next_report = time.monotonic() + 30
             time.sleep(3)
         else:
             raise RuntimeError('Android emulator did not finish booting within 360 seconds')
