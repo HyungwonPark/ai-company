@@ -42,10 +42,10 @@ jobs:
           ls -l /dev/kvm
           # Use the existing device group for this emulator process only. Do not
           # change /dev/kvm permissions, udev rules, or persistent group membership.
-          sudo -u "$(id -un)" -g kvm "$ANDROID_HOME/emulator/emulator" -accel-check
+          sudo -n setpriv --reuid "$(id -u)" --regid kvm --init-groups --reset-env --no-new-privs "$ANDROID_HOME/emulator/emulator" -accel-check
       - name: Install and launch the real signed APK
         run: |
-          sudo -u "$(id -un)" -g kvm "$ANDROID_HOME/emulator/emulator" -avd ai-company-runtime -no-window -noaudio -no-boot-anim -no-snapshot -gpu swiftshader > "$RUNNER_TEMP/android-runtime/emulator.log" 2>&1 &
+          sudo -n setpriv --reuid "$(id -u)" --regid kvm --init-groups --reset-env --no-new-privs "$ANDROID_HOME/emulator/emulator" -avd ai-company-runtime -no-window -noaudio -no-boot-anim -no-snapshot -gpu swiftshader > "$RUNNER_TEMP/android-runtime/emulator.log" 2>&1 &
           EMULATOR_PID=$!
           trap 'adb emu kill >/dev/null 2>&1 || true; kill "$EMULATOR_PID" 2>/dev/null || true' EXIT
           python3 android/runtime_smoke.py --directory "$RUNNER_TEMP/android-runtime"
