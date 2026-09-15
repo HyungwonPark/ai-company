@@ -1,0 +1,88 @@
+"""Inspect a built release, never infer APK identity from source configuration."""
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import xml.etree.ElementTree as ET
+import zipfile
+
+PACKAGE = "cloud.hyungwon.aicompany"
+ORIGIN = "https://hyungwon.cloud"
+ANDROID = "{http://schemas.android.com/apk/res/android}"
+
+
+def command(*argv):
+    return subprocess.check_output([str(value) for value in argv], text=True, timeout=120)
+
+
+def inspect(apk, build_tools, apkanalyzer):
+    manifest_text = command(apkanalyzer, "manifest", "print", apk)
+    manifest = ET.fromstring(manifest_text)
+    assert manifest.attrib["package"] == PACKAGE
+    assert manifest.attrib[ANDROID + "versionCode"] == "1"
+    assert manifest.attrib[ANDROID + "versionName"] == "0.1.0"
+    sdk = manifest.find("uses-sdk")
+    assert sdk.attrib[ANDROID + "minSdkVersion"] == "26"
+    assert sdk.attrib[ANDROID + "targetSdkVersion"] == "36"
+    application = manifest.find("application")
+    assert application.attrib.get(ANDROID + "debuggable", "false") == "false"
+    assert application.attrib[ANDROID + "allowBackup"] == "false"
+    assert application.attrib[ANDROID + "usesCleartextTraffic"] == "false"
+    permissions = sorted(p.attrib[ANDROID + "name"] for p in manifest.findall("uses-permission"))
+    assert set(permissions) <= {"android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE",
+                               PACKAGE + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"}, permissions
+    launcher = next(a for a in application.findall("activity")
+                    if a.attrib[ANDROID + "name"] == "com.google.androidbrowserhelper.trusted.LauncherActivity")
+    default_url = next(m.attrib[ANDROID + "value"] for m in launcher.findall("meta-data")
+                       if m.attrib[ANDROID + "name"] == "android.support.customtabs.trusted.DEFAULT_URL")
+    assert default_url == ORIGIN + "/"
+    filters = launcher.findall("intent-filter")
+    verified = next(f for f in filters if f.attrib.get(ANDROID + "autoVerify") == "true")
+    assert [(d.attrib.get(ANDROID + "scheme"), d.attrib.get(ANDROID + "host"))
+            for d in verified.findall("data")] == [("https", "hyungwon.cloud")]
+    assert any(c.attrib[ANDROID + "name"] == "android.intent.category.LAUNCHER"
+               for f in filters for c in f.findall("category"))
+    resources = command(build_tools / "aapt2", "dump", "resources", apk)
+    assert "asset_statements" in resources and ORIGIN in resources
+    badging = command(build_tools / "aapt2", "dump", "badging", apk)
+    assert "application-label:'AI Company'" in badging
+    assert "native-code:" not in badging  # The APK has no ABI-specific native payload.
+    with zipfile.ZipFile(apk) as z:
+        assert not any(name.startswith("lib/") for name in z.namelist())
+        assert not any(name.lower().endswith((".jks", ".keystore", ".p12", ".pfx")) for name in z.namelist())
+        payload = {name: hashlib.sha256(z.read(name)).hexdigest() for name in sorted(z.namelist())
+                   if not name.startswith("META-INF/")}
+    return dict(package_id=PACKAGE, version_name="0.1.0", version_code=1,
+                min_sdk=26, target_sdk=36, launch_url=default_url, permissions=permissions,
+                debuggable=False, native_libraries=False, payload_sha256=payload), manifest_text, badging, resources
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument("--apk", type=Path, required=True)
+    p.add_argument("--build-tools", type=Path, required=True)
+    p.add_argument("--apkanalyzer", type=Path, required=True)
+    p.add_argument("--source-commit", required=True)
+    p.add_argument("--output", type=Path, required=True)
+    args = p.parse_args()
+    assert re.fullmatch("[0-9a-f]{40}", args.source_commit)
+    assert command("git", "rev-parse", "HEAD").strip() == args.source_commit
+    facts, manifest, badging, resources = inspect(args.apk, args.build_tools, args.apkanalyzer)
+    args.output.mkdir(parents=True, exist_ok=True)
+    unsigned = args.output / "ai-company-0.1.0-unsigned.apk"
+    shutil.copyfile(args.apk, unsigned)
+    facts.update(source_commit=args.source_commit, apk_sha256=hashlib.sha256(unsigned.read_bytes()).hexdigest(),
+                 artifact_kind="unsigned_release_not_for_installation", workflow=".github/workflows/android.yml",
+                 workflow_run_id=os.environ.get("GITHUB_RUN_ID"), workflow_run_attempt=os.environ.get("GITHUB_RUN_ATTEMPT"))
+    (args.output / "build-evidence.json").write_text(json.dumps(facts, indent=2) + "\n")
+    for name, value in [("AndroidManifest.xml", manifest), ("apk-badging.txt", badging), ("apk-resources.txt", resources)]:
+        (args.output / name).write_text(value)
+    print(json.dumps({k: v for k, v in facts.items() if k != "payload_sha256"}))
+
+
+if __name__ == "__main__":
+    main()
