@@ -13,6 +13,18 @@ import zipfile
 PACKAGE = "cloud.hyungwon.aicompany"
 ORIGIN = "https://hyungwon.cloud"
 ANDROID = "{http://schemas.android.com/apk/res/android}"
+MANAGE_ACTIVITY = "com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity"
+
+
+def verify_management_activity(application):
+    activities = [entry for entry in application.findall("activity")
+                  if entry.get(ANDROID + "name") == MANAGE_ACTIVITY]
+    assert len(activities) == 1, "TWA startup requires ManageDataLauncherActivity to be declared"
+    assert activities[0].get(ANDROID + "exported") == "false"
+    assert application.get(ANDROID + "manageSpaceActivity") == MANAGE_ACTIVITY
+    urls = [entry.get(ANDROID + "value") for entry in activities[0].findall("meta-data")
+            if entry.get(ANDROID + "name") == "android.support.customtabs.trusted.MANAGE_SPACE_URL"]
+    assert urls == [ORIGIN + "/"], "Site settings must remain bound to the approved origin"
 
 
 def verify_web_association(application, resources):
@@ -35,8 +47,8 @@ def inspect(apk, build_tools, apkanalyzer):
     manifest_text = command(apkanalyzer, "manifest", "print", apk)
     manifest = ET.fromstring(manifest_text)
     assert manifest.attrib["package"] == PACKAGE
-    assert manifest.attrib[ANDROID + "versionCode"] == "1"
-    assert manifest.attrib[ANDROID + "versionName"] == "0.1.0"
+    assert manifest.attrib[ANDROID + "versionCode"] == "2"
+    assert manifest.attrib[ANDROID + "versionName"] == "0.1.1"
     sdk = manifest.find("uses-sdk")
     assert sdk.attrib[ANDROID + "minSdkVersion"] == "26"
     assert sdk.attrib[ANDROID + "targetSdkVersion"] == "36"
@@ -44,6 +56,7 @@ def inspect(apk, build_tools, apkanalyzer):
     assert application.attrib.get(ANDROID + "debuggable", "false") == "false"
     assert application.attrib[ANDROID + "allowBackup"] == "false"
     assert application.attrib[ANDROID + "usesCleartextTraffic"] == "false"
+    verify_management_activity(application)
     permissions = sorted(p.attrib[ANDROID + "name"] for p in manifest.findall("uses-permission"))
     assert set(permissions) <= {"android.permission.INTERNET", "android.permission.ACCESS_NETWORK_STATE",
                                PACKAGE + ".DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"}, permissions
@@ -68,9 +81,10 @@ def inspect(apk, build_tools, apkanalyzer):
         assert not any(name.lower().endswith((".jks", ".keystore", ".p12", ".pfx")) for name in z.namelist())
         payload = {name: hashlib.sha256(z.read(name)).hexdigest() for name in sorted(z.namelist())
                    if not name.startswith("META-INF/")}
-    return dict(package_id=PACKAGE, version_name="0.1.0", version_code=1,
+    return dict(package_id=PACKAGE, version_name="0.1.1", version_code=2,
                 min_sdk=26, target_sdk=36, launch_url=default_url, permissions=permissions,
                 debuggable=False, native_libraries=False, compiled_app_to_website_association_verified=True,
+                startup_management_component_verified=True,
                 payload_sha256=payload), manifest_text, badging, resources
 
 
@@ -86,7 +100,7 @@ def main():
     assert command("git", "rev-parse", "HEAD").strip() == args.source_commit
     facts, manifest, badging, resources = inspect(args.apk, args.build_tools, args.apkanalyzer)
     args.output.mkdir(parents=True, exist_ok=True)
-    unsigned = args.output / "ai-company-0.1.0-unsigned.apk"
+    unsigned = args.output / "ai-company-0.1.1-unsigned.apk"
     shutil.copyfile(args.apk, unsigned)
     facts.update(source_commit=args.source_commit, apk_sha256=hashlib.sha256(unsigned.read_bytes()).hexdigest(),
                  artifact_kind="unsigned_release_not_for_installation", workflow=".github/workflows/android.yml",

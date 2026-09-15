@@ -9,8 +9,8 @@ android {
         applicationId = "cloud.hyungwon.aicompany"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.1.1"
         manifestPlaceholders["siteHost"] = "hyungwon.cloud"
         manifestPlaceholders["launchUrl"] = "https://hyungwon.cloud/"
         resValue("string", "launch_url", "https://hyungwon.cloud/")

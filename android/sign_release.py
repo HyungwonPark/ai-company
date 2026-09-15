@@ -32,7 +32,8 @@ def main():
     evidence = json.loads(args.build_evidence.read_text())
     assert evidence["source_commit"] == args.expected_source
     assert evidence["package_id"] == "cloud.hyungwon.aicompany"
-    assert (evidence["version_name"], evidence["version_code"], evidence["launch_url"]) == ("0.1.0", 1, "https://hyungwon.cloud/")
+    assert (evidence["version_name"], evidence["version_code"], evidence["launch_url"]) == ("0.1.1", 2, "https://hyungwon.cloud/")
+    assert evidence["startup_management_component_verified"] is True
     assert sha(args.apk) == evidence["apk_sha256"]
     assert payload(args.apk) == evidence["payload_sha256"]
     for file in (args.keystore, args.password_file):
@@ -41,7 +42,7 @@ def main():
         assert subprocess.run(["git", "-C", str(file.resolve().parent), "rev-parse", "--show-toplevel"],
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0
     args.output.mkdir(parents=True, exist_ok=True)
-    signed = args.output / "ai-company-0.1.0.apk"
+    signed = args.output / "ai-company-0.1.1.apk"
     assert not signed.exists(), "Never overwrite a released APK"
     java = [str(args.java), "-jar", str(args.apksigner_jar)]
     subprocess.run([*java, "sign", "--ks", str(args.keystore), "--ks-type", "PKCS12",
