@@ -332,6 +332,17 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.deepEqual(stored.local,{'ai-company-theme':'light'},'only theme preference in localStorage; no credentials');
     assert.equal(stored.session,0,'no bearer token in sessionStorage');
     assert.equal(stored.cached.some(path=>path.startsWith('/api/')),false,'no authenticated API cache');
+    await page.evaluate(()=>navigator.serviceWorker.ready);
+    offlineScenario=true;await context.setOffline(true);
+    const offlinePage=await context.newPage();
+    offlinePage.on('pageerror',error=>failures.push(error.message));
+    await offlinePage.goto(base,{waitUntil:'domcontentloaded'});
+    await offlinePage.getByRole('heading',{name:'AI Company',exact:true}).waitFor();
+    assert.equal(await offlinePage.locator('.nav').count(),0,'offline reload cannot restore private cached state');
+    await offlinePage.close();await context.setOffline(false);
+    await page.waitForFunction(()=>document.querySelector('#message-form button[type=submit]')?.disabled===false);
+    offlineScenario=false;
+
     await openAccountMenu();
     await page.locator('.workspace-account-menu').getByRole('button',{name:'로그아웃',exact:true}).click();
     await page.getByRole('heading',{name:'AI Company',exact:true}).waitFor();
