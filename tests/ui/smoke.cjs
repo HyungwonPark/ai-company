@@ -15,7 +15,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
   const browser = await chromium.launch({headless:true, chromiumSandbox:true,
     ...(process.env.CHROME_CHANNEL ? {channel:process.env.CHROME_CHANNEL} : {}),
     ...(process.env.CHROMIUM_EXECUTABLE ? {executablePath:process.env.CHROMIUM_EXECUTABLE} : {})});
-  const context = await browser.newContext({viewport:{width:1440,height:1000}});
+  const context = await browser.newContext({viewport:{width:1440,height:1000},colorScheme:'light'});
   const page = await context.newPage();
   const failures = [];
   let offlineScenario = false;
@@ -27,6 +27,26 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.goto(base);
     assert.equal(await page.getByLabel('아이디',{exact:true}).inputValue(),'edward');
     assert.equal(await page.getByLabel('접근 토큰',{exact:true}).count(),0);
+    // Theme changes only presentation; input, authentication and navigation stay intact.
+    assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
+    await page.getByLabel('비밀번호',{exact:true}).fill('theme-input-check');
+    for(const theme of ['black','light']) {
+      await page.locator(`[data-theme-choice="${theme}"]`).click();
+      assert.equal(await page.getByLabel('비밀번호',{exact:true}).inputValue(),'theme-input-check');
+      assert.equal(await page.locator(`[data-theme-choice="${theme}"]`).getAttribute('aria-pressed'),'true');
+      await page.evaluate(()=>document.fonts.ready);
+      for(const [device,width,height] of [['desktop',1440,1000],['mobile',360,800]]) {
+        await page.setViewportSize({width,height});
+        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+        await page.screenshot({path:`${output}/${theme}-${device}-login.png`,fullPage:true});
+      }
+      await page.reload();
+      await page.getByLabel('비밀번호',{exact:true}).waitFor();
+      assert.equal(await page.locator('html').getAttribute('data-theme'),theme,'theme survives reload');
+      await page.getByLabel('비밀번호',{exact:true}).fill('theme-input-check');
+    }
+    await page.getByLabel('비밀번호',{exact:true}).clear();
+    await page.setViewportSize({width:1440,height:1000});
     await page.screenshot({path:`${output}/desktop-login.png`,fullPage:true});
     await page.setViewportSize({width:360,height:800});
     await page.screenshot({path:`${output}/mobile-login.png`,fullPage:true});
@@ -53,13 +73,17 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.getByLabel('새 비밀번호 확인',{exact:true}).fill('browser fixture wrong confirmation');
     await page.getByRole('button',{name:'비밀번호 변경 후 계속'}).click();
     await page.getByText('새 비밀번호가 서로 일치하지 않습니다.',{exact:true}).waitFor();
+    await page.locator('[data-theme-choice="black"]').click();
+    assert.equal(await page.getByLabel('새 비밀번호',{exact:true}).inputValue(),'new-pass10');
+    await page.screenshot({path:`${output}/black-mobile-password-change.png`,fullPage:true});
+    await page.locator('[data-theme-choice="light"]').click();
     await page.getByLabel('새 비밀번호 확인',{exact:true}).fill('new-pass10');
     await page.getByRole('button',{name:'비밀번호 변경 후 계속'}).click();
     await page.locator('.nav').waitFor();
     await page.reload();
     await page.locator('.nav').waitFor();
     await page.setViewportSize({width:1440,height:1000});
-    await page.getByRole('heading', {name:'각자의 흐름으로, 같은 목표를 향해'}).waitFor();
+    await page.getByRole('heading', {name:'역할별 진행'}).waitFor();
     await page.getByText('모의 예시 데이터', {exact:true}).waitFor();
     assert.equal(await page.locator('.role').count(), 4, 'four parallel fixture roles');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
@@ -235,9 +259,9 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.getByRole('button',{name:'취소',exact:true}).click();
     await page.getByRole('region',{name:'PM 요청 상태'}).waitFor();
     await page.locator('.nav').getByRole('link',{name:'보고서',exact:true}).first().click();
-    await page.getByRole('heading',{name:'진행 상황을, 근거와 함께'}).waitFor();
+    await page.getByRole('heading',{name:'보고서'}).waitFor();
     await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).first().click();
-    await page.getByRole('heading',{name:'검토할 실행만, 한곳에'}).waitFor();
+    await page.getByRole('heading',{name:'승인'}).waitFor();
     await page.locator('#project-select').selectOption(fixtureId);
 
     await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).click();
@@ -261,6 +285,23 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
       await page.screenshot({path:`${output}/mobile-${view}.png`,fullPage:true});
     }
     await page.locator('.nav').getByRole('link',{name:'매니저',exact:true}).click();
+    for(const theme of ['black','light']) {
+      await page.getByLabel('PM에게 전달할 내용').fill('테마를 바꾸어도 유지할 초안');
+      const beforeURL=page.url();
+      await page.locator(`[data-theme-choice="${theme}"]`).click();
+      assert.equal(page.url(),beforeURL,'theme does not navigate');
+      assert.equal(await page.getByLabel('PM에게 전달할 내용').inputValue(),'테마를 바꾸어도 유지할 초안');
+      for(const [device,width,height] of [['desktop',1440,1000],['mobile',360,800]]) {
+        await page.setViewportSize({width,height});
+        for(const [view,title] of [['progress','역할별 진행'],['manager','매니저'],['reports','보고서'],['approvals','승인'],['project','프로젝트']]) {
+          await page.locator('.nav').getByRole('link',{name:title,exact:true}).click();
+          assert.equal(await page.locator('html').getAttribute('data-theme'),theme,'theme survives render');
+          assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${theme} ${view} fits ${width}px`);
+          await page.screenshot({path:`${output}/${theme}-${device}-${view}.png`,fullPage:true});
+        }
+      }
+      await page.locator('.nav').getByRole('link',{name:'매니저',exact:true}).click();
+    }
     offlineScenario = true;
     await context.setOffline(true);
     await page.getByText('연결 끊김',{exact:true}).waitFor();
@@ -268,9 +309,9 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await context.setOffline(false);
     await page.waitForFunction(()=>{const button=document.querySelector('#message-form button[type=submit]');return button&&!button.disabled;});
     offlineScenario = false;
-    const stored = await page.evaluate(async()=>({local:localStorage.length,session:sessionStorage.length,
+    const stored = await page.evaluate(async()=>({local:{...localStorage},session:sessionStorage.length,
       cached:(await Promise.all((await caches.keys()).map(async key=>(await (await caches.open(key)).keys()).map(request=>new URL(request.url).pathname)))).flat()}));
-    assert.equal(stored.local,0,'no bearer token in localStorage');
+    assert.deepEqual(stored.local,{'ai-company-theme':'light'},'only theme preference in localStorage; no credentials');
     assert.equal(stored.session,0,'no bearer token in sessionStorage');
     assert.equal(stored.cached.some(path=>path.startsWith('/api/')),false,'no authenticated API cache');
     await page.locator('.mobile-logout').click();
@@ -284,10 +325,27 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.locator('.nav').waitFor();
     await page.locator('.mobile-logout').click();
     await page.getByRole('heading',{name:'AI Company',exact:true}).waitFor();
+    // A browser that blocks storage can still log in and switch themes.
+    const restricted=await browser.newContext({colorScheme:'dark',viewport:{width:320,height:740}});
+    await restricted.addInitScript(()=>{
+      Object.defineProperty(window,'localStorage',{get(){throw new DOMException('Blocked','SecurityError');}});
+    });
+    const restrictedPage=await restricted.newPage();
+    restrictedPage.on('pageerror',error=>failures.push(error.message));
+    await restrictedPage.goto(base);
+    await restrictedPage.getByLabel('비밀번호',{exact:true}).waitFor();
+    assert.equal(await restrictedPage.locator('html').getAttribute('data-theme'),'black','system theme before manual choice');
+    await restrictedPage.emulateMedia({colorScheme:'light'});
+    await restrictedPage.waitForFunction(()=>document.documentElement.dataset.theme==='light');
+    await restrictedPage.locator('[data-theme-choice="black"]').click();
+    assert.equal(await restrictedPage.locator('html').getAttribute('data-theme'),'black','theme works when storage is blocked');
+    assert.equal(await restrictedPage.getByRole('button',{name:'로그인',exact:true}).isEnabled(),true);
+    assert.equal(await restrictedPage.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'320px theme controls fit');
+    await restricted.close();
     // Resource errors caused by deliberately toggling offline are expected, CSP/JS errors are not.
     const unexpected=failures.filter(message=>!message.includes('ERR_INTERNET_DISCONNECTED')&&!message.includes('Failed to fetch'));
     assert.deepEqual(unexpected,[],'no browser JavaScript/CSP failures');
-    console.log(JSON.stringify({status:'PASS',views:5,mobile_width:360,checks:['username/password login','temporary password gate and reload','mobile password change','confirmation mismatch','new password relogin','fixture labels','parallel role columns','message persistence','draft navigation/polling','project isolation','harness draft','bound approval persistence','stored plan confirmation (fixture)','confirmation response-loss idempotency','stale plan rejection','plan project switch','PM wait navigation','review opinions/candidate/findings (response fixtures)','review HTML escaping','mobile dialog action access','read-only delegated validation provenance (response fixture)','prior blocked run retained','delegation HTML escaping','quota/retry/capacity/handoff rendering (response fixtures)','offline writes','no authenticated caches','no browser errors'],artifacts:output}));
+    console.log(JSON.stringify({status:'PASS',views:5,mobile_width:360,checks:['Light/Black login and five views','theme persistence and input retention','blocked storage and system preference','username/password login','temporary password gate and reload','mobile password change','confirmation mismatch','new password relogin','fixture labels','parallel role columns','message persistence','draft navigation/polling','project isolation','harness draft','bound approval persistence','stored plan confirmation (fixture)','confirmation response-loss idempotency','stale plan rejection','plan project switch','PM wait navigation','review opinions/candidate/findings (response fixtures)','review HTML escaping','mobile dialog action access','read-only delegated validation provenance (response fixture)','prior blocked run retained','delegation HTML escaping','quota/retry/capacity/handoff rendering (response fixtures)','offline writes','no authenticated caches','no browser errors'],artifacts:output}));
   } catch(error) {
     await page.screenshot({path:`${output}/failure.png`,fullPage:true}).catch(()=>{});
     console.error(JSON.stringify({scope:'UI fixture failure',url:page.url(),project:await page.locator('#project-select').inputValue().catch(()=>null),active_view:await page.locator('.nav a[aria-current=page]').getAttribute('aria-label').catch(()=>null)}));
