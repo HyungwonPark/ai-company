@@ -603,7 +603,8 @@ class ManagementStore:
             if value.displayed_translation is not None:
                 from ai_company.collaboration import document_sources
                 from ai_company.translations import TranslationStore
-                original = document_sources({"project": {"id": project_id}, "approvals": [item]})[0]
+                original = next(doc for doc in document_sources({"project": {"id": project_id}, "approvals": [item]})
+                                if doc["id"] == "approval:" + approval_id)
                 try:
                     translated = TranslationStore(self.db, clock=self.clock).get_result(value.displayed_translation.id)
                 except ValueError as exc:

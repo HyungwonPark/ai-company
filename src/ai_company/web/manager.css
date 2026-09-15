@@ -1,6 +1,12 @@
 /* B Light / Black: decisions first, source records on demand. */
 .nav-icon{display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .nav-icon svg{width:19px;height:19px}
+.workspace-account-menu{position:relative;flex-shrink:0}
+.workspace-account-menu>summary{list-style:none;width:44px;height:44px;display:grid;place-items:center;border-radius:7px;border:1px solid var(--line);background:var(--surface)}
+.workspace-account-menu>div{position:absolute;right:0;top:50px;width:170px;padding:6px;background:var(--surface);border:1px solid var(--line);border-radius:8px;z-index:30;box-shadow:0 4px 16px #10111612}
+.workspace-account-menu button{width:100%;text-align:left;border:0;font-size:13px;font-weight:400}
+.manager-fixture{max-width:1080px;margin:0 auto 22px;padding:7px 0;border-bottom:1px solid var(--warning-line);font-size:11px;color:var(--warning);display:flex;gap:12px;align-items:center}
+.manager-fixture strong{font-weight:500}
 .manager-home{max-width:1080px;margin:0 auto}
 .manager-home svg{flex-shrink:0}
 .manager-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:24px}
@@ -10,7 +16,7 @@
 .manager-focus{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px 32px;overflow:hidden}
 .manager-focus-label{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:500;color:var(--muted);margin-bottom:15px}
 .manager-status-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
-.manager-focus h2{font-size:25px;font-weight:600;letter-spacing:-.8px;line-height:1.45;margin-bottom:10px}
+.manager-focus h2{font-size:25px;font-weight:600;letter-spacing:-.8px;line-height:1.45;margin-bottom:10px;max-width:700px;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .manager-goal{color:var(--muted);font-size:14px;line-height:1.7;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;max-width:650px}
 .manager-stages{list-style:none;padding:0;margin:26px 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:600px}
 .manager-stages li{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--muted);position:relative;min-width:0}
@@ -69,6 +75,12 @@
 .manager-history .message-heading{font-size:11px}
 .manager-empty{color:var(--muted);font-size:13px;padding:18px 0;margin:0}
 @media(max-width:760px){
+ .sidebar{padding:14px 18px}.sidebar .workspace-caption,.mobile-logout{display:none!important}
+ .topbar{display:grid;grid-template-columns:minmax(0,1fr) auto auto;padding:8px 18px;gap:6px 8px;min-height:0}
+ .topbar-actions{display:contents}.topbar .project-picker{grid-column:1;grid-row:1}.topbar .project-picker select{font-size:12px;text-overflow:ellipsis}
+ .topbar .theme-control{grid-column:2;grid-row:1;padding:2px}.topbar .theme-control button{padding:6px 8px;font-size:11px;min-height:40px}
+ .topbar .workspace-account-menu{grid-column:3;grid-row:1}.topbar .workspace-account-menu>summary{width:40px;height:40px}
+ .topbar-actions .connection{grid-column:1/-1;grid-row:2;margin:0;justify-content:flex-end;font-size:10px;min-height:18px}
  .main:has(.manager-home){padding:24px 18px 32px}
  .manager-heading{margin-bottom:20px}.manager-heading h1{font-size:25px}.manager-heading p{font-size:11px}.manager-heading button{font-size:12px;padding:8px}
  .manager-focus{padding:21px 20px 10px;border-radius:11px}.manager-focus h2{font-size:22px;letter-spacing:-.7px}.manager-focus-label{font-size:11px;margin-bottom:13px}

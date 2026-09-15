@@ -29,6 +29,7 @@ module.exports=async function managerChecks({page,fixtureId,output}){
       for(const [device,width,height] of [['mobile',360,800],['small-mobile',320,740],['desktop',1440,1000]]){
         await page.setViewportSize({width,height});await page.evaluate(()=>window.scrollTo(0,0));
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${theme} manager fits ${width}px`);
+        if(width<=360)assert.equal(await page.locator('.manager-next button').evaluate(button=>button.getBoundingClientRect().bottom<=document.querySelector('.nav').getBoundingClientRect().top),true,'the primary action fits above mobile navigation on the first screen');
         await settledScreenshot(page,{path:`${output}/${theme}-${device}-manager-simple.png`,fullPage:true});
         if(device==='mobile')await settledScreenshot(page,{path:`${output}/${theme}-mobile-manager-first-screen.png`});
       }
