@@ -48,7 +48,7 @@ export function createManagerUI({esc,badge,label,stamp,documents,planContent}) {
       const model=node?.assignment?.observed?.status==='observed'?node.assignment.observed.model:null;
       const requested=node?.assignment?.requested?.model||saved?.assigned_model;
       const roleName=preview(documents.text(`plan:${plan.id}`,`role:${index}:name`,role.name))||roleNames[role.key]||`역할 ${index+1}`;
-      const roleStatus=current?.status||(run?'IDLE':canReview?'확정 전':'배정 대기');
+      const roleStatus=(run&&saved?.status&&saved.status!=='IDLE'?saved.status:current?.status)||(run?'IDLE':canReview?'확정 전':'배정 대기');
       return `<li class="manager-agent"><span class="manager-agent-icon">${workspaceIcon(/test/.test(role.key)?'tests':'developer')}</span><div class="manager-agent-copy"><strong>${esc(roleName)}</strong><span>${model?esc(model):requested?`요청 모델 · ${esc(requested)}`:'담당 모델 미배정'}</span></div>${badge(roleStatus)}</li>`;
     }).join('');
     const action=candidatePending?`<a class="manager-primary-link" href="${href('approvals')}">승인 요청 확인 ${workspaceIcon('arrow')}</a>`:canReview?`<button class="primary" data-action="review-plan" data-id="${esc(plan.id)}" ${!connected||!plan.digest||project.source==='fixture'?'disabled':''}>계획 검토·확정 ${workspaceIcon('arrow')}</button>`:run?`<a class="manager-primary-link" href="${href('progress')}">작업 진행 보기 ${workspaceIcon('arrow')}</a>`:!received?`<button class="primary" data-action="focus-message">목표 입력하기 ${workspaceIcon('arrow')}</button>`:`<a class="manager-primary-link" href="${href('reports')}">기존 보고서 보기 ${workspaceIcon('arrow')}</a>`;

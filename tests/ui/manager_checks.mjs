@@ -18,6 +18,7 @@ assert.match(html,/확정 전에는 이 계획의 작업을 시작하지 않습�
 assert.match(html,/details class="manager-plan-detail"/,'full original plan remains available');
 assert.doesNotMatch(ui.render(overview,{...options,connected:false}),/data-action="review-plan"[^>]+(?<!disabled)>/);
 const current={plan_id:'p',plan_digest:'current',state:'awaiting_approval',candidate_sha:'candidate'};
+assert.match(ui.render({...overview,runs:[{...current,roles:{implementation:{status:'RUNNING'}}}],roles:[{id:'live-role',plan_id:'p',key:'implementation',status:'WAITING_QUOTA'}]},options),/WAITING_QUOTA/,'current session quota state is visible before the coordinator updates its run summary');
 assert.doesNotMatch(ui.render({...overview,runs:[current],approvals:[{status:'pending',artifact_sha:'unrelated'}]},options),/승인 요청 확인/,'unrelated approvals cannot become the next action for this run');
 assert.match(ui.render({...overview,runs:[current],approvals:[{status:'pending',artifact_sha:'candidate'}]},options),/승인 요청 확인/);
 console.log('PASS: current revision/digest, dependency counts, read-only projection, original access, disconnected confirmation and candidate-bound next action');
