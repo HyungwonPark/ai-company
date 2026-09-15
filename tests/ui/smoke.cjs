@@ -83,7 +83,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.reload();
     await page.locator('.nav').waitFor();
     await page.setViewportSize({width:1440,height:1000});
-    await page.getByRole('heading', {name:'역할별 진행'}).waitFor();
+    await page.getByRole('heading', {name:'역할별 진행',exact:true}).waitFor();
     await page.getByText('모의 예시 데이터', {exact:true}).waitFor();
     assert.equal(await page.locator('.role').count(), 4, 'four parallel fixture roles');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
@@ -259,9 +259,9 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.getByRole('button',{name:'취소',exact:true}).click();
     await page.getByRole('region',{name:'PM 요청 상태'}).waitFor();
     await page.locator('.nav').getByRole('link',{name:'보고서',exact:true}).first().click();
-    await page.getByRole('heading',{name:'보고서'}).waitFor();
+    await page.getByRole('heading',{name:'보고서',exact:true}).waitFor();
     await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).first().click();
-    await page.getByRole('heading',{name:'승인'}).waitFor();
+    await page.getByRole('heading',{name:'승인',exact:true}).waitFor();
     await page.locator('#project-select').selectOption(fixtureId);
 
     await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).click();
