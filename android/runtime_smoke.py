@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 import time
 
@@ -31,7 +32,9 @@ def main():
         while time.monotonic() < deadline:
             if args.emulator_pid is not None and not Path('/proc/' + str(args.emulator_pid)).exists():
                 raise RuntimeError('Emulator process exited before Android boot; see emulator.log')
-            if adb('shell', 'getprop', 'sys.boot_completed').stdout.strip() == '1':
+            probe = adb('shell', 'getprop', 'sys.boot_completed')
+            (root / 'boot-probe.txt').write_text(probe.stdout + probe.stderr)
+            if probe.stdout.strip() == '1':
                 break
             if time.monotonic() >= next_report:
                 print('Waiting for Android boot; remaining seconds:', int(deadline - time.monotonic()), flush=True)
@@ -41,6 +44,8 @@ def main():
             raise RuntimeError('Android emulator did not finish booting within 360 seconds')
         record['android_sdk'] = adb('shell', 'getprop', 'ro.build.version.sdk').stdout.strip()
         record['chrome_installed'] = 'com.android.chrome' in adb('shell', 'pm', 'list', 'packages', 'com.android.chrome').stdout
+        chrome_version = re.search(r'versionName=([^\s]+)', adb('shell', 'dumpsys', 'package', 'com.android.chrome').stdout)
+        record['chrome_version'] = chrome_version[1] if chrome_version else None
         assert record['chrome_installed'], 'The reproduction requires Chrome to be installed'
         adb('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP')
         adb('shell', 'wm', 'dismiss-keyguard')
@@ -71,6 +76,7 @@ def main():
         record['error'] = type(error).__name__ + ': ' + str(error)
         raise
     finally:
+        (root / 'adb-devices.txt').write_text(adb('devices', '-l').stdout)
         (root / 'runtime-result.json').write_text(json.dumps(record, indent=2) + '\n')
         print(json.dumps(record))
 

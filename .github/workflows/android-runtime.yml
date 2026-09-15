@@ -34,12 +34,21 @@ jobs:
       - name: Prepare an Android 36 device with Chrome
         run: |
           export ANDROID_AVD_HOME="$RUNNER_TEMP/ai-company-avd"
+          export ANDROID_USER_HOME="$RUNNER_TEMP/ai-company-android-user"
+          export ANDROID_EMULATOR_HOME="$ANDROID_USER_HOME"
+          export ADB_VENDOR_KEYS="$ANDROID_USER_HOME/adbkey"
           echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_USER_HOME=$ANDROID_USER_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_EMULATOR_HOME=$ANDROID_EMULATOR_HOME" >> "$GITHUB_ENV"
+          echo "ADB_VENDOR_KEYS=$ADB_VENDOR_KEYS" >> "$GITHUB_ENV"
           echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
           echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'emulator' 'system-images;android-36;google_apis_playstore;x86_64' > "$RUNNER_TEMP/android-runtime/sdk-install.log"
           mkdir -p "$ANDROID_AVD_HOME"
+          umask 077
+          mkdir -p "$ANDROID_USER_HOME"
+          "$ANDROID_HOME/platform-tools/adb" keygen "$ADB_VENDOR_KEYS"
           printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --force --name ai-company-runtime --package 'system-images;android-36;google_apis_playstore;x86_64' --device pixel_6
           test -f "$ANDROID_AVD_HOME/ai-company-runtime.ini"
           id
@@ -49,7 +58,8 @@ jobs:
           sudo -n setpriv --reuid "$(id -u)" --regid kvm --init-groups --reset-env --no-new-privs "$ANDROID_HOME/emulator/emulator" -accel-check
       - name: Install and launch the real signed APK
         run: |
-          sudo -n setpriv --reuid "$(id -u)" --regid kvm --init-groups --reset-env --no-new-privs /usr/bin/env ANDROID_AVD_HOME="$ANDROID_AVD_HOME" ANDROID_HOME="$ANDROID_HOME" "$ANDROID_HOME/emulator/emulator" -avd ai-company-runtime -no-window -noaudio -no-boot-anim -no-snapshot -gpu swiftshader > "$RUNNER_TEMP/android-runtime/emulator.log" 2>&1 &
+          adb start-server
+          sudo -n setpriv --reuid "$(id -u)" --regid kvm --init-groups --reset-env --no-new-privs /usr/bin/env ANDROID_AVD_HOME="$ANDROID_AVD_HOME" ANDROID_USER_HOME="$ANDROID_USER_HOME" ANDROID_EMULATOR_HOME="$ANDROID_EMULATOR_HOME" ADB_VENDOR_KEYS="$ADB_VENDOR_KEYS" ANDROID_HOME="$ANDROID_HOME" "$ANDROID_HOME/emulator/emulator" -avd ai-company-runtime -no-window -noaudio -no-boot-anim -no-snapshot -no-metrics -gpu swiftshader > "$RUNNER_TEMP/android-runtime/emulator.log" 2>&1 &
           EMULATOR_PID=$!
           trap 'adb emu kill >/dev/null 2>&1 || true; kill "$EMULATOR_PID" 2>/dev/null || true' EXIT
           python3 android/runtime_smoke.py --directory "$RUNNER_TEMP/android-runtime" --emulator-pid "$EMULATOR_PID"
