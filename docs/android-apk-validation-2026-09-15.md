@@ -2,6 +2,8 @@
 
 2026-09-15. 사용자 요청에 따라 **설치 가능한 실제 서명 APK를 GitHub 시험 릴리스로 게시했다.** APK 전달, 도메인 신뢰 연결, 실기기 사용 검증의 완료 여부를 구분한다.
 
+후속 승인 **“인증서 연결 경로만 적용 승인”**에 따라 공개 assetlinks 경로도 적용했다. HTTPS GET·HEAD 200과 실제 APK 인증서 일치, Google Digital Asset Links의 `linked=true`까지 통과했다. 휴대폰에서 설치·실행·로그인·뒤로가기·테마·승인 화면을 조작한 결과는 아직 없다.
+
 [APK 직접 다운로드](https://github.com/HyungwonPark/ai-company/releases/download/android-v0.1.0/ai-company-0.1.0.apk) · [릴리스](https://github.com/HyungwonPark/ai-company/releases/tag/android-v0.1.0) · [구조화된 검증 기록](evidence/android-apk-2026-09-15.json)
 
 ## 전달한 APK
@@ -38,7 +40,7 @@
 
 ## 도메인 연결: 적용 전 상태와 정확한 적용안
 
-2026-09-15 10:24 UTC 읽기 검사에서 공개 홈은 HTTP 200, `https://hyungwon.cloud/.well-known/assetlinks.json`은 **HTTP 400 / invalid_path**였다. TLS 접속은 성립하지만 웹사이트→앱 신뢰 연결은 아직 성립하지 않는다. 앱 안의 반대 방향 선언만 확인한 상태다. [Android 공식 조건](https://developer.android.com/training/app-links/configure-assetlinks)은 공개 HTTPS JSON, 리디렉션 없음, 실제 배포 APK 인증서 일치를 요구한다. [Chrome TWA 연결 안내](https://developer.chrome.com/docs/android/trusted-web-activity/integration-guide)에 따라 연결 전에는 주소 표시줄이 있는 Custom Tab으로 열릴 수 있다. 검증 우회 플래그를 사용하지 않는다.
+2026-09-15 10:24 UTC 초기 읽기 검사에서 공개 홈은 HTTP 200, `https://hyungwon.cloud/.well-known/assetlinks.json`은 **HTTP 400 / invalid_path**였다. 당시 웹사이트→앱 신뢰 연결이 차단된 사실을 보존한다. [Android 공식 조건](https://developer.android.com/training/app-links/configure-assetlinks)은 공개 HTTPS JSON, 리디렉션 없음, 실제 배포 APK 인증서 일치를 요구한다. [Chrome TWA 연결 안내](https://developer.chrome.com/docs/android/trusted-web-activity/integration-guide)에 따라 연결 전에는 주소 표시줄이 있는 Custom Tab으로 열릴 수 있다. 검증 우회 플래그를 사용하지 않는다.
 
 적용 대상은 기존 `/home/edward/talenta-site/Caddyfile`의 `hyungwon.cloud` 블록 안 `reverse_proxy 172.30.88.3:8766` 한 줄이다. 이를 [검토 가능한 Caddy 설정 조각](../deploy/examples/ai-company-android-association.caddy)으로 교체한다. 실제 APK 지문에서 만든 [정확한 JSON](../deploy/examples/ai-company-assetlinks.json)을 GET·HEAD `/.well-known/assetlinks.json`에만 `200 application/json`, Cache-Control 300초로 제공한다. 나머지 경로는 기존 upstream으로 보낸다.
 
@@ -58,7 +60,13 @@
 4. 실제 공개 GET·HEAD 200, JSON content type, 리디렉션 없음, 내려받은 APK의 앱 ID·실제 인증서와 일치를 검사한다. 기존 로그인·Host/Origin/CSRF·세션 쿠키, 커플 서비스와 assetlinks, 컨테이너 health도 대조한다.
 5. 적용·검증 실패 시 이번 백업의 바이트를 같은 inode에 복원하고 validate·graceful reload한 뒤 기존 상태를 재확인한다. 새로운 무관한 변경이 발견되면 전체 파일을 임의로 덮어쓰지 않는다.
 
-**이 문서 시점에는 위 적용을 실행하지 않았다.** 공개 경로 추가·Caddy 설정 재적용에 한정한 승인이 필요하다. DNS·80/443 소유권·네트워크·API 포트·웹 이미지·worker·타이머·큐·승인 결정을 변경하지 않는다. B형 협업 UI 이미지 배포는 별도 경계다.
+위 계획은 커밋 `3bdbf0ca6a66090038032e3068db6992c68d570c`에서 먼저 공개했고, 사용자가 **“인증서 연결 경로만 적용 승인”**으로 승인했다. 승인 원문·수신 기록·계획 digest를 보존한 뒤 **2026-09-15 10:37:40 UTC(19:37:40 KST)**에 적용했다. 실제 Caddyfile 해시·inode·소유권·권한과 기존 컨테이너 ID·image·PID·시작 시각을 대조했다. 원본은 Git 추적에서 제외한 로컬 작업 디렉터리의 `Caddyfile.approved-backup`으로 보존했다. 적용 후 검증이 통과해 rollback은 실행하지 않았다.
+
+공개 GET·HEAD가 로그인·리디렉션 없이 `200 application/json`을 반환하고 실제 APK를 다시 `apksigner`로 검사한 인증서 및 앱 ID와 일치했다. [Google 공식 Digital Asset Links check API](https://developers.google.com/digital-asset-links/reference/rest/v1/assetlinks/check)에서도 실제 앱·인증서는 `linked=true`, 같은 앱 ID에 커플 앱 인증서를 넣거나 새 인증서에 다른 앱 ID를 넣으면 모두 `linked=false`였다. 이 결과는 서버의 공개 신뢰 연결 검사이며, 특정 휴대폰의 Android App Links 캐시나 Chrome TWA 실행 결과를 대신하지 않는다.
+
+기존 커플 홈 307 응답과 assetlinks 200의 내용 해시는 적용 전후 일치했다. AI Company 홈은 200, 로그인 없는 관리 API는 401, 다른 Origin의 쓰기는 403을 유지했다. 이번에는 실제 비밀번호 로그인을 대행하거나 새 로그인 쿠키를 발급하지 않았다. Host·CSRF·HTTPS 쿠키 구현은 같은 운영 이미지와 기존 검증을 유지한다.
+
+DNS·80/443 소유권·네트워크·API 포트·웹 이미지·worker·타이머·큐·승인 결정을 변경하지 않았다. B형 협업 UI 이미지 배포는 여전히 별도 경계다. 릴리스 `release.json`은 APK 게시 당시 적용 전 스냅샷이며, 현재 연결 결과는 `validation.json`과 이 기록으로 확인한다.
 
 ## 항목별 검증과 설치 방법
 
@@ -67,7 +75,8 @@
 | 실제 APK 빌드·Lint | PASS | 위 Android run, 실물 산출물 |
 | 앱 ID·버전·URL·서명·SHA-256 | PASS | APK 직접 검사·공개 재다운로드 |
 | 앱→도메인 컴파일 선언 | PASS | 메타데이터 참조와 실제 JSON 대조 |
-| 도메인→실제 APK 인증서 | BLOCK | 공개 경로 HTTP 400, 적용안은 격리 검사 PASS |
+| 도메인→실제 APK 인증서 | PASS | 승인 후 공개 GET·HEAD 200·JSON, 실제 APK 인증서 일치 |
+| Google Digital Asset Links | PASS | 실제 앱·인증서 true, 다른 앱 ID·인증서 false |
 | 휴대폰 설치 | 미검증 | 실제 Android 기기에 설치 필요 |
 | 완전 종료 후 실행 | 미검증 | Chrome 포함 실제 기기에서 확인 |
 | 로그인·임시 비밀번호 변경 | 미검증 | 기존 `edward` 계정으로 직접 조작 |
@@ -89,4 +98,6 @@ adb shell pm get-app-links cloud.hyungwon.aicompany
 
 APK 기준 커밋의 [Python 3.11·3.12 CI](https://github.com/HyungwonPark/ai-company/actions/runs/34956647437), [웹 UI CI](https://github.com/HyungwonPark/ai-company/actions/runs/34956647570), [공개 HTTPS 검사](https://github.com/HyungwonPark/ai-company/actions/runs/34956647528)는 통과했다. 각각 기존 회귀·웹 화면·연결 검증이며 Android 설치 결과를 대신하지 않는다. 컴파일 도메인 참조의 정상·잘못된 사이트·다른 리소스·다른 relation·미연결 메타데이터 회귀 5개도 추가했다.
 
-기존 AI Company·커플 앱·Caddy·DB 컨테이너는 healthy, backup은 running이었다. 운영 DB를 읽기 전용으로 대조한 PR #10 승인 `849f6de73d722f1ba2f4c5537111f6a0`은 `pending`이다. 이번 작업에서 서비스 교체·공개 설정 적용·운영 큐 쓰기·타이머 전환·병합은 하지 않았다.
+후속 도구·회귀 커밋 `3bdbf0c`의 [Android 재빌드·Lint·신규 5개 검사](https://github.com/HyungwonPark/ai-company/actions/runs/34958535038), [Python 회귀 CI](https://github.com/HyungwonPark/ai-company/actions/runs/34958535113), [UI CI](https://github.com/HyungwonPark/ai-company/actions/runs/34958535000), [공개 연결 CI](https://github.com/HyungwonPark/ai-company/actions/runs/34958535155)도 모두 PASS다. 재빌드 산출물로 이미 게시한 APK를 덮어쓰지 않았다.
+
+기존 AI Company·커플 앱·Caddy·DB 컨테이너는 healthy, backup은 running이었다. 운영 DB를 읽기 전용으로 대조한 PR #10 승인 `849f6de73d722f1ba2f4c5537111f6a0`은 `pending`이다. 이번 승인에 따른 공개 JSON 경로와 Caddy graceful reload만 적용했다. 서비스 교체·운영 큐 쓰기·타이머 전환·병합은 하지 않았다.

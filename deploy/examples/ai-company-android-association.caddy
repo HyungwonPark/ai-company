@@ -1,5 +1,5 @@
 # hyungwon.cloud 블록의 기존 reverse_proxy 한 줄을 아래 내용으로 교체합니다.
-# 적용안입니다. 실제 공개 경로에는 아직 반영하지 않았습니다.
+# 2026-09-15 사용자 승인 후 이 내용만 공개 경로에 적용했습니다.
     @android_assetlinks {
         path /.well-known/assetlinks.json
         method GET HEAD

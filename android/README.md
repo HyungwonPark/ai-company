@@ -4,9 +4,11 @@
 
 - [설치 APK 0.1.0](https://github.com/HyungwonPark/ai-company/releases/download/android-v0.1.0/ai-company-0.1.0.apk)
 - [릴리스와 SHA-256·서명 기록](https://github.com/HyungwonPark/ai-company/releases/tag/android-v0.1.0)
-- [실제 검증 결과와 남은 도메인 적용안](../docs/android-apk-validation-2026-09-15.md)
+- [실제 검증 결과와 도메인 연결 기록](../docs/android-apk-validation-2026-09-15.md)
 
 앱 ID는 `cloud.hyungwon.aicompany`, 시작 주소는 `https://hyungwon.cloud/`, 최소 Android 버전은 8.0(API 26)이다. Chrome의 표준 `LauncherActivity`를 사용한다. 로그인과 테마·승인 화면은 공개 웹의 현재 버전을 표시하므로 앱 설치와 새 웹 버전 배포를 구분한다.
+
+사용자 승인 후 실제 APK 인증서의 공개 assetlinks 경로를 연결했다. HTTPS GET·HEAD 200과 Google Digital Asset Links의 `linked=true`를 확인했다. 실제 기기의 Chrome TWA 실행·로그인은 별도 미검증이다.
 
 ## 빌드
 
