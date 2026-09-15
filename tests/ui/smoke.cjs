@@ -333,6 +333,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.getByLabel('비밀번호',{exact:true}).fill('new-pass10');
     await page.getByRole('button',{name:'로그인',exact:true}).click();
     await page.locator('.nav').waitFor();
+    assert.equal(await page.locator('.workspace-account-menu').getAttribute('open'),null,'a previous login cannot restore its open account menu');
     await page.getByLabel('계정 메뉴',{exact:true}).click();
     await page.getByRole('button',{name:'비밀번호 변경',exact:true}).click();
     await page.getByRole('heading',{name:'비밀번호 변경',exact:true}).waitFor();

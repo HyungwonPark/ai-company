@@ -135,7 +135,7 @@ function project(){const {project,roles=[],harnesses=[]}=state.overview;return p
 function render(){
   if(state.authenticated&&state.projectId)history.replaceState(null,'',`#${state.view}?project=${encodeURIComponent(state.projectId)}`);
   const active=document.activeElement;const focusId=active?.id;const selection=active&&typeof active.selectionStart==='number'?[active.selectionStart,active.selectionEnd]:null;
-  for(const detail of app.querySelectorAll('details[data-persist-key]'))openDetails.set(`${state.projectId}:${detail.dataset.persistKey}`,detail.open);
+  if(state.authenticated)for(const detail of app.querySelectorAll('details[data-persist-key]'))openDetails.set(`${state.projectId}:${detail.dataset.persistKey}`,detail.open);
   const scroll=window.scrollY;app.innerHTML=state.authenticated&&!state.passwordChangeRequired&&!state.changingPassword?shell():authScreen();
   for(const id of busyForms){const submit=document.querySelector(`#${id} button[type=submit]`);if(submit){submit.disabled=true;submit.textContent='저장 중…';}}
   if(focusId){const replacement=document.getElementById(focusId);if(replacement){replacement.focus({preventScroll:true});if(selection&&replacement.setSelectionRange)replacement.setSelectionRange(...selection);}}
