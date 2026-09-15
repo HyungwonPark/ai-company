@@ -18,6 +18,10 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     ...(process.env.CHROMIUM_EXECUTABLE ? {executablePath:process.env.CHROMIUM_EXECUTABLE} : {})});
   const context = await browser.newContext({viewport:{width:1440,height:1000},colorScheme:'light'});
   const page = await context.newPage();
+  const openAccountMenu=async()=>{
+    const menu=page.locator('.workspace-account-menu');
+    if(!await menu.evaluate(element=>element.open))await page.getByLabel('계정 메뉴',{exact:true}).click();
+  };
   const failures = [];
   let offlineScenario = false;
   let expectedHTTPFailure = false;
@@ -327,19 +331,20 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.deepEqual(stored.local,{'ai-company-theme':'light'},'only theme preference in localStorage; no credentials');
     assert.equal(stored.session,0,'no bearer token in sessionStorage');
     assert.equal(stored.cached.some(path=>path.startsWith('/api/')),false,'no authenticated API cache');
-    await page.getByLabel('계정 메뉴',{exact:true}).click();
+    await openAccountMenu();
     await page.locator('.workspace-account-menu').getByRole('button',{name:'로그아웃',exact:true}).click();
     await page.getByRole('heading',{name:'AI Company',exact:true}).waitFor();
     await page.getByLabel('비밀번호',{exact:true}).fill('new-pass10');
     await page.getByRole('button',{name:'로그인',exact:true}).click();
     await page.locator('.nav').waitFor();
     assert.equal(await page.locator('.workspace-account-menu').getAttribute('open'),null,'a previous login cannot restore its open account menu');
-    await page.getByLabel('계정 메뉴',{exact:true}).click();
+    await openAccountMenu();
     await page.getByRole('button',{name:'비밀번호 변경',exact:true}).click();
     await page.getByRole('heading',{name:'비밀번호 변경',exact:true}).waitFor();
     await page.getByRole('button',{name:'취소',exact:true}).click();
     await page.locator('.nav').waitFor();
-    await page.locator('.mobile-logout').click();
+    await openAccountMenu();
+    await page.locator('.workspace-account-menu').getByRole('button',{name:'로그아웃',exact:true}).click();
     await page.getByRole('heading',{name:'AI Company',exact:true}).waitFor();
     // A browser that blocks storage can still log in and switch themes.
     const restricted=await browser.newContext({colorScheme:'dark',viewport:{width:320,height:740}});
