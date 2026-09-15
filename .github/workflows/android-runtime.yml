@@ -40,12 +40,14 @@ jobs:
           printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --force --name ai-company-runtime --package 'system-images;android-36;google_apis_playstore;x86_64' --device pixel_6
           id
           ls -l /dev/kvm
-          "$ANDROID_HOME/emulator/emulator" -accel-check
+          # Use the existing device group for this emulator process only. Do not
+          # change /dev/kvm permissions, udev rules, or persistent group membership.
+          sudo -u "$(id -un)" -g kvm "$ANDROID_HOME/emulator/emulator" -accel-check
       - name: Install and launch the real signed APK
         run: |
-          "$ANDROID_HOME/emulator/emulator" -avd ai-company-runtime -no-window -noaudio -no-boot-anim -no-snapshot -gpu swiftshader > "$RUNNER_TEMP/android-runtime/emulator.log" 2>&1 &
+          sudo -u "$(id -un)" -g kvm "$ANDROID_HOME/emulator/emulator" -avd ai-company-runtime -no-window -noaudio -no-boot-anim -no-snapshot -gpu swiftshader > "$RUNNER_TEMP/android-runtime/emulator.log" 2>&1 &
           EMULATOR_PID=$!
-          trap 'kill "$EMULATOR_PID" 2>/dev/null || true' EXIT
+          trap 'adb emu kill >/dev/null 2>&1 || true; kill "$EMULATOR_PID" 2>/dev/null || true' EXIT
           python3 android/runtime_smoke.py --directory "$RUNNER_TEMP/android-runtime"
       - name: Preserve Android runtime evidence
         if: always()
