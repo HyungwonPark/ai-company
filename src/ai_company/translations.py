@@ -43,8 +43,9 @@ def configuration(value=None):
     if config['model'] != expected[config['provider']]:
         raise ValueError('translation model must be an explicitly supported lightweight candidate')
     if config['provider'] == 'claude' and (config['model_version'] != '2.1.270'
-            or config['max_attempts'] != 1 or config['timeout_seconds'] > 60):
-        raise ValueError('Haiku validation requires CLI 2.1.270, one attempt, and at most 60 seconds')
+            or config['max_attempts'] not in (1, 2) or config['timeout_seconds'] > 60
+            or config['max_total_seconds'] > 120):
+        raise ValueError('Haiku requires CLI 2.1.270, at most two attempts, 60 seconds per attempt and 120 seconds total')
     for key in ('model', 'model_version', 'prompt_version', 'glossary_version', 'parser_version'):
         if not isinstance(config[key], str) or not re.fullmatch(r'[A-Za-z0-9_.:-]{1,100}', config[key]):
             raise ValueError('invalid translation configuration identifier')

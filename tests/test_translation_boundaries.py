@@ -120,6 +120,31 @@ class TranslationBoundaryTests(unittest.TestCase):
         artifact["source"]["protected"]["approval_status"] = "approved"
         self.assertEqual(self.translations.get_result(old_job["id"])["source"]["protected"]["approval_status"], "pending")
 
+    def test_haiku_restart_uses_only_explicit_bounded_second_attempt(self):
+        from ai_company.translations import configuration
+        config = configuration(dict(provider='claude', model=HAIKU, model_version='2.1.270',
+            max_attempts=2, max_total_seconds=120, quota_group='haiku-fixture', credential_ref='haiku-fixture'))
+        with self.assertRaises(ValueError):
+            configuration(dict(config, max_attempts=3))
+        with self.assertRaises(ValueError):
+            configuration(dict(config, max_total_seconds=121))
+        with self.db:
+            self.db.execute("INSERT INTO credential_groups VALUES ('claude','haiku-fixture','haiku-fixture')")
+            self.db.execute("INSERT INTO quota_groups VALUES ('haiku-fixture','AVAILABLE',NULL,NULL)")
+        doc = self.document(text='Inspect report')
+        self.translations.sync('fixture-project', [doc], config)
+        first = self.claim()
+        self.translations.started(first['id'], first['lease_token'], {'unit': 'fixture-unit'})
+        self.now = first['lease_expires_at'] + 1
+        self.assertEqual(self.translations.recover(lambda _: None), 0)
+        self.assertEqual(self.translations.recover(lambda _: False), 1)
+        second = self.claim('restarted')
+        self.assertEqual(second['attempts'], 2)
+        self.assertEqual(second['spent_seconds'], 60)
+        self.assertFalse(self.complete(first, '오래된 결과'))
+        self.assertTrue(self.complete(second, '보고서 검사'))
+        self.assertEqual(self.translations.read(doc)['fields']['summary'], '보고서 검사')
+
     def test_unknown_execution_blocks_replay_and_old_lease_cannot_overwrite_retry(self):
         doc = self.document()
         self.sync(doc)
