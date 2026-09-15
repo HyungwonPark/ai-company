@@ -1,6 +1,7 @@
 /* Authenticated network-response fixtures test observation only. No model, worker,
    production approval, or translation completion is claimed by this scenario. */
 const assert=require('node:assert/strict');
+const {selectTheme, settledScreenshot} = require('./capture.cjs');
 module.exports=async function({page,context,fixtureId,output,setNetworkFixture,setHTTPFixture}){
   const overviewPath=`**/api/projects/${fixtureId}/overview`;
   let cursor=10000,extra=[],translationState='completed',digest='d'.repeat(64),offline=false,staleOwner=false;
@@ -69,13 +70,13 @@ module.exports=async function({page,context,fixtureId,output,setNetworkFixture,s
     setNetworkFixture(false);
     await page.locator('[data-collaboration-clear]').click();
     for(const theme of ['light','black']){
-      await page.locator(`[data-theme-choice="${theme}"]`).click();
+      await selectTheme(page, theme);
       await page.setViewportSize({width:1440,height:1000});
-      await page.screenshot({path:`${output}/${theme}-desktop-collaboration-fixture.png`,fullPage:true});
+      await settledScreenshot(page, {path:`${output}/${theme}-desktop-collaboration-fixture.png`,fullPage:true});
       await page.locator('.progress-tabs').getByRole('link',{name:'보고서',exact:true}).click();
       await page.getByRole('heading',{name:'번역된 예시 보고서',exact:true}).waitFor();
       assert.equal(await page.evaluate(()=>Boolean(window.translationInjected)),false);
-      await page.screenshot({path:`${output}/${theme}-desktop-korean-report-fixture.png`,fullPage:true});
+      await settledScreenshot(page, {path:`${output}/${theme}-desktop-korean-report-fixture.png`,fullPage:true});
       await page.locator('.document-toggle').first().click();
       await page.getByRole('heading',{name:'Fixture source report',exact:true}).waitFor();
       await page.locator('.document-toggle').first().click();
@@ -88,12 +89,12 @@ module.exports=async function({page,context,fixtureId,output,setNetworkFixture,s
         await page.setViewportSize({width,height:850});
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${theme} approval fits ${width}px`);
       }
-      await page.screenshot({path:`${output}/${theme}-mobile-korean-approval-fixture.png`,fullPage:true});
+      await settledScreenshot(page, {path:`${output}/${theme}-mobile-korean-approval-fixture.png`,fullPage:true});
       await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();
       await page.locator('.collaboration').waitFor();
       assert.equal(await page.locator('.collaboration-wires').isVisible(),false,'mobile uses readable directed rows, not scaled diagram');
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${theme} collaboration fits 320px`);
-      await page.screenshot({path:`${output}/${theme}-mobile-collaboration-fixture.png`,fullPage:true});
+      await settledScreenshot(page, {path:`${output}/${theme}-mobile-collaboration-fixture.png`,fullPage:true});
     }
     await page.emulateMedia({reducedMotion:'reduce'});
     cursor=10003;extra.push({id:'reduced-motion-event',cursor});await refresh();
@@ -118,6 +119,6 @@ module.exports=async function({page,context,fixtureId,output,setNetworkFixture,s
     translationState='completed';digest='e'.repeat(64);await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();await refresh();
     await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).click();await page.getByRole('heading',{name:originalTitle,exact:true}).waitFor();await page.getByText('원문 갱신 · 이전 번역',{exact:true}).waitFor();
   }finally{
-    setNetworkFixture(false);setHTTPFixture(false);await context.setOffline(false);await page.emulateMedia({reducedMotion:'no-preference'});await page.unroute(overviewPath);await page.reload();await page.locator('.nav').waitFor();await page.locator('[data-theme-choice="light"]').click();await page.setViewportSize({width:1440,height:1000});
+    setNetworkFixture(false);setHTTPFixture(false);await context.setOffline(false);await page.emulateMedia({reducedMotion:'no-preference'});await page.unroute(overviewPath);await page.reload();await page.locator('.nav').waitFor();await selectTheme(page, 'light');await page.setViewportSize({width:1440,height:1000});
   }
 };

@@ -4,6 +4,7 @@
    No project dependency or production service is modified. */
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
+const {selectTheme, settledScreenshot} = require('./capture.cjs');
 const fs = require('node:fs/promises');
 const base = process.env.BASE_URL;
 const password = process.env.TEST_PASSWORD;
@@ -31,14 +32,14 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.equal(await page.locator('html').getAttribute('data-theme'),'light');
     await page.getByLabel('비밀번호',{exact:true}).fill('theme-input-check');
     for(const theme of ['black','light']) {
-      await page.locator(`[data-theme-choice="${theme}"]`).click();
+      await selectTheme(page, theme);
       assert.equal(await page.getByLabel('비밀번호',{exact:true}).inputValue(),'theme-input-check');
       assert.equal(await page.locator(`[data-theme-choice="${theme}"]`).getAttribute('aria-pressed'),'true');
       await page.evaluate(()=>document.fonts.ready);
       for(const [device,width,height] of [['desktop',1440,1000],['mobile',360,800]]) {
         await page.setViewportSize({width,height});
         assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-        await page.screenshot({path:`${output}/${theme}-${device}-login.png`,fullPage:true});
+        await settledScreenshot(page, {path:`${output}/${theme}-${device}-login.png`,fullPage:true});
       }
       await page.reload();
       await page.getByLabel('비밀번호',{exact:true}).waitFor();
@@ -47,11 +48,11 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     }
     await page.getByLabel('비밀번호',{exact:true}).clear();
     await page.setViewportSize({width:1440,height:1000});
-    await page.screenshot({path:`${output}/desktop-login.png`,fullPage:true});
+    await settledScreenshot(page, {path:`${output}/desktop-login.png`,fullPage:true});
     await page.setViewportSize({width:360,height:800});
-    await page.screenshot({path:`${output}/mobile-login.png`,fullPage:true});
+    await settledScreenshot(page, {path:`${output}/mobile-login.png`,fullPage:true});
     await page.setViewportSize({width:800,height:360});
-    await page.screenshot({path:`${output}/landscape-login.png`,fullPage:true});
+    await settledScreenshot(page, {path:`${output}/landscape-login.png`,fullPage:true});
     await page.setViewportSize({width:1440,height:1000});
     await page.getByLabel('비밀번호',{exact:true}).fill(password);
     await page.getByRole('button',{name:'로그인',exact:true}).click();
@@ -64,7 +65,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     expectedHTTPFailure=false;
     await page.setViewportSize({width:360,height:800});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'password form fits mobile');
-    await page.screenshot({path:`${output}/mobile-password-change.png`,fullPage:true});
+    await settledScreenshot(page, {path:`${output}/mobile-password-change.png`,fullPage:true});
     await page.getByLabel('현재 비밀번호',{exact:true}).fill(password);
     await page.getByLabel('새 비밀번호',{exact:true}).fill('123456789');
     assert.equal(await page.locator('#new-password').evaluate(input=>input.validity.tooShort),true,'9 characters are rejected');
@@ -73,10 +74,10 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.getByLabel('새 비밀번호 확인',{exact:true}).fill('browser fixture wrong confirmation');
     await page.getByRole('button',{name:'비밀번호 변경 후 계속'}).click();
     await page.getByText('새 비밀번호가 서로 일치하지 않습니다.',{exact:true}).waitFor();
-    await page.locator('[data-theme-choice="black"]').click();
+    await selectTheme(page, 'black');
     assert.equal(await page.getByLabel('새 비밀번호',{exact:true}).inputValue(),'new-pass10');
-    await page.screenshot({path:`${output}/black-mobile-password-change.png`,fullPage:true});
-    await page.locator('[data-theme-choice="light"]').click();
+    await settledScreenshot(page, {path:`${output}/black-mobile-password-change.png`,fullPage:true});
+    await selectTheme(page, 'light');
     await page.getByLabel('새 비밀번호 확인',{exact:true}).fill('new-pass10');
     await page.getByRole('button',{name:'비밀번호 변경 후 계속'}).click();
     await page.locator('.nav').waitFor();
@@ -88,7 +89,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.equal(await page.locator('.role').count(), 4, 'four parallel fixture roles');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
     const fixtureId = await page.locator('#project-select').inputValue();
-    await page.screenshot({path:`${output}/desktop-progress.png`,fullPage:true});
+    await settledScreenshot(page, {path:`${output}/desktop-progress.png`,fullPage:true});
 
     // Project-labelled response fixtures exercise the renderer only, not Dispatcher recovery.
     let recoveryState = 'WAITING_QUOTA';
@@ -137,7 +138,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.equal(await page.evaluate(()=>Boolean(window.reviewInjected)),false,'review text is escaped');
     await page.setViewportSize({width:360,height:800});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'review details fit mobile');
-    await page.screenshot({path:`${output}/mobile-review-opinions.png`,fullPage:true});
+    await settledScreenshot(page, {path:`${output}/mobile-review-opinions.png`,fullPage:true});
     await page.setViewportSize({width:1440,height:1000});
     await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();
     await page.unroute(`**/api/projects/${fixtureId}/overview`);
@@ -194,11 +195,11 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.equal(await page.locator('dialog').getByText('src/api/',{exact:true}).count(),1);
     await page.setViewportSize({width:360,height:800});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'plan dialog fits mobile');
-    await page.screenshot({path:`${output}/mobile-plan-confirm.png`,fullPage:true});
+    await settledScreenshot(page, {path:`${output}/mobile-plan-confirm.png`,fullPage:true});
     await page.getByRole('button',{name:'이 계획 확정',exact:true}).scrollIntoViewIfNeeded();
     assert.equal(await page.getByRole('button',{name:'이 계획 확정',exact:true}).isVisible(),true);
     assert.equal(await page.getByRole('button',{name:'이 계획 확정',exact:true}).evaluate(button=>{const r=button.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight;}),true,'mobile plan confirmation is reachable inside the scrolling dialog');
-    await page.screenshot({path:`${output}/mobile-plan-confirm-actions.png`});
+    await settledScreenshot(page, {path:`${output}/mobile-plan-confirm-actions.png`});
     await page.setViewportSize({width:1440,height:1000});
     // Hash navigation while a dialog is open must discard that project's approval form.
     await page.evaluate(project=>{location.hash=`manager?project=${project}`;}, fixtureId);
@@ -288,13 +289,13 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
       assert.equal(await page.locator('#project-select').inputValue(),fixtureId,`${view} keeps selected fixture`);
       await page.getByText('모의 예시 데이터',{exact:true}).waitFor();
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${view} fits 360px`);
-      await page.screenshot({path:`${output}/mobile-${view}.png`,fullPage:true});
+      await settledScreenshot(page, {path:`${output}/mobile-${view}.png`,fullPage:true});
     }
     await page.locator('.nav').getByRole('link',{name:'매니저',exact:true}).click();
     for(const theme of ['black','light']) {
       await page.getByLabel('PM에게 전달할 내용').fill('테마를 바꾸어도 유지할 초안');
       const beforeURL=page.url();
-      await page.locator(`[data-theme-choice="${theme}"]`).click();
+      await selectTheme(page, theme);
       assert.equal(page.url(),beforeURL,'theme does not navigate');
       assert.equal(await page.getByLabel('PM에게 전달할 내용').inputValue(),'테마를 바꾸어도 유지할 초안');
       for(const [device,width,height] of [['desktop',1440,1000],['mobile',360,800]]) {
@@ -303,7 +304,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
           if(view==='reports'){await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();await page.locator('.progress-tabs').getByRole('link',{name:'보고서',exact:true}).click();}else await page.locator('.nav').getByRole('link',{name:title,exact:true}).click();
           assert.equal(await page.locator('html').getAttribute('data-theme'),theme,'theme survives render');
           assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${theme} ${view} fits ${width}px`);
-          await page.screenshot({path:`${output}/${theme}-${device}-${view}.png`,fullPage:true});
+          await settledScreenshot(page, {path:`${output}/${theme}-${device}-${view}.png`,fullPage:true});
         }
       }
       await page.locator('.nav').getByRole('link',{name:'매니저',exact:true}).click();

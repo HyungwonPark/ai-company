@@ -3,6 +3,7 @@
    This scenario uses an authenticated response fixture, never runs a model, never
    writes an approval, and does not claim a production UI deployment. */
 const assert=require('node:assert/strict');
+const {selectTheme, settledScreenshot} = require('./capture.cjs');
 const fs=require('node:fs/promises');
 const path=require('node:path');
 module.exports=async function recordedCliTranslationRendering({page,fixtureId,output}){
@@ -53,25 +54,25 @@ module.exports=async function recordedCliTranslationRendering({page,fixtureId,ou
     await language.getByText('실제 CLI 저장 기록 재처리 · 원기록 failed 유지 · 추가 모델 호출 0회',{exact:true}).waitFor();
     await language.getByText(provenance.raw_sha256,{exact:true}).waitFor();
     for(const theme of ['light','black']){
-      await page.locator(`[data-theme-choice="${theme}"]`).click();
+      await selectTheme(page, theme);
       await page.setViewportSize({width:1440,height:1100});
       await page.getByRole('heading',{name:doc.translation.fields.title,exact:true}).waitFor();
       await page.evaluate(()=>document.fonts.ready);
-      await page.screenshot({path:`${output}/${theme}-recorded-cli-reprocessed-korean-approval.png`,fullPage:true});
+      await settledScreenshot(page, {path:`${output}/${theme}-recorded-cli-reprocessed-korean-approval.png`,fullPage:true});
       await language.getByRole('button',{name:'원문 보기',exact:true}).click();
       await page.getByRole('heading',{name:doc.fields.title,exact:true}).waitFor();
       for(const field of ['impact','rollback'])await page.getByText(doc.fields[field],{exact:true}).waitFor();
-      await page.screenshot({path:`${output}/${theme}-recorded-cli-reprocessed-original-approval.png`,fullPage:true});
+      await settledScreenshot(page, {path:`${output}/${theme}-recorded-cli-reprocessed-original-approval.png`,fullPage:true});
       await language.getByRole('button',{name:'한국어 보기',exact:true}).click();
       await page.getByRole('heading',{name:doc.translation.fields.title,exact:true}).waitFor();
       await page.setViewportSize({width:360,height:900});
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${theme} recorded translation fits 360px`);
-      await page.screenshot({path:`${output}/${theme}-mobile-recorded-cli-reprocessed-korean-approval.png`,fullPage:true});
+      await settledScreenshot(page, {path:`${output}/${theme}-mobile-recorded-cli-reprocessed-korean-approval.png`,fullPage:true});
     }
     assert.deepEqual(writes,[],'stored translation viewing and toggling never sends approval/model/worker requests');
     assert.equal(JSON.stringify({document:doc,approval}),originalJSON,'source and translation records are unchanged');
     console.log(JSON.stringify({scenario:'recorded_cli_reprocessed_translation_rendering',status:'PASS',scope:'authenticated response fixture; saved actual CLI result; no new model calls; no approval writes',original_failure_preserved:true,raw_sha256:provenance.raw_sha256,semantic_validation:doc.translation.semantic_validation}));
   }finally{
-    page.off('request',observeRequest);await page.unroute(overviewPath);await page.reload();await page.locator('.nav').waitFor();await page.locator('[data-theme-choice="light"]').click();await page.setViewportSize({width:1440,height:1000});
+    page.off('request',observeRequest);await page.unroute(overviewPath);await page.reload();await page.locator('.nav').waitFor();await selectTheme(page, 'light');await page.setViewportSize({width:1440,height:1000});
   }
 };
