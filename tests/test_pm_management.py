@@ -47,6 +47,58 @@ class PMManagementTests(unittest.TestCase):
             function(*args)
         self.assertEqual(error.exception.code, code)
 
+    def translated_plan(self, plan):
+        from ai_company.collaboration import plan_document
+        from ai_company.translations import TranslationStore, segments
+        source = plan_document(self.pid, plan)
+        from ai_company.dispatcher import Dispatcher
+        initializer = Dispatcher(self.root, clock=lambda: self.now)
+        initializer.close()
+        store = TranslationStore(self.store.db, clock=lambda: self.now)
+        with self.store.db:
+            self.store.db.execute("INSERT OR IGNORE INTO credential_groups VALUES ('codex','plan-test','plan-test')")
+            self.store.db.execute("INSERT OR IGNORE INTO quota_groups VALUES ('plan-test','AVAILABLE',NULL,NULL)")
+        store.sync(self.pid, [source], {'credential_ref': 'plan-test', 'quota_group': 'plan-test'})
+        job = store.claim('fixture-translator', adapter_ready=True)
+        translations = {
+            'Build and independently verify an API': 'API를 개발하고 독립적으로 검증합니다',
+            'Backend': '서버', 'API': 'API 담당', 'Implement endpoint': '엔드포인트 구현',
+            'Endpoint verified': '엔드포인트 검증', 'Tests': '검사',
+            'Independent verification': '독립 검증', 'Verify endpoint': '엔드포인트 확인',
+            'Failure cases tested': '실패 사례 검사',
+            'Checks and independent final review pass': '검사와 독립 최종 검수 통과',
+        }
+        store.finish(job['id'], job['lease_token'], {'category': 'success',
+            'fields': {key: translations[value] for key, value in segments(source['fields']).items()}})
+        self.assertEqual(store.get_result(job['id'])['status'], 'completed')
+        return {'id': job['id'], 'source_digest': source['source_digest']}
+
+    def test_translated_confirmation_preserves_original_and_exact_run_with_audit(self):
+        _, plan = self.propose(); original = copy.deepcopy(plan['content'])
+        reference = self.translated_plan(plan)
+        body = self.confirm_body(plan, displayed_translation=reference)
+        result = self.store.confirm_plan(self.pid, plan['id'], body)
+        self.assertEqual(result['plan']['content'], original)
+        self.assertEqual(result['plan']['digest'], plan['digest'])
+        self.assertEqual(result['plan']['displayed_translation'], reference)
+        self.assertEqual(result, self.store.confirm_plan(self.pid, plan['id'], body))
+        self.assertEqual(len(self.store.run_records()), 1)
+        self.assertEqual(result['run']['plan_digest'], plan['digest'])
+        self.assertEqual(self.store.overview(self.pid)['project']['harness_content'], json.dumps(original, ensure_ascii=False, indent=2))
+
+    def test_plan_translation_mismatch_rolls_back_confirmation(self):
+        _, plan = self.propose(); reference = self.translated_plan(plan)
+        wrong = dict(reference, source_digest='f' * 64)
+        self.assert_blocked('translation_mismatch', self.store.confirm_plan, self.pid, plan['id'], self.confirm_body(plan, displayed_translation=wrong))
+        self.assertEqual(self.store.get_plan(self.pid, plan['id'])['status'], 'proposed')
+        self.assertEqual(self.store.run_records(), [])
+        row = self.store.db.execute('SELECT document FROM translation_jobs WHERE id=?', (reference['id'],)).fetchone()
+        artifact = json.loads(row[0]); artifact['source']['protected']['content']['roles'][0]['allowed_paths'] = ['secret/']
+        with self.store.db:
+            self.store.db.execute('UPDATE translation_jobs SET document=? WHERE id=?', (json.dumps(artifact), reference['id']))
+        self.assert_blocked('translation_mismatch', self.store.confirm_plan, self.pid, plan['id'], self.confirm_body(plan, displayed_translation=reference))
+        self.assertEqual(self.store.run_records(), [])
+
     def test_message_request_atomic_persistence_and_snapshot(self):
         message = self.store.post_message(self.pid, {"content": "Build a plan"})
         self.store.close(); self.store = ManagementStore(self.root, clock=lambda: self.now)

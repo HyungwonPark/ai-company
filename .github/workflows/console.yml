@@ -27,6 +27,8 @@ jobs:
           node --check src/ai_company/web/sw.js
           node --check src/ai_company/web/collaboration-ui.js
           node --check src/ai_company/web/documents-ui.js
+          node --check src/ai_company/web/plan-ui.js
+          node --check src/ai_company/web/report-ui.js
           node --check src/ai_company/web/manager-ui.js
           node tests/ui/state_checks.mjs
           node tests/ui/manager_checks.mjs

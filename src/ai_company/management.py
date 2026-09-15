@@ -73,6 +73,7 @@ class PlanConfirmationInput(Contract):
     plan_digest: Digest
     base_harness_version: StrictInt = Field(ge=1)
     idempotency_key: str = Field(pattern=r"^[a-zA-Z0-9_.:-]{8,128}$")
+    displayed_translation: DisplayedTranslation | None = None
 
 
 class ValidationDelegationAuthorization(BaseModel):
@@ -442,7 +443,7 @@ class ManagementStore:
 
     def confirm_plan(self, project_id, plan_id, value):
         value = PlanConfirmationInput.model_validate(value)
-        request_digest = digest({"plan_id": plan_id, **value.model_dump()})
+        request_digest = digest({"plan_id": plan_id, **value.model_dump(exclude_none=True)})
         with self.db:
             self.db.execute("BEGIN IMMEDIATE")
             project = self._project(project_id)
@@ -463,6 +464,10 @@ class ManagementStore:
             if (plan["status"] != "proposed" or value.base_harness_version != plan["base_harness_version"]
                     or not self._request_current(request, project)):
                 raise ManagementError("stale_plan", "Goal, conversation or active harness changed; request a fresh plan")
+            if value.displayed_translation is not None:
+                from ai_company.collaboration import plan_document
+                self._check_displayed_translation(plan_document(project_id, plan), value.displayed_translation)
+                plan["displayed_translation"] = value.displayed_translation.model_dump()
             # Keep prior roles for their existing task history. Only newly confirmed
             # roles become the active plan; existing flow policies are never edited.
             for row in self.db.execute("SELECT id,document FROM management_roles WHERE project_id=?", (project_id,)).fetchall():
@@ -583,6 +588,19 @@ class ManagementStore:
     def _subject(item):
         return {"project_id": item["project_id"], **{key: item[key] for key in ApprovalSubject.model_fields}}
 
+    def _check_displayed_translation(self, original, reference):
+        from ai_company.translations import TranslationStore
+        try:
+            translated = TranslationStore(self.db, clock=self.clock).get_result(reference.id)
+        except ValueError as exc:
+            raise ManagementError("translation_mismatch", "Displayed translation is not a completed source-bound artifact") from exc
+        if (translated["source_digest"] != original["source_digest"]
+                or digest(translated["source"]) != original["source_digest"]
+                or reference.source_digest != original["source_digest"]
+                or translated["source"]["id"] != original["id"]
+                or translated["source"]["project_id"] != original["project_id"]):
+            raise ManagementError("translation_mismatch", "Displayed translation belongs to another source or version")
+
     def decide(self, project_id, approval_id, value):
         value = DecisionInput.model_validate(value)
         request_digest = digest({"approval_id": approval_id, **value.model_dump(exclude_none=True)})
@@ -602,19 +620,9 @@ class ManagementStore:
                 raise ManagementError("already_decided", "Approval already has a decision")
             if value.displayed_translation is not None:
                 from ai_company.collaboration import document_sources
-                from ai_company.translations import TranslationStore
                 original = next(doc for doc in document_sources({"project": {"id": project_id}, "approvals": [item]})
                                 if doc["id"] == "approval:" + approval_id)
-                try:
-                    translated = TranslationStore(self.db, clock=self.clock).get_result(value.displayed_translation.id)
-                except ValueError as exc:
-                    raise ManagementError("translation_mismatch", "Displayed translation is not a completed source-bound artifact") from exc
-                if (translated["source_digest"] != original["source_digest"]
-                        or digest(translated["source"]) != original["source_digest"]
-                        or value.displayed_translation.source_digest != original["source_digest"]
-                        or translated["source"]["id"] != original["id"]
-                        or translated["source"]["project_id"] != project_id):
-                    raise ManagementError("translation_mismatch", "Displayed translation belongs to another source or version")
+                self._check_displayed_translation(original, value.displayed_translation)
                 item["displayed_translation"] = value.displayed_translation.model_dump()
             item.update(status={"approve": "approved", "reject": "rejected", "request_changes": "changes_requested"}[value.decision],
                         decision=value.decision, comment=value.comment, decided_at=self.clock())
@@ -730,6 +738,10 @@ class ManagementStore:
         project.pop("fixture_tasks", None); project.pop("fixture_reports", None)
         overview = {"project": project, "roles": roles, "tasks": tasks, "reports": reports, "approvals": approvals,
                     "messages": messages, "harnesses": harnesses, "readiness": readiness, "pm_requests": requests, "plans": plans, "runs": runs, "delegations": delegations}
+        from ai_company.project_report import project_report
+        from ai_company.service_worker import runtime_status
+        overview["workers"] = runtime_status(self.root, clock=self.clock)
+        overview["project_report"] = project_report(overview)
         from ai_company.collaboration import document_sources, project_collaboration
         from ai_company.translations import TranslationStore
         translations = TranslationStore(self.db, clock=self.clock)

@@ -97,3 +97,6 @@
  .nav a{position:relative;gap:4px;padding-top:5px}.nav-count{display:block;position:absolute;top:0;left:calc(50% + 7px);min-width:16px;border-radius:8px;font-size:9px;margin:0;padding:0 4px}.nav-icon svg{width:20px;height:20px}
 }
 @media(prefers-reduced-motion:reduce){.manager-primary-link{transition:none}}
+
+.plan-criteria{margin:0;padding-left:18px}.plan-criteria li+li{margin-top:6px}.plan-completion>.plan-criteria{margin-top:8px}.plan-reading>.document-language{margin-bottom:16px}
+.project-summary,.pm-report-summary{margin-bottom:22px}.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:24px 0}.project-summary h3,.pm-report-summary h3{font-size:15px;margin:0 0 10px}.project-summary h3 span{color:var(--muted);font-weight:400}.summary-list{list-style:none;padding:0;margin:0}.summary-list li{padding:10px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.summary-list li>div,.summary-decisions li{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.summary-list strong{font-size:13px;font-weight:500}.summary-list p,.summary-list small,.summary-decisions span,.summary-decisions time{font-size:12px;color:var(--muted);margin:6px 0}.summary-decisions p{flex-basis:100%}.summary-list a{font-size:13px}.project-summary>details{margin-top:20px}@media(max-width:760px){.summary-grid{grid-template-columns:1fr;gap:20px}}

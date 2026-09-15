@@ -24,6 +24,22 @@ def _document(project_id, identity, kind, version, author, reference, fields, pr
     return value
 
 
+def plan_document(project_id, plan):
+    """Translate prose only; the complete executable plan remains protected."""
+    content = plan.get("content", {})
+    fields = {"summary": content.get("summary", "")}
+    for index, role in enumerate(content.get("roles", [])):
+        for key in ("name", "responsibility", "goal"):
+            fields[f"role:{index}:{key}"] = role.get(key, "")
+        for number, criterion in enumerate(role.get("acceptance", [])):
+            fields[f"role:{index}:acceptance:{number}"] = criterion
+    for index, criterion in enumerate(content.get("completion_criteria", [])):
+        fields[f"completion:{index}"] = criterion
+    return _document(project_id, "plan:" + plan["id"], "plan", plan["digest"], "pm",
+        {"plan_id": plan["id"], "plan_digest": plan["digest"]}, fields,
+        {"plan_digest": plan["digest"], "content": content})
+
+
 def document_sources(overview):
     """Canonical source documents. Structured authority fields are never translated."""
     project_id = overview["project"]["id"]
@@ -60,13 +76,7 @@ def document_sources(overview):
     documents.append(_document(project_id, "project:" + project_id, "project", digest(project.get("goal", "")),
         "master", {"project_id": project_id}, {"goal": project.get("goal", "")}))
     for plan in overview.get("plans", []):
-        content = plan.get("content", {})
-        fields = {"summary": content.get("summary", "")}
-        for index, role in enumerate(content.get("roles", [])):
-            fields[f"role:{index}:name"] = role.get("name", "")
-        documents.append(_document(project_id, "plan:" + plan["id"], "plan", plan["digest"], "pm",
-            {"plan_id": plan["id"], "plan_digest": plan["digest"]}, fields,
-            {"plan_digest": plan["digest"], "content": content}))
+        documents.append(plan_document(project_id, plan))
     return documents
 
 

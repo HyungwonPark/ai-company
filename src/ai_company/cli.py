@@ -118,15 +118,20 @@ def main() -> int:
 
 def automation_command(args) -> int:
     import time
+    from contextlib import ExitStack
+    from ai_company.service_worker import worker_ownership
     import math
     from ai_company.automation import Automation
     from ai_company.automation_contracts import AutomationConfig
     from ai_company.management import ManagementError
     worker = None
+    ownership = ExitStack()
     try:
         if not math.isfinite(args.max_seconds) or not 0 < args.max_seconds <= 86400:
             raise ValueError("max-seconds must be positive and at most 86400")
         config = AutomationConfig.model_validate_json(args.config.read_text())
+        if args.action in ("tick", "worker"):
+            ownership.enter_context(worker_ownership(args.state_dir, "automation"))
         worker = Automation(args.state_dir, config)
         if args.action == "delegate":
             if not args.authorization_file:
@@ -154,6 +159,7 @@ def automation_command(args) -> int:
     finally:
         if worker:
             worker.close()
+        ownership.close()
 
 
 def session_command(args) -> int:

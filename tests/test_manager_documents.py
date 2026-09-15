@@ -19,7 +19,9 @@ class ManagerDocumentTests(unittest.TestCase):
         overview = self.fixture()
         original = copy.deepcopy(overview)
         doc = next(item for item in document_sources(overview) if item["kind"] == "plan")
-        self.assertEqual(doc["fields"], {"summary": "Implement and inspect independently", "role:0:name": "Implementation"})
+        self.assertEqual(doc["fields"], {"summary": "Implement and inspect independently", "role:0:name": "Implementation",
+            "role:0:responsibility": "", "role:0:goal": "", "role:0:acceptance:0": "Do not modify existing data",
+            "completion:0": "Do not deploy or merge"})
         self.assertEqual(doc["protected"]["content"], original["plans"][0]["content"])
         self.assertEqual(doc["protected"]["plan_digest"], "a" * 64)
         self.assertEqual(doc["source_ref"], {"plan_id": "plan", "plan_digest": "a" * 64})
