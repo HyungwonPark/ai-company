@@ -61,7 +61,14 @@ def main():
                 ["node", str(repository / "tests" / "ui" / "smoke.cjs")],
                 env=env, cwd=repository, timeout=240, check=False,
             )
-            return result.returncode
+            if result.returncode:
+                return result.returncode
+            preview = subprocess.run(
+                ["node", str(repository / "tests" / "ui" / "design_preview.cjs")],
+                env={key: value for key, value in env.items() if key not in ("TEST_PASSWORD", "PLAN_FIXTURES")},
+                cwd=repository, timeout=180, check=False,
+            )
+            return preview.returncode
         finally:
             server.shutdown()
             server.server_close()
