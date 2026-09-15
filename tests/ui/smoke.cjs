@@ -98,6 +98,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
       Object.assign(role,{status:recoveryState,wait_reason:'모의 주입: 계정 제한 후 복귀 예약',resume_at:Date.now()/1000+600,
         handoffs:recoveryState==='RUNNING'?[{source:'fixture',from:'fixture-a',to:'fixture-b',reason:'모의 제한 이관'}]:[]});
       for(const task of snapshot.tasks.filter(task=>task.role_id===role.id))task.status=recoveryState;
+      for(const node of snapshot.collaboration?.nodes||[]){if(node.kind==='role'&&(node.id===role.id||node.name===role.name))Object.assign(node,{status:role.status,wait_reason:role.wait_reason,resume_at:role.resume_at,handoffs:role.handoffs});}
       snapshot.reports[0].review_reports={
         reviewer:{verdict:'REVISE',summary:'모의 독립 검수: 입력 경계를 보완하세요.',candidate_sha:'a'.repeat(40),execution_id:'b'.repeat(64),findings:[{finding_id:'boundary',detail:'<script>window.reviewInjected=true</script>',evidence:'모의 경계 입력 검사'}]},
         final:{verdict:'PASS',summary:'모의 Astra 최종 검수: 같은 후보의 변경을 확인했습니다.',candidate_sha:'a'.repeat(40),execution_id:'c'.repeat(64),findings:[],resolved_findings:['boundary']}
@@ -126,7 +127,8 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.equal(await delegated.getByRole('button').count(),0,'delegation evidence is read-only');
     assert.equal(await page.evaluate(()=>Boolean(window.delegationInjected)),false,'delegation original text is escaped');
     await page.locator('[data-run-id="fixture-prior-block"]').getByText('차단',{exact:true}).waitFor();
-    await page.locator('.nav').getByRole('link',{name:'보고서',exact:true}).click();
+    await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();
+    await page.locator('.progress-tabs').getByRole('link',{name:'보고서',exact:true}).click();
     await page.getByText('모델 검수 의견 2건',{exact:true}).click();
     await page.getByRole('heading',{name:'독립 검수 의견',exact:true}).waitFor();
     await page.getByRole('heading',{name:'Astra 최종 검수 의견',exact:true}).waitFor();
@@ -137,14 +139,17 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'review details fit mobile');
     await page.screenshot({path:`${output}/mobile-review-opinions.png`,fullPage:true});
     await page.setViewportSize({width:1440,height:1000});
-    await page.locator('.nav').getByRole('link',{name:'역할별 진행',exact:true}).click();
+    await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();
     await page.unroute(`**/api/projects/${fixtureId}/overview`);
     await page.getByRole('button',{name:'새로고침'}).click();
+    await require('./collaboration.cjs')({page,context,fixtureId,output,setNetworkFixture:value=>{offlineScenario=value;},setHTTPFixture:value=>{expectedHTTPFailure=value;}});
+    await require('./recorded_translation.cjs')({page,fixtureId,output});
 
     await page.locator('.nav').getByRole('link', {name:'매니저',exact:true}).click();
     const draft = '독립 작업은 계속 진행하고, PM 판단은 복귀 후 확인합니다.';
     await page.getByLabel('PM에게 전달할 내용').fill(draft);
-    await page.locator('.nav').getByRole('link', {name:'보고서',exact:true}).click();
+    await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();
+    await page.locator('.progress-tabs').getByRole('link',{name:'보고서',exact:true}).click();
     await page.locator('.nav').getByRole('link', {name:'매니저',exact:true}).click();
     assert.equal(await page.getByLabel('PM에게 전달할 내용').inputValue(),draft,'draft survives navigation');
     await page.waitForTimeout(5300);
@@ -229,7 +234,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     },confirmFixture.project_id);
     assert.equal(confirmed.runs.length,1,'response loss does not duplicate the automatic run');
     assert.equal(confirmed.runs[0].mode,'fixture','fixture PM evidence never becomes a live run');
-    await page.locator('.nav').getByRole('link',{name:'역할별 진행',exact:true}).click();
+    await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();
     await page.getByRole('region',{name:'자동 실행'}).waitFor();
     await page.getByText(confirmed.runs[0].id,{exact:true}).waitFor();
 
@@ -258,7 +263,8 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     expectedHTTPFailure=false;
     await page.getByRole('button',{name:'취소',exact:true}).click();
     await page.getByRole('region',{name:'PM 요청 상태'}).waitFor();
-    await page.locator('.nav').getByRole('link',{name:'보고서',exact:true}).first().click();
+    await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();
+    await page.locator('.progress-tabs').getByRole('link',{name:'보고서',exact:true}).click();
     await page.getByRole('heading',{name:'보고서',exact:true}).waitFor();
     await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).first().click();
     await page.getByRole('heading',{name:'승인',exact:true}).waitFor();
@@ -276,9 +282,9 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.equal(await page.locator('#project-select').inputValue(),fixtureId,'approval reload retains fixture project');
     await page.getByText('모의 예시 데이터',{exact:true}).waitFor();
     await page.setViewportSize({width:360,height:800});
-    for(const [view, title] of [['progress','역할별 진행'],['manager','매니저'],['reports','보고서'],['approvals','승인'],['project','프로젝트']]) {
-      await page.locator('.nav').getByRole('link',{name:title,exact:true}).click();
-      await page.waitForFunction(expected => document.querySelector('.nav a[aria-current=page]')?.getAttribute('href')?.startsWith(`#${expected}?`), view);
+    for(const [view, title] of [['progress','진행'],['manager','매니저'],['reports','보고서'],['approvals','승인'],['project','프로젝트']]) {
+      if(view==='reports'){await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();await page.locator('.progress-tabs').getByRole('link',{name:'보고서',exact:true}).click();}else await page.locator('.nav').getByRole('link',{name:title,exact:true}).click();
+      await page.waitForFunction(expected => document.querySelector(expected==='reports'?'.progress-tabs a[aria-current=page]':'.nav a[aria-current=page]')?.getAttribute('href')?.startsWith(`#${expected}?`), view);
       assert.equal(await page.locator('#project-select').inputValue(),fixtureId,`${view} keeps selected fixture`);
       await page.getByText('모의 예시 데이터',{exact:true}).waitFor();
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${view} fits 360px`);
@@ -293,8 +299,8 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
       assert.equal(await page.getByLabel('PM에게 전달할 내용').inputValue(),'테마를 바꾸어도 유지할 초안');
       for(const [device,width,height] of [['desktop',1440,1000],['mobile',360,800]]) {
         await page.setViewportSize({width,height});
-        for(const [view,title] of [['progress','역할별 진행'],['manager','매니저'],['reports','보고서'],['approvals','승인'],['project','프로젝트']]) {
-          await page.locator('.nav').getByRole('link',{name:title,exact:true}).click();
+        for(const [view,title] of [['progress','진행'],['manager','매니저'],['reports','보고서'],['approvals','승인'],['project','프로젝트']]) {
+          if(view==='reports'){await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();await page.locator('.progress-tabs').getByRole('link',{name:'보고서',exact:true}).click();}else await page.locator('.nav').getByRole('link',{name:title,exact:true}).click();
           assert.equal(await page.locator('html').getAttribute('data-theme'),theme,'theme survives render');
           assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${theme} ${view} fits ${width}px`);
           await page.screenshot({path:`${output}/${theme}-${device}-${view}.png`,fullPage:true});
@@ -304,7 +310,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     }
     offlineScenario = true;
     await context.setOffline(true);
-    await page.getByText('연결 끊김',{exact:true}).waitFor();
+    await page.locator('#connection').filter({hasText:'연결 끊김'}).waitFor();
     assert.equal(await page.getByRole('button',{name:'메시지 저장'}).isDisabled(),true,'offline writes disabled');
     await context.setOffline(false);
     await page.waitForFunction(()=>{const button=document.querySelector('#message-form button[type=submit]');return button&&!button.disabled;});

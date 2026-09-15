@@ -175,6 +175,7 @@ class Automation:
                     run["roles"][key] = {**prior, "status": "WAITING_DEPENDENCIES", "revision": revision}
                     return
             base = run.get("repair_base_sha", self.config.base_sha)
+            dependencies = {}
             if role.depends_on:
                 dependencies = {dep: self._contribution(self.dispatcher.get(run["roles"][dep]["task_id"]))
                                 for dep in role.depends_on}
@@ -184,7 +185,7 @@ class Automation:
             task = self._task(task_id, role.goal, role.acceptance, base, role.allowed_paths)
             context = {"confirmed_plan": plan.model_dump(mode="json"), "role": role.model_dump(mode="json"),
                        "plan_digest": run["plan_digest"], "revision": revision,
-                       "repair_findings": prior.get("repair_findings", [])}
+                       "repair_findings": prior.get("repair_findings", []), "dependency_artifacts": dependencies}
             if run.get("delegation_id"):
                 context["master_delegation"] = self._delegation(run)
             state = self.dispatcher.submit(self._spec(task, clone, "contribution", context))
@@ -229,7 +230,8 @@ class Automation:
                 published, remote_ci = {}, None
             request = self.store.get_pm_request(self.store.get_plan(run["project_id"], run["plan_id"])["request_id"])
             pm_state = self.dispatcher.get(request["execution"]["task_id"])
-            context = {"confirmed_plan": plan.model_dump(mode="json"), "plan_digest": run["plan_digest"]}
+            context = {"confirmed_plan": plan.model_dump(mode="json"), "plan_digest": run["plan_digest"],
+                       "contribution_artifacts": contributions}
             if run.get("delegation_id"):
                 context["master_delegation"] = self._delegation(run)
             state = self.dispatcher.submit(self._spec(task, clone, "integration", context,
@@ -242,7 +244,7 @@ class Automation:
         # The final result belongs to this plan as a whole. Linking to one role
         # provides the existing reports view with the full independent evidence.
         self.store.link_task(run["project_id"], run["role_ids"][plan.roles[0].key], task_id,
-                             title="Integrated checks and independent final review")
+                             title="통합 검사와 독립·최종 검수")
         if state["status"] == "WAITING_ROLE_REPAIR":
             if revision >= self.config.policy.max_repairs:
                 run.update(state="blocked", reason="automatic role repair budget exhausted")
@@ -272,12 +274,12 @@ class Automation:
                 # This asks the master to accept the completed development result;
                 # approval is never interpreted as authority to deploy or merge.
                 approval = self.store.request_approval(run["project_id"], {
-                    "title": "Accept independently verified development result",
-                    "action": "Accept this candidate and its report; deployment and merge require separate authorization",
+                    "title": "독립 검수를 마친 개발 결과 수용",
+                    "action": "후보와 보고서를 수용합니다. 배포와 병합에는 별도 승인이 필요합니다.",
                     "environment": "draft-pr", "artifact_sha": state["snapshot"]["head_commit"],
                     "cost_usd": 0, "expires_at": run["created_at"] + 7 * 86400,
-                    "impact": "Records master acceptance only. Measured model costs may be unavailable; no paid operation is authorized.",
-                    "rollback": "Reject this draft candidate; previous branches and services remain available",
+                    "impact": "마스터의 결과 수용만 기록합니다. 실제 모델 비용은 확인되지 않을 수 있으며 유료 작업을 승인하지 않습니다.",
+                    "rollback": "이 초안 후보를 거부합니다. 기존 브랜치와 서비스는 유지됩니다.",
                     "verification": json.dumps({"task_id": task_id, "verification_digest": digest(state["verification"]),
                                                  "reviews_digest": digest(state["reviews"])})},
                     idempotency_key="automation-" + task_id)

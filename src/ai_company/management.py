@@ -56,11 +56,17 @@ class ApprovalSubject(Contract):
     verification: Text
 
 
+class DisplayedTranslation(Contract):
+    id: str = Field(pattern=r"^[0-9a-f]{32}$")
+    source_digest: Digest
+
+
 class DecisionInput(Contract):
     decision: Literal["approve", "reject", "request_changes"]
     comment: str = Field(default="", max_length=8000)
     subject_digest: Digest
     idempotency_key: str = Field(pattern=r"^[a-zA-Z0-9_.:-]{8,128}$")
+    displayed_translation: DisplayedTranslation | None = None
 
 
 class PlanConfirmationInput(Contract):
@@ -132,6 +138,32 @@ class ManagementStore:
                 SELECT project_id,json_object('kind','flow_updated','subject_id',NEW.task_id,
                     'created_at',json_extract(NEW.document,'$.updated_at'))
                 FROM management_links WHERE flow_task_id=NEW.task_id;
+            END;
+        """)
+        from ai_company.translations import initialize
+        initialize(self.db)
+        self.db.executescript("""
+            CREATE TRIGGER IF NOT EXISTS management_session_update AFTER UPDATE ON session_jobs BEGIN
+                INSERT INTO management_events(project_id,document)
+                SELECT DISTINCT l.project_id,json_object('kind','session_updated','subject_id',NEW.job_id,
+                    'created_at',json_extract(NEW.document,'$.updated_at'))
+                FROM management_links l JOIN flow_tasks t ON t.task_id=l.flow_task_id
+                WHERE json_extract(t.document,'$.active.job_id')=NEW.job_id;
+            END;
+            CREATE TRIGGER IF NOT EXISTS management_translation_link_insert AFTER INSERT ON translation_links BEGIN
+                INSERT INTO management_events(project_id,document) VALUES (NEW.project_id,
+                    json_object('kind','translation_requested','subject_id',NEW.job_id,'document_id',NEW.document_id,
+                    'source_digest',NEW.source_digest,'created_at',CAST(strftime('%s','now') AS REAL)));
+            END;
+            CREATE TRIGGER IF NOT EXISTS management_translation_link_update AFTER UPDATE ON translation_links BEGIN
+                INSERT INTO management_events(project_id,document) VALUES (NEW.project_id,
+                    json_object('kind','translation_requested','subject_id',NEW.job_id,'document_id',NEW.document_id,
+                    'source_digest',NEW.source_digest,'created_at',CAST(strftime('%s','now') AS REAL)));
+            END;
+            CREATE TRIGGER IF NOT EXISTS management_translation_job_update AFTER UPDATE ON translation_jobs BEGIN
+                INSERT INTO management_events(project_id,document)
+                SELECT DISTINCT project_id,json_object('kind','translation_updated','subject_id',NEW.id,
+                    'created_at',json_extract(NEW.document,'$.updated_at')) FROM translation_links WHERE job_id=NEW.id;
             END;
         """)
 
@@ -553,7 +585,7 @@ class ManagementStore:
 
     def decide(self, project_id, approval_id, value):
         value = DecisionInput.model_validate(value)
-        request_digest = digest({"approval_id": approval_id, **value.model_dump()})
+        request_digest = digest({"approval_id": approval_id, **value.model_dump(exclude_none=True)})
         with self.db:
             self.db.execute("BEGIN IMMEDIATE")
             item = self._approval(project_id, approval_id)
@@ -568,6 +600,21 @@ class ManagementStore:
                 raise ManagementError("expired", "Approval request expired")
             if item["status"] != "pending":
                 raise ManagementError("already_decided", "Approval already has a decision")
+            if value.displayed_translation is not None:
+                from ai_company.collaboration import document_sources
+                from ai_company.translations import TranslationStore
+                original = document_sources({"project": {"id": project_id}, "approvals": [item]})[0]
+                try:
+                    translated = TranslationStore(self.db, clock=self.clock).get_result(value.displayed_translation.id)
+                except ValueError as exc:
+                    raise ManagementError("translation_mismatch", "Displayed translation is not a completed source-bound artifact") from exc
+                if (translated["source_digest"] != original["source_digest"]
+                        or digest(translated["source"]) != original["source_digest"]
+                        or value.displayed_translation.source_digest != original["source_digest"]
+                        or translated["source"]["id"] != original["id"]
+                        or translated["source"]["project_id"] != project_id):
+                    raise ManagementError("translation_mismatch", "Displayed translation belongs to another source or version")
+                item["displayed_translation"] = value.displayed_translation.model_dump()
             item.update(status={"approve": "approved", "reject": "rejected", "request_changes": "changes_requested"}[value.decision],
                         decision=value.decision, comment=value.comment, decided_at=self.clock())
             self.db.execute("UPDATE management_approvals SET document=? WHERE id=?", (json.dumps(item), approval_id))
@@ -632,7 +679,12 @@ class ManagementStore:
                 effective_status = job["status"]
                 active = {**active, "session_id": job.get("session_id") or active.get("session_id")}
             tasks.append({**linked, "status": effective_status, "stage": state["stage"], "dependencies": state["specification"].get("dependencies", []),
-                          "worktree": state["specification"]["worktree"], "wait_reason": state.get("reason"), "resume_at": state.get("resume_at"),
+                          "worktree": state["specification"]["worktree"],
+                          "execution_scope": state["specification"].get("execution_scope", "full"),
+                          "created_at": state.get("created_at", 0), "revision": state["specification"].get("plan", {}).get("revision", 0),
+                          "generation": state.get("generation"), "candidate_sha": state.get("snapshot", {}).get("head_commit"),
+                          "wait_reason": (job or {}).get("reason") if job and job.get("status", "").startswith("WAITING") else state.get("reason"),
+                          "resume_at": (job or {}).get("resume_at") if job and job.get("status", "").startswith("WAITING") else state.get("resume_at"),
                           "active": active or None, "agents": state["specification"].get("agents", []), "handoffs": state.get("executions", []),
                           "repair_reason": state.get("findings", [])})
             reports.append({"id": "flow-" + linked["id"], "title": linked["title"], "summary": state["status"] + ": " + state.get("reason", ""),
@@ -642,9 +694,10 @@ class ManagementStore:
             tasks = project.get("fixture_tasks", [])
             reports = project.get("fixture_reports", [])
         for role in roles:
-            own = [t for t in tasks if t["role_id"] == role["id"]]
+            own = sorted([t for t in tasks if t["role_id"] == role["id"] and t.get("execution_scope") != "integration"],
+                         key=lambda t: (t.get("revision", 0), t.get("created_at", 0)))
             unfinished = [t for t in own if t["status"] not in ("MERGE_READY", "DEMO_READY", "COMPLETE", "FAILED", "BLOCKED")]
-            current = next((t for t in unfinished if t.get("active")), next(iter(unfinished), own[-1] if own else None))
+            current = own[-1] if own else None
             active = (current or {}).get("active") or {}
             profile = next((a for a in (current or {}).get("agents", []) if a["agent_id"] == active.get("agent_id")), {})
             role.update(status=current["status"] if current else "IDLE", assigned_model=profile.get("model"), session_id=active.get("session_id"),
@@ -674,8 +727,24 @@ class ManagementStore:
             readiness["execution"] = runs[-1]["state"]
             readiness["execution_mode"] = runs[-1]["mode"]
         project.pop("fixture_tasks", None); project.pop("fixture_reports", None)
-        return {"project": project, "roles": roles, "tasks": tasks, "reports": reports, "approvals": approvals,
-                "messages": messages, "harnesses": harnesses, "readiness": readiness, "pm_requests": requests, "plans": plans, "runs": runs, "delegations": delegations}
+        overview = {"project": project, "roles": roles, "tasks": tasks, "reports": reports, "approvals": approvals,
+                    "messages": messages, "harnesses": harnesses, "readiness": readiness, "pm_requests": requests, "plans": plans, "runs": runs, "delegations": delegations}
+        from ai_company.collaboration import document_sources, project_collaboration
+        from ai_company.translations import TranslationStore
+        translations = TranslationStore(self.db, clock=self.clock)
+        overview["documents"] = {doc["id"]: {**doc, "translation": translations.read(doc)} for doc in document_sources(overview)}
+        overview["translation_summary"] = translations.summary(project_id)
+        overview["collaboration"] = project_collaboration(self.db, overview)
+        summary = overview["translation_summary"]
+        overview["collaboration"]["nodes"].append({"id": "translator:" + project_id, "name": "한글 번역", "kind": "translator",
+            "responsibility": "원문을 보존하는 번역 전용 · 실행·승인 권한 없음", "status": summary["status"],
+            "current_task_id": None, "task_ids": [], "assignment": {"requested": summary.get("requested_configuration", {}),
+            "observed": summary.get("observed_configuration") or {"status": "unavailable"}, "agent_id": "document-translator",
+            "provider": summary.get("provider"), "quota_group": summary.get("quota_group"),
+            "session_id": (summary.get("observed_configuration") or {}).get("session_id"),
+            "quota": summary.get("quota"), "harness_version": project["harness_version"]},
+            "wait_reason": summary.get("reason"), "resume_at": summary.get("resume_at"), "handoffs": [], "active": True})
+        return overview
 
     def seed_demo(self):
         """Explicit fixture initialization; refuse any existing execution or project data."""
