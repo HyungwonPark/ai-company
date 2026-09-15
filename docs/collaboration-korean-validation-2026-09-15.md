@@ -40,6 +40,15 @@ Claude Code `2.1.270`에서 `--tools ''`, `--disallowedTools '*'`, 빈 strict MC
 
 실제 CLI 번역을 재처리한 문서의 한국어·원문 전환과 표시 출처를 브라우저에서 확인했다. 조회 중 승인·모델·worker 요청은 0건이었다. 합성 승인 원문의 기한이 지난 뒤 찍힌 캡처에는 ‘만료’가 표시된다. 원본 저장 상태 `pending`과 기한은 그대로이며 캡처를 위해 연장하지 않았다. 의미 대조는 별도 검증 기록이고 산출물 자체의 `semantic_validation`을 소급 변경하지 않았다.
 
+테마 변경 직후 찍힌 일부 초기 캡처가 CSS 전환 중간색을 담아 검사 보완 커밋 `bebb204611c51823e59b796ca16ce63f08534b04`에서 선택 상태·계산 색상·전환 종료를 확인한 뒤 촬영하도록 했다. 앱 소스는 바뀌지 않았다. [최종 브라우저 CI](https://github.com/HyungwonPark/ai-company/actions/runs/34944130985)와 [최종 회귀 CI](https://github.com/HyungwonPark/ai-company/actions/runs/34944130967)가 모두 통과했다. 캡처 원본과 SHA-256은 [manifest](assets/collaboration-korean-2026-09-15/manifest.json)에 고정했다.
+
+| 캡처 범위 | Light | Black |
+| --- | --- | --- |
+| 협업 전달 · 응답 모의 | [보기](assets/collaboration-korean-2026-09-15/light-desktop-collaboration-fixture.png) | [보기](assets/collaboration-korean-2026-09-15/black-desktop-collaboration-fixture.png) |
+| 한글 보고서 · 응답 모의 | [보기](assets/collaboration-korean-2026-09-15/light-desktop-korean-report-fixture.png) | [보기](assets/collaboration-korean-2026-09-15/black-desktop-korean-report-fixture.png) |
+| 실제 CLI 번역 기록의 승인 문서 | [보기](assets/collaboration-korean-2026-09-15/light-recorded-cli-reprocessed-korean-approval.png) | [보기](assets/collaboration-korean-2026-09-15/black-recorded-cli-reprocessed-korean-approval.png) |
+| 같은 승인 문서 · 360px | [보기](assets/collaboration-korean-2026-09-15/light-mobile-recorded-cli-reprocessed-korean-approval.png) | [보기](assets/collaboration-korean-2026-09-15/black-mobile-recorded-cli-reprocessed-korean-approval.png) |
+
 공개 관리 화면의 이미지 교체는 실행하지 않았다. 이전 자동 승인 검토는 운영 배포 승인 부재를 이유로 교체를 거부했으며 이번 명세도 배포 승인이 아니라고 명시한다. 새 이미지와 영향·복구안을 준비한 뒤 그 이미지에 대한 승인 경계를 확인해야 한다. 기존 테마 이미지 승인을 다른 내용의 이미지에 재사용하지 않는다. 기존 커플 앱·Caddy·운영 worker·타이머·큐·전역 격리 설정은 이번 기능 적용 대상이 아니다.
 
 ## 새 후보 이미지와 복구 범위
