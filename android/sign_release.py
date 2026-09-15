@@ -46,7 +46,7 @@ def main():
     java = [str(args.java), "-jar", str(args.apksigner_jar)]
     subprocess.run([*java, "sign", "--ks", str(args.keystore), "--ks-type", "PKCS12",
         "--ks-key-alias", "ai-company", "--ks-pass", "file:" + str(args.password_file),
-        "--key-pass", "file:" + str(args.password_file), "--v1-signing-enabled", "false",
+        "--v1-signing-enabled", "false",
         "--v2-signing-enabled", "true", "--v3-signing-enabled", "true", "--v4-signing-enabled", "false",
         "--out", str(signed), str(args.apk)], check=True, timeout=120)
     verification = subprocess.check_output([*java, "verify", "--verbose", "--print-certs", str(signed)],
@@ -61,6 +61,7 @@ def main():
                   certificate_sha256=args.expected_cert_sha256.upper(), unsigned_apk_sha256=evidence["apk_sha256"],
                   signature_schemes=["v2", "v3"], inspected_payload_unchanged=True,
                   local_signing=True, private_key_uploaded=False,
+                  signing_tool_sha256=sha(Path(__file__)), apksigner_jar_sha256=sha(args.apksigner_jar),
                   domain_association="requires_live_verification", physical_device="not_tested")
     (args.output / "release.json").write_text(json.dumps(record, indent=2) + "\n")
     (args.output / "apksigner-verification.txt").write_text(verification)

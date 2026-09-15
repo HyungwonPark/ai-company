@@ -16,6 +16,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - name: Reject mismatched compiled domain associations
+        run: python3 -m unittest discover -s android/tests -v
       - name: Prepare the hosted Android toolchain
         run: |
           echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"

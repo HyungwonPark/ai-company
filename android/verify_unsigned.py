@@ -15,6 +15,18 @@ ORIGIN = "https://hyungwon.cloud"
 ANDROID = "{http://schemas.android.com/apk/res/android}"
 
 
+def verify_web_association(application, resources):
+    match = re.search(r'resource (0x[0-9a-f]+) string/asset_statements\n\s+\(\) "(.*)"', resources)
+    assert match, "Compiled asset_statements resource is missing"
+    metadata = [entry for entry in application.findall("meta-data")
+                if entry.get(ANDROID + "name") == "asset_statements"]
+    assert len(metadata) == 1 and metadata[0].get(ANDROID + "resource") == "@ref/" + match[1], \
+        "Application metadata must reference the inspected compiled resource"
+    assert json.loads(match[2]) == [{"relation": ["delegate_permission/common.handle_all_urls"],
+                                   "target": {"namespace": "web", "site": ORIGIN}}], \
+        "Compiled app-to-website association differs from the approved origin"
+
+
 def command(*argv):
     return subprocess.check_output([str(value) for value in argv], text=True, timeout=120)
 
@@ -47,7 +59,7 @@ def inspect(apk, build_tools, apkanalyzer):
     assert any(c.attrib[ANDROID + "name"] == "android.intent.category.LAUNCHER"
                for f in filters for c in f.findall("category"))
     resources = command(build_tools / "aapt2", "dump", "resources", apk)
-    assert "asset_statements" in resources and ORIGIN in resources
+    verify_web_association(application, resources)
     badging = command(build_tools / "aapt2", "dump", "badging", apk)
     assert "application-label:'AI Company'" in badging
     assert "native-code:" not in badging  # The APK has no ABI-specific native payload.
@@ -58,7 +70,8 @@ def inspect(apk, build_tools, apkanalyzer):
                    if not name.startswith("META-INF/")}
     return dict(package_id=PACKAGE, version_name="0.1.0", version_code=1,
                 min_sdk=26, target_sdk=36, launch_url=default_url, permissions=permissions,
-                debuggable=False, native_libraries=False, payload_sha256=payload), manifest_text, badging, resources
+                debuggable=False, native_libraries=False, compiled_app_to_website_association_verified=True,
+                payload_sha256=payload), manifest_text, badging, resources
 
 
 def main():
