@@ -1,6 +1,6 @@
 {
-  "checked_at": "2026-09-15T10:29:00.365295+00:00",
-  "release": {
+  "checked_at": "2026-09-15T10:41:12.523140+00:00",
+  "release_at_publication": {
     "package_id": "cloud.hyungwon.aicompany",
     "version_name": "0.1.0",
     "version_code": 1,
@@ -58,392 +58,17 @@
     "sha256": "8ef9685be3ad98408c0e113bf6ed069d550f058b959d61a5dd9de989e8fd0553",
     "matches_local_signed_apk": true
   },
-  "live_domain": {
-    "checked_at": "2026-09-15T10:24:38.461079+00:00",
-    "redirects_followed": false,
-    "authenticated": false,
-    "checks": [
-      {
-        "url": "https://hyungwon.cloud/",
-        "status": 200,
-        "content_type": "text/html",
-        "body_sha256": "5478fcbd0249293383200ce69e4a2409804648646f2e38adc92d69d0d22d2386"
-      },
-      {
-        "url": "https://hyungwon.cloud/.well-known/assetlinks.json",
-        "status": 400,
-        "content_type": "application/json; charset=utf-8",
-        "body_sha256": "e57b5e97b15725b24803be185d22a2c1f0bbe3683a6d178cb829305ff6fb6f64",
-        "body": {
-          "error": {
-            "code": "invalid_path",
-            "message": "Invalid asset path"
-          }
-        }
-      },
-      {
-        "url": "https://talenta-edward.life/",
-        "status": 307,
-        "content_type": null,
-        "body_sha256": "98a022a9e9f2d8b08e3083b7865acf30dba6d02b65a087f7d07c99af429694ee"
-      },
-      {
-        "url": "https://talenta-edward.life/.well-known/assetlinks.json",
-        "status": 200,
-        "content_type": "application/json",
-        "body_sha256": "46f531976774fda20af635c56b4c3c615d5579c1d4336c83181fb8d0c325156d",
-        "body": [
-          {
-            "relation": [
-              "delegate_permission/common.handle_all_urls"
-            ],
-            "target": {
-              "namespace": "android_app",
-              "package_name": "life.talentaedward.app",
-              "sha256_cert_fingerprints": [
-                "F3:1D:EF:DA:93:2E:E5:BC:38:EE:59:48:CB:2F:D5:7F:0C:70:22:20:CD:BD:DC:7B:AA:D3:8F:DA:AA:CD:BC:F9"
-              ]
-            }
-          }
-        ]
-      }
-    ]
-  },
-  "domain_change_plan": {
-    "public_change_applied": false,
-    "live_config_path": "/home/edward/talenta-site/Caddyfile",
-    "before_sha256": "519ea3c21405e41c65ba01dd67d74d7c7b80a926762151d75cc456d9a1685261",
-    "proposed_sha256": "586a34ed731e56181dc2ec1dd938b37ef3f0498b6e4dcb63b6a3f8f348baab63",
-    "only_replaced_original_text": "reverse_proxy 172.30.88.3:8766",
-    "origin": "https://hyungwon.cloud",
-    "path": "/.well-known/assetlinks.json",
-    "methods": [
-      "GET",
-      "HEAD"
-    ],
-    "assetlinks": [
-      {
-        "relation": [
-          "delegate_permission/common.handle_all_urls"
-        ],
-        "target": {
-          "namespace": "android_app",
-          "package_name": "cloud.hyungwon.aicompany",
-          "sha256_cert_fingerprints": [
-            "E0:22:C4:1F:03:95:9B:51:54:C0:85:8C:22:F7:25:EF:49:D0:B1:F6:2F:DB:39:92:64:0F:30:86:E6:2E:98:79"
-          ]
-        }
-      }
-    ],
-    "preserved_couple_block": true,
-    "caddy_image": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d"
-  },
-  "isolated_caddy_test": {
-    "configuration_valid": true,
-    "mode": "isolated_loopback_http_not_public_https",
-    "network": "none",
-    "published_ports": [],
-    "caddy_image": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d",
-    "checks": [
-      {
-        "method": "GET",
-        "path": "/.well-known/assetlinks.json",
-        "status": 200,
-        "content_type": "application/json",
-        "actual_apk_certificate_matches": true
-      },
-      {
-        "method": "HEAD",
-        "path": "/.well-known/assetlinks.json",
-        "status": 200,
-        "content_type": "application/json"
-      },
-      {
-        "method": "POST",
-        "path": "/.well-known/assetlinks.json",
-        "status": 502,
-        "content_type": null
-      },
-      {
-        "method": "GET",
-        "path": "/.well-known/other.json",
-        "status": 502,
-        "content_type": null
-      },
-      {
-        "method": "GET",
-        "path": "/",
-        "status": 502,
-        "content_type": null
-      }
-    ],
-    "fallback_upstream_unreachable_by_design": true,
-    "public_change_applied": false
-  },
   "apk_alignment": {
     "uncompressed_entries_checked": 199,
     "all_four_byte_aligned": true
   },
-  "signing_key": {
+  "signing_key_protection": {
     "outside_repository": true,
     "directory_mode": "0700",
     "secret_file_mode": "0600",
     "distinct_from_couple_certificate": true,
     "backup": "same_host_outside_repository",
     "off_host_backup_verified": false
-  },
-  "pr10_approval_status": "pending",
-  "runtime_services_replaced": false,
-  "production_queue_writes": 0,
-  "production_timer_changes": 0,
-  "device_checks": {
-    "installation": "not_tested",
-    "cold_launch": "not_tested",
-    "login": "not_tested",
-    "back_navigation": "not_tested",
-    "light_black_theme": "not_tested",
-    "approval_screen": "not_tested",
-    "android_app_links": "not_tested",
-    "chrome_twa_validation": "not_tested"
-  },
-  "updated_at": "2026-09-15T10:41:12.523140+00:00",
-  "domain_application_approval": {
-    "received_at": "2026-09-15T10:34:49.616505+00:00",
-    "source": "user reply in this Codex session",
-    "question": "요청하신 공개 변경 경계에 따라 확인합니다. 검증한 적용안(커밋 3bdbf0ca6a66090038032e3068db6992c68d570c)대로 hyungwon.cloud의 /.well-known/assetlinks.json 경로 추가와 기존 Caddy의 무중단 설정 재적용 1건을 승인하시겠습니까? APK의 실제 인증서를 연결하는 변경이며, 웹 이미지·기존 커플 앱·큐·타이머·PR #10 승인은 그대로 유지합니다.",
-    "answer_verbatim": "인증서 연결 경로만 적용 승인",
-    "scope": "GET/HEAD /.well-known/assetlinks.json on https://hyungwon.cloud plus one graceful Caddy reload",
-    "review_commit": "3bdbf0ca6a66090038032e3068db6992c68d570c",
-    "plan_sha256": "298f3fa33aee07b43ac0be27f150a01befae530b6b2630cec19e7c9b7e3ff5d3",
-    "web_image_deployment_authorized": false,
-    "candidate_approval_authorized": false
-  },
-  "domain_application_result": {
-    "started_at": "2026-09-15T10:37:40.391947+00:00",
-    "approval_sha256": "69027173a326edf4cfd013344fe33b5ffb6b34a8e441721eabdbc503fc42fb63",
-    "before_services": {
-      "/ai-company-console": {
-        "id": "96bff0d88531630bfa08a5faa4b784f912eb259624e0f028201ed59b3dddd094",
-        "image": "sha256:ddb2145c5557e4170c537b825b591d36c318544a28f140c93f59fc89ea31f528",
-        "pid": 825226,
-        "started_at": "2026-09-15T00:27:22.060942648Z",
-        "health": "healthy"
-      },
-      "/talenta-edward-app-1": {
-        "id": "434bc73ff87e8627ace5871d9be873351958f120c9bc1095db7ddda5fe918ac3",
-        "image": "sha256:481552816904096fe5ce5b5ccf7cdbfde5630294bfa4932876578b5959454f38",
-        "pid": 2521644,
-        "started_at": "2026-09-11T12:13:24.497672939Z",
-        "health": "healthy"
-      },
-      "/talenta-edward-caddy-1": {
-        "id": "755c9c2bfa9a46ba2de9523325a7734ab6b67ff49955147cc2b9c7879d5d56eb",
-        "image": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d",
-        "pid": 1690,
-        "started_at": "2026-08-25T05:21:46.829669836Z",
-        "health": "healthy"
-      },
-      "/talenta-edward-db-1": {
-        "id": "e6c02b18e544fefd68b956c88b7bff91598fc3cbb56173c9c3215b6b8f5a6747",
-        "image": "sha256:a794d9eb009e20de605858a11f32f63b4075cbd197c650436f0e3b457e4caed7",
-        "pid": 1671,
-        "started_at": "2026-08-25T05:21:46.834615796Z",
-        "health": "healthy"
-      },
-      "/talenta-edward-backup-1": {
-        "id": "553f70cf20a40773bca9880d1eb1e45ff26d71b9a81b995c2a00b27a8dd4a2cd",
-        "image": "sha256:a794d9eb009e20de605858a11f32f63b4075cbd197c650436f0e3b457e4caed7",
-        "pid": 1659,
-        "started_at": "2026-08-25T05:21:46.828073956Z",
-        "health": "running"
-      }
-    },
-    "before_timer": "ActiveState=active\nSubState=waiting\nUnitFileState=enabled\n",
-    "apk_sha256": "8ef9685be3ad98408c0e113bf6ed069d550f058b959d61a5dd9de989e8fd0553",
-    "actual_apk_certificate_sha256": "E0:22:C4:1F:03:95:9B:51:54:C0:85:8C:22:F7:25:EF:49:D0:B1:F6:2F:DB:39:92:64:0F:30:86:E6:2E:98:79",
-    "plan": {
-      "public_change_applied": false,
-      "live_config_path": "/home/edward/talenta-site/Caddyfile",
-      "before_sha256": "519ea3c21405e41c65ba01dd67d74d7c7b80a926762151d75cc456d9a1685261",
-      "proposed_sha256": "586a34ed731e56181dc2ec1dd938b37ef3f0498b6e4dcb63b6a3f8f348baab63",
-      "only_replaced_original_text": "reverse_proxy 172.30.88.3:8766",
-      "origin": "https://hyungwon.cloud",
-      "path": "/.well-known/assetlinks.json",
-      "methods": [
-        "GET",
-        "HEAD"
-      ],
-      "assetlinks": [
-        {
-          "relation": [
-            "delegate_permission/common.handle_all_urls"
-          ],
-          "target": {
-            "namespace": "android_app",
-            "package_name": "cloud.hyungwon.aicompany",
-            "sha256_cert_fingerprints": [
-              "E0:22:C4:1F:03:95:9B:51:54:C0:85:8C:22:F7:25:EF:49:D0:B1:F6:2F:DB:39:92:64:0F:30:86:E6:2E:98:79"
-            ]
-          }
-        }
-      ],
-      "preserved_couple_block": true,
-      "caddy_image": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d"
-    },
-    "public_change_applied": true,
-    "rolled_back": false,
-    "checks": [
-      {
-        "url": "https://hyungwon.cloud/.well-known/assetlinks.json",
-        "method": "GET",
-        "status": 200,
-        "content_type": "application/json",
-        "location": null,
-        "body_sha256": "9e404676d5604158828cb563eee10f1dea6987db432b3b8957907d3b20be29dc",
-        "matches_actual_apk_identity_and_certificate": true
-      },
-      {
-        "url": "https://hyungwon.cloud/.well-known/assetlinks.json",
-        "method": "HEAD",
-        "status": 200,
-        "content_type": "application/json",
-        "location": null,
-        "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-      }
-    ],
-    "home": {
-      "url": "https://hyungwon.cloud/",
-      "method": "GET",
-      "status": 200,
-      "content_type": "text/html",
-      "location": null,
-      "body_sha256": "5478fcbd0249293383200ce69e4a2409804648646f2e38adc92d69d0d22d2386"
-    },
-    "couple_home": {
-      "url": "https://talenta-edward.life/",
-      "method": "GET",
-      "status": 307,
-      "content_type": null,
-      "location": "/login?next=%2F",
-      "body_sha256": "98a022a9e9f2d8b08e3083b7865acf30dba6d02b65a087f7d07c99af429694ee"
-    },
-    "couple_assetlinks": {
-      "url": "https://talenta-edward.life/.well-known/assetlinks.json",
-      "method": "GET",
-      "status": 200,
-      "content_type": "application/json",
-      "location": null,
-      "body_sha256": "46f531976774fda20af635c56b4c3c615d5579c1d4336c83181fb8d0c325156d"
-    },
-    "unauthenticated_api": {
-      "url": "https://hyungwon.cloud/api/projects",
-      "method": "GET",
-      "status": 401,
-      "content_type": "application/json; charset=utf-8",
-      "location": null,
-      "body_sha256": "d007b1912ad445d9b6fb377620de1d0bf91db557cc9959c18949eda1ad04a394"
-    },
-    "cross_origin_rejected": {
-      "url": "https://hyungwon.cloud/api/logout",
-      "method": "POST",
-      "status": 403,
-      "content_type": "application/json; charset=utf-8",
-      "location": null,
-      "body_sha256": "364ed38f30eeb8e00a2c89f0ca5818c681f0f99629809c032c85214d6481afb9"
-    },
-    "after_services": {
-      "/ai-company-console": {
-        "id": "96bff0d88531630bfa08a5faa4b784f912eb259624e0f028201ed59b3dddd094",
-        "image": "sha256:ddb2145c5557e4170c537b825b591d36c318544a28f140c93f59fc89ea31f528",
-        "pid": 825226,
-        "started_at": "2026-09-15T00:27:22.060942648Z",
-        "health": "healthy"
-      },
-      "/talenta-edward-app-1": {
-        "id": "434bc73ff87e8627ace5871d9be873351958f120c9bc1095db7ddda5fe918ac3",
-        "image": "sha256:481552816904096fe5ce5b5ccf7cdbfde5630294bfa4932876578b5959454f38",
-        "pid": 2521644,
-        "started_at": "2026-09-11T12:13:24.497672939Z",
-        "health": "healthy"
-      },
-      "/talenta-edward-caddy-1": {
-        "id": "755c9c2bfa9a46ba2de9523325a7734ab6b67ff49955147cc2b9c7879d5d56eb",
-        "image": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d",
-        "pid": 1690,
-        "started_at": "2026-08-25T05:21:46.829669836Z",
-        "health": "healthy"
-      },
-      "/talenta-edward-db-1": {
-        "id": "e6c02b18e544fefd68b956c88b7bff91598fc3cbb56173c9c3215b6b8f5a6747",
-        "image": "sha256:a794d9eb009e20de605858a11f32f63b4075cbd197c650436f0e3b457e4caed7",
-        "pid": 1671,
-        "started_at": "2026-08-25T05:21:46.834615796Z",
-        "health": "healthy"
-      },
-      "/talenta-edward-backup-1": {
-        "id": "553f70cf20a40773bca9880d1eb1e45ff26d71b9a81b995c2a00b27a8dd4a2cd",
-        "image": "sha256:a794d9eb009e20de605858a11f32f63b4075cbd197c650436f0e3b457e4caed7",
-        "pid": 1659,
-        "started_at": "2026-08-25T05:21:46.828073956Z",
-        "health": "running"
-      }
-    },
-    "after_timer": "ActiveState=active\nSubState=waiting\nUnitFileState=enabled\n",
-    "pr10_status": "pending",
-    "inode_owner_mode_preserved": true,
-    "services_restarted": false,
-    "web_image_deployed": false,
-    "production_queue_writes": 0,
-    "production_timer_changes": 0,
-    "completed_at": "2026-09-15T10:37:40.927651+00:00"
-  },
-  "google_dal_verification": {
-    "checked_at": "2026-09-15T10:39:35.337948+00:00",
-    "checks": [
-      {
-        "name": "actual_apk",
-        "request": {
-          "source.web.site": "https://hyungwon.cloud",
-          "relation": "delegate_permission/common.handle_all_urls",
-          "target.androidApp.packageName": "cloud.hyungwon.aicompany",
-          "target.androidApp.certificate.sha256Fingerprint": "E0:22:C4:1F:03:95:9B:51:54:C0:85:8C:22:F7:25:EF:49:D0:B1:F6:2F:DB:39:92:64:0F:30:86:E6:2E:98:79"
-        },
-        "http_status": 200,
-        "response": {
-          "linked": true,
-          "maxAge": "3599.997951486s"
-        },
-        "expected_linked": true
-      },
-      {
-        "name": "wrong_certificate",
-        "request": {
-          "source.web.site": "https://hyungwon.cloud",
-          "relation": "delegate_permission/common.handle_all_urls",
-          "target.androidApp.packageName": "cloud.hyungwon.aicompany",
-          "target.androidApp.certificate.sha256Fingerprint": "F3:1D:EF:DA:93:2E:E5:BC:38:EE:59:48:CB:2F:D5:7F:0C:70:22:20:CD:BD:DC:7B:AA:D3:8F:DA:AA:CD:BC:F9"
-        },
-        "http_status": 200,
-        "response": {
-          "maxAge": "3600s"
-        },
-        "expected_linked": false
-      },
-      {
-        "name": "wrong_package",
-        "request": {
-          "source.web.site": "https://hyungwon.cloud",
-          "relation": "delegate_permission/common.handle_all_urls",
-          "target.androidApp.packageName": "life.talentaedward.app",
-          "target.androidApp.certificate.sha256Fingerprint": "E0:22:C4:1F:03:95:9B:51:54:C0:85:8C:22:F7:25:EF:49:D0:B1:F6:2F:DB:39:92:64:0F:30:86:E6:2E:98:79"
-        },
-        "http_status": 200,
-        "response": {
-          "maxAge": "3600s"
-        },
-        "expected_linked": false
-      }
-    ]
   },
   "current_status": {
     "signed_apk_delivered": true,
@@ -454,5 +79,94 @@
     "physical_device": "not_tested",
     "web_image_deployed": false,
     "pr10_status": "pending"
+  },
+  "initial_public_domain_status": 400,
+  "public_domain_checks": [
+    {
+      "url": "https://hyungwon.cloud/.well-known/assetlinks.json",
+      "method": "GET",
+      "status": 200,
+      "content_type": "application/json",
+      "location": null,
+      "body_sha256": "9e404676d5604158828cb563eee10f1dea6987db432b3b8957907d3b20be29dc",
+      "matches_actual_apk_identity_and_certificate": true
+    },
+    {
+      "url": "https://hyungwon.cloud/.well-known/assetlinks.json",
+      "method": "HEAD",
+      "status": 200,
+      "content_type": "application/json",
+      "location": null,
+      "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "approval": {
+    "answer_verbatim": "인증서 연결 경로만 적용 승인",
+    "received_at": "2026-09-15T10:34:49.616505+00:00",
+    "scope": "hyungwon.cloud의 /.well-known/assetlinks.json 경로 추가와 Caddy graceful reload 1건"
+  },
+  "public_change": {
+    "applied_at": "2026-09-15T10:37:40.927651+00:00",
+    "public_change_applied": true,
+    "rolled_back": false,
+    "container_restart": false,
+    "web_image_deployment": false
+  },
+  "google_dal_checks": [
+    {
+      "name": "actual_apk",
+      "request": {
+        "source.web.site": "https://hyungwon.cloud",
+        "relation": "delegate_permission/common.handle_all_urls",
+        "target.androidApp.packageName": "cloud.hyungwon.aicompany",
+        "target.androidApp.certificate.sha256Fingerprint": "E0:22:C4:1F:03:95:9B:51:54:C0:85:8C:22:F7:25:EF:49:D0:B1:F6:2F:DB:39:92:64:0F:30:86:E6:2E:98:79"
+      },
+      "http_status": 200,
+      "linked": true,
+      "expected_linked": true
+    },
+    {
+      "name": "wrong_certificate",
+      "request": {
+        "source.web.site": "https://hyungwon.cloud",
+        "relation": "delegate_permission/common.handle_all_urls",
+        "target.androidApp.packageName": "cloud.hyungwon.aicompany",
+        "target.androidApp.certificate.sha256Fingerprint": "F3:1D:EF:DA:93:2E:E5:BC:38:EE:59:48:CB:2F:D5:7F:0C:70:22:20:CD:BD:DC:7B:AA:D3:8F:DA:AA:CD:BC:F9"
+      },
+      "http_status": 200,
+      "linked": false,
+      "expected_linked": false
+    },
+    {
+      "name": "wrong_package",
+      "request": {
+        "source.web.site": "https://hyungwon.cloud",
+        "relation": "delegate_permission/common.handle_all_urls",
+        "target.androidApp.packageName": "life.talentaedward.app",
+        "target.androidApp.certificate.sha256Fingerprint": "E0:22:C4:1F:03:95:9B:51:54:C0:85:8C:22:F7:25:EF:49:D0:B1:F6:2F:DB:39:92:64:0F:30:86:E6:2E:98:79"
+      },
+      "http_status": 200,
+      "linked": false,
+      "expected_linked": false
+    }
+  ],
+  "preserved": {
+    "existing_service_identity_and_start_time": true,
+    "couple_home_and_assetlinks_response": true,
+    "unauthenticated_management_api_status": 401,
+    "cross_origin_write_status": 403,
+    "production_queue_writes": 0,
+    "production_timer_changes": 0,
+    "pr10_status": "pending"
+  },
+  "device_checks": {
+    "installation": "not_tested",
+    "cold_launch": "not_tested",
+    "login": "not_tested",
+    "back_navigation": "not_tested",
+    "light_black_theme": "not_tested",
+    "approval_screen": "not_tested",
+    "android_app_links": "not_tested",
+    "chrome_twa_validation": "not_tested"
   }
 }
