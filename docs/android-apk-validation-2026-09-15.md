@@ -1,5 +1,7 @@
 # AI Company 서명 APK 전달·검증 기록
 
+> 후속 정정: 아래 내용은 0.1.0 전달·도메인 적용 당시 기록이다. 이후 사용자가 아이콘을 누르면 즉시 종료됨을 보고했고, 동일 서명 APK로 필수 Activity 선언 누락을 재현했다. **0.1.0 대신 [수정 APK 0.1.1](https://github.com/HyungwonPark/ai-company/releases/download/android-v0.1.1/ai-company-0.1.1.apk)을 업데이트 설치한다.** [재현·수정·실제 Android 실행 결과](android-startup-fix-2026-09-15.md)에 현재 상태를 기록했다. 아래 당시의 실기기 미검증 표시는 이 후속 보고를 부정하지 않는다.
+
 2026-09-15. 사용자 요청에 따라 **설치 가능한 실제 서명 APK를 GitHub 시험 릴리스로 게시했다.** APK 전달, 도메인 신뢰 연결, 실기기 사용 검증의 완료 여부를 구분한다.
 
 후속 승인 **“인증서 연결 경로만 적용 승인”**에 따라 공개 assetlinks 경로도 적용했다. HTTPS GET·HEAD 200과 실제 APK 인증서 일치, Google Digital Asset Links의 `linked=true`까지 통과했다. 휴대폰에서 설치·실행·로그인·뒤로가기·테마·승인 화면을 조작한 결과는 아직 없다.

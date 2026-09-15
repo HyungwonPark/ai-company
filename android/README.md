@@ -2,9 +2,12 @@
 
 `hyungwon.cloud`를 여는 별도 TWA 앱이다. 기존 커플 앱의 앱 ID·키·위치·푸시·위젯·업데이트 스크립트를 가져오지 않는다.
 
-- [설치 APK 0.1.0](https://github.com/HyungwonPark/ai-company/releases/download/android-v0.1.0/ai-company-0.1.0.apk)
-- [릴리스와 SHA-256·서명 기록](https://github.com/HyungwonPark/ai-company/releases/tag/android-v0.1.0)
-- [실제 검증 결과와 도메인 연결 기록](../docs/android-apk-validation-2026-09-15.md)
+- [설치 APK 0.1.1](https://github.com/HyungwonPark/ai-company/releases/download/android-v0.1.1/ai-company-0.1.1.apk)
+- [릴리스와 SHA-256·서명 기록](https://github.com/HyungwonPark/ai-company/releases/tag/android-v0.1.1)
+- [시작 종료 수정과 실제 Android 실행 검증](../docs/android-startup-fix-2026-09-15.md)
+- [최초 APK·도메인 연결 기록](../docs/android-apk-validation-2026-09-15.md)
+
+0.1.0은 필수 Activity 선언 누락으로 시작 시 종료된다. **기존 앱을 삭제하지 않고 0.1.1로 업데이트한다.** 같은 앱 ID·서명키의 업데이트 설치와 세 차례 시작 경로를 Android 16(API 36) 에뮬레이터에서 확인했다. Chrome 최초 실행 화면까지 확인했으며 실제 휴대폰의 로그인·뒤로가기·웹 테마·승인 화면은 별도 미검증이다.
 
 앱 ID는 `cloud.hyungwon.aicompany`, 시작 주소는 `https://hyungwon.cloud/`, 최소 Android 버전은 8.0(API 26)이다. Chrome의 표준 `LauncherActivity`를 사용한다. 로그인과 테마·승인 화면은 공개 웹의 현재 버전을 표시하므로 앱 설치와 새 웹 버전 배포를 구분한다.
 
@@ -21,12 +24,14 @@ cd android
 
 출력 `app/build/outputs/apk/release/app-release-unsigned.apk`는 설치 배포용이 아니다. `.github/workflows/android.yml`은 실제 PR head를 checkout하고 실제 컴파일 Manifest·리소스·APK를 검사한 뒤, unsigned APK와 실행 ID·기준 커밋·내용 해시를 artifact로 보존한다. CI에 서명키를 전달하지 않는다.
 
-`verify_unsigned.py`는 패키지·버전·URL·권한·디버그 설정을 검사한다. `asset_statements` 문자열에 도메인이 등장하는지만 보지 않고, application 메타데이터가 실제 컴파일 리소스를 참조하며 그 JSON의 relation·namespace·site가 일치하는지 검사한다.
+`verify_unsigned.py`는 패키지·버전·URL·권한·디버그 설정을 검사한다. `asset_statements` 문자열에 도메인이 등장하는지만 보지 않고, application 메타데이터가 실제 컴파일 리소스를 참조하며 그 JSON의 relation·namespace·site가 일치하는지 검사한다. Android Browser Helper가 시작할 때 사용하는 `ManageDataLauncherActivity`의 실제 선언·비공개 설정·관리 URL도 검사한다.
 
 ```bash
 python3 -m unittest discover -s android/tests -v
 python3 android/verify_unsigned.py --help
 ```
+
+`.github/workflows/android-runtime.yml`은 게시한 **서명 APK**를 지정한 `workflow_dispatch`에서 실행한다. 태그와 로컬에서 검사한 기대 SHA-256을 모두 입력해야 한다. 배포 파일과 checksum만 함께 신뢰하지 않고 기대 해시를 별도로 대조한다. Android 에뮬레이터에서 기존 0.1.0 설치 → 삭제 없는 업데이트 → 최초 실행·일반/야간 모드 재실행을 검사한다. crash log와 Chrome foreground Activity를 함께 확인한다. PR의 이 작업이 `skipped`인 결과는 실행 통과로 세지 않는다. 에뮬레이터의 Google/서비스 로그인과 승인 제출은 수행하지 않는다.
 
 ## 로컬 서명과 업데이트
 
