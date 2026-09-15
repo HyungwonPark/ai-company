@@ -238,7 +238,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.unroute(`**${confirmPath}`);
     assert.equal(confirmBodies.length,2);
     assert.deepEqual(confirmBodies[0],confirmBodies[1],'response retry keeps plan digest, base and idempotency key');
-    await page.getByText('계획 확정',{exact:true}).waitFor();
+    await page.getByRole('list',{name:'계획과 실행 단계'}).getByText('계획 확정',{exact:true}).waitFor();
     const confirmed = await page.evaluate(async project=>{
       const response=await fetch(`/api/projects/${project}/overview`);return response.json();
     },confirmFixture.project_id);
