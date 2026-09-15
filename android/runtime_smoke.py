@@ -49,12 +49,21 @@ def main():
         assert record['chrome_installed'], 'The reproduction requires Chrome to be installed'
         adb('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP')
         adb('shell', 'wm', 'dismiss-keyguard')
-        installed = adb('install', str(apk), timeout=90)
+        previous = list((root / 'previous').glob('ai-company-*.apk'))
+        assert len(previous) <= 1
+        if previous:
+            old = adb('install', str(previous[0]), timeout=90)
+            (root / 'previous-install.txt').write_text(old.stdout + old.stderr)
+            assert old.returncode == 0 and 'Success' in old.stdout
+            record['previous_apk_sha256'] = hashlib.sha256(previous[0].read_bytes()).hexdigest()
+        installed = adb('install', '-r', str(apk), timeout=90)
         (root / 'install.txt').write_text(installed.stdout + installed.stderr)
         assert installed.returncode == 0 and 'Success' in installed.stdout
         record['installed'] = True
+        record['upgrade_over_010_without_uninstall'] = bool(previous)
         adb('logcat', '-c')
-        result = adb('shell', 'am', 'start', '-W', '-n',
+        result = adb('shell', 'am', 'start', '-W', '-a', 'android.intent.action.MAIN',
+                     '-c', 'android.intent.category.LAUNCHER', '-n',
                      PACKAGE + '/com.google.androidbrowserhelper.trusted.LauncherActivity')
         (root / 'launch.txt').write_text(result.stdout + result.stderr)
         time.sleep(10)
@@ -72,6 +81,26 @@ def main():
         assert result.returncode == 0 and 'Status: ok' in result.stdout
         assert record['chrome_activity_observed'], 'Chrome did not become the resumed activity'
         record['launch_passed'] = True
+        # Repeat the same native start path after a background transition and in
+        # Android night mode; this does not claim the web theme or login was tested.
+        record['repeat_launches'] = []
+        for mode in ['no', 'yes']:
+            adb('shell', 'input', 'keyevent', 'KEYCODE_HOME')
+            adb('shell', 'am', 'force-stop', PACKAGE)
+            adb('shell', 'cmd', 'uimode', 'night', mode)
+            adb('logcat', '-c')
+            repeat = adb('shell', 'am', 'start', '-W', '-a', 'android.intent.action.MAIN',
+                         '-c', 'android.intent.category.LAUNCHER', '-n',
+                         PACKAGE + '/com.google.androidbrowserhelper.trusted.LauncherActivity')
+            time.sleep(5)
+            repeated_crash = adb('logcat', '-b', 'crash', '-d').stdout
+            (root / ('repeat-' + mode + '-crash.txt')).write_text(repeated_crash)
+            assert 'Process: ' + PACKAGE not in repeated_crash
+            assert repeat.returncode == 0 and 'Status: ok' in repeat.stdout
+            active = adb('shell', 'dumpsys', 'activity', 'activities').stdout
+            assert any('com.android.chrome' in line and ('ResumedActivity' in line or 'topResumedActivity' in line) for line in active.splitlines())
+            record['repeat_launches'].append({'android_night_mode': mode, 'crashed': False,
+                                             'chrome_resumed': True})
     except BaseException as error:
         record['error'] = type(error).__name__ + ': ' + str(error)
         raise
