@@ -74,14 +74,14 @@ module.exports=async function({page,context,fixtureId,output,setNetworkFixture,s
       await page.setViewportSize({width:1440,height:1000});
       await settledScreenshot(page, {path:`${output}/${theme}-desktop-collaboration-fixture.png`,fullPage:true});
       await page.locator('.progress-tabs').getByRole('link',{name:'보고서',exact:true}).click();
-      await page.getByRole('heading',{name:'번역된 예시 보고서',exact:true}).waitFor();
+      await page.getByText('번역된 예시 보고서',{exact:true}).and(page.locator('.document-title')).waitFor();
       assert.equal(await page.evaluate(()=>Boolean(window.translationInjected)),false);
       await settledScreenshot(page, {path:`${output}/${theme}-desktop-korean-report-fixture.png`,fullPage:true});
       await page.locator('.document-toggle').first().click();
-      await page.getByRole('heading',{name:'Fixture source report',exact:true}).waitFor();
+      await page.getByText('Fixture source report',{exact:true}).and(page.locator('.document-title')).waitFor();
       await page.locator('.document-toggle').first().click();
       await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).click();
-      await page.getByRole('heading',{name:translatedTitle,exact:true}).waitFor();
+      await page.getByText(translatedTitle,{exact:true}).and(page.locator('.document-title')).waitFor();
       assert.equal(await page.getByText('TRANSLATION MUST NOT REPLACE ENVIRONMENT',{exact:true}).count(),0);
       assert.equal(await page.getByText(fixtureApproval.environment,{exact:true}).count(),1,'structured environment is original');
       assert.equal(await page.getByText(`USD ${fixtureApproval.cost_usd}`,{exact:true}).count(),1,'structured amount is original');
@@ -115,9 +115,9 @@ module.exports=async function({page,context,fixtureId,output,setNetworkFixture,s
     assert.equal(decisionBody.subject_digest,fixtureApproval.subject_digest,'translation does not replace original approval binding');
     await page.unroute(decisionPath);await page.getByRole('button',{name:'취소',exact:true}).click();
     translationState='failed';await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();await refresh();
-    await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).click();await page.getByRole('heading',{name:originalTitle,exact:true}).waitFor();await page.getByText('번역 실패',{exact:true}).first().waitFor();
+    await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).click();await page.getByText(originalTitle,{exact:true}).and(page.locator('.document-title')).waitFor();await page.getByText('번역 실패',{exact:true}).first().waitFor();
     translationState='completed';digest='e'.repeat(64);await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();await refresh();
-    await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).click();await page.getByRole('heading',{name:originalTitle,exact:true}).waitFor();await page.getByText('원문 갱신 · 이전 번역',{exact:true}).waitFor();
+    await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).click();await page.getByText(originalTitle,{exact:true}).and(page.locator('.document-title')).waitFor();await page.getByText('원문 갱신 · 이전 번역',{exact:true}).waitFor();
   }finally{
     setNetworkFixture(false);setHTTPFixture(false);await context.setOffline(false);await page.emulateMedia({reducedMotion:'no-preference'});await page.unroute(overviewPath);await page.reload();await page.locator('.nav').waitFor();await selectTheme(page, 'light');await page.setViewportSize({width:1440,height:1000});
   }

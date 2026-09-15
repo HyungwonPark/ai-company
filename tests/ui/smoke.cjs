@@ -88,9 +88,9 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.reload();
     await page.locator('.nav').waitFor();
     await page.setViewportSize({width:1440,height:1000});
-    await page.getByRole('heading', {name:'작업 한눈에',exact:true}).waitFor();
+    await page.getByRole('heading', {name:'매니저',exact:true}).waitFor();
     await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();
-    await page.getByRole('heading', {name:'역할별 진행',exact:true}).waitFor();
+    await page.getByRole('heading', {name:'진행',exact:true}).waitFor();
     await page.getByText('모의 예시 데이터', {exact:true}).waitFor();
     assert.equal(await page.locator('.role').count(), 4, 'four parallel fixture roles');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
@@ -123,10 +123,10 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
       await page.locator('.role').first().getByText(text,{exact:true}).first().waitFor();
       await page.locator('.role').first().getByText('재확인 예약',{exact:false}).waitFor();
     }
-    await page.locator('.role').first().getByText('담당자 이관 이력 1건',{exact:true}).waitFor();
+    await page.locator('.role').first().getByText('이관 1건',{exact:true}).waitFor();
     const delegated=page.locator('[data-run-id="fixture-new-validation"]');
     await delegated.getByText('위임받은 검증 클라이언트',{exact:true}).waitFor();
-    await delegated.getByText('위임 원문과 승인 범위 확인',{exact:true}).click();
+    await delegated.getByText('위임',{exact:true}).click();
     await delegated.getByText('1회',{exact:true}).waitFor();
     await delegated.getByText('2026-09-14T14:00:00+00:00',{exact:true}).waitFor();
     await delegated.getByText('d'.repeat(64),{exact:true}).waitFor();
@@ -136,9 +136,9 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.locator('[data-run-id="fixture-prior-block"]').getByText('차단',{exact:true}).waitFor();
     await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();
     await page.locator('.progress-tabs').getByRole('link',{name:'보고서',exact:true}).click();
-    await page.getByText('모델 검수 의견 2건',{exact:true}).click();
-    await page.getByRole('heading',{name:'독립 검수 의견',exact:true}).waitFor();
-    await page.getByRole('heading',{name:'Astra 최종 검수 의견',exact:true}).waitFor();
+    await page.getByText('검수 2건',{exact:true}).click();
+    await page.getByRole('heading',{name:'독립 검수',exact:true}).waitFor();
+    await page.getByRole('heading',{name:'최종 검수',exact:true}).waitFor();
     assert.equal(await page.locator('.review-reports').getByText('a'.repeat(40),{exact:true}).count(),2,'both review opinions expose their candidate');
     await page.locator('.review-reports').getByText('<script>window.reviewInjected=true</script>',{exact:true}).waitFor();
     assert.equal(await page.evaluate(()=>Boolean(window.reviewInjected)),false,'review text is escaped');
@@ -177,7 +177,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.getByLabel('목표와 완료 기준').fill('격리된 UI 회귀 검증: 대화와 하네스 보존을 확인한다.');
     await page.getByLabel('초기 역할 (선택)').fill('화면 검증: 모바일과 데스크톱 확인\n서버 검증: API 상태 보존 확인');
     await page.getByRole('button',{name:'프로젝트 만들기',exact:true}).click();
-    await page.getByRole('heading',{name:projectName,exact:true}).waitFor();
+    await page.getByText(projectName,{exact:true}).and(page.locator('.document-title')).waitFor();
     const secondId = await page.locator('#project-select').inputValue();
     assert.notEqual(secondId, fixtureId);
     await page.getByLabel('하네스 초안').fill('UI 회귀 검증 초안\n허용 경로: 격리된 테스트 작업 공간\n운영 실행 금지');
@@ -185,8 +185,8 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.locator('#toast').filter({hasText:'하네스 초안을 저장했습니다. 아직 활성화되지 않았습니다.'}).waitFor();
     await page.reload();
     await page.locator('#project-select').selectOption(secondId);
-    await page.getByRole('heading',{name:projectName,exact:true}).waitFor();
-    await page.getByText('저장된 하네스 2개',{exact:true}).waitFor();
+    await page.getByText(projectName,{exact:true}).and(page.locator('.document-title')).waitFor();
+    await page.getByText('이력 2개',{exact:true}).waitFor();
     await page.locator('.nav').getByRole('link',{name:'매니저',exact:true}).click();
     assert.equal(await page.getByLabel('PM에게 전달할 내용').inputValue(),'','project drafts are isolated');
     await page.locator('#project-select').selectOption(fixtureId);
@@ -199,7 +199,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.locator('#project-select').selectOption(confirmFixture.project_id);
     await page.locator('.plan').filter({has:page.locator(`[data-id="${confirmFixture.plan_id}"]`)}).waitFor();
     await page.getByRole('button',{name:'계획 검토·확정'}).click();
-    await page.getByRole('heading',{name:'계획 확정 검토',exact:true}).waitFor();
+    await page.getByRole('heading',{name:'계획 확정',exact:true}).waitFor();
     assert.equal(await page.locator('#plan-form').getAttribute('data-digest'),confirmFixture.digest);
     assert.equal(await page.locator('dialog').getByText('src/api/',{exact:true}).count(),1);
     await page.setViewportSize({width:360,height:800});
@@ -276,14 +276,14 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.getByRole('region',{name:'PM 요청 상태'}).waitFor();
     await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();
     await page.locator('.progress-tabs').getByRole('link',{name:'보고서',exact:true}).click();
-    await page.getByRole('heading',{name:'보고서',exact:true}).waitFor();
+    await page.getByRole('heading',{name:'보고서',exact:true,level:1}).waitFor();
     await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).first().click();
     await page.getByRole('heading',{name:'승인',exact:true}).waitFor();
     await page.locator('#project-select').selectOption(fixtureId);
 
     await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).click();
     await page.getByRole('button',{name:'승인 검토'}).first().click();
-    await page.getByRole('heading',{name:'실행 승인 기록',exact:true}).waitFor();
+    await page.getByRole('heading',{name:'승인 확인',exact:true}).waitFor();
     await page.getByLabel('검토 의견 (선택)').fill('모의 UI 시나리오에서 대상·환경·기한을 확인했습니다. 실제 실행 아님.');
     await page.getByRole('button',{name:'승인 기록',exact:true}).click();
     await page.getByText('승인 기록됨',{exact:true}).first().waitFor();

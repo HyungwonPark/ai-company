@@ -40,7 +40,7 @@ module.exports=async function recordedCliTranslationRendering({page,fixtureId,ou
   try{
     await page.reload();await page.locator('.nav').waitFor();
     await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).click();
-    await page.getByRole('heading',{name:doc.translation.fields.title,exact:true}).waitFor();
+    await page.getByText(doc.translation.fields.title,{exact:true}).and(page.locator('.document-title')).waitFor();
     await page.locator('.recorded-provenance').filter({hasText:caption}).waitFor();
     await page.getByText('모의 예시 데이터',{exact:true}).waitFor();
     // This verifies rendering of the recorded wording, not independent semantic quality.
@@ -49,22 +49,22 @@ module.exports=async function recordedCliTranslationRendering({page,fixtureId,ou
     assert.equal(await page.getByText(`USD ${approval.cost_usd}`,{exact:true}).count(),1);
     assert.equal(await page.getByText(approval.artifact_sha,{exact:true}).count(),1);
     const language=page.locator(`[data-document-id="${doc.id}"]`);
-    await language.getByText('원문·번역 출처 확인',{exact:true}).click();
+    await language.getByText('출처',{exact:true}).click();
     await language.getByText('번역 의미 검증: 독립 검증 전',{exact:true}).waitFor();
     await language.getByText('실제 CLI 저장 기록 재처리 · 원기록 failed 유지 · 추가 모델 호출 0회',{exact:true}).waitFor();
     await language.getByText(provenance.raw_sha256,{exact:true}).waitFor();
     for(const theme of ['light','black']){
       await selectTheme(page, theme);
       await page.setViewportSize({width:1440,height:1100});
-      await page.getByRole('heading',{name:doc.translation.fields.title,exact:true}).waitFor();
+      await page.getByText(doc.translation.fields.title,{exact:true}).and(page.locator('.document-title')).waitFor();
       await page.evaluate(()=>document.fonts.ready);
       await settledScreenshot(page, {path:`${output}/${theme}-recorded-cli-reprocessed-korean-approval.png`,fullPage:true});
       await language.getByRole('button',{name:'원문 보기',exact:true}).click();
-      await page.getByRole('heading',{name:doc.fields.title,exact:true}).waitFor();
+      await page.getByText(doc.fields.title,{exact:true}).and(page.locator('.document-title')).waitFor();
       for(const field of ['impact','rollback'])await page.getByText(doc.fields[field],{exact:true}).waitFor();
       await settledScreenshot(page, {path:`${output}/${theme}-recorded-cli-reprocessed-original-approval.png`,fullPage:true});
       await language.getByRole('button',{name:'한국어 보기',exact:true}).click();
-      await page.getByRole('heading',{name:doc.translation.fields.title,exact:true}).waitFor();
+      await page.getByText(doc.translation.fields.title,{exact:true}).and(page.locator('.document-title')).waitFor();
       await page.setViewportSize({width:360,height:900});
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${theme} recorded translation fits 360px`);
       await settledScreenshot(page, {path:`${output}/${theme}-mobile-recorded-cli-reprocessed-korean-approval.png`,fullPage:true});

@@ -18,7 +18,7 @@ module.exports=async function managerChecks({page,fixtureId,output}){
   try{
     await page.locator('.nav').getByRole('link',{name:'매니저',exact:true}).click();
     await page.reload();
-    await page.getByRole('heading',{name:'작업 한눈에',exact:true}).waitFor();
+    await page.getByRole('heading',{name:'매니저',exact:true}).waitFor();
     await page.getByText('역할별 작업 상태를 한눈에 모아보는 기능',{exact:true}).waitFor();
     assert.equal(await page.locator('.manager-agent').count(),2);
     assert.equal(await page.locator('.manager-stage-mark svg').count(),2,'no execution stage is marked before confirmation');
@@ -37,16 +37,16 @@ module.exports=async function managerChecks({page,fixtureId,output}){
     await page.setViewportSize({width:360,height:800});
     await page.locator('[data-persist-key="manager-history"]>summary').click();
     assert.equal(await page.locator('.message-content').filter({hasText:original}).first().innerText(),original);
-    await page.reload();await page.getByRole('heading',{name:'작업 한눈에',exact:true}).waitFor();
+    await page.reload();await page.getByRole('heading',{name:'매니저',exact:true}).waitFor();
     assert.equal(await page.locator('.manager-history[open]').count(),0,'reload starts with the readable overview');
     await page.getByRole('button',{name:'PM에게 새 목표 전달',exact:true}).click();
     await page.getByLabel('PM에게 전달할 내용').fill('입력한 목표는 테마 전환에도 유지합니다.');
     await selectTheme(page,'light');
     assert.equal(await page.getByLabel('PM에게 전달할 내용').inputValue(),'입력한 목표는 테마 전환에도 유지합니다.');
     await page.getByLabel('PM에게 전달할 내용').clear();
-    translated=false;await page.reload();await page.getByRole('heading',{name:'작업 한눈에',exact:true}).waitFor();
+    translated=false;await page.reload();await page.getByRole('heading',{name:'매니저',exact:true}).waitFor();
     assert.equal(await page.locator('.manager-goal').innerText(),'2개 역할 · 완료 조건 2개','translation waiting shows actual structured facts, not English prose');
-    assert.equal(await page.getByRole('link',{name:/승인 요청.*검토를/}).count(),1,'approval navigation remains available during translation wait');
+    assert.equal(await page.getByRole('link',{name:/승인.*검토를/}).count(),1,'approval navigation remains available during translation wait');
     await page.locator('.manager-plan-detail>summary').click();
     await page.getByText('번역 사용량 대기',{exact:true}).waitFor();
     assert.deepEqual(writes,[],'reading, themes and expanding source records send no execution/approval requests');
