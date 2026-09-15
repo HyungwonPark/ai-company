@@ -137,7 +137,9 @@ class Automation:
                        "request_revision": request["request_revision"],
                        "instruction": "Propose at least two independent roles with disjoint output paths. "
                        "Define shared interfaces so implementation and tests can proceed independently. "
-                       "Only explicit dependencies delay a role. Do not execute the plan."}
+                       "Only explicit dependencies delay a role. Do not execute the plan. "
+                       "Write user-facing summary, role names, responsibilities, goals and acceptance/completion criteria in Korean. "
+                       "Use a short, concrete summary and concise role names. Preserve identifiers, paths, commands and all constraints exactly."}
             state = self.dispatcher.submit(self._spec(task, clone, "planning", context))
         request = self.store.save_pm_request({**request, "state": "running",
             "configuration_digest": self.configuration_digest, "mode": self.config.mode,

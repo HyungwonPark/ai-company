@@ -84,6 +84,8 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.reload();
     await page.locator('.nav').waitFor();
     await page.setViewportSize({width:1440,height:1000});
+    await page.getByRole('heading', {name:'작업 한눈에',exact:true}).waitFor();
+    await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();
     await page.getByRole('heading', {name:'역할별 진행',exact:true}).waitFor();
     await page.getByText('모의 예시 데이터', {exact:true}).waitFor();
     assert.equal(await page.locator('.role').count(), 4, 'four parallel fixture roles');
@@ -145,6 +147,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.getByRole('button',{name:'새로고침'}).click();
     await require('./collaboration.cjs')({page,context,fixtureId,output,setNetworkFixture:value=>{offlineScenario=value;},setHTTPFixture:value=>{expectedHTTPFailure=value;}});
     await require('./recorded_translation.cjs')({page,fixtureId,output});
+    await require('./manager.cjs')({page,fixtureId,output});
 
     await page.locator('.nav').getByRole('link', {name:'매니저',exact:true}).click();
     const draft = '독립 작업은 계속 진행하고, PM 판단은 복귀 후 확인합니다.';
@@ -156,8 +159,10 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.waitForTimeout(5300);
     assert.equal(await page.getByLabel('PM에게 전달할 내용').inputValue(),draft,'draft survives polling');
     await page.getByRole('button',{name:'메시지 저장'}).click();
+    await page.locator('[data-persist-key="manager-history"]>summary').click();
     await page.locator('.message-content').filter({hasText:draft}).waitFor();
     await page.reload();
+    await page.locator('[data-persist-key="manager-history"]>summary').click();
     await page.locator('.message-content').filter({hasText:draft}).waitFor();
     await page.getByLabel('PM에게 전달할 내용').fill('원래 프로젝트에 남는 초안');
 
@@ -263,6 +268,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.equal(await page.getByRole('button',{name:'이 계획 확정',exact:true}).isDisabled(),true,'stale plan cannot be blindly retried');
     expectedHTTPFailure=false;
     await page.getByRole('button',{name:'취소',exact:true}).click();
+    await page.locator('[data-persist-key="manager-technical"]>summary').click();
     await page.getByRole('region',{name:'PM 요청 상태'}).waitFor();
     await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();
     await page.locator('.progress-tabs').getByRole('link',{name:'보고서',exact:true}).click();

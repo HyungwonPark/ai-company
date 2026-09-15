@@ -28,6 +28,17 @@ def document_sources(overview):
     """Canonical source documents. Structured authority fields are never translated."""
     project_id = overview["project"]["id"]
     documents = []
+    project = overview["project"]
+    documents.append(_document(project_id, "project:" + project_id, "project", digest(project.get("goal", "")),
+        "master", {"project_id": project_id}, {"goal": project.get("goal", "")}))
+    for plan in overview.get("plans", []):
+        content = plan.get("content", {})
+        fields = {"summary": content.get("summary", "")}
+        for index, role in enumerate(content.get("roles", [])):
+            fields[f"role:{index}:name"] = role.get("name", "")
+        documents.append(_document(project_id, "plan:" + plan["id"], "plan", plan["digest"], "pm",
+            {"plan_id": plan["id"], "plan_digest": plan["digest"]}, fields,
+            {"plan_digest": plan["digest"], "content": content}))
     for item in overview.get("approvals", []):
         protected = {key: item.get(key) for key in ("subject_digest", "artifact_sha", "environment", "cost_usd", "expires_at", "verification")}
         documents.append(_document(project_id, "approval:" + item["id"], "approval", item["subject_digest"],
