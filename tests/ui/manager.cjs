@@ -19,7 +19,7 @@ module.exports=async function managerChecks({page,fixtureId,output}){
     await page.locator('.nav').getByRole('link',{name:'매니저',exact:true}).click();
     await page.reload();
     await page.getByRole('heading',{name:'매니저',exact:true}).waitFor();
-    await page.getByText('역할별 작업 상태를 한눈에 모아보는 기능',{exact:true}).waitFor();
+    await page.locator('.manager-goal').getByText('역할별 작업 상태를 한눈에 모아보는 기능',{exact:true}).waitFor();
     assert.equal(await page.locator('.manager-agent').count(),2);
     assert.equal(await page.locator('.manager-stage-mark svg').count(),2,'no execution stage is marked before confirmation');
     assert.equal(await page.locator('.manager-history[open]').count(),0,'long source history is collapsed initially');
