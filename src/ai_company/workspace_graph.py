@@ -99,7 +99,7 @@ def _snapshot(db, overview, plan, run, cursor, observed_at):
     # A PM request belongs to its proposal, not to development of every later run.
     scoped = {**overview, "roles": roles, "tasks": task_rows, "plans": [plan] if plan and plan_matches else [],
               "runs": [run] if run else [], "pm_requests": requests, "documents": {}}
-    projection = project_collaboration(db, scoped)
+    projection = project_collaboration(db, scoped) if plan or run or roles or task_rows else {"nodes": [], "transfers": []}
     result = {"id": identity, **binding, "source": source, "mode": "execution" if run else "planned", "cursor": cursor, "observed_at": observed_at,
               "nodes": [], "edges": [], "report_refs": [], "approval_refs": [], "warnings": []}
     if run and (not plan or plan.get("digest") != run.get("plan_digest")):

@@ -201,4 +201,5 @@ class WorkspaceGraphTests(unittest.TestCase):
         graph = overview["workspace_graph"]
         self.assertEqual(graph["project_id"], self.pid)
         self.assertTrue(graph["snapshots"][0]["empty_reason"])
+        self.assertEqual(graph["snapshots"][0]["nodes"], [])
         self.assertEqual(self.store.db.execute("SELECT COUNT(*) FROM management_runs").fetchone()[0], 0)
