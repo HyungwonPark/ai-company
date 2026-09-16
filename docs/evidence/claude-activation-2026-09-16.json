@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "recorded_at": "2026-09-16T04:59:29.549843+00:00",
+  "scope": "후속 Claude 활성화 패키지 준비; 공개 적용·승인·마스터 실행 아님",
+  "source_commit": "559474405885fda7995fb97075cf647f7cae8921",
+  "source_archive_sha256": "3544e6bb38f6ce0e9e2ea84ab7c8d87dc41dca143609deae766248ddc2b9dad7",
+  "image": "sha256:399e353b856c71b234c2bd984d9092cfddb789dd1ea6077c4ae84c38da9cc55e",
+  "previous_public_image": "sha256:0b335d24f67c3a727a366b63879165ea2b8ef54323cbb5ca267b4d050cb3aaed",
+  "release_files_count": 129,
+  "release_files_manifest_sha256": "0cbea51f57ad80afc05bbd704c0aa139010f867e1654e4585a928fd7dcde8c0c",
+  "activation_proposal_sha256": "1ddcb29d35e613e233fa5bb9d68d0b2c4d303dae007467f4383cab67ea919c7d",
+  "configuration_digest": "2f925f653446f89b1b0d717f9a42e0d99a9df4660c90283a4cd2ba66a6d66415",
+  "previous_configuration_digest": "e65c1459c90ba0fa313242bd908a02431e6f0bb9255f0e849053beab4edaa972",
+  "socat_sha256": "8bce608454b1f027e42ad6d9e49935dfad44605da7f7f138b06a0f36b38d6025",
+  "new_runtime_variable": "AI_COMPANY_CLAUDE_SOCAT",
+  "new_agent": "pilot-claude-dev",
+  "only_new_agent_role": "developer",
+  "same_registered_claude_credential_and_quota_group": true,
+  "pm_reviewer_final_checks_ci_paths_limits_parallelism_preserved": true,
+  "runtime_file_sha256": {
+    "automation.json": {
+      "original_sha256": "d39c1511876d5331445e5b6bc95c60b66859dbdeaa05dc982aea0d7ec8715b49",
+      "proposed_sha256": "d5a8e4d9dbe6ad29fce53fa1bfebe2681cb241a61aa39aa8599eeba470ae3e20"
+    },
+    "translation.json": {
+      "original_sha256": "e437855035bd7e9972c7f68fb0e366c69ede68bba9279c150b0e6c9af7b08a7a",
+      "proposed_sha256": null
+    },
+    "worker.env": {
+      "original_sha256": "36a0781c86831f187448ba566823a38f30862916c6170eec1ebbc74df7133852",
+      "proposed_sha256": "01dd22da9421f9dab37723e9da73fdc5cd04854dde000a689d091a0fcb512af8"
+    }
+  },
+  "worker": {
+    "status": "PASS",
+    "source_commit": "559474405885fda7995fb97075cf647f7cae8921",
+    "installed_python_files": 35,
+    "editable_install": false,
+    "same_worker_no_new_privileges": true,
+    "file_tool_allowed_write_and_unassigned_denial": true,
+    "pinned_native_and_socat": true,
+    "copied_database_existing_tables_preserved": 27,
+    "copied_database_added_tables": [],
+    "prior_plan_configuration_not_reused": true,
+    "existing_requests": {
+      "completed": 1
+    },
+    "existing_runs": {
+      "awaiting_approval": 1,
+      "blocked": 1
+    },
+    "existing_sessions": {
+      "SESSION_COMPLETED": 9
+    },
+    "existing_translations": {
+      "completed": 14,
+      "failed": 6
+    },
+    "temporary_project_pm_requests": 1,
+    "development_runs_created": 0,
+    "model_calls": 0,
+    "operating_state_modified": false,
+    "full_controller_tick_performed": false
+  },
+  "container": {
+    "status": "PASS",
+    "web_assets_verified": 27,
+    "password_login_mode": true,
+    "unauthenticated_api_rejected": true,
+    "wrong_host_rejected": true,
+    "network": "none",
+    "ports_published": 0,
+    "root_filesystem": "read-only",
+    "capabilities": "none",
+    "production_state_mounted": false,
+    "model_or_approval_calls": 0
+  },
+  "preflight": {
+    "status": "PASS",
+    "proposal_sha256": "1ddcb29d35e613e233fa5bb9d68d0b2c4d303dae007467f4383cab67ea919c7d",
+    "source_commit": "559474405885fda7995fb97075cf647f7cae8921",
+    "operating_tables_match_audited_snapshot": true,
+    "package_files_match": true,
+    "original_runtime_and_units_match": true,
+    "operating_files_modified": false,
+    "model_calls": 0,
+    "authorized": false,
+    "applied": false
+  },
+  "test_unit_stopped": true,
+  "pending_c2b3fec_proposal_replaced": false,
+  "translation_repairs_registered": false,
+  "operating_unchanged": {
+    "management_projects": true,
+    "management_pm_requests": true,
+    "management_runs": true,
+    "session_jobs": true,
+    "translation_jobs": true,
+    "pr10": true,
+    "services": true,
+    "timer": true,
+    "worker_release": true,
+    "public_image": true,
+    "neighbors": true
+  },
+  "remote_ci": [
+    {
+      "id": 35056932181,
+      "name": "CI",
+      "workflow_id": 356928823,
+      "path": ".github/workflows/ci.yml",
+      "head_sha": "559474405885fda7995fb97075cf647f7cae8921",
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/35056932181"
+    },
+    {
+      "id": 35056932124,
+      "name": "Console UI",
+      "workflow_id": 357711638,
+      "path": ".github/workflows/console.yml",
+      "head_sha": "559474405885fda7995fb97075cf647f7cae8921",
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/35056932124"
+    },
+    {
+      "id": 35056932162,
+      "name": "Android APK",
+      "workflow_id": 358622511,
+      "path": ".github/workflows/android.yml",
+      "head_sha": "559474405885fda7995fb97075cf647f7cae8921",
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/35056932162"
+    },
+    {
+      "id": 35056932103,
+      "name": "Deployed console connectivity",
+      "workflow_id": 357962218,
+      "path": ".github/workflows/public-console.yml",
+      "head_sha": "559474405885fda7995fb97075cf647f7cae8921",
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "success",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/35056932103"
+    },
+    {
+      "id": 35056932104,
+      "name": "Android runtime",
+      "workflow_id": 358678729,
+      "path": ".github/workflows/android-runtime.yml",
+      "head_sha": "559474405885fda7995fb97075cf647f7cae8921",
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "skipped",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/35056932104"
+    },
+    {
+      "id": 35056932107,
+      "name": "Automation evidence",
+      "workflow_id": 357814570,
+      "path": ".github/workflows/automation-evidence.yml",
+      "head_sha": "559474405885fda7995fb97075cf647f7cae8921",
+      "run_attempt": 1,
+      "status": "completed",
+      "conclusion": "skipped",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/35056932107"
+    }
+  ],
+  "remaining": [
+    "공개 적용 승인과 적용 직전 재점검",
+    "사용자의 실제 APK 목표 입력·계획 확정",
+    "같은 앱 실행의 개발·검사·독립 검수·Astra 최종 검수·보고·승인 요청 대조",
+    "서명키 PC 외부 보관·복구 확인",
+    "실제 호스트 재부팅 관측"
+  ],
+  "existing_flow_states": {
+    "BLOCKED": 1,
+    "CONTRIBUTION_READY": 4,
+    "MERGE_READY": 1,
+    "PLAN_READY": 1
+  },
+  "existing_candidate_waits_for_pr10_approval": true
+}
