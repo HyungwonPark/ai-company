@@ -148,3 +148,7 @@
 
 .approval-identity>summary{min-height:44px;display:flex;align-items:center;gap:8px;font-size:13px}.approval-identity>summary::before{content:"+"}.approval-identity[open]>summary::before{content:"−"}.approval-identity+dl{margin-top:16px}
 @media(max-width:760px){.discussion-message p{font-size:15px}.manager-compose textarea{font-size:16px}}
+
+/* Keep the goal as orientation, leaving room for the actual conversation. */
+.manager-focus{padding:20px 24px 8px}.manager-focus-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:8px}.manager-focus-top h2{font-size:16px;line-height:1.5;letter-spacing:0;margin:0}.manager-focus-top .manager-focus-label{margin:0;font-size:11px}.manager-goal{font-size:15px;line-height:1.7;margin:0;max-width:850px}.manager-stages{margin:16px 0}.manager-next{padding-top:14px}.manager-plan-detail{margin-top:4px}.manager-plan-detail>summary{font-size:12px}.discussion-message p{font-size:15px}
+@media(max-width:760px){.main:has(.manager-home){padding-top:18px}.manager-heading{margin-bottom:16px}.manager-focus{padding:16px 18px 4px}.manager-focus-top h2{font-size:14px}.manager-focus-top .manager-focus-label{font-size:11px}.manager-stages{margin:14px 0}.manager-next{padding-top:12px;gap:10px}.manager-plan-detail>summary{min-height:44px}.planning-switch{margin-top:18px}.planning-workspace{margin-top:12px}.manager-goal{font-size:14px}.discussion-message p{font-size:15px}}
