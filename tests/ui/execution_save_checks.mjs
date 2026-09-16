@@ -26,7 +26,7 @@ function harness(initialSelection=selection){
     overview:{project:{request_revision:0},plans:[]},
     executionEntries:[{catalog_id:selection.catalog_id,catalog_digest:selection.catalog_digest,repository:'fixture/repo'}]};
   const context={state,busyForms:new Set(),currentExecutionProposal,executionMessage,structuredClone,crypto:webcrypto,
-    location:{hash:'#project?project=fixture-project'},
+    location:{hash:'#project?project=fixture-project'},navigator:{onLine:true},
     TextEncoder,AbortController,Error,TypeError,setTimeout,clearTimeout,
     executionIntent:()=>intent,
     storeExecutionIntent(value,project){
@@ -150,3 +150,9 @@ for(const navigation of ['stay','same-project-view','other-project']){
   }
 }
 console.log('PASS: 실제 새 PM 요청의 매니저 전환과 요청 중 승인 뷰·다른 프로젝트 이동 보존');
+
+const lateOffline=harness();
+lateOffline.replies.push(()=>{lateOffline.context.navigator.onLine=false;return response();});
+await lateOffline.save();
+assert.equal(lateOffline.state.connected,false,'오프라인 전환 후 늦은 성공 응답은 쓰기 가능 상태를 복구하지 않습니다.');
+assert.equal(lateOffline.intent(),null,'서버에 저장된 성공 결과는 보존합니다.');
