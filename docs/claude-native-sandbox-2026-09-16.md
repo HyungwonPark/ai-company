@@ -2,6 +2,8 @@
 
 **Claude 로그인·Opus 5·xhigh·Ultracode·병렬 Workflow는 확인됐지만, 현재 서버의 Claude 내장 Bash는 격리 초기화에서 실패한다. 개발 대체자로 활성화하지 않았다.** [실제 설정·Workflow 기록](claude-runtime-settings-2026-09-16.md)과 별개인 도구 실행 문제다. 기존 AI Company의 bubblewrap 검사 성공을 취소하거나 전체 서버 격리가 고장났다고 해석하지 않는다.
 
+후속 [별도 파일 도구](claude-file-tools-2026-09-16.md)는 기존 bubblewrap·프로필을 유지하며 실제 Claude의 담당 파일 읽기/쓰기와 비담당 거부를 검증했다. 아래 native Bash 실패 기록은 그대로 보존하고 이 대안의 성공으로 덮어쓰지 않는다.
+
 ## 결과
 
 | 단계 | 관측 결과 |
