@@ -19,7 +19,9 @@ module.exports=async function({page,fixtureId,output,setHTTPFixture}){
     await page.locator('.nav').getByRole('link',{name:'매니저',exact:true}).click();await page.reload();
     await page.getByRole('button',{name:'계획 검토·확정',exact:true}).click();
     const dialog=page.getByRole('dialog'),reading=dialog.getByRole('region',{name:'계획 내용'});
-    for(const text of ['안전하게 구현','기존 데이터 보존','배포하지 않음','같은 후보 검증','승인 없이 병합하지 않음','src/only.py','tests/test_only.py','implementation'])await reading.getByText(text,{exact:true}).waitFor();
+    for(const scope of await reading.locator('.plan-scope>summary').all())await scope.click();
+    await reading.getByText('역할 ID · implementation',{exact:true}).waitFor();
+    for(const text of ['안전하게 구현','기존 데이터 보존','배포하지 않음','같은 후보 검증','승인 없이 병합하지 않음','src/only.py','tests/test_only.py'])await reading.getByText(text,{exact:true}).waitFor();
     assert.equal(await dialog.locator('#plan-form').getAttribute('data-digest'),planDigest);
     await dialog.getByRole('checkbox').check();
     await reading.getByRole('button',{name:'원문 보기',exact:true}).click();

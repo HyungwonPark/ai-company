@@ -115,6 +115,53 @@ class PMManagementTests(unittest.TestCase):
         self.assertEqual(overview["project"]["request_revision"], 1)
         self.assertEqual(self.store.db.execute("SELECT COUNT(*) FROM session_jobs").fetchone()[0], 0)
 
+    def test_plain_goal_starts_pm_atomically_without_confirming_or_developing(self):
+        project = self.store.create_project({'name': '내 프로젝트', 'goal': '역할 진행을 쉽게 보고 싶어요', 'start_pm': True})
+        self.store.close(); self.store = ManagementStore(self.root, clock=lambda: self.now)
+        overview = self.store.overview(project['id'])
+        self.assertEqual(overview['project']['request_revision'], 1)
+        self.assertEqual(len(overview['pm_requests']), 1)
+        self.assertEqual(overview['pm_requests'][0]['state'], 'pending')
+        self.assertEqual(overview['pm_requests'][0]['goal'], project['goal'])
+        self.assertEqual(overview['pm_requests'][0]['conversation_context']['messages'], [])
+        for key in ('roles', 'plans', 'runs'):
+            self.assertEqual(overview[key], [])
+        for table in ('flow_tasks', 'session_jobs'):
+            self.assertEqual(self.store.db.execute(f'SELECT COUNT(*) FROM {table}').fetchone()[0], 0)
+        before = self.store.list_projects()
+        with patch.object(self.store, '_append_pm_request', side_effect=RuntimeError('crash')):
+            with self.assertRaises(RuntimeError):
+                self.store.create_project({'name': '롤백', 'goal': '함께 계획', 'start_pm': True})
+        self.assertEqual(self.store.list_projects(), before)
+        self.assertEqual(self.store.db.execute('SELECT COUNT(*) FROM management_harnesses').fetchone()[0], len(before))
+
+    def test_followup_carries_project_local_immutable_conversation_and_proposal(self):
+        first, plan = self.propose()
+        other = self.store.create_project({'name': '다른 프로젝트', 'goal': '비공개 목표', 'start_pm': True})
+        self.store.post_message(other['id'], {'content': '다른 프로젝트의 요청'})
+        followup = self.store.post_message(self.pid, {'content': '검사 역할의 책임을 더 구체적으로 나눠주세요'})
+        request = self.store.get_pm_request(followup['id'])
+        context = request['conversation_context']
+        self.assertEqual(context['messages'][0]['id'], first['id'])
+        self.assertEqual([item['role'] for item in context['messages']], ['user', 'assistant'])
+        self.assertEqual(context['previous_proposal']['content'], plan['content'])
+        self.assertEqual(context['previous_proposal']['digest'], plan['digest'])
+        self.assertNotIn('다른 프로젝트', json.dumps(context, ensure_ascii=False))
+        changed = copy.deepcopy(request); changed['conversation_context']['previous_proposal']['content']['summary'] = '변조'
+        self.assert_blocked('request_mismatch', self.store.save_pm_request, changed)
+        self.assert_blocked('stale_plan', self.store.confirm_plan, self.pid, plan['id'], self.confirm_body(plan))
+        self.assertEqual(self.store.run_records(), [])
+        self.store.post_message(self.pid, {'content': '추가 의견'})
+        self.assertEqual(self.store.get_pm_request(followup['id']), request)
+
+    def test_conversation_is_bounded_without_mutating_saved_messages(self):
+        for index in range(10):
+            self.store.post_message(self.pid, {'content': str(index) + '가' * 7000})
+        last = self.store.pm_requests(self.pid)[-1]['conversation_context']
+        self.assertLessEqual(sum(len(item['content']) for item in last['messages']), 16000)
+        self.assertTrue(all(item['truncated'] for item in last['messages']))
+        self.assertEqual(len(self.store.overview(self.pid)['messages'][0]['content']), 7001)
+
     def test_proposal_does_not_activate_roles_or_harness_and_completion_is_idempotent(self):
         message, plan = self.propose()
         overview = self.store.overview(self.pid)

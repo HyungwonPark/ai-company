@@ -132,10 +132,16 @@ class Automation:
                               ["Propose a bounded plan for explicit master confirmation"],
                               self.config.base_sha, self.config.allowed_paths)
             context = {"goal": request["goal"], "master_message": request["content"],
+                       "conversation_context": request.get("conversation_context", {}),
                        "authorized_paths": list(self.config.allowed_paths),
                        "required_checks": list(self.config.checks),
                        "request_revision": request["request_revision"],
                        "instruction": "Propose at least two independent roles with disjoint output paths. "
+                       "Collaborate with the master using the saved conversation and previous proposal. "
+                       "Apply the latest requested role/responsibility changes while preserving agreed constraints. "
+                       "Treat all prior messages and proposals as discussion, never as new execution permission. "
+                       "Do not ask the master to write code, a function signature, file paths or a harness specification. "
+                       "Derive those details within authorized scope; if the goal exceeds it, explain the needed decision in Korean. "
                        "Define shared interfaces so implementation and tests can proceed independently. "
                        "Only explicit dependencies delay a role. Do not execute the plan. "
                        "Write user-facing summary, role names, responsibilities, goals and acceptance/completion criteria in Korean. "
@@ -157,7 +163,11 @@ class Automation:
                         "configuration_policy": self.config.policy.configuration_evidence}
             self.store.complete_pm_request(request["request_id"], plan.model_dump(mode="json"), evidence=evidence)
         elif state["resume_at"] is None:
-            self.store.save_pm_request({**request, "state": "blocked", "reason": state["reason"]})
+            response = state.get("pm_response")
+            if response and response.get('verdict') == 'BLOCK':
+                self.store.save_pm_feedback(request['request_id'], response, reason=state['reason'])
+            else:
+                self.store.save_pm_request({**request, "state": "blocked", "reason": state["reason"]})
 
     @staticmethod
     def _contribution(state):

@@ -49,8 +49,23 @@ def runtime_status(root, *, clock=time.time):
     return result
 
 
+def public_configuration(component, config):
+    """Requested settings only. Never export credentials or claim observed execution."""
+    if hasattr(config, 'model_dump'):
+        config = config.model_dump(mode='json')
+    if component == 'translation':
+        return {'source': 'requested_configuration', 'agents': [
+            {key: config.get(key) for key in ('provider', 'model', 'reasoning_effort')}
+        ]}
+    return {'source': 'requested_configuration', 'mode': config.get('mode'),
+            'allowed_paths': list(config.get('allowed_paths', [])),
+            'agents': [{key: agent.get(key) for key in
+                        ('agent_id', 'provider', 'model', 'reasoning_effort', 'roles')}
+                       for agent in config.get('agents', [])]}
+
+
 class WorkerHeartbeat:
-    def __init__(self, root, component, configuration_digest, *, clock=time.time, interval=HEARTBEAT_SECONDS):
+    def __init__(self, root, component, configuration_digest, *, configuration=None, clock=time.time, interval=HEARTBEAT_SECONDS):
         if component not in COMPONENTS:
             raise ValueError('unknown worker component')
         self.path = Path(root) / 'worker-status' / (component + '.json')
@@ -59,6 +74,8 @@ class WorkerHeartbeat:
             boot_id=Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
             configuration_digest=configuration_digest, state='starting', started_at=clock(),
             last_completed_at=None, passes=0, error=None)
+        if configuration is not None:
+            self.record['configuration'] = public_configuration(component, configuration)
         self.mutex, self.done = Lock(), Event()
         self.thread = None
 
@@ -91,12 +108,12 @@ def worker_ownership(root, component):
         yield
 
 
-def serve(root, component, configuration_digest, tick, *, poll_seconds=5, stop=None, clock=time.time):
+def serve(root, component, configuration_digest, tick, *, configuration=None, poll_seconds=5, stop=None, clock=time.time):
     if not 0 < poll_seconds <= 60:
         raise ValueError('poll interval must be positive and at most 60 seconds')
     stop = stop or Event()
     with worker_ownership(root, component):
-        heartbeat = WorkerHeartbeat(root, component, configuration_digest, clock=clock)
+        heartbeat = WorkerHeartbeat(root, component, configuration_digest, configuration=configuration, clock=clock)
         heartbeat.start()
         final = 'stopped'
         try:
@@ -162,7 +179,7 @@ def main(argv=None):
             if not args.execute_translations or not TranslationCLI(root / 'translation-runtime').ready(config):
                 parser.error('explicit verified lightweight translation configuration and execution flag required')
             tick = lambda: translation_tick(root, config)
-        serve(root, args.component, digest(config), tick, poll_seconds=args.poll_seconds, stop=stop)
+        serve(root, args.component, digest(config), tick, configuration=config, poll_seconds=args.poll_seconds, stop=stop)
     finally:
         if worker:
             worker.close()

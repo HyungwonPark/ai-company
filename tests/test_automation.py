@@ -165,6 +165,45 @@ class CoordinatorTests(unittest.TestCase):
         self.assertEqual(len(self.calls), before)
         self.assertEqual(self.worker.store.overview(self.project["id"])["approvals"], [])
 
+    def test_role_discussion_reaches_pm_without_starting_old_or_new_plan(self):
+        self.worker.run_once()
+        prior = self.worker.store.overview(self.project['id'])['plans'][0]
+        followup = self.worker.store.post_message(self.project['id'], {'content': '검사 역할의 완료 조건을 더 쉽게 설명해주세요'})
+        request = self.worker.store.get_pm_request(followup['id'])
+        self.plan['roles'][1]['acceptance'] = ['입력이 비어 있어도 올바르게 처리합니다']
+        self.worker.run_once()
+        state = self.worker.dispatcher.get('pm-' + followup['id'])
+        context = state['specification']['plan']
+        self.assertEqual(context['conversation_context'], request['conversation_context'])
+        self.assertEqual(context['conversation_context']['previous_proposal']['digest'], prior['digest'])
+        self.assertEqual(context['master_message'], followup['content'])
+        self.assertEqual(context['authorized_paths'], list(self.config.allowed_paths))
+        self.assertTrue(all(stage == 'pm' for _, stage, _ in self.calls))
+        self.assertEqual(self.worker.store.run_records(), [])
+        self.assertEqual(self.worker.store.overview(self.project['id'])['plans'][-1]['content']['roles'][1]['acceptance'], self.plan['roles'][1]['acceptance'])
+
+    def test_pm_clarification_is_readable_durable_and_not_a_plan(self):
+        original = self.execute
+        clarification = '화면과 서버 중 어떤 부분부터 만들까요? 현재 허용된 범위를 확인해주세요.'
+        def ask(*args, **kwargs):
+            result = original(*args, **kwargs)
+            report = result.result['structured_output']
+            report.update(verdict='BLOCK', plan=None, summary=clarification)
+            return result
+        self.execute = ask
+        self.worker.run_once()
+        overview = self.worker.store.overview(self.project['id'])
+        request = overview['pm_requests'][0]
+        self.assertEqual(request['state'], 'blocked')
+        self.assertEqual(overview['messages'][-1]['content'], clarification)
+        self.assertEqual(overview['plans'], [])
+        self.assertEqual(overview['runs'], [])
+        self.worker.close(); self.worker = self.open()
+        self.worker.run_once()
+        self.assertEqual(len(self.worker.store.overview(self.project['id'])['messages']), 2)
+        followup = self.worker.store.post_message(self.project['id'], {'content': '허용된 서버 기능부터 만들어요'})
+        self.assertEqual(self.worker.store.get_pm_request(followup['id'])['conversation_context']['messages'][-1]['content'], clarification)
+
     def test_revision_returns_to_responsible_role_without_repeating_other_role(self):
         self.confirm(); self.reject_once = True
         result = self.finish(24)

@@ -100,3 +100,51 @@
 
 .plan-criteria{margin:0;padding-left:18px}.plan-criteria li+li{margin-top:6px}.plan-completion>.plan-criteria{margin-top:8px}.plan-reading>.document-language{margin-bottom:16px}
 .project-summary,.pm-report-summary{margin-bottom:22px}.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:24px 0}.project-summary h3,.pm-report-summary h3{font-size:15px;margin:0 0 10px}.project-summary h3 span{color:var(--muted);font-weight:400}.summary-list{list-style:none;padding:0;margin:0}.summary-list li{padding:10px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}.summary-list li>div,.summary-decisions li{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.summary-list strong{font-size:13px;font-weight:500}.summary-list p,.summary-list small,.summary-decisions span,.summary-decisions time{font-size:12px;color:var(--muted);margin:6px 0}.summary-decisions p{flex-basis:100%}.summary-list a{font-size:13px}.project-summary>details{margin-top:20px}@media(max-width:760px){.summary-grid{grid-template-columns:1fr;gap:20px}}
+
+/* Collaborative planning: one conversation, one team; details stay available. */
+.planning-workspace{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(290px,.9fr);gap:32px;align-items:start;margin:28px 0 36px}
+.planning-workspace .manager-compose{margin:0;padding:24px;min-width:0}
+.planning-workspace .manager-team{min-width:0;padding:8px 0}
+.planning-switch{display:none}
+.discussion{padding-bottom:20px}
+.discussion-message{padding:18px 0;border-top:1px solid var(--line)}
+.discussion-message:first-child{border-top:0;padding-top:4px}
+.discussion-message header{display:flex;align-items:center;gap:12px;font-size:12px;margin-bottom:9px}
+.discussion-message header strong{font-weight:600}
+.discussion-message time{font-size:11px;color:var(--muted)}
+.discussion-message p{font-size:14px;line-height:1.85;margin:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.discussion-message.from-master{padding-left:14px;border-left:2px solid var(--line)}
+.discussion-message details>summary{font-size:12px;min-height:44px;display:flex;align-items:center;color:var(--muted)}
+.discussion-source{font-size:13px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
+.discussion-welcome{padding:20px 0 28px}.discussion-welcome h3,.team-placeholder h3{font-size:18px;font-weight:500;margin:16px 0 8px}.discussion-welcome p,.team-placeholder p{font-size:14px;line-height:1.8;color:var(--muted);margin:0}
+.discussion-status{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:14px 0;font-size:12px;color:var(--muted)}
+.conversation-suggestions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.conversation-suggestions button{min-height:44px;padding:7px 12px;font-size:12px;border-radius:22px;background:transparent;white-space:nowrap}
+.manager-compose .form-actions{gap:12px}.manager-compose .form-actions .hint{flex:1}.manager-compose .form-actions button{min-height:46px;flex-shrink:0}
+.planning-workspace .manager-agent{display:block;padding:18px 0}
+.manager-agent-top{display:flex;align-items:center;gap:10px}.manager-agent-top>strong{font-size:15px;flex:1;min-width:0;overflow-wrap:anywhere;font-weight:500}
+.manager-agent>p{font-size:13px;line-height:1.75;margin:12px 0 4px;overflow-wrap:anywhere}
+.manager-agent-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--muted)}
+.manager-agent-bottom>span{font-size:11px;overflow-wrap:anywhere;min-width:0}.manager-agent-bottom button{display:flex;align-items:center;gap:8px;font-size:12px;min-height:44px;flex-shrink:0;padding:6px 10px}.manager-agent-bottom svg{width:14px}
+.team-placeholder{padding:28px 0 36px}.team-placeholder>span{color:var(--muted)}
+.manager-connections{margin-top:20px;border-top:1px solid var(--line);font-size:12px}
+.manager-connections>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:52px}.manager-connections>summary>span{font-size:11px;color:var(--muted)}
+.manager-connections dl{margin:0}.manager-connections dl>div{padding:12px 0;border-bottom:1px solid var(--line)}.manager-connections dt{font-weight:500;margin-bottom:6px}.manager-connections dd{margin:0;font-size:13px;overflow-wrap:anywhere}.manager-connections small{display:block;color:var(--muted);font-size:11px;line-height:1.7;margin-top:5px}.manager-connections p{line-height:1.8;color:var(--muted)}
+.manager-inbox-links{display:grid;grid-template-columns:1fr 1fr;gap:32px}.manager-inbox-links>a{display:flex;align-items:center;gap:12px;min-height:84px;border-bottom:1px solid var(--line);color:var(--ink);text-decoration:none}.manager-inbox-links>a>span:nth-child(2){flex:1;min-width:0}.manager-inbox-links>a>svg{width:15px;color:var(--muted)}
+.create-pm-note{display:flex;align-items:center;gap:10px;font-size:13px;margin:20px 0}.create-pm-note svg{flex-shrink:0}
+#create-form .form-actions button{display:inline-flex;align-items:center;gap:20px;min-height:48px}
+.project-advanced>summary{min-height:48px;font-size:16px;display:flex;align-items:center;gap:12px;list-style:none}.project-advanced>summary::before{content:'+'}.project-advanced[open]>summary::before{content:'−'}.project-advanced[open]>summary{margin-bottom:18px}.project-pm-link{display:inline-flex;align-items:center;gap:12px;font-size:14px;min-height:48px}
+.plan-scope>summary,.plan-identity>summary{min-height:44px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}.plan-scope>summary::before,.plan-identity>summary::before{content:'+'}.plan-scope[open]>summary::before,.plan-identity[open]>summary::before{content:'−'}.plan-scope ul{padding-left:18px}.plan-scope li{overflow-wrap:anywhere;font-size:12px}.plan-identity{margin:16px 0}
+@media(max-width:760px){
+ .manager-focus{padding:18px 18px 6px}.manager-focus h2{font-size:17px;margin-bottom:6px}.manager-focus-label{margin-bottom:10px}.manager-stages{margin:16px 0}.manager-stages li{flex-direction:row;gap:6px;font-size:12px}.manager-stages li:not(:last-child)::after{position:static;width:auto;margin:0 0 0 2px}.manager-next{padding-top:12px;gap:10px}.manager-next button{min-height:46px}
+ .planning-switch{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:4px;margin-top:24px;gap:4px}.planning-switch button{flex:1;min-height:44px;border:0;background:transparent;color:var(--muted);font-size:14px}.planning-switch button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent);font-weight:600}.planning-switch span{font-size:11px;margin-left:6px}
+ .planning-workspace{display:block;margin:14px 0 24px}.planning-workspace[data-planning-tab=conversation]>.manager-team,.planning-workspace[data-planning-tab=team]>.manager-compose{display:none}.planning-workspace .manager-compose{padding:20px 16px}.planning-workspace .manager-team{padding:12px 2px}.planning-workspace .manager-compose>.manager-section-heading>h2{font-size:15px}.planning-workspace .manager-compose>.manager-section-heading>span{font-size:11px}
+ .discussion-message p{font-size:14px;line-height:1.85}.discussion{padding-bottom:8px}.conversation-suggestions{gap:8px}.conversation-suggestions button{padding-inline:9px}.manager-compose .form-actions{flex-wrap:wrap}.manager-compose .form-actions .hint{flex-basis:100%;font-size:11px}.manager-compose .form-actions button{min-width:108px;justify-content:space-between}
+ .manager-inbox-links{grid-template-columns:1fr;gap:0}.manager-inbox-links>a{min-height:76px}
+ .manager-heading button{min-height:44px}.workspace-account-menu>summary,.topbar .workspace-account-menu>summary{min-width:44px;min-height:44px}.topbar .theme-control button{min-height:44px}
+}
+
+.workspace-scope{font-size:12px;line-height:1.75;color:var(--muted);padding:12px 0;margin:0}
+
+.approval-identity>summary{min-height:44px;display:flex;align-items:center;gap:8px;font-size:13px}.approval-identity>summary::before{content:"+"}.approval-identity[open]>summary::before{content:"−"}.approval-identity+dl{margin-top:16px}
+@media(max-width:760px){.discussion-message p{font-size:15px}.manager-compose textarea{font-size:16px}}

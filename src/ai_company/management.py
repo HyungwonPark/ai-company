@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, model_validator
 
 from ai_company.contracts import Contract, Digest, Text, digest
 from ai_company.sessions import SessionQueue
@@ -33,6 +33,7 @@ class ProjectInput(Contract):
     name: str = Field(min_length=1, max_length=150)
     goal: Text
     roles: list[RoleInput] = Field(default_factory=list, max_length=32)
+    start_pm: StrictBool = False
 
 
 class MessageInput(Contract):
@@ -189,12 +190,17 @@ class ManagementStore:
         content = json.dumps({"goal": value.goal, "roles": [r.model_dump() for r in value.roles]}, ensure_ascii=False, indent=2)
         harness = {"version": 1, "status": "active", "content": content, "digest": digest(content), "created_at": self.clock()}
         with self.db:
+            self.db.execute("BEGIN IMMEDIATE")
             self.db.execute("INSERT INTO management_projects VALUES (?,?)", (project_id, json.dumps(project)))
             self.db.execute("INSERT INTO management_harnesses VALUES (?,?,?)", (project_id, 1, json.dumps(harness)))
             for role in value.roles:
                 item = {"id": uuid4().hex, **role.model_dump()}
                 self.db.execute("INSERT INTO management_roles VALUES (?,?,?)", (item["id"], project_id, json.dumps(item)))
             self._event(project_id, "project_created", project_id)
+            if value.start_pm:
+                self._append_pm_request(project, MessageInput(content=
+                    "이 목표를 함께 구체화하고 필요한 역할과 완료 기준을 제안해주세요. "
+                    "제가 역할과 범위를 조정할 수 있도록 설명해주세요. 계획 확정 전에는 개발을 시작하지 마세요."))
         return project
 
     def list_projects(self):
@@ -202,26 +208,58 @@ class ManagementStore:
 
     def post_message(self, project_id, value):
         value = MessageInput.model_validate(value)
-        message = {"id": uuid4().hex, "role": "user", "content": value.content,
-                   "status": "awaiting_pm", "created_at": self.clock()}
         with self.db:
             self.db.execute("BEGIN IMMEDIATE")
-            project = self._project(project_id)
-            revision = project.get("request_revision", 0) + 1
-            harness_row = self.db.execute("SELECT document FROM management_harnesses WHERE project_id=? AND version=?",
+            return self._append_pm_request(self._project(project_id), value)
+
+    def _conversation_context(self, project_id):
+        """Project-local reading context; never execution/approval authority."""
+        rows = self.db.execute("SELECT document FROM management_messages WHERE project_id=? ORDER BY rowid DESC LIMIT 8",
+                               (project_id,)).fetchall()
+        messages = []
+        remaining = 16000
+        for row in rows:
+            item = json.loads(row[0])
+            text = item['content'][:min(4000, remaining)]
+            messages.append({'id': item['id'], 'role': item['role'], 'content': text,
+                             'truncated': text != item['content']})
+            remaining -= len(text)
+            if remaining <= 0:
+                break
+        row = self.db.execute("SELECT document FROM management_plans WHERE project_id=? ORDER BY rowid DESC LIMIT 1",
+                              (project_id,)).fetchone()
+        previous = None
+        if row:
+            plan = json.loads(row[0])
+            previous = {'id': plan['id'], 'digest': plan['digest'], 'status': plan['status']}
+            if len(json.dumps(plan['content'], ensure_ascii=False)) <= 20000:
+                previous['content'] = plan['content']
+            else:
+                previous['content_omitted'] = True
+        return {'messages': list(reversed(messages)), 'previous_proposal': previous,
+                'purpose': 'discussion_only; a new plan requires a new explicit confirmation'}
+
+    def _append_pm_request(self, project, value):
+        # Caller owns one transaction, including project creation when requested.
+        project_id = project['id']
+        message = {"id": uuid4().hex, "role": "user", "content": value.content,
+                   "status": "awaiting_pm", "created_at": self.clock()}
+        revision = project.get("request_revision", 0) + 1
+        harness_row = self.db.execute("SELECT document FROM management_harnesses WHERE project_id=? AND version=?",
                                           (project_id, project["harness_version"])).fetchone()
-            harness = json.loads(harness_row[0])
-            request = {"request_id": message["id"], "message_id": message["id"], "project_id": project_id,
+        harness = json.loads(harness_row[0])
+        request = {"request_id": message["id"], "message_id": message["id"], "project_id": project_id,
                        "state": "pending", "request_revision": revision, "base_harness_version": project["harness_version"],
                        "base_harness_digest": digest(harness["content"]), "goal_digest": digest(project["goal"]),
                        "goal": project["goal"], "content": value.content, "source": project["source"],
+                       "conversation_context": self._conversation_context(project_id),
                        "created_at": self.clock(), "updated_at": self.clock(), "execution": None, "plan_id": None,
                        "configuration_digest": None, "mode": None}
-            project["request_revision"] = revision
-            self.db.execute("UPDATE management_projects SET document=? WHERE id=?", (json.dumps(project), project_id))
-            self.db.execute("INSERT INTO management_messages VALUES (?,?,?)", (message["id"], project_id, json.dumps(message)))
-            self.db.execute("INSERT INTO management_pm_requests VALUES (?,?,?)", (message["id"], project_id, json.dumps(request)))
-            self._event(project_id, "pm_request_saved", message["id"])
+        project["request_revision"] = revision
+        self.db.execute("UPDATE management_projects SET document=? WHERE id=?", (json.dumps(project), project_id))
+        self.db.execute("INSERT INTO management_messages VALUES (?,?,?)", (message["id"], project_id, json.dumps(message)))
+        self.db.execute("INSERT INTO management_pm_requests VALUES (?,?,?)", (message["id"], project_id, json.dumps(request)))
+        self._event(project_id, "pm_request_saved", message["id"])
         return message
 
     def pm_requests(self, project_id=None):
@@ -244,7 +282,7 @@ class ManagementStore:
             self.db.execute("BEGIN IMMEDIATE")
             previous = self.get_pm_request(document["request_id"])
             immutable = ("request_id", "message_id", "project_id", "request_revision", "base_harness_version",
-                         "base_harness_digest", "goal_digest", "goal", "content", "source", "created_at")
+                         "base_harness_digest", "goal_digest", "goal", "content", "source", "created_at", "conversation_context")
             if any(document.get(key) != previous.get(key) for key in immutable):
                 raise ManagementError("request_mismatch", "PM request snapshot is immutable")
             for key in ("configuration_digest", "mode"):
@@ -325,6 +363,37 @@ class ManagementStore:
             self.db.execute("INSERT INTO management_messages VALUES (?,?,?)", (assistant["id"], project["id"], json.dumps(assistant)))
             self._event(project["id"], "pm_plan_proposed" if current else "pm_plan_stale", plan["id"])
         return plan
+
+    def save_pm_feedback(self, request_id, response, *, reason):
+        """Publish a Dispatcher-accepted clarification, never a plan or approval."""
+        from ai_company.flow_contracts import PMPlanStageReport
+        response = PMPlanStageReport.model_validate(response).model_dump(mode='json')
+        if response['verdict'] != 'BLOCK':
+            raise ManagementError('result_conflict', 'Only a blocked planning response is feedback')
+        message_id = 'pm-feedback-' + request_id
+        with self.db:
+            self.db.execute('BEGIN IMMEDIATE')
+            request = self.get_pm_request(request_id)
+            old = self.db.execute('SELECT document FROM management_messages WHERE id=?', (message_id,)).fetchone()
+            if old:
+                old = json.loads(old[0])
+                if old['evidence'] != response:
+                    raise ManagementError('result_conflict', 'PM feedback already recorded with another result')
+                return old
+            if request['state'] != 'running' or not request.get('configuration_digest') or request.get('mode') not in ('fixture', 'live'):
+                raise ManagementError('request_conflict', 'PM feedback requires its claimed running request')
+            current = self._request_current(request, self._project(request['project_id']))
+            request.update(state='blocked' if current else 'stale', reason=reason, updated_at=self.clock())
+            message = dict(id=message_id, role='assistant', content=response['summary'], status=request['state'],
+                           request_id=request_id, created_at=self.clock(), evidence=response,
+                           source='fixture' if request['mode'] == 'fixture' else 'dispatcher')
+            user = json.loads(self.db.execute('SELECT document FROM management_messages WHERE id=?', (request_id,)).fetchone()[0])
+            user['status'] = request['state']
+            self.db.execute('UPDATE management_pm_requests SET document=? WHERE message_id=?', (json.dumps(request), request_id))
+            self.db.execute('UPDATE management_messages SET document=? WHERE id=?', (json.dumps(user), request_id))
+            self.db.execute('INSERT INTO management_messages VALUES (?,?,?)', (message_id, request['project_id'], json.dumps(message)))
+            self._event(request['project_id'], 'pm_feedback_saved', message_id)
+        return message
 
     def run_records(self, project_id=None):
         if project_id is None:

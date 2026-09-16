@@ -57,6 +57,25 @@ class ServiceWorkerTests(unittest.TestCase):
         record = runtime_status(self.root)['automation']
         self.assertEqual(record['state'], 'stopped'); self.assertEqual(record['passes'], 1)
 
+    def test_configuration_is_requested_only_and_does_not_export_secrets(self):
+        config = {'mode': 'live', 'source_clone': '/private/repo', 'credential_ref': 'private',
+                  'allowed_paths': ['src/example.py'], 'agents': [
+                      {'agent_id': 'pm', 'provider': 'codex', 'model': 'gpt-6-astra',
+                       'reasoning_effort': 'ultra', 'roles': ['pm'], 'credential_ref': 'private',
+                       'quota_group': 'private', 'verified_model': 'not-an-observation'}]}
+        heartbeat = WorkerHeartbeat(self.root, 'automation', digest(config), configuration=config)
+        heartbeat.update(state='idle')
+        public = runtime_status(self.root)['automation']['configuration']
+        self.assertEqual(public['source'], 'requested_configuration')
+        self.assertEqual(public['agents'][0]['model'], 'gpt-6-astra')
+        self.assertEqual(public['allowed_paths'], ['src/example.py'])
+        self.assertNotIn('private', json.dumps(public))
+        self.assertNotIn('verified_model', json.dumps(public))
+        translator = WorkerHeartbeat(self.root, 'translation', 'hash', configuration={
+            'provider': 'claude', 'model': 'haiku', 'reasoning_effort': None, 'credential_ref': 'private'})
+        translator.update(state='idle')
+        self.assertNotIn('private', json.dumps(runtime_status(self.root)['translation']['configuration']))
+
     def test_sigkill_releases_lock_and_next_process_recovers_ownership(self):
         source = """from pathlib import Path
 import sys,time

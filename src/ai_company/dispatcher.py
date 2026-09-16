@@ -395,6 +395,8 @@ class Dispatcher:
             handoff(spec, state, active, self.root / "handoffs" / state["task_id"] / active["execution_id"])
             if active["role"] == "pm":
                 state["plan"] = report.plan if spec.execution_scope == "planning" else {"summary": report.summary, "approved": report.verdict == "PASS"}
+                if spec.execution_scope == "planning":
+                    state["pm_response"] = report.model_dump(mode="json")
                 state["pm_sessions"].append({"provider": job["provider"], "session_id": job["session_id"]})
             elif active["role"] in ("reviewer", "final"):
                 state["reviews"][active["role"]] = report.model_dump(mode="json")
