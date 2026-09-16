@@ -1,6 +1,26 @@
 # 프로젝트 실행 명세 · 2026-09-16
 
-**새 구축 단계의 구현과 후속 적용안이다. 현재 운영에 적용하지 않았다.** 이름과 자연어 목표로 PM과 대화를 시작하고, PM이 제안한 실행 범위를 검토한 다음 그 범위에 맞는 계획을 직접 확정하는 흐름을 만든다. 기술 입력란을 새 프로젝트의 필수 입력으로 추가하지 않는다.
+**이번 개발 단계는 완료했다. 현재 운영에는 적용하지 않았다.** 이름과 자연어 목표로 PM과 대화를 시작하고, PM이 제안한 실행 범위를 검토한 다음 그 범위에 맞는 계획을 직접 확정하는 흐름을 구현했다. 기술 입력란을 새 프로젝트의 필수 입력으로 추가하지 않는다.
+
+## 고정 후보와 검증 결과
+
+[초안 PR #13](https://github.com/HyungwonPark/ai-company/pull/13)은 PR #8의 `69471e8`에서 분리했다. 코드 후보는 `9e6c0c18258eb2fa1710957807d2054899ab3fc4`이며 이후 검증 기록만 별도로 추가한다. 이전 목표의 완료 기록은 보존했고 미완료 항목을 완료로 바꾸지 않았다.
+
+| 확인 | 실제 결과 |
+|---|---|
+| 로컬 회귀 | Python 417개 PASS. 기존 호스트 bwrap 격리 검사 포함, skip 0. Android 준비 4개와 모의 개발 루프 `DEMO_READY` |
+| 프로젝트 검증 | 임시 Git 저장소·독립 clone·별도 SQLite 큐에서 두 프로젝트의 개발·검수 모의 흐름 완주. 독립 경계 시험 16개, 자동화 시나리오 4개 |
+| 중단·예산 | `WAITING_QUOTA`·`WAITING_RETRY` 저장 직후 중단, 호출 시작 전 예약 중단, 공유 계정 cooldown, 과거 사용량·수정 작업·동시 예약·검사 시간 상한 확인 |
+| 독립 검수 | core와 저장 번역 원문 대조, UI 별도 검수 PASS. 과대 입력 고착·저장 요청 표시 불일치·구버전 확정 안내·PM 요청 후 화면 전환을 수정하고 회귀로 확인 |
+| 원격 Python | [CI 35090847194](https://github.com/HyungwonPark/ai-company/actions/runs/35090847194) PASS. Python 3.11/3.12 각각 417개 중 414 PASS·서버 전용 3개 skip, Android 준비 각각 4 PASS |
+| 원격 화면 | [Console UI 35090846416](https://github.com/HyungwonPark/ai-company/actions/runs/35090846416) PASS. sandboxed Chrome에서 Light·Black, 320/390/1440px, 저장 응답 유실·확정 digest·기존 PR12 회귀 확인 |
+| 설치된 이미지 | 네트워크 없음·읽기 전용 루트·비특권 UID·cap 제거·새 권한 금지·256MiB·CPU 0.25·PID 64의 임시 컨테이너에서 33개 PASS. 비밀번호 변경·Host/Origin/CSRF·명세 저장·불변 표와 정적 파일 해시 확인 |
+| 번역 2건 | 저장 원문·출력 각 8문장을 대조. 복사본에서 1건만 새 읽기 자료로 통과, 승인 권한을 ‘인증’으로 옮긴 1건은 실패 유지. 추가 번역 호출·운영 반영 0 |
+| 운영 보존 | 웹·커플 컨테이너 5개 동일, 두 worker PID·unit·재시작 횟수 0과 기존 설정 유지. quota timer active, PR #10 pending. 운영 프로젝트 1·PM 요청 1·실행 2 그대로 |
+
+관련 코드 CI와 브라우저 CI는 위 코드 후보에 연결했다. 제품 실행용 `Automation evidence` workflow는 이 개발 브랜치에서 **skip**이며 PASS로 세지 않는다. 임시 프로젝트의 모델·원격 검사·최종 검수는 fixture를 사용했다. 제품 Astra CLI의 새 최종 검수, 일반 프로젝트의 운영 자동개발, 마스터의 APK 직접 조작을 수행했다는 뜻이 아니다.
+
+로컬 Chrome은 기존 AppArmor/userns 제약으로 실행하지 못했으며 격리를 해제하지 않았다. 화면 검증은 원격 CI의 sandboxed Chrome에서 완료했다. 상세 해시·검사 목록·운영 대조는 [검증 원장](evidence/project-execution-validation-2026-09-16.json), 번역 의미 판정은 [별도 기록](translation-saved-recheck-2026-09-16.md)에 보존했다.
 
 ## 기존 상태
 
@@ -117,11 +137,31 @@ python -m ai_company.service_worker automation [기존 worker 인수] --executio
 | UI | [실행 명세 브라우저 시험](../tests/ui/execution_specs.cjs): 명세 제안·저장과 계획 확정 분리, 확정 payload, Light·Black·모바일 표시 |
 | 기존 기능 | 기존 Python·UI·Android 준비 회귀. Android 준비 통과를 APK 실기기 조작 완료로 표시하지 않음 |
 
-최종 후보 커밋, 초안 PR, 각 커밋에 연결된 원격 CI run·artifact·독립 검수 결과는 후보 고정 후 이 문서에 추가한다. 작성 시점에는 이를 새 후보의 원격 PASS로 주장하지 않는다. 이 단계의 완료 조건은 **개발·격리 회귀·독립 검수·원격 CI·초안 PR·후속 적용/복구안**이다. 앱에서 마스터가 직접 완주한 실제 작업이나 일반 프로젝트의 운영 활성화를 완료 조건에 섞지 않는다.
+코드·PR·CI·독립 검수와 후보 패키지를 위 표와 검증 원장에 고정했다. 이 단계의 완료 조건인 **개발·격리 회귀·독립 검수·원격 CI·초안 PR·후속 적용/복구안**을 충족했다. 앱에서 마스터가 직접 완주한 실제 작업이나 일반 프로젝트의 운영 활성화를 완료 조건에 섞지 않는다.
 
 ## 후속 적용안
 
 **이번 실행 명세 후보의 공개 웹·automation 교체와 카탈로그 연결은 아직 승인받거나 적용하지 않았다.** 기존 `5594744` 및 `28404b2` 고정 대상에 대한 승인을 다른 후보에 재사용하지 않는다. 새 후보·패키지·환경 차이를 구체적으로 고정한 뒤 달라진 대상만 검토한다.
+
+다음 파일과 해시는 **준비만 완료한 후속 후보**다. release와 runtime 목적지에는 아직 설치하지 않았다.
+
+| 고정 항목 | 값 |
+|---|---|
+| 코드 | `9e6c0c18258eb2fa1710957807d2054899ab3fc4` |
+| 새 웹 이미지 | `sha256:c0fa6adef55f9d3ff19d7bd7daffcd90adc9dada3177de667a578077dc3299f5` |
+| 소스 archive SHA-256 | `92f225c4588370ce65300f17e40ce5ecad540a127eb5335bf8ee8a97fa09888d` |
+| 비공개 적용안 SHA-256 | `013d58ccac5748a30f4264baadbe7d6b5318ed13d4ac60737a29d8876070355c` |
+| 제안 Compose SHA-256 | `20e159b05cdcab2acddb67cc34ac202d2cb0a713bf1c36d2cf5642824511cf32` · `docker compose config --quiet` PASS |
+| pilot 카탈로그 파일 SHA-256 | `cf5f200f62495262bbdffbc177a9eefddeb6581de48c87d7d0a554bbd4c13153` |
+| 기존과 같은 유효 설정 digest | `2f925f653446f89b1b0d717f9a42e0d99a9df4660c90283a4cd2ba66a6d66415` |
+| 설치 예정 release | `/home/edward/ai-company/releases/project-execution-9e6c0c18258e` |
+| 설치 예정 카탈로그 | `/home/edward/ai-company/runtime/project-execution-9e6c0c18258e/catalog.json` |
+
+비공개 패키지 위치는 이 작업트리의 `.ai-company/project-execution-package-20260916/9e6c0c18258eb2fa1710957807d2054899ab3fc4/`다. `release-source.tar`, `manifest.json`, `rollout-proposal.json`, `console.compose.proposed.json`, 두 `.service.proposed` 파일에 실제 변경을 담았다. 기존 파일이 있거나 직전 해시가 달라지면 덮어쓰지 않는다. 카탈로그는 UID/GID 1002 소유, 디렉터리 0700·파일 0600으로 준비해 기존 웹 실행 사용자 `1002:1002`를 유지한다.
+
+실행 명세 적용의 변경 범위는 웹 이미지 1개, 카탈로그 읽기 전용 mount와 `--execution-catalog`, automation unit의 release·작업 디렉터리·카탈로그 인수다. 번역 표시 개선까지 적용할 때만 translation unit도 같은 release로 교체하고 저장 결과 재검사 2건을 실행한다. 전역 release symlink, 전용 환경변수와 원래 자동화·번역 설정 파일, 계정 그룹·예산, Caddy·외부 포트는 변경하지 않는다. 새 표는 `management_execution_specs`, `management_execution_spec_registrations`, `translation_saved_rechecks` 세 개이며 기존 DB를 교체하지 않는다.
+
+위 후보는 앞서 승인한 코드와 다르므로 **실제 운영 교체는 새 후보에 대한 후속 승인 대상**이다. 이번 개발 단계의 완료를 이유로 실행하지 않는다.
 
 1. 새 후보 커밋, 웹 이미지 digest, automation release, 비공개 카탈로그 내용 digest, Compose/unit의 변경 필드를 고정한다. 새 카탈로그에는 기존 승인 범위의 pilot 한 항목만 준비한다. 현재 web `28404b2`·workers `5594744`·Claude 설정과 다르면 차이와 영향을 먼저 기록한다.
 2. 적용 직전에 현재 PM 요청·계획·확정 실행·역할 작업을 읽고, legacy 또는 고정 명세 참조·config digest·상태·예약 시각으로 분류한다. 새 버전에서 실제로 이어질 대상과 멈춰야 할 대상을 고정한다. 큐를 비우거나 이전 기록을 완료 처리하지 않는다.
@@ -136,6 +176,8 @@ python -m ai_company.service_worker automation [기존 worker 인수] --executio
 **DB와 실행 이력을 과거 사본으로 덮어쓰지 않는다.** 새 명세 표·등록 영수증·PM 참조·계획·확정·실행·사용량·승인·이벤트를 보존한다. 이전 바이너리가 모르는 행이 있다고 삭제하지 않는다.
 
 구버전 automation을 즉시 재시작하는 복구는 안전하다고 가정할 수 없다. 새 명세가 기존 pilot 설정을 그대로 선택하면 유효 config digest가 구버전 전역 설정과 같을 수 있다. 구버전은 새 명세 참조를 이해하지 못한 채 그 요청·실행을 소비할 위험이 있다. **명세에 묶인 새 요청의 소비를 막는 검증된 실행 접수 차단·대상 제한 또는 호환 guard가 없으면 worker 복구는 차단 상태**다. 새 참조를 지우거나 digest를 바꾸는 방식으로 우회하지 않는다.
+
+고정 적용안의 실패 시 기본 조치는 automation을 정상 종료하여 새 자동 실행을 멈추고, 새 명세를 이해하는 관리 API·보고·승인 화면을 유지하는 것이다. 명세에 묶인 요청·계획·확정이 하나라도 생겼다면 구 웹과 구 automation을 단순 재시작하지 않는다. 구 웹 역시 새 명세의 확정 경계를 이해하지 못하기 때문이다. 기록이 없음을 확인한 초기 교체 실패에서만 보관한 기존 Compose/unit의 정확한 해시로 복원할 수 있다. 이미 생성된 명세·요청·실행·승인을 삭제하거나 DB snapshot으로 복구하지 않는다.
 
 검토 가능한 최종 복구안에는 다음을 포함해야 한다.
 
