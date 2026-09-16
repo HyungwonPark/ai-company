@@ -11,3 +11,24 @@ body{margin:0}
 @media(max-width:1099px){#workspace-lab .shell{grid-template-columns:175px minmax(0,1fr)}#workspace-lab .app-main{padding:28px}#workspace-lab .workspace{grid-template-columns:minmax(0,1fr)}#workspace-lab .aside{border-left:0;border-top:1px solid var(--line);padding:24px 0 0;display:grid;grid-template-columns:1fr 1fr;gap:24px}#workspace-lab .aside section+section{margin-top:0;border:0;padding:0}#workspace-lab .role-lane{grid-template-columns:100px 1fr}#workspace-lab .role-lane>div:last-child{grid-column:2}#workspace-lab .inbox{grid-template-columns:190px 1fr;gap:24px}#workspace-lab .lab-tools{gap:12px;padding:12px 20px}#workspace-lab .lab-tools-label span{max-width:160px}}
 @media(max-width:700px){#workspace-lab .lab-tools{padding:10px 16px;flex-wrap:wrap;gap:4px 12px}#workspace-lab .lab-tools-label{flex:1;flex-direction:row;align-items:center;gap:10px}#workspace-lab .lab-tools-label span{max-width:none;font-size:12px}#workspace-lab .lab-tools-label strong{display:none}#workspace-lab .lab-concepts{order:3;flex-basis:100%;justify-content:stretch;gap:2px}#workspace-lab .lab-concepts button{flex:1;padding:8px 4px}#workspace-lab .lab-options summary{min-height:36px;padding:5px 0}#workspace-lab .shell{display:block}#workspace-lab .rail{border:0;border-bottom:1px solid var(--line);padding:10px 16px;display:flex;flex-direction:row;gap:12px;align-items:center;flex-wrap:wrap}#workspace-lab .brand{font-size:19px}#workspace-lab .rail nav{display:flex;order:3;width:100%;gap:6px}#workspace-lab .rail nav button{flex:1;text-align:center;padding:8px 3px}#workspace-lab .rail-bottom{display:flex;margin:0 0 0 auto;gap:0}#workspace-lab .account{display:none}#workspace-lab .rail-bottom button{min-height:44px;padding:8px 10px}#workspace-lab .app-main{padding:22px 20px 64px}#workspace-lab .page-top{margin-bottom:22px;gap:12px}#workspace-lab h1{font-size:25px}#workspace-lab .pm-question{font-size:25px}#workspace-lab .crumb{margin-bottom:0}#workspace-lab .tabs{gap:24px;margin-bottom:24px}#workspace-lab .workspace{gap:30px}#workspace-lab .aside{grid-template-columns:1fr;gap:22px}#workspace-lab .aside section+section{border-top:1px solid var(--line);padding-top:22px}#workspace-lab .composer{margin-top:22px}#workspace-lab .project-item{grid-template-columns:1fr;gap:10px;padding:21px 0}#workspace-lab .project-item time{display:none}#workspace-lab .project-item strong{font-size:18px}#workspace-lab .role-lane{grid-template-columns:1fr;gap:16px;padding:22px 0}#workspace-lab .role-lane>div:last-child{grid-column:1}#workspace-lab .role-lane .role-task{font-size:19px}#workspace-lab .role-lane .model{margin-top:4px}#workspace-lab .handoff{grid-template-columns:1fr;gap:12px}#workspace-lab .board-bottom{grid-template-columns:1fr;gap:28px}#workspace-lab .inbox{grid-template-columns:1fr;gap:28px}#workspace-lab .inbox-list{display:flex;overflow:auto;border-right:0;border-bottom:1px solid var(--line);padding:0}#workspace-lab .inbox-list button{min-width:145px;border-left:0;border-bottom:2px solid transparent;padding:12px}#workspace-lab .inbox-list button.selected{border-bottom-color:var(--accent)}#workspace-lab .inbox-list button .muted{display:none}#workspace-lab .facts>div{grid-template-columns:1fr;gap:4px}#workspace-lab dialog{padding:20px}#workspace-lab .board-head{align-items:flex-start}#workspace-lab .page-top .tag{white-space:normal}#workspace-lab .lab-notice{bottom:12px}#workspace-lab .lab-concepts span{font-size:11px;margin-left:2px}}
 @media(prefers-reduced-motion:reduce){#workspace-lab *,#workspace-lab *::before,#workspace-lab *::after{animation:none!important;scroll-behavior:auto!important;transition:none!important}}
+/* Independent visual review: Korean words, visible destinations, shorter mobile chrome. */
+#workspace-lab h1,#workspace-lab h2,#workspace-lab h3{word-break:keep-all;overflow-wrap:anywhere}
+@media(max-width:700px){
+ #workspace-lab .rail{flex-wrap:nowrap;gap:6px}
+ #workspace-lab .rail nav{order:initial;width:auto;margin-left:auto;gap:0}
+ #workspace-lab .rail nav button{padding:8px 10px}
+ #workspace-lab .rail nav [data-action=workspace]{display:none}
+ #workspace-lab .rail-bottom{margin:0}
+ #workspace-lab .crumb{display:none}
+ #workspace-lab .app-main{padding-top:20px}
+ #workspace-lab .page-top{margin-bottom:14px}
+ #workspace-lab .tabs{margin-bottom:20px}
+ #workspace-lab .pm-byline{margin-bottom:12px}
+ #workspace-lab .pm-question{margin-bottom:14px}
+ #workspace-lab .body-copy{margin-bottom:16px}
+ #workspace-lab .suggestion{margin-top:8px}
+ #workspace-lab .composer{margin-top:18px}
+ #workspace-lab .inbox-list{display:grid;grid-template-columns:1fr 1fr;overflow:visible}
+ #workspace-lab .inbox-list button{min-width:0;min-height:48px;padding:10px 12px}
+}
+#workspace-lab button{min-width:44px}

@@ -34,6 +34,11 @@ const origin='http://127.0.0.1:47993';
    await page.locator(`button[data-concept="${concept}"]`).click();
    await overflow(`${width}/${theme}/${concept}`);
    await snapshot(`${concept}-${theme}-${width}`);
+   if(width!==320)for(const task of ['pm','team','approval']){
+    await page.locator(`${concept==='c'?'.inbox-list':'.tabs'} [data-tab=${task}]`).click();
+    await overflow(`${width}/${theme}/${concept}/${task}`);
+    await snapshot(`${concept}-${theme}-${width}-${task}`);
+   }
    assert.ok(await page.getByText('운영 연결 없음',{exact:false}).count());
   }
   checks.push('A/B/C × Light/Black × 320/390/1440: render, overflow, screenshots');
@@ -129,12 +134,25 @@ const origin='http://127.0.0.1:47993';
   await page.addStyleTag({content:'#workspace-lab{font-size:32px} #workspace-lab button,#workspace-lab input,#workspace-lab textarea,#workspace-lab p{font-size:200%}'});
   await overflow('text magnification');await snapshot('text-zoom-200');
   await reset();await page.setViewportSize({width:390,height:844});
-  const targets=await page.locator('#lab-stage button').evaluateAll(els=>els.filter(el=>{const b=el.getBoundingClientRect();return b.width<44||b.height<44}).map(el=>el.textContent));assert.deepEqual(targets,[]);
+  const targets=await page.locator('#lab-stage button').evaluateAll(els=>els.filter(el=>{const b=el.getBoundingClientRect();return el.getClientRects().length&&(b.width<44||b.height<44)}).map(el=>el.textContent));assert.deepEqual(targets,[]);
   const cdp=await context.newCDPSession(page);await cdp.send('DOM.enable');await cdp.send('CSS.enable');
   const doc=await cdp.send('DOM.getDocument');const node=await cdp.send('DOM.querySelector',{nodeId:doc.root.nodeId,selector:'.pm-question'});
   const fonts=await cdp.send('CSS.getPlatformFontsForNode',{nodeId:node.nodeId});
   assert.ok(fonts.fonts.some(f=>/Noto Sans CJK/.test(f.familyName)&&f.glyphCount>0),JSON.stringify(fonts));
   checks.push('keyboard creation, 200% text stress, 44px stage controls, actual Korean glyph font');
+  // The downloadable single file also works without an HTTP server or external assets.
+  const bundled=path.join(out,'AI-Company-preview.html');
+  require('node:child_process').execFileSync('python',[path.resolve(__dirname,'../../scripts/package_workspace_preview.py'),bundled]);
+  const offlineContext=await browser.newContext({serviceWorkers:'block'});
+  const offlinePage=await offlineContext.newPage();const external=[];
+  offlinePage.on('request',r=>{if(/^https?:/.test(r.url()))external.push(r.url());});
+  await offlineContext.route(/^https?:/,r=>r.abort());
+  await offlinePage.goto(require('node:url').pathToFileURL(bundled).href);
+  await offlinePage.locator('[data-action=suggest]').click();
+  await offlinePage.locator('#lab-message-form button[type=submit]').click();
+  await offlinePage.locator('[data-action=save-spec]').waitFor();
+  assert.deepEqual(external,[]);await offlineContext.close();
+  checks.push('downloadable single-file preview opens via file://, replies work, zero external requests');
   assert.deepEqual(errors,[]);
   const evidence={source:'isolated synthetic browser',browser:browser.version(),sandbox:true,checks,fonts:fonts.fonts,api_requests:requests.filter(s=>s.startsWith('/api/')).length,page_errors:errors};
   await fs.writeFile(path.join(out,'workspace-validation.json'),JSON.stringify(evidence,null,2));console.log(JSON.stringify(evidence,null,2));

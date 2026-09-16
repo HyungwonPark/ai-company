@@ -68,6 +68,13 @@ jobs:
         run: |
           node tests/ui/workspace_preview.cjs
           node tests/ui/workspace_baseline.cjs
+      - name: Independently review workspace interactions
+        if: always()
+        env:
+          CHROME_CHANNEL: chrome
+          NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
+          UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
+        run: node tests/ui/workspace_independent.cjs
       - name: Package offline working preview
         if: always()
         run: python scripts/package_workspace_preview.py "$RUNNER_TEMP/workspace-preview/AI-Company-preview.html"
@@ -85,6 +92,6 @@ jobs:
           name: console-screenshots
           path: |
             ${{ runner.temp }}/ui-artifacts/*.png
-            ${{ runner.temp }}/ui-artifacts/workspace-validation.json
+            ${{ runner.temp }}/ui-artifacts/workspace*-validation.json
           if-no-files-found: ignore
           retention-days: 7
