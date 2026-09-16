@@ -24,6 +24,7 @@ const {pathToFileURL}=require('node:url');
   }
   await page.locator('.preview-header a[href="#manager"]').click();await page.getByRole('heading',{name:'역할별 진행을 한눈에 보고 싶어요.'}).waitFor();
   await page.locator('.preview-header a[href="#approvals"]').click();await page.getByRole('heading',{name:'이전 예시 후보 수용',exact:true}).waitFor();assert.ok((await page.locator('#content').textContent()).includes('이전 예시 후보 수용'));
+  await page.evaluate(()=>{location.hash='#approvals?run=nonexistent';});await page.getByText('이 실행에 연결된 승인 요청이 없습니다.',{exact:true}).waitFor();
   assert.equal(await page.locator('button[data-decision]').count(),0);assert.deepEqual(network,[]);assert.deepEqual(errors,[]);
   console.log('PASS: downloaded file opens offline; shared graph node/edge details; Light/Black/mobile; no HTTP requests or decision writes');
  }finally{await browser.close();}

@@ -97,11 +97,11 @@ const {createHash} = require('node:crypto');
     await page.waitForFunction(() => !location.hash.includes('run='));
     await go('#approvals?project=' + fixtures.project_id + '&run=' + current.run_id);
     await page.getByText('이 대상의 승인 요청 없음', {exact: true}).waitFor();
-    await go('#progress?project=' + fixtures.other_project_id);
+    await page.evaluate(hash=>{location.hash=hash;window.dispatchEvent(new Event('offline'));},'#progress?project=' + fixtures.other_project_id);
     await page.locator(`[data-rg-root][data-project="${fixtures.other_project_id}"]`).waitFor();
     assert.equal(await page.locator('.rg-node').count(), 0);
     assert.equal(await page.locator('.rg-reference-links a').count(), 0);
-    checks.push('Actual API: historical approval stays in its run; common navigation clears filter; empty project borrows no nodes/documents');
+    checks.push('Actual API: historical approval stays in its run; common navigation clears filter; empty project borrows no nodes/documents; synchronous old-view render cannot overwrite pending navigation');
 
     await go('#progress?project=' + fixtures.project_id);
     await page.locator(`[data-rg-root][data-project="${fixtures.project_id}"]`).waitFor();
@@ -146,6 +146,33 @@ const {createHash} = require('node:crypto');
     assert.equal(await page.locator('.rg-detail h3').textContent(), '중복 제거 응답');
     await screenshot('stale-response-preserved');
     checks.push('Injected changed response preserves mobile detail scroll/expanded evidence; same-cursor older timestamp rejected, duplicate IDs deduplicated, foreign node binding rejected; selected newest detail retained');
+
+    // First handoff inserts a details section before the source. Semantic identity,
+    // rather than numeric DOM position, must retain the reader's evidence/focus.
+    const beforeHandoff = structuredClone(newer);
+    beforeHandoff.workspace_graph.observed_at += 3;
+    const beforeRole = beforeHandoff.workspace_graph.snapshots.find(snapshot => snapshot.id === current.id).nodes.find(node => node.id === selectedNode.id);
+    beforeRole.name = '최초 이관 전'; beforeRole.handoffs = [];
+    injection = withFingerprint(beforeHandoff); await refresh();
+    await page.locator('.rg-detail h3').filter({hasText: '최초 이관 전'}).waitFor();
+    const sourceSummary = page.locator('.rg-detail summary[data-rg-detail-key="source"]');
+    if (!await sourceSummary.evaluate(summary => summary.parentElement.open)) await sourceSummary.click();
+    await sourceSummary.focus();
+    assert.equal(await page.locator('.rg-detail summary[data-rg-detail-key="handoff"]').count(), 0);
+    const afterHandoff = structuredClone(beforeHandoff);
+    afterHandoff.workspace_graph.observed_at += 1;
+    const afterRole = afterHandoff.workspace_graph.snapshots.find(snapshot => snapshot.id === current.id).nodes.find(node => node.id === selectedNode.id);
+    afterRole.name = '최초 이관 수신';
+    afterRole.handoffs = [{execution_id: 'independent-injected-next', previous_execution_id: 'independent-injected-first', generation: 2, role: 'developer'}];
+    injection = withFingerprint(afterHandoff);
+    // No click/explicit refresh: the existing five-second poll must deliver this
+    // changed payload while keyboard focus remains on the evidence summary.
+    await page.locator('.rg-detail h3').filter({hasText: '최초 이관 수신'}).waitFor({timeout: 15000});
+    assert.ok(await sourceSummary.evaluate(summary => summary.parentElement.open), 'source evidence stays open when first handoff is inserted');
+    assert.equal(await page.locator('.rg-detail summary[data-rg-detail-key="handoff"]').evaluate(summary => summary.parentElement.open), false, 'new handoff evidence must not inherit the source open state');
+    assert.equal(await page.evaluate(() => document.activeElement.dataset.rgDetailKey), 'source', 'natural polling preserves semantic evidence focus');
+    await screenshot('first-handoff-source-focus');
+    checks.push('Natural five-second poll inserts first handoff: source evidence stays open/focused and the new handoff section stays closed');
     assert.deepEqual(violations, []);
     assert.deepEqual(errors, []);
     assert.deepEqual(writes, ['/api/login', '/api/password']);

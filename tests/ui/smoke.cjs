@@ -156,7 +156,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await settledScreenshot(page, {path:`${output}/mobile-review-opinions.png`,fullPage:true});
     await page.setViewportSize({width:1440,height:1000});
     await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();
-    await page.unroute(`**/api/projects/${fixtureId}/overview`);
+    await page.unrouteAll({behavior:'wait'});
     await page.getByRole('button',{name:'새로고침'}).click();
     await require('./collaboration.cjs')({page,context,fixtureId,output,setNetworkFixture:value=>{offlineScenario=value;},setHTTPFixture:value=>{expectedHTTPFailure=value;}});
     await require('./recorded_translation.cjs')({page,fixtureId,output});
@@ -254,7 +254,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.getByRole('button',{name:'이 계획 확정',exact:true}).click();
     await page.waitForFunction(()=>!document.querySelector('#dialog').open);
     expectedHTTPFailure=false;
-    await page.unroute(`**${confirmPath}`);
+    await page.unrouteAll({behavior:'wait'});
     assert.equal(confirmBodies.length,2);
     assert.deepEqual(confirmBodies[0],confirmBodies[1],'response retry keeps plan digest, base and idempotency key');
     await page.getByRole('list',{name:'계획과 실행 단계'}).getByText('작업',{exact:true}).waitFor();
