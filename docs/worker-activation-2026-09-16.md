@@ -6,7 +6,7 @@
 
 사용자가 전달한 범위는 `ai-company-automation.service`와 `ai-company-translation.service` 두 user service다. 기존 타이머·커플 서비스·Caddy·PR #10 후보 수용·병합은 포함하지 않는다. 자동화의 기존 허용 파일·정책·Astra 최종 검수는 변경하지 않는다.
 
-활성화 전 조건은 설치 복구 수정, 시작 시 처리할 대기 목록 대조, 승인 범위 밖 실행 방지다. 이 기록 작성 시점은 사전 검증 완료이며 실제 활성화 결과는 아래에 별도 기록한다.
+활성화 전 조건인 설치 복구 수정, 시작 시 처리할 대기 목록 대조, 승인 범위 밖 실행 방지를 확인한 뒤 두 서비스를 활성화했다. 실제 결과는 아래에 기록한다.
 
 ## 설치 복구 수정
 
@@ -37,8 +37,8 @@
 | 상위 구축 항목 | 상태 | 다음 행동 |
 |---|---|---|
 | 최신 웹·짧은 제목·Light/Black 공개 적용 | 완료 | 기존 이미지·설정 복구안 유지 |
-| 한국어 계획 상세·확정, 시스템 종합 보고 | 구현·검사 완료 | 실제 PM/번역 결과와 마스터 조작 확인 |
-| PM·조정기·번역 상시 운영 | 활성화 전 사전 검증 완료 | 서비스 시작과 heartbeat·기존 기록 보존 확인 |
+| 한국어 계획 상세·확정, 시스템 종합 보고 | 구현·검사 완료, 실제 번역 일부 실패 | 실패한 6개 문서의 보존 규칙·출력 형식 보완; 새 마스터 조작 확인 |
+| PM·조정기·번역 상시 운영 | 서비스 2개 활성화·heartbeat·실제 재시작 확인 | 영속 큐 감시; 실제 호스트 재부팅은 미실시 |
 | 앱 직접 확정 → 동일 실행 검수·보고 | 미검증 | 아래 작은 새 프로젝트를 마스터가 입력·확정 |
 | Claude 자동 대체·이관 | 차단 | 실제 적용 effort 증거와 엄격한 정책 적격성 필요 |
 | Ultracode·동적 workflow | 미검증 | 요청 옵션·실제 적용·동작을 각각 증명 |
@@ -57,4 +57,25 @@
 
 ## 실제 활성화 결과
 
-아직 활성화하지 않았다. 사전 회귀와 대기 목록 대조 후 여기에 실제 unit·PID·heartbeat·실행 건수·기존 상태 대조를 기록한다.
+설치기 기준 커밋 `deaeefd`의 [Python CI](https://github.com/HyungwonPark/ai-company/actions/runs/35040278462), [UI](https://github.com/HyungwonPark/ai-company/actions/runs/35040278228), [Android APK](https://github.com/HyungwonPark/ai-company/actions/runs/35040278364), [공개 연결](https://github.com/HyungwonPark/ai-company/actions/runs/35040278211)이 통과했다. 로컬 전체 회귀는 **305개 PASS**, 새 설치 복구 검사는 7개다. 실행 중인 worker 패키지와 공개 이미지는 기존 `51b911a`로 고정하며, 이번 수정은 호스트 설치기에 적용했다.
+
+| 확인 | 실제 결과 |
+|---|---|
+| 자동화 서비스 | enabled / active / running, PID 1673116 |
+| 번역 서비스 | enabled / active / running, PID 1670358 |
+| 비정상 재시작 | 두 서비스 NRestarts=0 |
+| heartbeat | 두 서비스의 반복 pass와 최신 heartbeat 확인 |
+| 중복 실행 | 실제 가동 중인 두 component의 추가 소유권 획득이 모두 거부됨 |
+| 실제 재시작 | idle 자동화 worker를 graceful restart: PID 1670357 → 1673116, 새 pass 완료 |
+| 다른 역할 독립 실행 | 위 재시작 동안 번역 PID는 그대로이며 heartbeat가 계속 갱신됨 |
+| 기존 개발 재개 | 새 모델/Git 실행 없음. 과거 요청·실행·세션 기록과 원래 14개 논리 테이블 digest 동일 |
+| 기존 운영 보존 | 커플 앱·Caddy·DB·백업 컨테이너, 기존 quota timer, 공개 console 이미지 동일 |
+| 승인 | PR #10 pending 유지; 새 목표·계획 확정을 대행하지 않음 |
+
+실제 번역 20개 중 **14개 completed / 6개 failed**다. 실패한 문서는 원문을 그대로 제공하고 승인된 번역으로 표시하지 않는다. worker는 실패한 문서에 멈추지 않고 나머지 작업을 처리했으며 임의 재시도를 하지 않았다. 관측 모델은 `claude-haiku-4-5-20251001`이며 요청 effort와 실제 미관측 effort는 계속 구분한다.
+
+실패 내역은 보고 2개·검수 2개·프로젝트 목표 1개·과거 계획 1개다. 일부는 실제 식별자/조건 누락이나 JSON 외 설명 출력이고, 목표·계획은 경로 뒤 문장 마침표까지 보호 문자로 인식해 거부된 사례다. 모두 성공했다고 보고하지 않으며, 보존 규칙을 무조건 완화하거나 원본/실패 결과를 덮어쓰지 않았다. 별도 후속 수정과 원본에 연결된 재검증이 필요하다. 새 검증 목표는 한국어로 입력하고 PM도 한국어로 제안하도록 구성돼 있다.
+
+호스트를 실제 재부팅하지 않았다. 재부팅 후 시작은 enabled user units와 기존 linger=yes로 준비했고, 앞선 테스트에서 이전 boot 식별자의 실행을 재사용하지 않는 복구를 확인했다. 실제 APK 새 목표 입력·계획 확정·그 실행의 끝까지 대조는 마스터 조작을 기다린다.
+
+원본 증거는 서버 `.ai-company/live-use-20260916/`의 `activation-inventory.json`, `activation-preview-result.json`, `worker-before.json`, `worker-actual.json`, `worker-preservation.json`, `actual-worker-restart.json`이다. [비밀 없는 활성화 요약](evidence/worker-activation-2026-09-16.json)에 관련 결과를 묶었다.
