@@ -172,6 +172,13 @@ function overview(project) {
       if(await create.evaluate(element=>element===document.activeElement)){focused=true;break;}
     }
     assert.equal(focused,true,'new project is reachable with keyboard alone');
+    // The real refresh replaces the project-list DOM. Keyboard focus must survive
+    // that replacement rather than depending on the polling interval's timing.
+    const focusedCreate=await create.elementHandle();
+    await page.evaluate(()=>window.dispatchEvent(new Event('online')));
+    await page.waitForFunction(element=>!element.isConnected,focusedCreate);
+    await focusedCreate.dispose();
+    assert.equal(await create.evaluate(element=>element===document.activeElement),true,'background project refresh preserves the initiating keyboard focus');
     assert.equal(await create.evaluate(element=>{const s=getComputedStyle(element);return s.outlineStyle!=='none'&&parseFloat(s.outlineWidth)>0||s.boxShadow!=='none';}),true,'keyboard focus has a visible indicator');
     assert.ok((await create.boundingBox()).height>=44,'primary touch target meets the product 44px requirement');
     await page.keyboard.press('Enter');
