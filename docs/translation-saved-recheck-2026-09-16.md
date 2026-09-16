@@ -35,7 +35,7 @@
 
 새 버전의 웹·worker 패키지를 고정하고 별도 운영 승인 범위와 대조한 뒤 적용한다. 이 문서만으로 서비스 재시작이나 운영 링크 교체를 수행하지 않는다. 현재 가동 worker에 이 코드가 설치되지 않았다면 실행기가 적용을 거부한다. 기본 미리보기는 읽기 전용이며 복사본은 새 파일만 만든다.
 
-후속 공통 코드 후보는 `9e6c0c18258eb2fa1710957807d2054899ab3fc4`로 고정했다. [패키지·서비스 변경안](project-execution-specs-2026-09-16.md#후속-적용안)에 이미지·archive·unit 해시를 기록했다. 설치 예정 release는 `/home/edward/ai-company/releases/project-execution-9e6c0c18258e`이며 아직 설치하거나 worker를 교체하지 않았다. 기존 `5594744`에 대한 승인을 이 후보에 재사용하지 않는다.
+후속 공통 코드 후보는 `23ac8a723f6bfc4d67fe12949c9253e9f8acf04c`로 고정했다. [패키지·서비스 변경안](project-execution-specs-2026-09-16.md#후속-적용안)에 이미지·archive·unit 해시를 기록했다. 설치 예정 release는 `/home/edward/ai-company/releases/project-execution-23ac8a723f6b`이며 아직 설치하거나 worker를 교체하지 않았다. 기존 `5594744`에 대한 승인을 이 후보에 재사용하지 않는다.
 
 비공개 제안 파일은 새 작업트리의 `.ai-company/translation-saved-recheck-20260916/proposal.json`에 고정했다. SHA-256은 `5d4fa5b4c1a4583d40c1b276958dc01ce8908e18e860e60d0495c80568a78420`이다. 제안은 위 두 실패의 전체 digest·원시 출력·검토 해시·통과/거부 판정을 포함하며 새 모델 호출 상한은 0이다. 운영 상태가 달라지면 새 제안으로 차이를 대조한다.
 

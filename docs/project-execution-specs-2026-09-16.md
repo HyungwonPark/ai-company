@@ -4,7 +4,7 @@
 
 ## 고정 후보와 검증 결과
 
-[초안 PR #13](https://github.com/HyungwonPark/ai-company/pull/13)은 PR #8의 `69471e8`에서 분리했다. 제품 코드 후보는 `9e6c0c18258eb2fa1710957807d2054899ab3fc4`이며 이후 검증 기록과 브라우저 시험 정리 보완만 별도로 추가한다. 이전 목표의 완료 기록은 보존했고 미완료 항목을 완료로 바꾸지 않았다.
+[초안 PR #13](https://github.com/HyungwonPark/ai-company/pull/13)은 PR #8의 `69471e8`에서 분리했다. 제품 코드 후보는 `23ac8a723f6bfc4d67fe12949c9253e9f8acf04c`이며 이후 검증 기록만 별도로 추가한다. 이전 목표의 완료 기록은 보존했고 미완료 항목을 완료로 바꾸지 않았다.
 
 | 확인 | 실제 결과 |
 |---|---|
@@ -12,8 +12,8 @@
 | 프로젝트 검증 | 임시 Git 저장소·독립 clone·별도 SQLite 큐에서 두 프로젝트의 개발·검수 모의 흐름 완주. 독립 경계 시험 16개, 자동화 시나리오 4개 |
 | 중단·예산 | `WAITING_QUOTA`·`WAITING_RETRY` 저장 직후 중단, 호출 시작 전 예약 중단, 공유 계정 cooldown, 과거 사용량·수정 작업·동시 예약·검사 시간 상한 확인 |
 | 독립 검수 | core와 저장 번역 원문 대조, UI 별도 검수 PASS. 과대 입력 고착·저장 요청 표시 불일치·구버전 확정 안내·PM 요청 후 화면 전환을 수정하고 회귀로 확인 |
-| 원격 Python | [CI 35090847194](https://github.com/HyungwonPark/ai-company/actions/runs/35090847194) PASS. Python 3.11/3.12 각각 417개 중 414 PASS·서버 전용 3개 skip, Android 준비 각각 4 PASS |
-| 원격 화면 | [Console UI 35090846416](https://github.com/HyungwonPark/ai-company/actions/runs/35090846416) PASS. sandboxed Chrome에서 Light·Black, 320/390/1440px, 저장 응답 유실·확정 digest·기존 PR12 회귀 확인 |
+| 원격 Python | [CI 35093180274](https://github.com/HyungwonPark/ai-company/actions/runs/35093180274) PASS. Python 3.11/3.12 각각 417개 중 414 PASS·서버 전용 3개 skip, Android 준비 각각 4 PASS |
+| 원격 화면 | [Console UI 35093180287](https://github.com/HyungwonPark/ai-company/actions/runs/35093180287) PASS. sandboxed Chrome에서 Light·Black, 320/390/1440px, 저장 응답 유실·확정 digest·기존 PR12 회귀 확인 |
 | 설치된 이미지 | 네트워크 없음·읽기 전용 루트·비특권 UID·cap 제거·새 권한 금지·256MiB·CPU 0.25·PID 64의 임시 컨테이너에서 33개 PASS. 비밀번호 변경·Host/Origin/CSRF·명세 저장·불변 표와 정적 파일 해시 확인 |
 | 번역 2건 | 저장 원문·출력 각 8문장을 대조. 복사본에서 1건만 새 읽기 자료로 통과, 승인 권한을 ‘인증’으로 옮긴 1건은 실패 유지. 추가 번역 호출·운영 반영 0 |
 | 운영 보존 | 웹·커플 컨테이너 5개 동일, 두 worker PID·unit·재시작 횟수 0과 기존 설정 유지. quota timer active, PR #10 pending. 운영 프로젝트 1·PM 요청 1·실행 2 그대로 |
@@ -22,7 +22,7 @@
 
 로컬 Chrome은 기존 AppArmor/userns 제약으로 실행하지 못했으며 격리를 해제하지 않았다. 화면 검증은 원격 CI의 sandboxed Chrome에서 완료했다. 상세 해시·검사 목록·운영 대조는 [검증 원장](evidence/project-execution-validation-2026-09-16.json), 번역 의미 판정은 [별도 기록](translation-saved-recheck-2026-09-16.md)에 보존했다.
 
-문서 커밋 `da55b02`의 [화면 CI 35092106928](https://github.com/HyungwonPark/ai-company/actions/runs/35092106928)은 협업 fixture의 후반 화면을 저장한 뒤 `Route is already handled` 오류로 실패했다. 기존 정리가 진행 중인 `fetch`·`fulfill` 완료를 기다리지 않는 누락을 독립 검수로 확인해, `collaboration.cjs`에서 `unrouteAll({behavior:'wait'})` 후에 새로고침하도록 보완했다. [Playwright 1.63의 정리 대기 구현](https://github.com/microsoft/playwright/blob/v1.63.0/packages/playwright-core/src/client/network.ts#L827)에 따른 변경이며 오류를 삼키거나 화면 검사를 제거하지 않는다. 로그만으로 내부 중복 처리 경로 전체를 확정하지 않는다. 후속 시험 커밋의 CI 결과는 PR #13에 연결하고, 이 변경으로 제품 코드·고정 이미지·운영 상태를 바꾸지 않는다.
+문서 커밋 `da55b02`의 [화면 CI 35092106928](https://github.com/HyungwonPark/ai-company/actions/runs/35092106928)은 협업 fixture의 후반 화면을 저장한 뒤 `Route is already handled` 오류로 실패했다. 기존 정리가 진행 중인 `fetch`·`fulfill` 완료를 기다리지 않는 누락을 독립 검수로 확인해, `collaboration.cjs`에서 `unrouteAll({behavior:'wait'})` 후에 새로고침하도록 보완했다. [Playwright 1.63의 정리 대기 구현](https://github.com/microsoft/playwright/blob/v1.63.0/packages/playwright-core/src/client/network.ts#L827)에 따른 변경이며 오류를 삼키거나 화면 검사를 제거하지 않는다. 로그만으로 내부 중복 처리 경로 전체를 확정하지 않는다. 해당 시험 정리는 제품 코드를 바꾸지 않는다. 후속 `d1701c6`에서는 이 시나리오가 통과했고, 별도 키보드 회귀가 실제 제품의 포커스 손실을 발견했다.
 
 ## 기존 상태
 
@@ -149,17 +149,17 @@ python -m ai_company.service_worker automation [기존 worker 인수] --executio
 
 | 고정 항목 | 값 |
 |---|---|
-| 코드 | `9e6c0c18258eb2fa1710957807d2054899ab3fc4` |
-| 새 웹 이미지 | `sha256:c0fa6adef55f9d3ff19d7bd7daffcd90adc9dada3177de667a578077dc3299f5` |
-| 소스 archive SHA-256 | `92f225c4588370ce65300f17e40ce5ecad540a127eb5335bf8ee8a97fa09888d` |
-| 비공개 적용안 SHA-256 | `013d58ccac5748a30f4264baadbe7d6b5318ed13d4ac60737a29d8876070355c` |
-| 제안 Compose SHA-256 | `20e159b05cdcab2acddb67cc34ac202d2cb0a713bf1c36d2cf5642824511cf32` · `docker compose config --quiet` PASS |
+| 코드 | `23ac8a723f6bfc4d67fe12949c9253e9f8acf04c` |
+| 새 웹 이미지 | `sha256:0f44d2e0a3706567bafea34c640345264fcace697a5ce317405366380cbfa1f8` |
+| 소스 archive SHA-256 | `34e11ba64cefaff9c9f68ff9040d74c0b157903e265196387e4e4dee2e545a89` |
+| 비공개 적용안 SHA-256 | `d7797d7125a3717130f4a3dd57775eee153c708603d5437d2095e81eec66aae3` |
+| 제안 Compose SHA-256 | `8b973c0ddd7bb140cf6997d77c61e5cdc440cfe128b2c75df4f31134d9080b1f` · `docker compose config --quiet` PASS |
 | pilot 카탈로그 파일 SHA-256 | `cf5f200f62495262bbdffbc177a9eefddeb6581de48c87d7d0a554bbd4c13153` |
 | 기존과 같은 유효 설정 digest | `2f925f653446f89b1b0d717f9a42e0d99a9df4660c90283a4cd2ba66a6d66415` |
-| 설치 예정 release | `/home/edward/ai-company/releases/project-execution-9e6c0c18258e` |
-| 설치 예정 카탈로그 | `/home/edward/ai-company/runtime/project-execution-9e6c0c18258e/catalog.json` |
+| 설치 예정 release | `/home/edward/ai-company/releases/project-execution-23ac8a723f6b` |
+| 설치 예정 카탈로그 | `/home/edward/ai-company/runtime/project-execution-23ac8a723f6b/catalog.json` |
 
-비공개 패키지 위치는 이 작업트리의 `.ai-company/project-execution-package-20260916/9e6c0c18258eb2fa1710957807d2054899ab3fc4/`다. `release-source.tar`, `manifest.json`, `rollout-proposal.json`, `console.compose.proposed.json`, 두 `.service.proposed` 파일에 실제 변경을 담았다. 기존 파일이 있거나 직전 해시가 달라지면 덮어쓰지 않는다. 카탈로그는 UID/GID 1002 소유, 디렉터리 0700·파일 0600으로 준비해 기존 웹 실행 사용자 `1002:1002`를 유지한다.
+비공개 패키지 위치는 이 작업트리의 `.ai-company/project-execution-package-20260916/23ac8a723f6bfc4d67fe12949c9253e9f8acf04c/`다. `release-source.tar`, `manifest.json`, `rollout-proposal.json`, `console.compose.proposed.json`, 두 `.service.proposed` 파일에 실제 변경을 담았다. 기존 파일이 있거나 직전 해시가 달라지면 덮어쓰지 않는다. 카탈로그는 UID/GID 1002 소유, 디렉터리 0700·파일 0600으로 준비해 기존 웹 실행 사용자 `1002:1002`를 유지한다.
 
 실행 명세 적용의 변경 범위는 웹 이미지 1개, 카탈로그 읽기 전용 mount와 `--execution-catalog`, automation unit의 release·작업 디렉터리·카탈로그 인수다. 번역 표시 개선까지 적용할 때만 translation unit도 같은 release로 교체하고 저장 결과 재검사 2건을 실행한다. 전역 release symlink, 전용 환경변수와 원래 자동화·번역 설정 파일, 계정 그룹·예산, Caddy·외부 포트는 변경하지 않는다. 새 표는 `management_execution_specs`, `management_execution_spec_registrations`, `translation_saved_rechecks` 세 개이며 기존 DB를 교체하지 않는다.
 
@@ -190,3 +190,7 @@ python -m ai_company.service_worker automation [기존 worker 인수] --executio
 - 번역 새 표시 선택까지 적용한 경우, 구버전 번역 worker 시작 **전에** 위 번역 문서의 새 코드로 표시 연결만 복원하는 순서.
 
 후속 적용·복구 준비가 끝나더라도 APK 직접 조작과 서명키 외부 복원은 여전히 마스터 확인 항목이다. 최신 종합 상태는 [실사용 연결 현황](live-use-readiness-2026-09-16.md)에 이어 기록한다.
+
+## 최종 화면 회귀 보완
+
+`d1701c6`의 [화면 CI 35092681835](https://github.com/HyungwonPark/ai-company/actions/runs/35092681835)는 프로젝트 목록 갱신 뒤 생성 버튼의 키보드 표시 검사에서 실패했다. 목록이 DOM을 교체할 때 기존 포커스 복구가 ID가 있는 요소만 처리하는데 세 생성 버튼에는 ID가 없었다. `23ac8a7`에서 각각 고유 ID를 부여하고, 키보드 Tab 이동 뒤 실제 갱신으로 기존 DOM 분리를 강제한 다음 새 버튼의 포커스·표시 유지와 대화상자 종료 후 복귀를 확인하도록 회귀를 보완했다. 독립 검수와 [최종 화면 CI](https://github.com/HyungwonPark/ai-company/actions/runs/35093180287)가 통과했다. 제품 변경이 포함되어 위 패키지도 `23ac8a7`로 다시 만들고 격리 검사 33개와 Compose 문법 검사를 통과했다. 이전 `9e6c0c1` 패키지는 과거 검증 자료이며 적용 후보로 사용하지 않는다.
