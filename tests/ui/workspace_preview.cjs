@@ -24,7 +24,7 @@ const origin='http://127.0.0.1:47993';
  const overflow=async label=>{const x=await page.evaluate(()=>({width:innerWidth,scroll:document.documentElement.scrollWidth}));assert.ok(x.scroll<=x.width,`${label} overflow ${JSON.stringify(x)}`);};
  const state=()=>page.evaluate(()=>JSON.parse(sessionStorage.getItem('ai-company:workspace-design:v1')));
  async function scenario(name){await page.locator('.lab-options').evaluate(el=>el.open=true);await page.locator('#lab-scenario').selectOption(name);await page.locator('.lab-options').evaluate(el=>el.open=false);}
- async function reset(){await page.evaluate(()=>sessionStorage.clear());await page.goto(origin);}
+ async function reset(){await Promise.all([page.waitForEvent('load'),page.evaluate(()=>document.querySelector('[data-action=reset]').click())]);}
  try{
   await page.goto(origin);
   // Same fixture content for genuinely different layouts, Light/Black, all target widths.
@@ -81,7 +81,9 @@ const origin='http://127.0.0.1:47993';
   assert.equal((await state()).model.projects.length,3);await page.reload();
   await click('new');assert.equal(await page.locator('#lab-new-name').inputValue(),'나의 검증');
   await page.locator('#lab-new-name').fill('수정한 입력은 별도 보관');
-  await click('close');await click('recover');
+  await click('close');await scenario('offline');await click('recover');
+  assert.ok((await state()).ui.pending,'failed recovery preserves the original request');
+  await scenario('normal');await click('recover');
   await page.getByRole('heading',{name:'나의 검증',exact:true}).waitFor();
   assert.equal((await state()).ui.drafts['new-name'],'수정한 입력은 별도 보관');
   assert.equal((await state()).model.projects.length,3);
@@ -89,6 +91,20 @@ const origin='http://127.0.0.1:47993';
   await page.locator('.tabs [data-tab=team]').click();await page.getByRole('heading',{name:'아직 시작하지 않았어요'}).waitFor();
   await page.locator('.tabs [data-tab=approval]').click();await page.getByRole('heading',{name:'요청이 없어요'}).waitFor();
   checks.push('creation response loss/reload/retry: one project, no execution, no cross-project roles/approvals');
+  // Independent review regression: a lost PM reply after saved v1 cannot replay a stale save key.
+  await reset();await click('suggest');await page.locator('#lab-message-form button[type=submit]').click();
+  await page.locator('[data-action=save-spec]').waitFor();await click('save-spec');
+  await page.locator('[data-action=request-plan]').waitFor();await scenario('error');
+  await page.locator('#lab-message').fill('완료 조건을 다시 검토해 주세요.');
+  await page.locator('#lab-message-form button[type=submit]').click();
+  await page.getByText('저장 결과 확인 필요',{exact:true}).waitFor();await page.reload();
+  assert.equal((await state()).model.projects[0].spec.version,1);
+  await click('recover');await scenario('normal');await click('save-spec');
+  await page.locator('[data-action=request-plan]').waitFor();
+  assert.equal((await state()).model.projects[0].spec.version,2);
+  assert.equal((await state()).model.projects[0].runs.length,0);
+  checks.push('review regression: lost PM answer after v1 → reload/recover → fresh spec v2, no old receipt loop');
+
   for(const name of ['empty','waiting','offline','long','translation','readonly','missing']){
    await reset();await scenario(name);
    if(name==='empty')await click('projects');

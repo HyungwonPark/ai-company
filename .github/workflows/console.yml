@@ -68,6 +68,16 @@ jobs:
         run: |
           node tests/ui/workspace_preview.cjs
           node tests/ui/workspace_baseline.cjs
+      - name: Package offline working preview
+        if: always()
+        run: python scripts/package_workspace_preview.py "$RUNNER_TEMP/workspace-preview/AI-Company-preview.html"
+      - name: Save offline preview
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: workspace-preview
+          path: ${{ runner.temp }}/workspace-preview/AI-Company-preview.html
+          retention-days: 30
       - name: Save nonsecret screenshots
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

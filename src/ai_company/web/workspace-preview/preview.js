@@ -6,19 +6,19 @@ const data=window.WorkspacePreviewData,KEY='ai-company:workspace-design:v1';
 let saved;try{saved=JSON.parse(sessionStorage.getItem(KEY)||'null');}catch{}
 const model=window.WorkspacePreviewModel.create(data,saved?.model);
 const ui={concept:'a',theme:'light',view:'workspace',project:'fixture-pilot',tab:'pm',scenario:'normal',drafts:{},keys:{},...saved?.ui};
-let busy=false,lastFocus=null,noticeTimer;
+let busy=false,lastFocus=null,noticeTimer,resetting=false;
 const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const short=value=>String(value).slice(0,12);
 const button=(text,action,extra='')=>`<button type="button" data-action="${action}" ${extra}>${text}</button>`;
 const tag=(text,kind='')=>`<span class="tag ${kind}">${esc(text)}</span>`;
 const draft=name=>ui.drafts[name]||'';
 const next=p=>({question:'PM 질문에 답하기',empty:'목표 구체화하기',proposal:'명세 확인·저장',spec_saved:'새 계획 요청',plan_ready:'계획 검토·확정',running:'진행 확인'}[p.phase]||'상태 확인');
-function persist(){try{sessionStorage.setItem(KEY,JSON.stringify({model:model.state,ui}));}catch{}}
+function persist(){if(resetting)return;try{sessionStorage.setItem(KEY,JSON.stringify({model:model.state,ui}));}catch{}}
 function announce(text){clearTimeout(noticeTimer);document.querySelector('#lab-notice').textContent=text;noticeTimer=setTimeout(()=>document.querySelector('#lab-notice').textContent='',9000);}
 function context(){return {readOnly:ui.scenario==='readonly',offline:ui.scenario==='offline',loseResponse:ui.scenario==='error'};}
 function current(){return model.state.projects.find(p=>p.id===ui.project);}
 function tabs(){return `<nav class="tabs" aria-label="프로젝트">${[['pm','매니저'],['team','진행'],['approval','승인'],['report','보고']].map(([id,name])=>button(name,'tab',`data-tab="${id}" aria-current="${ui.tab===id?'page':'false'}"`)).join('')}</nav>`;}
-function rail(){return `<aside class="rail"><div class="brand">AI Company</div><nav aria-label="전체">${button('프로젝트','projects',`class="${ui.view==='projects'?'selected':''}"`)}${button('작업실','workspace',`class="${ui.view==='workspace'?'selected':''}"`)}</nav><div class="rail-bottom">${button(ui.theme==='light'?'Black':'Light','theme','aria-label="테마 전환"')}<span class="account"><span class="avatar">E</span>edward <small>예시</small></span></div></aside>`;}
+function rail(){return `<aside class="rail"><div class="brand">AI Company</div><nav aria-label="전체">${button('프로젝트','projects',`class="${ui.view==='projects'?'selected':''}"`)}${button('작업실','workspace',`class="${ui.view==='workspace'?'selected':''}"`)}</nav><div class="rail-bottom">${button(ui.theme==='light'?'Black':'Light','theme','id="lab-theme" aria-label="테마 전환"')}<span class="account"><span class="avatar">E</span>edward <small>예시</small></span></div></aside>`;}
 function technical(p){return `<details class="technical"><summary>실행 범위</summary><p>이 미리보기는 두 파일만 사용하는 검증 프로젝트를 예로 듭니다. 명세 저장은 실행 승인이 아닙니다.</p><dl><dt>저장소 · 기준</dt><dd>${esc(data.catalog.repository)}<br>${esc(data.catalog.branch)}<code>${esc(data.catalog.base_sha)}</code></dd><dt>허용 파일</dt><dd>${data.catalog.paths.map(s=>`<code>${esc(s)}</code>`).join('')}</dd><dt>검증</dt><dd>빈 입력 · 다섯 분류 · 알 수 없는 상태 · 입력 불변<br>격리 검사 → 원격 CI → 독립 검수 → Astra 최종 검수</dd><dt>예산 · 예시 설정</dt><dd>최대 24회 · 30분 · 수정 2회 · 병렬 2개<br>금액 상한 미설정. 운영 예산을 바꾸지 않습니다.</dd><dt>명세</dt><dd>${p.spec?`버전 ${p.spec.version}<code>${esc(p.spec.digest)}</code>`:'아직 저장하지 않음'}</dd><dt>프로젝트</dt><dd><code>${esc(p.id)}</code></dd></dl></details>`;}
 function rolePlan(){return data.roles.map(r=>`<div class="plan-role"><div class="row"><h3>${r.name}</h3>${tag('예정','neutral')}</div><p>${esc(r.responsibility)}</p><p class="muted">요청: ${esc(r.provider)} · ${esc(r.model)} · ${esc(r.effort)}<br>실제 적용: 실행 전 · 미확인</p><code>${esc(r.path)}</code></div>`).join('');}
 function pm(p){
@@ -66,7 +66,7 @@ async function runRequest(kind,projectId,payload,recovery=false){
   if(dialog.open)close();render('lab-main');
   announce({create:'예시 프로젝트에서 PM 제안을 확인하세요.',message:'예시 PM 제안이 준비됐습니다.',spec:'명세를 저장했습니다. 실행은 0건입니다.',plan:'새 계획이 준비됐습니다. 직접 확인하고 확정하세요.',confirm:'이 계획에 예시 실행 한 건을 연결했습니다.',decision:'예시 선택을 기록했습니다. 운영 승인은 변경하지 않았습니다.'}[k]);
  }catch(error){
-  if(error.code!=='result_unknown')ui.pending=null;
+  if(!recovery&&error.code!=='result_unknown')ui.pending=null;
   persist();
   if(dialog.open){errorMessage(error);if(ui.pending&&!dialog.querySelector('[data-action=recover]'))dialog.querySelector('.inline-error').insertAdjacentHTML('afterend',button('저장 결과 확인','recover'));}
   else {render();errorMessage(error);}
@@ -76,13 +76,13 @@ root.addEventListener('input',event=>{const el=event.target;if(el.dataset.draft)
 root.addEventListener('change',event=>{if(event.target.id==='lab-scenario'){ui.scenario=event.target.value;render();}});
 root.addEventListener('click',event=>{const el=event.target.closest('button');if(!el)return;if(el.dataset.concept){ui.concept=el.dataset.concept;ui.tab=ui.concept==='a'?'pm':ui.concept==='b'?'team':'approval';render();return;}const action=el.dataset.action,p=current();
  if(action==='recover'){runRequest(null,null,null,true);return;}
- if(action==='theme'){ui.theme=ui.theme==='light'?'black':'light';render();}
+ if(action==='theme'){ui.theme=ui.theme==='light'?'black':'light';render('lab-theme');}
  if(action==='projects'){ui.view='projects';render('lab-main');}
  if(action==='workspace'){ui.view='workspace';render('lab-main');}
  if(action==='project'){ui.project=el.dataset.project;ui.view='workspace';ui.tab=ui.concept==='b'?'team':ui.concept==='c'?'approval':'pm';render('lab-main');}
  if(action==='tab'){ui.tab=el.dataset.tab;render('lab-main');}
  if(action==='refresh'){render();announce('화면을 갱신했습니다. 작성 중인 내용은 보관했습니다.');}
- if(action==='reset'){try{sessionStorage.removeItem(KEY);}catch{}location.reload();}
+ if(action==='reset'){resetting=true;try{sessionStorage.removeItem(KEY);}catch{}location.reload();}
  if(action==='close'){close();}
  if(action==='suggest'){ui.drafts['message:'+p.id]=data.pm.suggested;render('lab-message');}
  if(action==='new'){modal({title:'새 프로젝트',body:`<form id="lab-new-form"><div><label for="lab-new-name">이름</label><input id="lab-new-name" data-draft="new-name" maxlength="120" required value="${esc(draft('new-name'))}" placeholder="예: 역할 상태 확인"></div><div><label for="lab-new-goal">목표</label><textarea id="lab-new-goal" data-draft="new-goal" maxlength="8000" required placeholder="무엇을 만들고 싶은가요?">${esc(draft('new-goal'))}</textarea></div><p class="form-help">PM이 역할과 기술 설정을 제안합니다. 이 화면은 예시이며 실제 프로젝트를 생성하지 않습니다.</p><p class="inline-error" role="alert"></p><button type="submit" class="primary">PM과 시작</button></form>`});}
