@@ -92,6 +92,28 @@ def segments(fields):
 
 
 TOKEN = re.compile(r'`[^`]+`|https?://[^\s]+|(?:/[A-Za-z0-9_.-]+){1,}|\b[0-9a-f]{7,64}\b|\b\d+(?:[.,:]\d+)*(?:%|[A-Za-z]+)?\b|\b[A-Z][A-Z0-9_]{1,}\b|\b[A-Za-z][\w]*_[\w]+\b')
+REPAIR_PARSER = 'translation-json-v3'
+REPAIR_PROMPT = 'ko-translation-v2'
+PATH_LITERAL = r'(?<![A-Za-z0-9_./~-])(?:[~./]*[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+/?|/[A-Za-z0-9_.-]+/?)'
+PATH_TOKEN = re.compile(PATH_LITERAL)
+TOKEN_V3 = re.compile(r'`[^`]+`|https?://[^\s]+|(?P<path>' + PATH_LITERAL + r')|\b[0-9a-f]{7,64}\b|\b\d+(?:[.,:]\d+)*(?:%|[A-Za-z]+)?\b|\b[A-Z][A-Z0-9_]{1,}\b|\b[A-Za-z][\w]*_[\w]+\b')
+
+
+def protected_literals(text, parser_version):
+    if parser_version != REPAIR_PARSER:
+        return TOKEN.findall(text)
+    # Backtick-enclosed code stays byte-exact, including a filename's final dot.
+    # An unquoted path in prose excludes sentence-final dots, and includes its
+    # full relative prefix (the legacy matcher protected only slash suffixes).
+    return [match[0].rstrip('.') if match['path'] else match[0] for match in TOKEN_V3.finditer(text)]
+
+
+def _literal_count(text, literal, parser_version):
+    if parser_version == REPAIR_PARSER and PATH_TOKEN.fullmatch(literal):
+        return sum(match[0].rstrip('.') == literal for match in PATH_TOKEN.finditer(text))
+    return text.count(literal)
+
+
 GUARDS = ((r'\b(?:not|never|no|cannot|mustn.t|don.t|do not)\b', r'않|안\s|금지|불가|없|거부|아니|마세|마십|말아|말 것'),
           (r'\b(?:only if|if|unless|provided that)\b', r'경우|때|조건|한해|면'),
           (r'\bonly if\b', r'경우에만|때만|때에만|한해|조건.*만'),
@@ -114,8 +136,9 @@ def validate_fields(job, translated):
         if (re.match(r'\s*', source)[0] != re.match(r'\s*', target)[0]
                 or re.search(r'\s*$', source)[0] != re.search(r'\s*$', target)[0]):
             raise ValueError('translation changed paragraph separators')
-        for token in TOKEN.findall(source):
-            if target.count(token) != source.count(token):
+        parser = job['config'].get('parser_version')
+        for token in protected_literals(source, parser):
+            if _literal_count(target, token, parser) != _literal_count(source, token, parser):
                 raise ValueError('protected literal missing or duplicated')
         for source_pattern, target_pattern in GUARDS:
             if re.search(source_pattern, source, re.I) and not re.search(target_pattern, target):
@@ -178,10 +201,83 @@ class TranslationStore:
                         created_at=self.clock(), updated_at=self.clock(), observed_configuration=None,
                         semantic_validation='not_independently_verified')
                     self.db.execute('INSERT INTO translation_jobs VALUES (?,?,?)', (job_id, key, json.dumps(job, ensure_ascii=False)))
+                linked = self.db.execute('SELECT job_id FROM translation_links WHERE project_id=? AND document_id=? AND source_digest=?',
+                                         (project_id, source['id'], sd)).fetchone()
+                if linked:
+                    replacement = self._get(linked[0])
+                    if (replacement and replacement.get('repair_of') == job_id
+                            and replacement.get('repair_base_cache_key') == key
+                            and replacement['source_digest'] == sd and source_digest(replacement['source']) == sd
+                            and replacement['config'] == configuration({**config, 'parser_version': REPAIR_PARSER,
+                                                                        'prompt_version': REPAIR_PROMPT})):
+                        # A reviewed repair for this exact failed source/configuration
+                        # stays selected on the next ordinary worker synchronization.
+                        job_id = replacement['id']
                 self.db.execute('''INSERT INTO translation_links VALUES (?,?,?,?)
                     ON CONFLICT(project_id,document_id,source_digest) DO UPDATE SET job_id=excluded.job_id
                     WHERE translation_links.job_id != excluded.job_id''', (project_id, source['id'], sd, job_id))
         return [self.read(d) for d in documents]
+
+    def repair(self, failed_job_id, *, expected_original_digest, replay=None):
+        """Trusted operator repair, not an HTTP/model capability or automatic retry.
+
+        Keep the failed job immutable and inherit its consumed execution budget.
+        A native replay may complete without another model call; otherwise only
+        the original budget's remaining attempts can run under the normal queue.
+        """
+        with self.db:
+            self.db.execute('BEGIN IMMEDIATE')
+            original = self._get(failed_job_id)
+            if (not original or digest(original) != expected_original_digest
+                    or original['status'] != 'failed'
+                    or source_digest(original['source']) != original['source_digest']):
+                raise ValueError('repair requires the exact immutable failed job')
+            if original['config'].get('parser_version') == REPAIR_PARSER:
+                raise ValueError('repair cannot reset a repaired execution budget')
+            if original.get('execution_result', {}).get('cgroup_stopped') is not True:
+                raise ValueError('repair requires confirmed execution termination')
+            config = configuration({**original['config'], 'parser_version': REPAIR_PARSER, 'prompt_version': REPAIR_PROMPT})
+            key = digest({'repair_of': failed_job_id, 'source_digest': original['source_digest'], 'config': config})
+            existing = self.db.execute('SELECT id FROM translation_jobs WHERE cache_key=?', (key,)).fetchone()
+            if existing:
+                previous = self._get(existing[0])
+                if replay is not None and previous.get('repair_result_digest') != digest(replay):
+                    raise ValueError('repair already exists with another result')
+                return self._public(previous)
+            document = copy.deepcopy(original)
+            document.update(id=uuid4().hex, cache_key=key, config=config, status='pending', fields={},
+                created_at=self.clock(), updated_at=self.clock(), started_at=None,
+                lease_token=None, lease_expires_at=None, execution_identity=None,
+                execution_started=False, execution_result={}, observed_configuration=None,
+                resume_at=None, reason=None, repair_of=failed_job_id,
+                repair_base_cache_key=original['cache_key'], repair_result_digest=None,
+                inherited_attempts=original['attempts'], inherited_spent_seconds=original['spent_seconds'])
+            if replay is not None:
+                proof = replay.get('reprocessing', {})
+                if (replay.get('category') != 'success' or replay.get('tool_calls')
+                        or replay.get('cgroup_stopped') is not True
+                        or proof.get('original_failed_job_id') != failed_job_id
+                        or proof.get('original_failed_status') != original['status']
+                        or proof.get('original_failure_reason') != original.get('reason')
+                        or proof.get('source_digest') != original['source_digest']
+                        or proof.get('parser_version') != REPAIR_PARSER
+                        or proof.get('new_model_calls') != 0
+                        or not re.fullmatch(r'[0-9a-f]{64}', str(proof.get('raw_sha256')))):
+                    raise ValueError('repair replay requires bound native evidence')
+                document.update(status='completed', fields=validate_fields(document, replay.get('fields')),
+                                observed_configuration=copy.deepcopy(replay.get('observed_configuration')),
+                                execution_result={'reprocessing': copy.deepcopy(proof)},
+                                repair_result_digest=digest(replay))
+            elif (document['attempts'] >= config['max_attempts']
+                    or document['spent_seconds'] + config['timeout_seconds'] > config['max_total_seconds']):
+                raise ValueError('repair has no remaining original execution budget')
+            self.db.execute('INSERT INTO translation_jobs VALUES (?,?,?)', (document['id'], key, json.dumps(document, ensure_ascii=False)))
+            # A repair never changes another source version or a newer selection.
+            changed = self.db.execute('UPDATE translation_links SET job_id=? WHERE project_id=? AND document_id=? AND source_digest=? AND job_id=?',
+                (document['id'], original['source']['project_id'], original['source']['id'], original['source_digest'], failed_job_id))
+            if changed.rowcount != 1:
+                raise ValueError('repair source is no longer the selected failed job')
+            return self._public(document)
 
     def read(self, document):
         sd = source_digest(document)
@@ -217,14 +313,22 @@ class TranslationStore:
             counts[job['status']] = counts.get(job['status'], 0) + 1
         waiting = [j['resume_at'] for j in jobs if j['resume_at'] is not None]
         status = next((state for state in ('running', 'blocked', 'waiting_quota', 'waiting_retry', 'pending', 'failed') if counts.get(state)), 'available')
-        matching = [j for j in jobs if digest(j['config']) == digest(config)]
+        matching = []
+        for job in jobs:
+            parent = self._get(job['repair_of']) if job.get('repair_of') else None
+            repaired = (parent and digest(parent['config']) == digest(config)
+                        and job.get('repair_base_cache_key') == parent['cache_key']
+                        and job['config'] == configuration({**parent['config'], 'parser_version': REPAIR_PARSER,
+                                                            'prompt_version': REPAIR_PROMPT}))
+            if digest(job['config']) == digest(config) or repaired:
+                matching.append(job)
         observed_jobs = [j for j in matching if j.get('observed_configuration')]
         observed = None
         if observed_jobs:
             latest = max(observed_jobs, key=lambda j: (j['updated_at'], j['id']))
             observed = {**copy.deepcopy(latest['observed_configuration']), 'job_id': latest['id'], 'source_digest': latest['source_digest']}
             result = latest.get('execution_result', {})
-            observed['session_id'] = result.get('session_id')
+            observed['session_id'] = result.get('session_id') or result.get('reprocessing', {}).get('original_session_id')
             observed['evidence'] = {key: copy.deepcopy(result[key]) for key in
                 ('category', 'cgroup_stopped', 'effective_tools', 'total_cost_usd') if key in result}
             if result.get('reprocessing'):
