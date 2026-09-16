@@ -109,6 +109,7 @@ def main():
     parser.add_argument('--worktree', type=Path, required=True)
     parser.add_argument('--write-path', action='append', default=[])
     parser.add_argument('--audit', type=Path, required=True)
+    parser.add_argument('--binding', type=json.loads)
     args = parser.parse_args()
     files = WorkspaceFiles(args.worktree, tuple(args.write_path))
     files.verify_runtime()
@@ -118,7 +119,8 @@ def main():
     fd = os.open(audit_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'w') as audit:
         server = FileServer(files, audit)
-        server.record({'state': 'ready', 'worktree': str(files.worktree), 'writable_paths': files.writable_paths})
+        server.record({'state': 'ready', 'worktree': str(files.worktree), 'writable_paths': files.writable_paths,
+                       'binding': args.binding})
         try:
             server.serve(sys.stdin, sys.stdout)
         finally:

@@ -1,7 +1,8 @@
 """Provider-aware stage instructions; execution permissions remain adapter-owned."""
 
 
-def stage_prompt(checkpoint_prompt: str, *, provider: str, role: str, planning: bool = False, contribution: bool = False) -> str:
+def stage_prompt(checkpoint_prompt: str, *, provider: str, role: str, planning: bool = False, contribution: bool = False,
+                 file_tools: bool = False) -> str:
     if provider not in {"codex", "claude"} or role not in {"pm", "developer", "reviewer", "final"}:
         raise ValueError("unsupported stage prompt provider or role")
 
@@ -10,6 +11,8 @@ def stage_prompt(checkpoint_prompt: str, *, provider: str, role: str, planning: 
 
     if contribution and (role != "developer" or planning):
         raise ValueError("contribution schema is limited to its developer stage")
+    if file_tools and (provider != "claude" or role == "developer" and not contribution):
+        raise ValueError("Claude file development requires a runner-committed contribution")
 
     report = (
         "Return ONLY one structured StageReport matching the supplied output schema, without a Markdown fence. "
@@ -60,7 +63,13 @@ def stage_prompt(checkpoint_prompt: str, *, provider: str, role: str, planning: 
             "and the supplied verification records. Do not edit files, commit, install dependencies, "
             "or rerun build/test commands that may write files. Return candidate_sha for that same candidate. "
         )
-        if provider == "claude":
+        if provider == "claude" and file_tools:
+            work += (
+                "Read repository files only with mcp__company_files__read_file. No command execution, "
+                "Bash, native Read/Glob/Grep, Workflow or other MCP tools are available. Use the supplied "
+                "snapshot SHA as runner-owned identity evidence; you cannot execute Git independently. "
+            )
+        elif provider == "claude":
             work += (
                 "For repository inspection use only Read, Glob, and Grep. Locate source/tests with Glob, "
                 "read them with Read, and search relevant evidence with Grep. Bash and command execution are "
@@ -105,6 +114,12 @@ def stage_prompt(checkpoint_prompt: str, *, provider: str, role: str, planning: 
                 "conflicts with the supplied snapshot. A supplied PASS or a previous review cannot replace "
                 "your inspection. Missing evidence is not proof of correctness."
             )
+    if file_tools and contribution:
+        work = work.replace("Use available tools to edit and run authorized checks, but do not invent check commands or claims.",
+            "Use only mcp__company_files__read_file and mcp__company_files__write_file on assigned files. "
+            "Bash, Git, native file tools, Workflow and command execution are unavailable. Do not claim to "
+            "run checks: the existing runner performs them after contribution integration.")
+        work += " Use checkpoint.snapshot.head_commit as the runner-owned input HEAD; do not attempt Git inspection."
     if planning:
         report = report.replace("one structured StageReport", "one structured PMPlanStageReport")
         report = report.replace("and summary. ", "summary, and plan. ")

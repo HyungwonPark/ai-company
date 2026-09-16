@@ -89,7 +89,7 @@ class DispatcherPromptBoundaryTests(unittest.TestCase):
                     agent = SimpleNamespace(agent_id="assigned", model="assigned-model", reasoning_effort="high",
                                             ultracode_enabled=False)
                     spec = SimpleNamespace(agents=[agent], mode="live", policy=SimpleNamespace(
-                        max_runtime_seconds=90, max_cost_usd=None))
+                        max_runtime_seconds=90, max_cost_usd=None, configuration_evidence="runtime_metadata"))
                     state = {"active": {"agent_id": "assigned"}, "stage": role,
                              "usage": {"runtime_seconds": 10, "cost_usd": 0}}
                     with patch("ai_company.dispatcher.run_session", return_value="runner-result") as run:
@@ -111,7 +111,8 @@ class DispatcherPromptBoundaryTests(unittest.TestCase):
             dispatcher = Dispatcher(Path(directory), executor=lambda *args, **kwargs: calls.append(args))
             self.addCleanup(dispatcher.close)
             agent = SimpleNamespace(agent_id="assigned")
-            spec = SimpleNamespace(agents=[agent], mode="fixture", policy=SimpleNamespace(max_runtime_seconds=90))
+            spec = SimpleNamespace(agents=[agent], mode="fixture", policy=SimpleNamespace(
+                max_runtime_seconds=90, configuration_evidence="runtime_metadata"))
             state = {"active": {"agent_id": "assigned"}, "stage": "reviewer", "usage": {"runtime_seconds": 0}}
             dispatcher._executor(spec, state)("claude", Path(directory), "checkpoint", None, timeout_seconds=10)
             self.assertEqual(calls[0][4], stage_prompt("checkpoint", provider="claude", role="reviewer"))

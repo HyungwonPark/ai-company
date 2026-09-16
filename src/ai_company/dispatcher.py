@@ -109,6 +109,10 @@ class Dispatcher:
                 required.add("write_repository")
             configuration_eligible = (agent.provider == "codex" and not agent.ultracode_enabled
                                       if spec.policy.configuration_evidence == "cli_configuration" else agent.verified())
+            if spec.policy.configuration_evidence == "cli_configuration_v2":
+                from ai_company.adapters.claude_files import candidate_eligible
+                configuration_eligible = (agent.provider == "codex" and not agent.ultracode_enabled
+                                          or candidate_eligible(agent, spec, role))
             if (not agent.enabled or not configuration_eligible or not required.issubset(agent.capabilities)
                     or any(not allowed(path.rstrip("/"), agent.allowed_paths) for path in spec.task.allowed_paths)
                     or (spec.policy.max_cost_usd is not None and agent.provider != "claude")):
@@ -174,20 +178,30 @@ class Dispatcher:
     def _executor(self, spec, state):
         scope = getattr(spec, "execution_scope", "full")
         agent = next(a for a in spec.agents if a.agent_id == state["active"]["agent_id"])
+        file_tools = spec.policy.configuration_evidence == "cli_configuration_v2" and agent.provider == "claude"
 
         def execute(provider, worktree, prompt, session_id, **kwargs):
             kwargs["timeout_seconds"] = min(kwargs["timeout_seconds"], spec.policy.max_runtime_seconds - state["usage"]["runtime_seconds"])
             prompt = stage_prompt(prompt, provider=provider, role=state["stage"], planning=scope == "planning",
-                                  contribution=scope == "contribution")
+                                  contribution=scope == "contribution", file_tools=file_tools)
             report_type = {"planning": PMPlanStageReport, "contribution": ContributionStageReport}.get(scope, StageReport)
             if self.executor:
                 outcome = self._external(self.executor, agent, state, provider, worktree, prompt, session_id, **kwargs)
             else:
                 if spec.mode != "live":
                     raise ExecutionBlocked("fixture mode requires an explicit fixture executor")
-                outcome = self._external(run_session, provider, worktree, prompt, session_id, **kwargs, model=agent.model,
+                runner = run_session
+                options = {"permission": "workspace-write" if state["stage"] == "developer" else "read-only",
+                           "isolate_cgroup": True, "capture_configuration": True}
+                if file_tools:
+                    from ai_company.adapters.claude_files import run_claude_files
+                    from ai_company.adapters.claude_observation import persisted_attempt
+                    runner = run_claude_files
+                    job = self.queue.get(state["active"]["job_id"])
+                    binding, _ = persisted_attempt(self.db, job)
+                    options = {"binding": binding, "writable_paths": spec.task.allowed_paths if state["stage"] == "developer" else ()}
+                outcome = self._external(runner, provider, worktree, prompt, session_id, **kwargs, **options, model=agent.model,
                                    reasoning_effort=agent.reasoning_effort, ultracode_enabled=agent.ultracode_enabled, output_schema=report_type.model_json_schema(),
-                                   permission="workspace-write" if state["stage"] == "developer" else "read-only", isolate_cgroup=True, capture_configuration=True,
                                    max_cost_usd=(spec.policy.max_cost_usd - state["usage"]["cost_usd"]
                                                  if spec.policy.max_cost_usd is not None else None))
             if scope == "contribution" and state["stage"] == "developer":
@@ -257,7 +271,15 @@ class Dispatcher:
         report_type = {"planning": PMPlanStageReport, "contribution": ContributionStageReport}.get(spec.execution_scope, StageReport)
         report = report_type.model_validate(result.get("structured_output"))
         agent = next(a for a in spec.agents if a.agent_id == active["agent_id"])
-        if spec.policy.configuration_evidence == "cli_configuration":
+        if spec.policy.configuration_evidence == "cli_configuration_v2" and agent.provider == "claude":
+            from ai_company.adapters.claude_observation import persisted_attempt, validate_claude_result
+            binding, claimed_at = persisted_attempt(self.db, job)
+            if any(binding[key] != active[key] for key in ("execution_id", "generation", "role", "task_digest", "policy_digest")):
+                raise ExecutionBlocked("Claude persisted attempt differs from the assigned generation")
+            validate_claude_result(result, binding=binding, session_id=job["session_id"],
+                started_at=claimed_at, ended_at=job["updated_at"],
+                writable_paths=spec.task.allowed_paths if active["role"] == "developer" else ())
+        elif spec.policy.configuration_evidence in ("cli_configuration", "cli_configuration_v2"):
             self._validate_cli_configuration(agent, job, result)
         else:
             if result.get("observed_models") != [agent.model] or result.get("observed_efforts") != [agent.reasoning_effort]:

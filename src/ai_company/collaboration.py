@@ -99,6 +99,21 @@ def observed_configuration(db, job):
     result = job.get("result") or {}
     evidence = result.get("configuration_evidence") or {}
     # A model's structured text is deliberately not consulted here.
+    if evidence.get("source") == "claude_cli_request_v1":
+        from ai_company.adapters.claude_observation import persisted_attempt, validate_claude_result
+        from ai_company.runtime import ExecutionBlocked
+        try:
+            binding, started = persisted_attempt(db, job)
+            paths = job["specification"]["task"]["allowed_paths"] if binding["role"] == "developer" else ()
+            validate_claude_result(result, binding=binding, session_id=job["session_id"],
+                                       started_at=started, ended_at=job["updated_at"], writable_paths=paths)
+        except (ExecutionBlocked, KeyError, TypeError, ValueError):
+            return unknown
+        return {**unknown, "status": "observed", "model": "claude-opus-5", "reasoning_effort": "xhigh",
+                "ultracode_enabled": True, "source": evidence["source"], "scope": evidence["scope"],
+                "evidence": {"job_id": job["job_id"], "session_id": job["session_id"], "attempt": job["attempt_count"],
+                             "applied": copy.deepcopy(evidence["applied"]), "backend_model_verified": False,
+                             "task_api_requests": sum(r["attributes"].get("query_source") == "sdk" for r in evidence["api_requests"])}}
     if (evidence.get("source") == "codex_rollout" and evidence.get("scope") == "cli_turn_configuration"
             and evidence.get("status") == "observed" and evidence.get("cli_version") == "0.154.0"
             and evidence.get("backend_model_verified") is False and evidence.get("session_id") == job.get("session_id")

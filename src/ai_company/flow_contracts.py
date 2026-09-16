@@ -41,7 +41,7 @@ class FlowPolicy(Contract):
     max_cost_usd: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     max_repairs: int = Field(default=3, ge=0, le=20)
     retry: RetryPolicy = Field(default_factory=RetryPolicy)
-    configuration_evidence: Literal["runtime_metadata", "cli_configuration"] = "runtime_metadata"
+    configuration_evidence: Literal["runtime_metadata", "cli_configuration", "cli_configuration_v2"] = "runtime_metadata"
 
     @model_serializer(mode="wrap")
     def preserve_legacy_digest(self, handler):
