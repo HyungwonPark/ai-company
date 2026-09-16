@@ -32,4 +32,40 @@ worker 상태에는 비밀을 제외한 요청 설정만 추가한다. 계정 �
 
 후보 웹 이미지와 worker 패키지는 검증 후 고정한다. 공개 적용은 console 이미지 교체와 두 worker의 코드 교체·순차 재시작을 요구한다. 현재 운영 버전 `51b911a`와 기존 설정·상태 경로를 복구 기준으로 보존한다. Caddy·도메인·커플 서비스·계정 한도·실행 허용 파일·타이머는 변경 대상이 아니다.
 
-최종 후보 커밋, 원격 CI·화면 캡처, 이미지 digest와 적용 여부는 검증 후 이 문서에 추가한다.
+## 검증 결과
+
+최종 실행 코드 **`17697208211eff970f60304614cc88efab8ede35`** 기준이다. 이후 문서·캡처 커밋은 실행 코드와 구분한다.
+
+| 검사 | 결과 |
+|---|---|
+| 로컬 Python 3.13 | 전체 회귀 311개 PASS |
+| [원격 Python 3.11·3.12](https://github.com/HyungwonPark/ai-company/actions/runs/35043551481) | 각각 311개·Android 준비 4개 PASS |
+| [원격 Chrome UI](https://github.com/HyungwonPark/ai-company/actions/runs/35043551436) | Light·Black, 320/360px·데스크톱, 새 목표 → PM 요청, 역할 조정, 초안 유지, 한국어 계획, 승인 원문 유지, stale 거부, 응답 중단 후 실행 1건, 오프라인 PASS |
+| [Android 빌드](https://github.com/HyungwonPark/ai-company/actions/runs/35043551439) | PASS. 신규 서명 APK 배포나 실기기 검증을 의미하지 않음 |
+| 격리 후보 이미지 | 27개 웹 파일 SHA-256, 비밀번호 로그인 모드, 익명 API·잘못된 Host 거부, 목표+PM 요청 원자적 저장 PASS |
+| 고정 worker 패키지 | 저장소에 의존하지 않는 설치본에서 목표+PM 요청 1건, 실행 0건 PASS. 최종 웹 코드의 Python 파일과 바이트 단위 동일 |
+| 기존 운영 | 두 worker PID·재시작 수 그대로, 기존 타이머 active, 커플 앱·Caddy·DB·백업 보존, PR #10 pending |
+
+이미지 검사는 네트워크·공개 포트 없이 읽기 전용 루트, capabilities 제거, no-new-privileges 상태에서 했다. 운영 상태·인증 파일은 마운트하지 않았다. 새로운 실제 모델 호출·계획 확정·후보 승인은 수행하지 않았다. 이번 UX 변경의 별도 독립 모델 검수·Astra 최종 검수는 수행하지 않았으며, 기존 자동 실행의 검수 규칙을 유지한 것이다. Android runtime과 Automation evidence workflow의 이번 `skipped`는 PASS로 세지 않는다.
+
+## 화면 예시
+
+아래 이미지는 해당 커밋의 실제 Chrome 렌더링이다. 대화·팀은 **화면 회귀용 모의 데이터**이며 실제 마스터 입력이나 PM 수행 증거가 아니다.
+
+| 화면 | Light | Black |
+|---|---|---|
+| 대화와 팀 | [작업실](images/human-workspace-2026-09-16/light-desktop-pm-workspace.png) | [작업실](images/human-workspace-2026-09-16/black-desktop-pm-workspace.png) |
+| 휴대폰 목표 입력 | [프로젝트](images/human-workspace-2026-09-16/light-mobile-new-project.png) | [프로젝트](images/human-workspace-2026-09-16/black-mobile-new-project.png) |
+| 휴대폰 역할 조정 | [팀](images/human-workspace-2026-09-16/light-mobile-manager-team.png) | [팀](images/human-workspace-2026-09-16/black-mobile-manager-team.png) |
+
+## 고정한 적용안과 복구
+
+**준비 완료·공개 미적용**이다. 현재 APK와 공개 웹은 기존 `51b911a`를 계속 사용한다. 이번 요청의 배포·병합 제외 조건을 유지한다.
+
+- 웹 후보: `sha256:b1d7f0f88e2149173748805b4f13eb71f0be5487f76f3fdd0534f7bf4479640e`. 기존 Compose의 `services.console.image` 한 필드만 바꾸는 제안을 보관했다.
+- worker 후보: `/home/edward/ai-company/releases/control-plane-ce2def6`. 해당 시점 이후 변경은 웹·검사·문서이며 Python 소스는 최종 코드와 같다. 의존성은 lock으로 설치했다. 현재 `control-plane` 링크는 여전히 `control-plane-51b911a`를 가리킨다.
+- 적용 순서: 승인 후 대기 목록과 실행 중 프로세스를 다시 대조 → 두 worker를 정상 정지 → 새 링크와 웹 이미지를 적용·상태 확인 → 동일 설정으로 두 worker 재개. 작업·계정·번역 기록을 지우거나 계획을 대행 확정하지 않는다. unit/env/config/기존 설치 영수증은 덮어쓰지 않는다.
+- 실패 복구: 두 worker의 종료를 확인한 뒤 링크를 `control-plane-51b911a`, 웹을 기존 `sha256:0b335d24f67c3a727a366b63879165ea2b8ef54323cbb5ca267b4d050cb3aaed`로 되돌린다. DB는 이전 사본으로 덮어쓰지 않는다. 원래 설치기의 되돌리기를 사용할 때도 먼저 원래 링크로 복원해야 소유권 검사가 맞는다.
+- 제외: Caddy·도메인·커플 앱·실행 허용 경로·계정 한도·운영 타이머·PR #10 결정·병합·새 APK/서명키 변경.
+
+서버 `.ai-company/human-ux-20260916/`에 제안 Compose, 원본 Compose, 이미지/패키지 검사, CI 로그와 캡처를 보관했다. [비밀 없는 준비 영수증](evidence/human-workspace-ux-2026-09-16.json)을 함께 제공한다.
