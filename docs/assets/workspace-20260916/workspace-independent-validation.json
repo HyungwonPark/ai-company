@@ -1,0 +1,13 @@
+{
+  "source": "independently authored synthetic browser interactions",
+  "sandbox": true,
+  "checks": [
+    "C mobile: new project has no borrowed approval, wait reason or artifact",
+    "Lost PM reply after v1: reload, read-only/offline retry retain original request, recover once, v2 saved without execution",
+    "Changed plan digest rejected; direct reviewed confirmation creates exactly one v2 run; report and project next action reflect new run",
+    "Candidate display-subject mismatch rejected; original source accessible; fixture choice changes neither pending source nor plan execution"
+  ],
+  "violations": [],
+  "page_errors": [],
+  "browser": "152.0.7977.82"
+}
