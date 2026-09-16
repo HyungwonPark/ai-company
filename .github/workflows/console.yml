@@ -32,6 +32,7 @@ jobs:
           node --check src/ai_company/web/manager-ui.js
           node tests/ui/state_checks.mjs
           node tests/ui/manager_checks.mjs
+          node tests/ui/workspace_model.cjs
           npm install --prefix "$RUNNER_TEMP/ui-tooling" --no-audit --no-fund @playwright/test@1.63.0
           google-chrome --version
       - name: Prepare Korean fonts without system installation
@@ -58,11 +59,39 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
           UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
         run: node tests/ui/pr12_regressions.cjs
+      - name: Review alternative workspace designs in sandboxed Chrome
+        if: always()
+        env:
+          CHROME_CHANNEL: chrome
+          NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
+          UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
+        run: |
+          node tests/ui/workspace_preview.cjs
+          node tests/ui/workspace_baseline.cjs
+      - name: Independently review workspace interactions
+        if: always()
+        env:
+          CHROME_CHANNEL: chrome
+          NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
+          UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
+        run: node tests/ui/workspace_independent.cjs
+      - name: Package offline working preview
+        if: always()
+        run: python scripts/package_workspace_preview.py "$RUNNER_TEMP/workspace-preview/AI-Company-preview.html"
+      - name: Save offline preview
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: workspace-preview
+          path: ${{ runner.temp }}/workspace-preview/AI-Company-preview.html
+          retention-days: 30
       - name: Save nonsecret screenshots
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: console-screenshots
-          path: ${{ runner.temp }}/ui-artifacts/*.png
+          path: |
+            ${{ runner.temp }}/ui-artifacts/*.png
+            ${{ runner.temp }}/ui-artifacts/workspace*-validation.json
           if-no-files-found: ignore
           retention-days: 7
