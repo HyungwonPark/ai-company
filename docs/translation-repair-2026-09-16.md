@@ -53,4 +53,4 @@
 
 제안·원본 Compose·고정 원본 tar·비공개 DB 사본·로그는 서버 `.ai-company/translation-repair-20260916/`에 보관한다. 비공개 DB 사본과 native 로그를 저장소에 올리지 않는다. Caddy·도메인·커플 서비스·계정 권한·기존 타이머·실행 허용 파일·PR #10 승인·병합·APK/서명키는 변경하지 않는다.
 
-실제 Claude 개발 대체, Ultracode·동적 Workflow, 마스터 APK 실행 완주와 서명키 외부 보관·복구 확인은 계속 미완료다. 이 번역 복구를 해당 항목들의 완료 증거로 사용하지 않는다.
+후속 [Claude 적용 설정·동적 Workflow 프로브](claude-runtime-settings-2026-09-16.md)는 별도로 검증했다. 운영 Claude 개발 대체, 마스터 APK 실행 완주와 서명키 외부 보관·복구 확인은 계속 미완료다. 이 번역 복구를 해당 항목들의 완료 증거로 사용하지 않는다.

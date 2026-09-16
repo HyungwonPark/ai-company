@@ -24,7 +24,7 @@ worker 상태에는 비밀을 제외한 요청 설정만 추가한다. 계정 �
 ## 현재 한계
 
 - 운영 자동화의 허용 범위는 여전히 `src/ai_company/pilot_status.py`와 `tests/test_pilot_status.py`다. 다른 프로젝트의 자유 실행 준비가 완료된 것은 아니다. 이 변경은 서버 권한·후보 정책·원격 CI 검증 범위를 넓히지 않는다.
-- 실제 Claude Haiku 번역 연결은 확인했다. Claude Opus 개발 대체 후보는 실제 적용 effort 근거와 엄격한 적격성 검증이 남았다. 번역 연결을 개발 대체 가능으로 표시하지 않는다.
+- 실제 Claude Haiku 번역 연결은 확인했다. 후속 [Opus 5·xhigh·Ultracode와 작은 Workflow](claude-runtime-settings-2026-09-16.md)도 native 근거로 확인했다. 운영 증거 계약·쓰기 격리·이관 검증이 남아 있어 개발 자동 대체 가능으로 표시하지 않는다.
 - 이 화면 회귀는 격리된 API·브라우저·모의 모델을 사용한다. 실제 마스터의 APK 입력·계획 확정과 그 실행의 최종 검수 완주 증거가 아니다.
 - 기존 PR #10 후보 승인은 pending이며 배포·병합하지 않는다.
 
