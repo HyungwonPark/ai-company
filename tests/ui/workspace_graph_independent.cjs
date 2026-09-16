@@ -4,6 +4,7 @@ const {chromium} = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const {createHash} = require('node:crypto');
 
 (async () => {
   const base = process.env.BASE_URL, fixtures = JSON.parse(process.env.GRAPH_FIXTURES);
@@ -35,10 +36,14 @@ const path = require('node:path');
   const action = name => page.locator(`[data-rg-action="${name}"]`);
   const go = async hash => { await page.evaluate(value => { location.hash = value; }, hash); };
   const screenshot = async name => { await page.evaluate(() => document.fonts.ready); await page.screenshot({path: path.join(output, `graph-independent-${name}.png`), fullPage: true}); };
+  const withFingerprint = body => {
+    body.workspace_graph.fingerprint = createHash('sha256').update(JSON.stringify(body.workspace_graph.snapshots)).digest('hex');
+    return body;
+  };
   async function refresh() {
     const [response] = await Promise.all([
       page.waitForResponse(response => new URL(response.url()).pathname === `/api/projects/${fixtures.project_id}/overview`),
-      page.locator('button[data-action="refresh"]').click(),
+      page.locator('.integrated-graph-refresh button[data-action="refresh"]').click(),
     ]);
     await response.finished();
   }
@@ -104,19 +109,24 @@ const path = require('node:path');
     await action('list').click();
     const selectedNode = current.nodes.find(node => node.kind === 'role');
     await page.locator(`[data-rg-node="${selectedNode.id}"]`).click();
+    await page.locator('.rg-detail details').filter({has: page.locator('summary').filter({hasText: '원본 참조'})}).locator('summary').click();
+    const panelScroll = await page.locator('.rg-detail').evaluate(panel => { panel.scrollTop = 180; return panel.scrollTop; });
+    assert.ok(panelScroll > 0, 'the selected mobile detail must have a scrollable reading region');
     // Inject malformed delivery order, not changes to the real store or model facts.
     const newer = structuredClone(latestRead);
     newer.workspace_graph.cursor += 100;
     newer.workspace_graph.observed_at += 100;
     const newerSnapshot = newer.workspace_graph.snapshots.find(snapshot => snapshot.id === current.id);
     newerSnapshot.nodes.find(node => node.id === selectedNode.id).name = '독립 검수 최신 응답';
-    injection = newer; await refresh();
+    injection = withFingerprint(newer); await refresh();
     await page.locator('.rg-detail h3').filter({hasText: '독립 검수 최신 응답'}).waitFor();
+    assert.equal(await page.locator('.rg-detail').evaluate(panel => panel.scrollTop), panelScroll, 'an accepted changed response preserves the reading position');
+    assert.ok(await page.locator('.rg-detail details').filter({has: page.locator('summary').filter({hasText: '원본 참조'})}).evaluate(detail => detail.open), 'an accepted changed response preserves expanded evidence');
     const older = structuredClone(newer);
     older.workspace_graph.observed_at -= 1;
     older.workspace_graph.snapshots.find(snapshot => snapshot.id === current.id).nodes.find(node => node.id === selectedNode.id).name = '잘못된 이전 응답';
-    injection = older; await refresh();
-    await page.getByText('이전 순서의 응답을 받았습니다. 마지막으로 확인한 상태를 유지합니다.', {exact: true}).waitFor();
+    injection = withFingerprint(older); await refresh();
+    await page.locator('.banner.error[role="alert"] > span').filter({hasText: '이전 순서의 응답을 받았습니다. 마지막으로 확인한 상태를 유지합니다.'}).waitFor();
     assert.equal(await page.locator('.rg-detail h3').textContent(), '독립 검수 최신 응답');
     const duplicate = structuredClone(newer);
     duplicate.workspace_graph.observed_at += 1;
@@ -124,18 +134,18 @@ const path = require('node:path');
     duplicateSnapshot.nodes.find(node => node.id === selectedNode.id).name = '중복 제거 응답';
     duplicateSnapshot.nodes.push(...structuredClone(duplicateSnapshot.nodes));
     duplicateSnapshot.edges.push(...structuredClone(duplicateSnapshot.edges));
-    injection = duplicate; await refresh();
+    injection = withFingerprint(duplicate); await refresh();
     await page.locator('.rg-detail h3').filter({hasText: '중복 제거 응답'}).waitFor();
     assert.equal(await page.locator('.rg-list [data-rg-node]').count(), current.nodes.length);
     assert.equal(await page.locator('.rg-list [data-rg-edge]').count(), current.edges.length);
     const foreign = structuredClone(newer);
     foreign.workspace_graph.observed_at += 2;
     foreign.workspace_graph.snapshots.find(snapshot => snapshot.id === current.id).nodes[0].project_id = fixtures.other_project_id;
-    injection = foreign; await refresh();
-    await page.getByText('이전 순서의 응답을 받았습니다. 마지막으로 확인한 상태를 유지합니다.', {exact: true}).waitFor();
+    injection = withFingerprint(foreign); await refresh();
+    await page.locator('.banner.error[role="alert"] > span').filter({hasText: '이전 순서의 응답을 받았습니다. 마지막으로 확인한 상태를 유지합니다.'}).waitFor();
     assert.equal(await page.locator('.rg-detail h3').textContent(), '중복 제거 응답');
     await screenshot('stale-response-preserved');
-    checks.push('Injected read responses: same-cursor older timestamp rejected, duplicate IDs deduplicated, foreign node binding rejected; selected newest detail retained');
+    checks.push('Injected changed response preserves mobile detail scroll/expanded evidence; same-cursor older timestamp rejected, duplicate IDs deduplicated, foreign node binding rejected; selected newest detail retained');
     assert.deepEqual(violations, []);
     assert.deepEqual(errors, []);
     assert.deepEqual(writes, ['/api/login', '/api/password']);
