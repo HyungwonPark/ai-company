@@ -1,0 +1,439 @@
+{
+  "schema_version": 1,
+  "implementation_commit": "a90ae7333c7fe515d69e61d5c1e1ce027bdd7d0b",
+  "cost_parser_sha256": "e8f0725dad97ca40d73f4625d95169318682fc8f763c80dbd9bb8c4faa1ccda1",
+  "scope": "private infrastructure queues; not a master UI confirmation or app end-to-end run",
+  "production_activated": false,
+  "public_rollout_candidate_unchanged": "c2b3fec4201912432f1f0518e3abb45303af7999",
+  "native_execution_source_manifest": {
+    "src/ai_company/dispatcher.py": "9c927386248e0bcf88aa552cde2f874ede23e77247b81cee96eda17c143a5590",
+    "src/ai_company/flow_contracts.py": "bcfbaab92c35d93d644b084eb800f42495d93d8006576b2f1ae8e58f986309be",
+    "src/ai_company/harness/prompts.py": "d3ac193082ca043182f45cbaf92c0c8d3806801080c87ec58da2ce76e0a5cb19",
+    "src/ai_company/adapters/claude_files.py": "f792d3be20f65a0ba3b8a3da549ec8e5c7f9f46838ce501cf5d867e190319ecd",
+    "src/ai_company/adapters/claude_observation.py": "a020b31fcb11022086879aa497095685994877970c8d85d35712ca34606d1e65",
+    "src/ai_company/adapters/claude_control.py": "3cb2df160783e80f54dbe4f73f5e1792d4b6c7ceaacb42c247405418a74cdb01",
+    "src/ai_company/adapters/workspace_files.py": "edce536888b255ea0f83d193b53a797ae8ab8f7d0b7902c53b11ffb557fd9986",
+    "src/ai_company/adapters/workspace_mcp.py": "6f7f5a4c8d38f29896d625e0d06f486da4465e37733ff5510921584adea852a0"
+  },
+  "readonly_execution_source_manifest": {
+    "src/ai_company/dispatcher.py": "d1d71be0569586cd8b2777d345b5e457c21d27dea9488793ae12b8aeb2735e2e",
+    "src/ai_company/flow_contracts.py": "bcfbaab92c35d93d644b084eb800f42495d93d8006576b2f1ae8e58f986309be",
+    "src/ai_company/collaboration.py": "1a6b318f67dccea98b0b89a1e84474059a6c1ee6aa9ed2b22350dd42ba75ab57",
+    "src/ai_company/harness/prompts.py": "d3ac193082ca043182f45cbaf92c0c8d3806801080c87ec58da2ce76e0a5cb19",
+    "src/ai_company/adapters/claude_files.py": "f792d3be20f65a0ba3b8a3da549ec8e5c7f9f46838ce501cf5d867e190319ecd",
+    "src/ai_company/adapters/claude_control.py": "3cb2df160783e80f54dbe4f73f5e1792d4b6c7ceaacb42c247405418a74cdb01",
+    "src/ai_company/adapters/claude_observation.py": "a8ee80cb0bef05b9c93fec20f309a33b0dee9f3301d85c97671a9a32340e563b",
+    "src/ai_company/adapters/workspace_files.py": "edce536888b255ea0f83d193b53a797ae8ab8f7d0b7902c53b11ffb557fd9986",
+    "src/ai_company/adapters/workspace_mcp.py": "6f7f5a4c8d38f29896d625e0d06f486da4465e37733ff5510921584adea852a0"
+  },
+  "latest_validator_replay": true,
+  "executions": [
+    {
+      "case": "handoff",
+      "job_id": "d8dc2b9e589d27a6a017ca4776734c7913310be3baf243b6c69b433e8239e677",
+      "attempt": 1,
+      "session_id": "93f9bc2d-7774-44b9-81fa-c6c340f46e45",
+      "execution_id": "2dba27be3951c0d899f62272c0f61fe99f1d3420c1d87ed795fc7be8f297fe37",
+      "generation": 2,
+      "binding_digest": "a6d0612130cc69a0a567c8564e96cfc6c01273fa69eb97e4fb41ef49b98ba492",
+      "task_digest": "828a37ff8eb0a5393fdfbe76f99a09b2dec399801b5fe3ff8bc1baecf9489223",
+      "policy_digest": "336f3d4d3ff976e7c0e537daba134d61e44dea3a0368b54f007e7e6be8908ec7",
+      "started_at": 1789530968.3094642,
+      "ended_at": 1789531010.4297144,
+      "cost_usd": 0.16141,
+      "applied": [
+        {
+          "request_id": "f1499fc6d6e0c9efe54c2d604b1cb556-before",
+          "applied": {
+            "model": "claude-opus-5",
+            "effort": "xhigh",
+            "ultracode": true
+          },
+          "has_errors": false
+        },
+        {
+          "request_id": "f1499fc6d6e0c9efe54c2d604b1cb556-after",
+          "applied": {
+            "model": "claude-opus-5",
+            "effort": "xhigh",
+            "ultracode": true
+          },
+          "has_errors": false
+        }
+      ],
+      "native_tools": [
+        "StructuredOutput",
+        "mcp__company_files__read_file",
+        "mcp__company_files__write_file"
+      ],
+      "api_requests": [
+        {
+          "event.name": "api_request",
+          "request_id": "req_011Cf6Sm27FQxzyCZ2wKSJKB",
+          "model": "claude-haiku-4-5-20251001",
+          "effort": null,
+          "query_source": "generate_session_title",
+          "workflow.run_id": null
+        },
+        {
+          "event.name": "api_request",
+          "request_id": "req_011Cf6Sm24H2h7ED35eBDQcS",
+          "model": "claude-opus-5",
+          "effort": "xhigh",
+          "query_source": "sdk",
+          "workflow.run_id": null
+        },
+        {
+          "event.name": "api_request",
+          "request_id": "req_011Cf6SmDU86cu6BmR3cabpy",
+          "model": "claude-opus-5",
+          "effort": "xhigh",
+          "query_source": "sdk",
+          "workflow.run_id": null
+        },
+        {
+          "event.name": "api_request",
+          "request_id": "req_011Cf6SmiD1NmLKRs4FGb8iM",
+          "model": "claude-opus-5",
+          "effort": "xhigh",
+          "query_source": "sdk",
+          "workflow.run_id": null
+        },
+        {
+          "event.name": "api_request",
+          "request_id": "req_011Cf6SmsDVKLopjBMvtcvd8",
+          "model": "claude-opus-5",
+          "effort": "xhigh",
+          "query_source": "sdk",
+          "workflow.run_id": null
+        }
+      ],
+      "broker_calls": 3,
+      "audit_sha256": "d5e0c62a46e85e643ffaa44aec4f1e86a73881a2533382e8adf195219b1be471",
+      "cgroup_stopped": true,
+      "collector_closed": true,
+      "latest_validator_replay": "PASS",
+      "fault_injection": null
+    },
+    {
+      "case": "resume",
+      "job_id": "f28ad33ac2fdc04b10e0413beedef53fb16e02e608d96638320d17797125cbf8",
+      "attempt": 1,
+      "session_id": "0e09fbfd-73a8-4e5f-8dfe-26f191787371",
+      "execution_id": "7013513c2a57124c10fb1561042c938a948a51928e18dbafcfba8be6175632ae",
+      "generation": 1,
+      "binding_digest": "285c670c42555ceb7729af1087ef541fb57a6fcea3b359da885eeb262583307c",
+      "task_digest": "8c2bd1cefadb96e1a4d8c618a2871eb35e81912ba9c58573b3a91996dfde3891",
+      "policy_digest": "4a370c471085a8dfea03066f3237c0d1a9c8f5b38ab7260e7550dd902735e0f9",
+      "started_at": 1789531010.7175274,
+      "ended_at": 1789531049.3699763,
+      "cost_usd": 0.11728550000000001,
+      "applied": [
+        {
+          "request_id": "9535af0fb8b5c6926005f783465c95ae-before",
+          "applied": {
+            "model": "claude-opus-5",
+            "effort": "xhigh",
+            "ultracode": true
+          },
+          "has_errors": false
+        },
+        {
+          "request_id": "9535af0fb8b5c6926005f783465c95ae-after",
+          "applied": {
+            "model": "claude-opus-5",
+            "effort": "xhigh",
+            "ultracode": true
+          },
+          "has_errors": false
+        }
+      ],
+      "native_tools": [
+        "StructuredOutput",
+        "mcp__company_files__read_file",
+        "mcp__company_files__write_file"
+      ],
+      "api_requests": [
+        {
+          "event.name": "api_request",
+          "request_id": "req_011Cf6Sp7Lc6fDjut6zepA9V",
+          "model": "claude-haiku-4-5-20251001",
+          "effort": null,
+          "query_source": "generate_session_title",
+          "workflow.run_id": null
+        },
+        {
+          "event.name": "api_request",
+          "request_id": "req_011Cf6Sp7V3Do4TMdfAjkB5m",
+          "model": "claude-opus-5",
+          "effort": "xhigh",
+          "query_source": "sdk",
+          "workflow.run_id": null
+        },
+        {
+          "event.name": "api_request",
+          "request_id": "req_011Cf6SpGLqszXzV3RjqwQsj",
+          "model": "claude-opus-5",
+          "effort": "xhigh",
+          "query_source": "sdk",
+          "workflow.run_id": null
+        },
+        {
+          "event.name": "api_request",
+          "request_id": "req_011Cf6SpcNri6kqhjTUJ8zGB",
+          "model": "claude-opus-5",
+          "effort": "xhigh",
+          "query_source": "sdk",
+          "workflow.run_id": null
+        },
+        {
+          "event.name": "api_request",
+          "request_id": "req_011Cf6SpuEd18KWf87WMEexX",
+          "model": "claude-opus-5",
+          "effort": "xhigh",
+          "query_source": "sdk",
+          "workflow.run_id": null
+        },
+        {
+          "event.name": "api_request",
+          "request_id": "req_011Cf6Sq2iaFVR8vsPV6iR4g",
+          "model": "claude-opus-5",
+          "effort": "xhigh",
+          "query_source": "sdk",
+          "workflow.run_id": null
+        }
+      ],
+      "broker_calls": 5,
+      "audit_sha256": "4c3f833926f471527217c72525dfce54e626f06b32cb3101a9652deda4d5716c",
+      "cgroup_stopped": true,
+      "collector_closed": true,
+      "latest_validator_replay": "PASS",
+      "fault_injection": {
+        "source": "host-test-controller",
+        "original_category": "success",
+        "actual_account_exhaustion": false,
+        "case": "quota-after-real-CLI-before-runner-commit"
+      }
+    },
+    {
+      "case": "resume",
+      "job_id": "f28ad33ac2fdc04b10e0413beedef53fb16e02e608d96638320d17797125cbf8",
+      "attempt": 2,
+      "session_id": "0e09fbfd-73a8-4e5f-8dfe-26f191787371",
+      "execution_id": "7013513c2a57124c10fb1561042c938a948a51928e18dbafcfba8be6175632ae",
+      "generation": 1,
+      "binding_digest": "b3463398ab87eb9742fe5de15455acb0b56d99c9b248508127c6a0a4d2812c7a",
+      "task_digest": "8c2bd1cefadb96e1a4d8c618a2871eb35e81912ba9c58573b3a91996dfde3891",
+      "policy_digest": "4a370c471085a8dfea03066f3237c0d1a9c8f5b38ab7260e7550dd902735e0f9",
+      "started_at": 1789531051.472437,
+      "ended_at": 1789531082.2643256,
+      "cost_usd": 0.103327,
+      "applied": [
+        {
+          "request_id": "e4e28b0ef142f175bb6fb0a9409efe55-before",
+          "applied": {
+            "model": "claude-opus-5",
+            "effort": "xhigh",
+            "ultracode": true
+          },
+          "has_errors": false
+        },
+        {
+          "request_id": "e4e28b0ef142f175bb6fb0a9409efe55-after",
+          "applied": {
+            "model": "claude-opus-5",
+            "effort": "xhigh",
+            "ultracode": true
+          },
+          "has_errors": false
+        }
+      ],
+      "native_tools": [
+        "StructuredOutput",
+        "mcp__company_files__read_file",
+        "mcp__company_files__write_file"
+      ],
+      "api_requests": [
+        {
+          "event.name": "api_request",
+          "request_id": "req_011Cf6Ss8DHJNyyuxQ5RU4n4",
+          "model": "claude-opus-5",
+          "effort": "xhigh",
+          "query_source": "sdk",
+          "workflow.run_id": null
+        },
+        {
+          "event.name": "api_request",
+          "request_id": "req_011Cf6SsMobEhDB8Q7PPYWgQ",
+          "model": "claude-opus-5",
+          "effort": "xhigh",
+          "query_source": "sdk",
+          "workflow.run_id": null
+        }
+      ],
+      "broker_calls": 1,
+      "audit_sha256": "098134a719a4df21a43f4f6dfd4e96ba39dbe518b809cd59cd587e5559bf2f63",
+      "cgroup_stopped": true,
+      "collector_closed": true,
+      "latest_validator_replay": "PASS",
+      "fault_injection": null
+    }
+  ],
+  "scenarios": [
+    {
+      "case": "handoff",
+      "status": "CONTRIBUTION_READY",
+      "reason": "committed contribution is ready for integration; checks and review remain",
+      "usage": {
+        "executions": 2,
+        "runtime_seconds": 42.12304581399076,
+        "cost_usd": 0.16141,
+        "cost_unknown": false,
+        "repairs": 0
+      },
+      "generation": 2,
+      "authors": [
+        {
+          "provider": "codex",
+          "session_id": "c0f4405e-c579-40ca-a1b4-63534724db0e"
+        },
+        {
+          "provider": "claude",
+          "session_id": "93f9bc2d-7774-44b9-81fa-c6c340f46e45"
+        }
+      ],
+      "candidate": "fbe6d5651506f412c1d3cb07b0f66a26423ac895",
+      "base_sha": "eae0026197b7ac86bc215ccf64adf433ec334b02",
+      "quota": {
+        "private-codex": "COOLDOWN",
+        "private-claude": "AVAILABLE"
+      },
+      "jobs": [
+        {
+          "job_id": "14337d8069813112524532192e630534eddc0a5920134dce9533b970c2fb2d79",
+          "provider": "codex",
+          "status": "SUPERSEDED",
+          "attempts": 1,
+          "session_id": "c0f4405e-c579-40ca-a1b4-63534724db0e",
+          "cost": 0,
+          "cgroup_stopped": null,
+          "actual_provider_call": false
+        },
+        {
+          "job_id": "d8dc2b9e589d27a6a017ca4776734c7913310be3baf243b6c69b433e8239e677",
+          "provider": "claude",
+          "status": "SESSION_COMPLETED",
+          "attempts": 1,
+          "session_id": "93f9bc2d-7774-44b9-81fa-c6c340f46e45",
+          "cost": 0.16141,
+          "cgroup_stopped": true,
+          "actual_provider_call": true
+        }
+      ]
+    },
+    {
+      "case": "resume",
+      "status": "CONTRIBUTION_READY",
+      "reason": "committed contribution is ready for integration; checks and review remain",
+      "usage": {
+        "executions": 2,
+        "runtime_seconds": 69.45099986693822,
+        "cost_usd": 0.22061250000000002,
+        "cost_unknown": false,
+        "repairs": 0
+      },
+      "generation": 1,
+      "session_id": "0e09fbfd-73a8-4e5f-8dfe-26f191787371",
+      "same_session": true,
+      "attempts": 2,
+      "job_id": "f28ad33ac2fdc04b10e0413beedef53fb16e02e608d96638320d17797125cbf8",
+      "authors": [
+        {
+          "provider": "claude",
+          "session_id": "0e09fbfd-73a8-4e5f-8dfe-26f191787371"
+        }
+      ],
+      "candidate": "ce2fac1393017afdb1e0679ff112d6a8859481eb",
+      "base_sha": "314b22f3b0f0ed8190e40874d505fd1d1ba04494",
+      "binding": {
+        "execution_id": "7013513c2a57124c10fb1561042c938a948a51928e18dbafcfba8be6175632ae",
+        "generation": 1,
+        "role": "developer",
+        "task_digest": "8c2bd1cefadb96e1a4d8c618a2871eb35e81912ba9c58573b3a91996dfde3891",
+        "policy_digest": "4a370c471085a8dfea03066f3237c0d1a9c8f5b38ab7260e7550dd902735e0f9",
+        "job_id": "f28ad33ac2fdc04b10e0413beedef53fb16e02e608d96638320d17797125cbf8",
+        "attempt": 2,
+        "task_id": "claude-files-resume",
+        "previous_session_id": "0e09fbfd-73a8-4e5f-8dfe-26f191787371",
+        "input_snapshot_digest": "8a18b08c30700cda1a3b837064bd718d3984b0ad897fb6becedc0940a5df5735",
+        "nonce": "e4e28b0ef142f175bb6fb0a9409efe55"
+      },
+      "cgroup_stopped": true
+    }
+  ],
+  "readonly_attempt": {
+    "status": "BLOCKED",
+    "category": "code_error",
+    "reason": "non-retryable session outcome: code_error",
+    "session_id": "8a80a126-bb56-4a1c-b60f-f64c92b4aa70",
+    "cost_usd": null,
+    "native_subtype": null,
+    "cgroup_stopped": true,
+    "structured_output": null,
+    "broker": 2,
+    "native_tools": [
+      "StructuredOutput",
+      "mcp__company_files__read_file"
+    ],
+    "local_observation_validation": "PASS; not a stage result",
+    "runtime_seconds": 160.4048219518736,
+    "native_cost_usd": 0.3924525,
+    "native_terminal": {
+      "type": "result",
+      "subtype": "error_max_budget_usd",
+      "session_id": "8a80a126-bb56-4a1c-b60f-f64c92b4aa70",
+      "is_error": true
+    },
+    "latest_parser_replay": "PASS; failure preserved, cost recovered",
+    "historical_probe_db_rewritten": false,
+    "candidate_unchanged": true,
+    "cost_stop_requested_usd": 0.3,
+    "successful_independent_review": false
+  },
+  "isolated_candidate_checks": [
+    {
+      "case": "handoff",
+      "result": {
+        "checked": true
+      }
+    },
+    {
+      "case": "resume",
+      "result": {
+        "checked": true
+      }
+    }
+  ],
+  "probe_cost_usd": 0.848602,
+  "structured_adapter_probe_cost_usd": 0.07412699999999998,
+  "actual_account_exhaustion": false,
+  "local_regression": {
+    "tests": 356,
+    "passed": 356,
+    "skipped": 0,
+    "host_bwrap_enabled": true
+  },
+  "runtime": {
+    "claude": "2.1.270",
+    "model": "claude-opus-5",
+    "effort": "xhigh",
+    "ultracode": true,
+    "backend_model_verified": false
+  },
+  "limitations": [
+    "Reviewer attempt exceeded its CLI budget threshold; no successful final structured result.",
+    "No remote candidate CI, Astra final review, master UI confirmation, deployment or merge in these probes.",
+    "Private quota group names are test records, not independent real accounts.",
+    "The earlier full execution manifests and the later stricter validator/parser replay are separately recorded."
+  ]
+}

@@ -172,6 +172,33 @@ class SessionCliTests(unittest.TestCase):
                 ], exit_code=1)
                 self.assertEqual(self.run_cli("claude").category, "unknown")
 
+    def test_claude_failed_terminal_retains_cost_without_accepting_formatter_tool_output(self):
+        report = {"verdict": "PASS", "summary": "model tool output is not a terminal result"}
+        events = [
+            {"type":"assistant", "session_id":"session-1", "message":{"content":[
+                {"type":"tool_use", "id":"formatter", "name":"StructuredOutput", "input":report}]}},
+            {"type":"user", "message":{"content":[{"type":"tool_result", "tool_use_id":"formatter",
+                "content":"Structured output provided successfully"}]}},
+            {"type":"result", "session_id":"session-1", "subtype":"error_max_budget_usd",
+                "is_error":True, "total_cost_usd":.3924525},
+        ]
+        self.fixture(events, exit_code=1)
+        outcome = self.run_cli("claude", model="claude-opus-5")
+        self.assertEqual(outcome.category, "code_error")
+        self.assertEqual(outcome.result["total_cost_usd"], .3924525)
+        self.assertEqual(outcome.result["native_terminal"]["subtype"], "error_max_budget_usd")
+        self.assertIsNone(outcome.result["structured_output"])
+
+    def test_failed_terminal_cost_requires_one_valid_session_bound_event(self):
+        event = {"type":"result", "session_id":"session-1", "subtype":"error_max_budget_usd",
+                 "is_error":True, "total_cost_usd":.2}
+        for events in ([{**event,"session_id":"other"}], [event,event],
+                       [{**event,"total_cost_usd":True}], [{**event,"total_cost_usd":-1}],
+                       [{**event,"total_cost_usd":".2"}], [event,"malformed event"]):
+            with self.subTest(events=events):
+                self.fixture(events, exit_code=1)
+                self.assertNotIn("total_cost_usd", self.run_cli("claude").result)
+
     def test_claude_context_and_interrupt_override_result_success(self):
         for details, expected in (
             ({"stop_reason": "model_context_window_exceeded"}, "context_exhausted"),
