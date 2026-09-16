@@ -34,7 +34,8 @@ module.exports=async function managerChecks({page,fixtureId,output}){
         if(device==='mobile'){
           await settledScreenshot(page,{path:`${output}/${theme}-mobile-manager-first-screen.png`});
           await page.getByRole('button',{name:'팀 2',exact:true}).click();
-          await settledScreenshot(page,{path:`${output}/${theme}-mobile-manager-team.png`,fullPage:true});
+          assert.equal(await page.locator('.manager-team').evaluate(panel=>panel.getBoundingClientRect().top<120),true,'switching to team brings the selected content into view');
+          await settledScreenshot(page,{path:`${output}/${theme}-mobile-manager-team.png`});
           await page.getByRole('button',{name:'대화',exact:true}).click();
         }
       }
