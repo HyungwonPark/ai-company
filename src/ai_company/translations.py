@@ -25,6 +25,8 @@ def initialize(db):
       CREATE TABLE IF NOT EXISTS translation_links(project_id TEXT NOT NULL, document_id TEXT NOT NULL,
         source_digest TEXT NOT NULL, job_id TEXT NOT NULL, PRIMARY KEY(project_id,document_id,source_digest));
       CREATE TABLE IF NOT EXISTS translation_settings(project_id TEXT PRIMARY KEY, document TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS translation_saved_rechecks(id TEXT PRIMARY KEY, cache_key TEXT UNIQUE NOT NULL,
+        document TEXT NOT NULL);
     ''')
 
 
@@ -94,13 +96,15 @@ def segments(fields):
 TOKEN = re.compile(r'`[^`]+`|https?://[^\s]+|(?:/[A-Za-z0-9_.-]+){1,}|\b[0-9a-f]{7,64}\b|\b\d+(?:[.,:]\d+)*(?:%|[A-Za-z]+)?\b|\b[A-Z][A-Z0-9_]{1,}\b|\b[A-Za-z][\w]*_[\w]+\b')
 REPAIR_PARSER = 'translation-json-v3'
 REPAIR_PROMPT = 'ko-translation-v2'
+SAVED_RECHECK_PARSER = 'translation-json-v4-saved'
+SAVED_REVIEW_VERSION = 'saved-korean-review-v1'
 PATH_LITERAL = r'(?<![A-Za-z0-9_./~-])(?:[~./]*[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+/?|/[A-Za-z0-9_.-]+/?)'
 PATH_TOKEN = re.compile(PATH_LITERAL)
 TOKEN_V3 = re.compile(r'`[^`]+`|https?://[^\s]+|(?P<path>' + PATH_LITERAL + r')|\b[0-9a-f]{7,64}\b|\b\d+(?:[.,:]\d+)*(?:%|[A-Za-z]+)?\b|\b[A-Z][A-Z0-9_]{1,}\b|\b[A-Za-z][\w]*_[\w]+\b')
 
 
 def protected_literals(text, parser_version):
-    if parser_version != REPAIR_PARSER:
+    if parser_version not in (REPAIR_PARSER, SAVED_RECHECK_PARSER):
         return TOKEN.findall(text)
     # Backtick-enclosed code stays byte-exact, including a filename's final dot.
     # An unquoted path in prose excludes sentence-final dots, and includes its
@@ -109,7 +113,7 @@ def protected_literals(text, parser_version):
 
 
 def _literal_count(text, literal, parser_version):
-    if parser_version == REPAIR_PARSER and PATH_TOKEN.fullmatch(literal):
+    if parser_version in (REPAIR_PARSER, SAVED_RECHECK_PARSER) and PATH_TOKEN.fullmatch(literal):
         return sum(match[0].rstrip('.') == literal for match in PATH_TOKEN.finditer(text))
     return text.count(literal)
 
@@ -120,6 +124,19 @@ GUARDS = ((r'\b(?:not|never|no|cannot|mustn.t|don.t|do not)\b', r'않|안\s|금�
           (r'\bpending\b', r'대기|보류|pending'),
           (r'\b(?:except|exception|excluding)\b', r'제외|예외'),
           (r'\b(?:at most|maximum|limit|cap)\b', r'최대|상한|한도|제한|이하'))
+
+
+def _guard_present(target, pattern, parser):
+    if re.search(pattern, target):
+        return True
+    # Saved-only v4 recognizes two reviewed Korean forms. Earlier parsers and
+    # every other condition/exception/limit guard retain their exact behavior.
+    if parser == SAVED_RECHECK_PARSER:
+        if pattern == GUARDS[0][1]:
+            return bool(re.search(r'(?<![가-힣])아닙니다(?=[.!?\s]|$)', target))
+        if pattern == GUARDS[3][1]:
+            return bool(re.search(r'(?<![가-힣])미결(?=\s*(?:항목|사항|상태|검토|$))', target))
+    return False
 
 
 def validate_fields(job, translated):
@@ -141,7 +158,7 @@ def validate_fields(job, translated):
             if _literal_count(target, token, parser) != _literal_count(source, token, parser):
                 raise ValueError('protected literal missing or duplicated')
         for source_pattern, target_pattern in GUARDS:
-            if re.search(source_pattern, source, re.I) and not re.search(target_pattern, target):
+            if re.search(source_pattern, source, re.I) and not _guard_present(target, target_pattern, parser):
                 raise ValueError('negation, condition, exception, or limit marker missing')
     fields = {}
     for name, text in original.items():
@@ -173,6 +190,8 @@ class TranslationStore:
 
     def sync(self, project_id, documents, config=None):
         config = configuration(config)
+        if config['parser_version'] == SAVED_RECHECK_PARSER:
+            raise ValueError('saved recheck parser cannot schedule model calls')
         documents = list(documents.values()) if isinstance(documents, dict) else documents
         with self.db:
             self.db.execute('BEGIN IMMEDIATE')
@@ -205,11 +224,7 @@ class TranslationStore:
                                          (project_id, source['id'], sd)).fetchone()
                 if linked:
                     replacement = self._get(linked[0])
-                    if (replacement and replacement.get('repair_of') == job_id
-                            and replacement.get('repair_base_cache_key') == key
-                            and replacement['source_digest'] == sd and source_digest(replacement['source']) == sd
-                            and replacement['config'] == configuration({**config, 'parser_version': REPAIR_PARSER,
-                                                                        'prompt_version': REPAIR_PROMPT})):
+                    if self._matches_replacement(replacement, self._get(job_id)):
                         # A reviewed repair for this exact failed source/configuration
                         # stays selected on the next ordinary worker synchronization.
                         job_id = replacement['id']
@@ -217,6 +232,114 @@ class TranslationStore:
                     ON CONFLICT(project_id,document_id,source_digest) DO UPDATE SET job_id=excluded.job_id
                     WHERE translation_links.job_id != excluded.job_id''', (project_id, source['id'], sd, job_id))
         return [self.read(d) for d in documents]
+
+    def _matches_replacement(self, replacement, original):
+        if (not replacement or not original or replacement.get('repair_of') != original['id']
+                or replacement.get('repair_base_cache_key') != original['cache_key']
+                or replacement['source_digest'] != original['source_digest']
+                or source_digest(replacement['source']) != original['source_digest']):
+            return False
+        config = configuration({**original['config'], 'parser_version': REPAIR_PARSER, 'prompt_version': REPAIR_PROMPT})
+        if replacement['config'] == config:
+            return True
+        parent = self._get(replacement.get('recheck_of'))
+        return bool(parent and parent['config'] == config and self._matches_replacement(parent, original)
+                    and replacement['status'] == 'completed'
+                    and replacement.get('recheck_original_digest') == digest(parent)
+                    and replacement['config'] == {**config, 'parser_version': SAVED_RECHECK_PARSER})
+
+    def inspect_saved(self, failed_job_id, review):
+        """Read one native result and its source-bound operator review; no writes/calls."""
+        from ai_company.adapters.translation_cli import TranslationCLI
+        original = self._get(failed_job_id)
+        if (not original or original['status'] != 'failed' or original['config']['parser_version'] != REPAIR_PARSER
+                or source_digest(original['source']) != original['source_digest']):
+            raise ValueError('saved recheck requires an unchanged failed v3 repair')
+        parent = self._get(original.get('repair_of'))
+        if not self._matches_replacement(original, parent):
+            raise ValueError('saved recheck requires the original repair lineage')
+        replay = TranslationCLI.replay(original)
+        expected = {'version', 'job_id', 'source_digest', 'raw_sha256', 'fields_digest', 'verdict', 'reviewer', 'findings'}
+        if (not isinstance(review, dict) or set(review) != expected or review['version'] != SAVED_REVIEW_VERSION
+                or review['job_id'] != original['id'] or review['source_digest'] != original['source_digest']
+                or review['raw_sha256'] != replay['reprocessing']['raw_sha256']
+                or review['fields_digest'] != digest(replay['fields']) or review['verdict'] not in ('PASS', 'BLOCK')
+                or not isinstance(review['reviewer'], str) or not 1 <= len(review['reviewer']) <= 200
+                or not isinstance(review['findings'], list) or len(review['findings']) > 32
+                or any(not isinstance(item, str) or not 1 <= len(item) <= 2000 for item in review['findings'])
+                or (review['verdict'] == 'PASS') != (review['findings'] == [])):
+            raise ValueError('saved recheck requires the exact source/output-bound semantic review')
+        config = {**original['config'], 'parser_version': SAVED_RECHECK_PARSER}
+        fields, reason = None, None
+        try:
+            fields = validate_fields({**original, 'config': config}, replay['fields'])
+        except ValueError as exc:
+            reason = str(exc)
+        if review['verdict'] == 'BLOCK':
+            reason = 'semantic_review_blocked'
+        return original, replay, dict(version=SAVED_RECHECK_PARSER, job_id=original['id'],
+            original_digest=digest(original), source_digest=original['source_digest'],
+            raw_sha256=replay['reprocessing']['raw_sha256'], fields_digest=digest(replay['fields']),
+            review=copy.deepcopy(review), review_digest=digest(review), status='rejected' if reason else 'completed',
+            reason=reason, new_model_calls=0, fields=fields if reason is None else None)
+
+    def recheck_saved(self, failed_job_id, *, expected_original_digest, review):
+        """Trusted operator-only recheck. Never enqueue work or change a failed record."""
+        with self.db:
+            self.db.execute('BEGIN IMMEDIATE')
+            original, replay, inspection = self.inspect_saved(failed_job_id, review)
+            if inspection['original_digest'] != expected_original_digest:
+                raise ValueError('saved recheck original changed after review')
+            key = digest(inspection)
+            row = self.db.execute('SELECT document FROM translation_saved_rechecks WHERE cache_key=?', (key,)).fetchone()
+            if row:
+                return json.loads(row[0])
+            record = {**inspection, 'id': uuid4().hex, 'cache_key': key, 'created_at': self.clock(), 'result_job_id': None}
+            record.pop('fields')
+            if inspection['status'] == 'completed':
+                document = copy.deepcopy(original)
+                document.update(id=uuid4().hex, cache_key=digest({'saved_recheck': key}), status='completed',
+                    fields=inspection['fields'], config={**original['config'], 'parser_version': SAVED_RECHECK_PARSER},
+                    created_at=self.clock(), updated_at=self.clock(), started_at=None, reason=None, resume_at=None,
+                    lease_token=None, lease_expires_at=None, execution_identity=None, execution_started=False,
+                    recheck_of=failed_job_id, recheck_original_digest=digest(original), recheck_id=record['id'],
+                    semantic_validation='saved_output_reviewed')
+                proof = {**replay['reprocessing'], 'kind': 'saved_output_semantic_recheck',
+                         'parser_version': SAVED_RECHECK_PARSER, 'review_digest': digest(review), 'recheck_id': record['id']}
+                document['execution_result'] = {**copy.deepcopy(original['execution_result']), 'reprocessing': proof}
+                self.db.execute('INSERT INTO translation_jobs VALUES (?,?,?)',
+                                (document['id'], document['cache_key'], json.dumps(document, ensure_ascii=False)))
+                changed = self.db.execute('UPDATE translation_links SET job_id=? WHERE project_id=? AND document_id=? AND source_digest=? AND job_id=?',
+                    (document['id'], original['source']['project_id'], original['source']['id'], original['source_digest'], failed_job_id))
+                if changed.rowcount != 1:
+                    raise ValueError('saved recheck source is no longer selected')
+                record['result_job_id'] = document['id']
+            self.db.execute('INSERT INTO translation_saved_rechecks VALUES (?,?,?)',
+                            (record['id'], key, json.dumps(record, ensure_ascii=False)))
+            return record
+
+    def restore_saved_selection(self, recheck_id, *, expected_result_job_id):
+        """Restore only a recheck's display link; retain every artifact and ledger."""
+        with self.db:
+            self.db.execute('BEGIN IMMEDIATE')
+            row = self.db.execute('SELECT document FROM translation_saved_rechecks WHERE id=?', (recheck_id,)).fetchone()
+            record = json.loads(row[0]) if row else None
+            if (not record or record['status'] != 'completed' or record['version'] != SAVED_RECHECK_PARSER
+                    or record['result_job_id'] != expected_result_job_id):
+                raise ValueError('restore requires the exact completed saved recheck')
+            original = self._get(record['job_id'])
+            result = self.get_result(expected_result_job_id)
+            if (not original or digest(original) != record['original_digest']
+                    or result.get('recheck_id') != recheck_id or result.get('recheck_of') != original['id']
+                    or result['source_digest'] != original['source_digest']):
+                raise ValueError('restore lineage changed')
+            identity = (original['source']['project_id'], original['source']['id'], original['source_digest'])
+            current = self.db.execute('SELECT job_id FROM translation_links WHERE project_id=? AND document_id=? AND source_digest=?', identity).fetchone()
+            if not current or current[0] not in (original['id'], expected_result_job_id):
+                raise ValueError('restore cannot overwrite a newer display selection')
+            self.db.execute('UPDATE translation_links SET job_id=? WHERE project_id=? AND document_id=? AND source_digest=? AND job_id=?',
+                            (original['id'], *identity, expected_result_job_id))
+            return dict(recheck_id=recheck_id, selected_job_id=original['id'], artifacts_preserved=True)
 
     def repair(self, failed_job_id, *, expected_original_digest, replay=None):
         """Trusted operator repair, not an HTTP/model capability or automatic retry.
@@ -316,10 +439,7 @@ class TranslationStore:
         matching = []
         for job in jobs:
             parent = self._get(job['repair_of']) if job.get('repair_of') else None
-            repaired = (parent and digest(parent['config']) == digest(config)
-                        and job.get('repair_base_cache_key') == parent['cache_key']
-                        and job['config'] == configuration({**parent['config'], 'parser_version': REPAIR_PARSER,
-                                                            'prompt_version': REPAIR_PROMPT}))
+            repaired = parent and digest(parent['config']) == digest(config) and self._matches_replacement(job, parent)
             if digest(job['config']) == digest(config) or repaired:
                 matching.append(job)
         observed_jobs = [j for j in matching if j.get('observed_configuration')]

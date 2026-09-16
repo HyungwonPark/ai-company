@@ -140,6 +140,15 @@ class Dispatcher:
                 raise ExecutionBlocked("previous execution guard is not cleared")
             if previous and execution_alive(self.queue.get(previous["job_id"])["process"]):
                 raise ExecutionBlocked("previous execution is still alive")
+            if previous and state.get("project_reservation"):
+                old = self.queue.get(previous["job_id"])
+                reservation = state["project_reservation"]
+                if (reservation["job_id"] != old["job_id"] or old["attempt_count"] >= reservation["attempt_count"]
+                        or old["status"] not in ("READY", "WAITING_QUOTA", "WAITING_RETRY")):
+                    raise ExecutionBlocked("previous project reservation requires result reconciliation")
+                # The queue did not claim this reserved attempt and has no live
+                # process or guard. Transfer ownership without reserving it twice.
+                state.pop("project_reservation")
             generation = state["generation"] + 1
             execution_id = digest({"task_id": state["task_id"], "generation": generation, "nonce": uuid4().hex})
             bundle = handoff(spec, state, previous or {}, self.root / "handoffs" / state["task_id"] / execution_id)
@@ -182,6 +191,9 @@ class Dispatcher:
 
         def execute(provider, worktree, prompt, session_id, **kwargs):
             kwargs["timeout_seconds"] = min(kwargs["timeout_seconds"], spec.policy.max_runtime_seconds - state["usage"]["runtime_seconds"])
+            reservation = state.get("project_reservation")
+            if reservation is not None:
+                kwargs["timeout_seconds"] = min(kwargs["timeout_seconds"], reservation["runtime_seconds"])
             prompt = stage_prompt(prompt, provider=provider, role=state["stage"], planning=scope == "planning",
                                   contribution=scope == "contribution", file_tools=file_tools)
             report_type = {"planning": PMPlanStageReport, "contribution": ContributionStageReport}.get(scope, StageReport)
@@ -190,6 +202,9 @@ class Dispatcher:
             else:
                 if spec.mode != "live":
                     raise ExecutionBlocked("fixture mode requires an explicit fixture executor")
+                cost_limits = [value for value in (
+                    spec.policy.max_cost_usd - state["usage"]["cost_usd"] if spec.policy.max_cost_usd is not None else None,
+                    reservation.get("cost_usd") if reservation else None) if value is not None]
                 runner = run_session
                 options = {"permission": "workspace-write" if state["stage"] == "developer" else "read-only",
                            "isolate_cgroup": True, "capture_configuration": True}
@@ -202,8 +217,7 @@ class Dispatcher:
                     options = {"binding": binding, "writable_paths": spec.task.allowed_paths if state["stage"] == "developer" else ()}
                 outcome = self._external(runner, provider, worktree, prompt, session_id, **kwargs, **options, model=agent.model,
                                    reasoning_effort=agent.reasoning_effort, ultracode_enabled=agent.ultracode_enabled, output_schema=report_type.model_json_schema(),
-                                   max_cost_usd=(spec.policy.max_cost_usd - state["usage"]["cost_usd"]
-                                                 if spec.policy.max_cost_usd is not None else None))
+                                   max_cost_usd=min(cost_limits) if cost_limits else None)
             if scope == "contribution" and state["stage"] == "developer":
                 from ai_company.contribution_commit import commit_contribution
                 outcome = self._external(commit_contribution, spec, state, outcome, worktree, output_dir=kwargs["output_dir"])
@@ -217,14 +231,21 @@ class Dispatcher:
             return
         result = job["result"] or {}
         state["usage"]["executions"] += delta
-        state["usage"]["runtime_seconds"] += max(0, result.get("duration_seconds", spec.policy.retry.execution_timeout_seconds))
+        duration = result.get("duration_seconds")
+        if not isinstance(duration, (int, float)) or isinstance(duration, bool) or not math.isfinite(duration) or duration < 0:
+            duration = spec.policy.retry.execution_timeout_seconds
+        state["usage"]["runtime_seconds"] += duration
         cost = result.get("total_cost_usd")
-        if isinstance(cost, (float, int)) and not isinstance(cost, bool) and cost >= 0:
+        if isinstance(cost, (float, int)) and not isinstance(cost, bool) and math.isfinite(cost) and cost >= 0:
             state["usage"]["cost_usd"] += cost
         else:
             state["usage"]["cost_unknown"] = True
         active["accounted_attempts"] = job["attempt_count"]
         active["session_id"] = job["session_id"]
+        reservation = state.get("project_reservation")
+        if reservation and (reservation["job_id"] == job["job_id"]
+                            and reservation["attempt_count"] <= job["attempt_count"]):
+            state.pop("project_reservation")
         if active["role"] == "developer" and job["session_id"]:
             author = {"provider": job["provider"], "session_id": job["session_id"]}
             if author not in state["authors"]:
@@ -501,12 +522,16 @@ class Dispatcher:
                 if self.queue._read_guard(guard):
                     raise ExecutionBlocked("repository execution guard requires reconciliation before checks")
                 if state["verification"] is None:
+                    if not self._reserve_project_budget(state, spec, {
+                            "job_id": "check-" + state["task_id"], "attempt_count": 0}, checking=True):
+                        return False
                     state["status"] = "CHECK_RUNNING"
                     with self.db:
                         self._save(state, "check_started")
                     self.queue._write_guard(guard)
                     state["verification"] = self._external(self.verifier.check, spec, state)
                     state["usage"]["runtime_seconds"] += state["verification"].get("runtime_seconds", 0)
+                    state.pop("project_reservation", None)
                     state["status"] = "READY"
                     with self.db:
                         self._save(state, "check_completed")
@@ -596,6 +621,8 @@ class Dispatcher:
                 with self.db:
                     self._save(state, "capacity_wait")
                 return False
+        if not self._reserve_project_budget(state, spec, job):
+            return False
         result = self.queue.run_once(executor=self._executor(spec, state), job_id=active["job_id"])
         if result["status"] in ("IDLE", "BUSY"):
             # Queue recovery may have changed a RUNNING fact to reconciliation.
@@ -605,6 +632,108 @@ class Dispatcher:
             return False
         self._handle_job(state, spec, result)
         return True
+
+    def _reserve_project_budget(self, state, spec, job, *, checking=False):
+        """Reserve under the dispatcher lock before an external call releases it.
+
+        Stored attempts remain the usage source of truth. An interrupted or
+        unobserved attempt keeps its reservation until _consume records its fact.
+        Registering a new project specification never modifies these rows.
+        """
+        budget = spec.project_budget
+        if budget is None:
+            return True
+        previous = state.get("project_reservation")
+        if previous:
+            if (previous["job_id"] != job["job_id"]
+                    or previous["attempt_count"] != job["attempt_count"] + 1):
+                raise ExecutionBlocked("project allowance has an unobserved execution reservation")
+            return True
+        usage = dict(executions=0, runtime_seconds=0.0, cost_usd=0.0, repairs=0, cost_unknown=False)
+        reserved = dict(executions=0, runtime_seconds=0.0, cost_usd=0.0)
+        ownership = self._project_task_ownership()
+        legacy_pending = False
+        reserved_slots = 0
+        unbounded_cost_pending = False
+        for item in self.tasks():
+            item_budget = item["specification"].get("project_budget")
+            owners = ownership.get(item["task_id"], set())
+            if item_budget:
+                owners.add(item_budget["scope_id"])
+            if len(owners) > 1:
+                raise ExecutionBlocked("task has ambiguous project budget ownership")
+            if budget.scope_id not in owners:
+                continue
+            if item["task_id"] == state["task_id"]:
+                item = state
+            for field in ("executions", "runtime_seconds", "cost_usd", "repairs"):
+                usage[field] += item["usage"][field]
+            usage["cost_unknown"] |= item["usage"]["cost_unknown"]
+            pending = item.get("project_reservation")
+            if pending:
+                reserved_slots += 1
+                if pending["cost_usd"] is None:
+                    unbounded_cost_pending = True
+                for field in reserved:
+                    reserved[field] += pending[field] or 0
+            elif not item_budget and item.get("resume_at") is not None:
+                # Older approved tasks retain their policy. Their unreserved
+                # attempts must settle before a new project cap can be used.
+                legacy_pending = True
+        exhausted = (usage["executions"] >= budget.max_executions
+                     or usage["runtime_seconds"] >= budget.max_runtime_seconds
+                     or usage["repairs"] > budget.max_repairs
+                     or (budget.max_cost_usd is not None and
+                         (usage["cost_unknown"] or usage["cost_usd"] >= budget.max_cost_usd)))
+        remaining_runtime = budget.max_runtime_seconds - usage["runtime_seconds"] - reserved["runtime_seconds"]
+        remaining_cost = (None if budget.max_cost_usd is None else
+                          budget.max_cost_usd - usage["cost_usd"] - reserved["cost_usd"])
+        occupied = (legacy_pending or reserved_slots >= budget.max_parallel
+                    or (budget.max_cost_usd is not None and unbounded_cost_pending)
+                    or usage["executions"] + reserved["executions"] >= budget.max_executions
+                    or remaining_runtime <= 0 or (remaining_cost is not None and remaining_cost <= 0))
+        if exhausted or occupied:
+            state.update(status="BLOCKED" if exhausted else "WAITING_PROJECT_BUDGET",
+                         reason="프로젝트 누적 예산 소진 또는 비용 미확인" if exhausted else "같은 프로젝트의 실행 중 예산 예약 대기",
+                         resume_at=None if exhausted else self.clock() + 5)
+            with self.db:
+                self._save(state, "project_budget_exhausted" if exhausted else "project_budget_wait")
+            return False
+        reservation = {"job_id": job["job_id"], "attempt_count": job["attempt_count"] + 1,
+                       "kind": "check" if checking else "model",
+                       "executions": 0 if checking else 1, "runtime_seconds": min(remaining_runtime,
+                           sum(c.timeout_seconds for c in spec.checks.values()) if checking else spec.policy.retry.execution_timeout_seconds,
+                           spec.policy.max_runtime_seconds - state["usage"]["runtime_seconds"]),
+                       "cost_usd": 0 if checking else remaining_cost}
+        state["project_reservation"] = reservation
+        with self.db:
+            self._save(state, "project_budget_reserved")
+        return True
+
+    def _project_task_ownership(self):
+        """Read historic ownership without migrating old immutable task specs."""
+        owners = {}
+        def add(task_id, project_id):
+            if task_id and project_id:
+                owners.setdefault(task_id, set()).add(project_id)
+        for item in self.tasks():
+            add(item["task_id"], item["specification"].get("plan", {}).get("project_id"))
+        tables = {r[0] for r in self.db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "management_links" in tables:
+            for row in self.db.execute("SELECT flow_task_id,project_id FROM management_links"):
+                add(*row)
+        if "management_pm_requests" in tables:
+            for row in self.db.execute("SELECT project_id,document FROM management_pm_requests"):
+                value = json.loads(row[1])
+                add((value.get("execution") or {}).get("task_id"), row[0])
+        if "management_runs" in tables:
+            for row in self.db.execute("SELECT project_id,document FROM management_runs"):
+                value = json.loads(row[1])
+                items = [*value.get("roles", {}).values(), value.get("integration", {}),
+                         *value.get("role_history", []), *value.get("integration_history", [])]
+                for item in items:
+                    add(item.get("task_id"), row[0])
+        return owners
 
     def _external(self, function, *args, **kwargs):
         # The per-task and repository locks remain held. SQLite transactions must
@@ -746,6 +875,8 @@ class Dispatcher:
         with controller_lock(self.root / "dispatcher"):
             state = self.get(task_id)
             previous = FlowSpec.model_validate(state["specification"])
+            if previous.project_budget is not None or replacement.project_budget is not None:
+                raise ExecutionBlocked("confirmed project specifications cannot be changed by flow policy migration")
             if (replacement.task != previous.task or replacement.worktree != previous.worktree
                     or replacement.mode != previous.mode or replacement.dependencies != previous.dependencies
                     or replacement.checks != previous.checks or replacement.remote_ci != previous.remote_ci

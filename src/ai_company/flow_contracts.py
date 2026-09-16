@@ -74,6 +74,17 @@ class RemoteCI(Contract):
     attestation_artifact: Key = "ai-company-evidence"
 
 
+class ProjectBudget(Contract):
+    """A confirmed project's allowance, shared across all its task revisions."""
+
+    scope_id: str = Field(pattern=r"^[0-9a-f]{32}$")
+    max_executions: int = Field(ge=1, le=1000)
+    max_runtime_seconds: float = Field(gt=0, le=86400, allow_inf_nan=False)
+    max_cost_usd: float | None = Field(default=None, gt=0, allow_inf_nan=False)
+    max_repairs: int = Field(ge=0, le=20)
+    max_parallel: int = Field(default=2, ge=1, le=2)
+
+
 class FlowSpec(Contract):
     task: Task
     worktree: Text
@@ -88,6 +99,7 @@ class FlowSpec(Contract):
     execution_scope: Literal["full", "planning", "contribution", "integration"] = "full"
     inherited_authors: tuple[dict, ...] = ()
     inherited_pm_sessions: tuple[dict, ...] = ()
+    project_budget: ProjectBudget | None = None
 
     @model_serializer(mode="wrap")
     def preserve_legacy_digest(self, handler):
@@ -98,6 +110,8 @@ class FlowSpec(Contract):
             document.pop("inherited_authors", None)
         if not self.inherited_pm_sessions:
             document.pop("inherited_pm_sessions", None)
+        if self.project_budget is None:
+            document.pop("project_budget", None)
         return document
 
     @field_validator("inherited_authors", "inherited_pm_sessions")
@@ -116,6 +130,8 @@ class FlowSpec(Contract):
 
     @model_validator(mode="after")
     def validate_configuration(self):
+        if self.project_budget is not None and self.plan.get("project_id") != self.project_budget.scope_id:
+            raise ValueError("project budget must bind the task's project identity")
         if self.execution_scope == "planning" and self.approved_plan:
             raise ValueError("planning cannot skip PM work with an approved plan")
         if self.execution_scope in ("contribution", "integration") and not self.approved_plan:

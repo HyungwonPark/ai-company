@@ -128,6 +128,9 @@ module.exports=async function({page,context,fixtureId,output,setNetworkFixture,s
     translationState='completed';digest='e'.repeat(64);await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();await refresh();
     await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).click();await page.getByText(originalTitle,{exact:true}).and(page.locator('.document-title')).waitFor();await page.getByText('원문 갱신 · 이전 번역',{exact:true}).waitFor();
   }finally{
-    setNetworkFixture(false);setHTTPFixture(false);await context.setOffline(false);await page.emulateMedia({reducedMotion:'no-preference'});await page.unroute(overviewPath);await page.reload();await page.locator('.nav').waitFor();await selectTheme(page, 'light');await page.setViewportSize({width:1440,height:1000});
+    // Finish intercepted responses before reloading the page for the next fixture.
+    // Removing a route alone does not wait for its asynchronous fetch/fulfill.
+    await page.unrouteAll({behavior:'wait'});
+    setNetworkFixture(false);setHTTPFixture(false);await context.setOffline(false);await page.emulateMedia({reducedMotion:'no-preference'});await page.reload();await page.locator('.nav').waitFor();await selectTheme(page, 'light');await page.setViewportSize({width:1440,height:1000});
   }
 };

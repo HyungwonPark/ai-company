@@ -76,6 +76,7 @@ class PlanConfirmationInput(Contract):
     base_harness_version: StrictInt = Field(ge=1)
     idempotency_key: str = Field(pattern=r"^[a-zA-Z0-9_.:-]{8,128}$")
     displayed_translation: DisplayedTranslation | None = None
+    execution_spec_digest: Digest | None = None
 
 
 class ValidationDelegationAuthorization(BaseModel):
@@ -104,13 +105,23 @@ class ValidationDelegationAuthorization(BaseModel):
 
 
 class ManagementStore:
-    def __init__(self, root: Path, *, clock=time.time):
+    def __init__(self, root: Path, *, clock=time.time, execution_catalog=None):
         self.root, self.clock = Path(root).resolve(), clock
+        self.execution_catalog = execution_catalog
         self.queue = SessionQueue(self.root / "sessions", clock=clock)
         self.db = self.queue.db
         self.db.executescript("""
             CREATE TABLE IF NOT EXISTS flow_tasks(task_id TEXT PRIMARY KEY, document TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS management_projects(id TEXT PRIMARY KEY, document TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS management_execution_specs(project_id TEXT NOT NULL, version INTEGER NOT NULL,
+                document TEXT NOT NULL, PRIMARY KEY(project_id,version));
+            CREATE TABLE IF NOT EXISTS management_execution_spec_registrations(project_id TEXT NOT NULL, principal TEXT NOT NULL,
+                idempotency_key TEXT NOT NULL, request_digest TEXT NOT NULL, version INTEGER NOT NULL,
+                PRIMARY KEY(project_id,principal,idempotency_key));
+            CREATE TRIGGER IF NOT EXISTS immutable_execution_spec_update BEFORE UPDATE ON management_execution_specs BEGIN
+                SELECT RAISE(ABORT,'Execution specification versions are immutable'); END;
+            CREATE TRIGGER IF NOT EXISTS immutable_execution_spec_delete BEFORE DELETE ON management_execution_specs BEGIN
+                SELECT RAISE(ABORT,'Execution specification versions are immutable'); END;
             CREATE TABLE IF NOT EXISTS management_project_creations(principal TEXT NOT NULL, idempotency_key TEXT NOT NULL,
                 request_digest TEXT NOT NULL, project_id TEXT NOT NULL, PRIMARY KEY(principal,idempotency_key));
             CREATE TABLE IF NOT EXISTS management_roles(id TEXT PRIMARY KEY, project_id TEXT NOT NULL, document TEXT NOT NULL);
@@ -184,6 +195,98 @@ class ManagementStore:
         if not row:
             raise ManagementError("not_found", "Project not found", 404)
         return json.loads(row[0])
+
+    @staticmethod
+    def execution_spec_reference(document):
+        from ai_company.execution_specs import execution_spec_reference
+        return execution_spec_reference(document)
+
+    def execution_specs(self, project_id):
+        self._project(project_id)
+        return [json.loads(row[0]) for row in self.db.execute(
+            'SELECT document FROM management_execution_specs WHERE project_id=? ORDER BY version', (project_id,))]
+
+    def get_execution_spec(self, project_id, version):
+        from ai_company.execution_specs import execution_spec_binding
+        self._project(project_id)
+        row = self.db.execute('SELECT document FROM management_execution_specs WHERE project_id=? AND version=?',
+                              (project_id, version)).fetchone()
+        if not row:
+            raise ManagementError('execution_spec_not_found', 'Registered execution specification not found', 404)
+        document = json.loads(row[0])
+        if document['project_id'] != project_id or document['version'] != version or digest(execution_spec_binding(document)) != document['digest']:
+            raise ManagementError('execution_spec_mismatch', 'Registered execution specification identity changed')
+        return document
+
+    def execution_config_for(self, project_id, reference):
+        from ai_company.execution_specs import ExecutionSpecError, ExecutionSpecReference
+        reference = ExecutionSpecReference.model_validate(reference).model_dump()
+        document = self.get_execution_spec(project_id, reference['version'])
+        if self.execution_spec_reference(document) != reference:
+            raise ManagementError('execution_spec_mismatch', 'Execution specification belongs to another project or version')
+        if self.execution_catalog is None:
+            raise ManagementError('execution_catalog_unavailable', 'Trusted execution catalog is not configured')
+        try:
+            config = self.execution_catalog.resolve(document['selection'])
+        except ExecutionSpecError as error:
+            raise ManagementError('execution_catalog_mismatch', str(error)) from error
+        if digest(config) != document['configuration_digest']:
+            raise ManagementError('execution_spec_mismatch', 'Resolved execution configuration changed')
+        return config
+
+    def register_execution_spec(self, project_id, value, *, principal='local-master'):
+        from ai_company.execution_specs import ExecutionSpecError, ExecutionSpecRegistration, execution_spec_binding
+        registration = ExecutionSpecRegistration.model_validate(value)
+        if not isinstance(principal, str) or not principal or len(principal) > 200:
+            raise ManagementError('invalid_principal', 'A stable authenticated principal is required', 400)
+        request_digest = digest(registration)
+        with self.db:
+            self.db.execute('BEGIN IMMEDIATE')
+            project = self._project(project_id)
+            prior = self.db.execute('SELECT request_digest,version FROM management_execution_spec_registrations '
+                                    'WHERE project_id=? AND principal=? AND idempotency_key=?',
+                                    (project_id, principal, registration.idempotency_key)).fetchone()
+            if prior:
+                if prior[0] != request_digest:
+                    raise ManagementError('idempotency_conflict', 'This key belongs to another specification registration')
+                return self.get_execution_spec(project_id, prior[1])
+            current = self.db.execute('SELECT COALESCE(MAX(version),0) FROM management_execution_specs WHERE project_id=?',
+                                      (project_id,)).fetchone()[0]
+            if registration.base_version != current:
+                raise ManagementError('stale_execution_spec', 'Execution specification changed; review the current version')
+            if self.execution_catalog is None:
+                raise ManagementError('execution_catalog_unavailable', 'Trusted execution catalog is not configured')
+            try:
+                config = self.execution_catalog.resolve(registration.selection)
+            except ExecutionSpecError as error:
+                raise ManagementError('execution_spec_invalid', str(error), 400) from error
+            selection = registration.selection.model_dump(mode='json', exclude_none=True)
+            document = dict(id=uuid4().hex, project_id=project_id, version=current + 1, selection=selection,
+                            configuration_digest=digest(config),
+                            resolved=self.execution_catalog.summary(config, role_candidates=registration.selection.role_candidates),
+                            catalog_id=registration.selection.catalog_id, catalog_digest=registration.selection.catalog_digest,
+                            created_at=self.clock(), created_by=principal)
+            document['digest'] = digest(execution_spec_binding(document))
+            self.db.execute('INSERT INTO management_execution_specs VALUES (?,?,?)', (project_id, document['version'], json.dumps(document)))
+            self.db.execute('INSERT INTO management_execution_spec_registrations VALUES (?,?,?,?,?)',
+                            (project_id, principal, registration.idempotency_key, request_digest, document['version']))
+            project['execution_spec'] = self.execution_spec_reference(document)
+            self.db.execute('UPDATE management_projects SET document=? WHERE id=?', (json.dumps(project), project_id))
+            self._event(project_id, 'execution_spec_registered', document['id'])
+        return document
+
+    def _validate_plan_execution_spec(self, project_id, reference, content, configuration_digest):
+        from ai_company.execution_specs import path_subset
+        config = self.execution_config_for(project_id, reference)
+        if digest(config) != configuration_digest:
+            raise ManagementError('configuration_mismatch', 'Plan configuration differs from its registered execution specification')
+        if any(not path_subset(path, config.allowed_paths) for role in content['roles'] for path in role['allowed_paths']):
+            raise ManagementError('execution_spec_mismatch', 'Proposed role paths exceed the registered execution specification')
+        document = self.get_execution_spec(project_id, reference['version'])
+        pools = document['selection'].get('role_candidates', {})
+        if pools and set(pools) != {role['key'] for role in content['roles']}:
+            raise ManagementError('execution_spec_mismatch', 'Logical role pools must match the exact proposed team')
+        return config
 
     def create_project(self, value, *, principal="local-master"):
         # principal is supplied by the authenticated HTTP adapter, never the JSON body.
@@ -304,6 +407,8 @@ class ManagementStore:
                        "conversation_context": self._conversation_context(project_id),
                        "created_at": self.clock(), "updated_at": self.clock(), "execution": None, "plan_id": None,
                        "configuration_digest": None, "mode": None}
+        if project.get("execution_spec") is not None:
+            request["execution_spec"] = copy.deepcopy(project["execution_spec"])
         project["request_revision"] = revision
         self.db.execute("UPDATE management_projects SET document=? WHERE id=?", (json.dumps(project), project_id))
         self.db.execute("INSERT INTO management_messages VALUES (?,?,?)", (message["id"], project_id, json.dumps(message)))
@@ -331,7 +436,7 @@ class ManagementStore:
             self.db.execute("BEGIN IMMEDIATE")
             previous = self.get_pm_request(document["request_id"])
             immutable = ("request_id", "message_id", "project_id", "request_revision", "base_harness_version",
-                         "base_harness_digest", "goal_digest", "goal", "content", "source", "created_at", "conversation_context")
+                         "base_harness_digest", "goal_digest", "goal", "content", "source", "created_at", "conversation_context", "execution_spec")
             if any(document.get(key) != previous.get(key) for key in immutable):
                 raise ManagementError("request_mismatch", "PM request snapshot is immutable")
             for key in ("configuration_digest", "mode"):
@@ -340,6 +445,11 @@ class ManagementStore:
             if document.get("configuration_digest") is not None or document.get("mode") is not None:
                 if not re.fullmatch(r"[0-9a-f]{64}", str(document.get("configuration_digest"))) or document.get("mode") not in ("live", "fixture"):
                     raise ManagementError("configuration_missing", "Worker must bind a valid configuration digest and mode")
+            if (previous.get('execution_spec') is not None and previous.get('configuration_digest') is None
+                    and document.get('configuration_digest') is not None):
+                config = self.execution_config_for(previous['project_id'], previous['execution_spec'])
+                if digest(config) != document['configuration_digest'] or config.mode != document['mode']:
+                    raise ManagementError('configuration_mismatch', 'PM claim must use its registered execution configuration')
             if expected_state is not None and previous["state"] != expected_state:
                 raise ManagementError("request_conflict", "PM request state changed")
             if previous["state"] in ("completed", "stale"):
@@ -354,7 +464,10 @@ class ManagementStore:
     @staticmethod
     def _plan_binding(plan):
         fields = ("id", "request_id", "project_id", "base_harness_version", "base_harness_digest", "request_revision", "goal_digest", "content", "configuration_digest", "mode", "source", "evidence")
-        return {key: plan[key] for key in fields}
+        result = {key: plan[key] for key in fields}
+        if plan.get("execution_spec") is not None:
+            result["execution_spec"] = plan["execution_spec"]
+        return result
 
     def get_plan(self, project_id, plan_id):
         row = self.db.execute("SELECT document FROM management_plans WHERE id=? AND project_id=?", (plan_id, project_id)).fetchone()
@@ -366,7 +479,8 @@ class ManagementStore:
         row = self.db.execute("SELECT document FROM management_harnesses WHERE project_id=? AND version=?",
                               (project["id"], project["harness_version"])).fetchone()
         harness = json.loads(row[0]) if row else {}
-        return (project.get("request_revision", 0) == request["request_revision"]
+        return (project.get("execution_spec") == request.get("execution_spec")
+                and project.get("request_revision", 0) == request["request_revision"]
                 and digest(project["goal"]) == request["goal_digest"]
                 and project["harness_version"] == request["base_harness_version"]
                 and digest(harness.get("content")) == request["base_harness_digest"])
@@ -399,6 +513,9 @@ class ManagementStore:
                     **{key: request[key] for key in ("request_revision", "base_harness_version", "base_harness_digest", "goal_digest")},
                     "created_at": self.clock(), "evidence": evidence, "source": (evidence or {}).get("source", request["source"]),
                     "configuration_digest": request["configuration_digest"], "mode": request["mode"]}
+            if request.get('execution_spec') is not None:
+                self._validate_plan_execution_spec(project['id'], request['execution_spec'], content, request['configuration_digest'])
+                plan['execution_spec'] = copy.deepcopy(request['execution_spec'])
             plan["digest"] = digest(self._plan_binding(plan))
             request.update(state="completed" if current else "stale", plan_id=plan["id"], updated_at=self.clock())
             user_row = self.db.execute("SELECT document FROM management_messages WHERE id=?", (request_id,)).fetchone()
@@ -463,7 +580,7 @@ class ManagementStore:
             self.db.execute("BEGIN IMMEDIATE")
             previous = self.get_run(document["id"])
             immutable = ("id", "project_id", "plan_id", "plan_digest", "role_ids", "harness_version", "created_at", "configuration_digest", "mode",
-                         "parent_run_id", "delegation_id", "delegation_digest")
+                         "parent_run_id", "delegation_id", "delegation_digest", "execution_spec")
             if any(document.get(key) != previous.get(key) for key in immutable):
                 raise ManagementError("run_mismatch", "Confirmed execution identity is immutable")
             if expected_state is not None and previous["state"] != expected_state:
@@ -553,6 +670,8 @@ class ManagementStore:
                    "state": "pending", "role_ids": copy.deepcopy(parent["role_ids"]), "harness_version": parent["harness_version"],
                    "configuration_digest": parent["configuration_digest"], "mode": "live", "created_at": created_at, "updated_at": created_at,
                    "parent_run_id": parent["id"], "delegation_id": delegation["id"], "delegation_digest": delegation["digest"]}
+            if parent.get('execution_spec') is not None:
+                run['execution_spec'] = copy.deepcopy(parent['execution_spec'])
             self.db.execute("INSERT INTO management_delegations VALUES (?,?,?,?)", (delegation["id"], receipt.source_id, project["id"], json.dumps(delegation)))
             self.db.execute("INSERT INTO management_runs VALUES (?,?,?)", (run_id, project["id"], json.dumps(run)))
             self._event(project["id"], "validation_delegated", delegation["id"])
@@ -582,6 +701,16 @@ class ManagementStore:
             if (plan["status"] != "proposed" or value.base_harness_version != plan["base_harness_version"]
                     or not self._request_current(request, project)):
                 raise ManagementError("stale_plan", "Goal, conversation or active harness changed; request a fresh plan")
+            if plan['content'].get('execution_spec_proposal') is not None:
+                raise ManagementError('execution_spec_required', 'Register the proposed execution specification and request a fresh plan before confirming')
+            if plan.get('execution_spec') is not None:
+                if value.execution_spec_digest != plan['execution_spec']['digest']:
+                    raise ManagementError('execution_spec_mismatch', 'Confirm the exact displayed execution specification digest')
+                if request.get('execution_spec') != plan['execution_spec']:
+                    raise ManagementError('execution_spec_mismatch', 'Plan and PM request execution versions differ')
+                self._validate_plan_execution_spec(project_id, plan['execution_spec'], plan['content'], plan['configuration_digest'])
+            elif value.execution_spec_digest is not None:
+                raise ManagementError('execution_spec_mismatch', 'This legacy plan has no execution specification')
             if value.displayed_translation is not None:
                 from ai_company.collaboration import plan_document
                 self._check_displayed_translation(plan_document(project_id, plan), value.displayed_translation)
@@ -607,6 +736,8 @@ class ManagementStore:
             run = {"id": uuid4().hex, "project_id": project_id, "plan_id": plan_id, "plan_digest": plan["digest"],
                    "state": "pending", "role_ids": role_ids, "harness_version": version, "created_at": self.clock(), "updated_at": self.clock(),
                    "configuration_digest": plan["configuration_digest"], "mode": plan["mode"]}
+            if plan.get("execution_spec") is not None:
+                run["execution_spec"] = copy.deepcopy(plan["execution_spec"])
             plan.update(status="confirmed", run_id=run["id"], confirmed_at=self.clock())
             project.update(harness_version=version, status="PLAN_CONFIRMED")
             result = {"plan": plan, "run": run}
@@ -659,7 +790,8 @@ class ManagementStore:
             project = self._project(project_id)
             if project["source"] == "fixture":
                 raise ManagementError("fixture_only", "Fixture projects cannot own executable flow tasks")
-            if not self.db.execute("SELECT 1 FROM management_roles WHERE id=? AND project_id=?", (role_id, project_id)).fetchone():
+            role_row = self.db.execute("SELECT document FROM management_roles WHERE id=? AND project_id=?", (role_id, project_id)).fetchone()
+            if not role_row:
                 raise ManagementError("not_found", "Role not found", 404)
             row = self.db.execute("SELECT document FROM flow_tasks WHERE task_id=?", (flow_task_id,)).fetchone()
             if not row:
@@ -667,6 +799,19 @@ class ManagementStore:
             state = json.loads(row[0])
             item = {"id": flow_task_id, "flow_task_id": flow_task_id, "role_id": role_id,
                     "title": title or state["specification"]["task"]["goal"], "harness_version": project["harness_version"]}
+            role = json.loads(role_row[0])
+            if role.get('plan_id'):
+                plan = self.get_plan(project_id, role['plan_id'])
+                if plan.get('run_id'):
+                    run = self.get_run(plan['run_id'])
+                    if run['project_id'] != project_id or role_id not in run['role_ids'].values():
+                        raise ManagementError('task_owned', 'Role and confirmed run ownership differ')
+                    item['harness_version'] = run['harness_version']
+                    if run.get('execution_spec') is not None:
+                        context = state['specification'].get('plan', {})
+                        if context.get('execution_spec') != run['execution_spec'] or context.get('plan_digest') != run['plan_digest']:
+                            raise ManagementError('execution_spec_mismatch', 'Flow task differs from the role execution specification')
+                        item['execution_spec'] = copy.deepcopy(run['execution_spec'])
             existing = self.db.execute("SELECT project_id,role_id,document FROM management_links WHERE flow_task_id=?", (flow_task_id,)).fetchone()
             if existing:
                 if existing[0] != project_id or existing[1] != role_id:
@@ -856,6 +1001,8 @@ class ManagementStore:
         project.pop("fixture_tasks", None); project.pop("fixture_reports", None)
         overview = {"project": project, "roles": roles, "tasks": tasks, "reports": reports, "approvals": approvals,
                     "messages": messages, "harnesses": harnesses, "readiness": readiness, "pm_requests": requests, "plans": plans, "runs": runs, "delegations": delegations}
+        if project.get("execution_spec") is not None:
+            overview["execution_specs"] = self.execution_specs(project_id)
         from ai_company.project_report import project_report
         from ai_company.service_worker import runtime_status
         overview["workers"] = runtime_status(self.root, clock=self.clock)

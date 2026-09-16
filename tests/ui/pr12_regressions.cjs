@@ -55,6 +55,8 @@ function overview(project) {
     requests.push({method:request.method(),path:url.pathname});
     const json=(value,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(value)});
     if(url.pathname==='/api/session')return json({authenticated:true,username:'fixture-user',login_method:'password',csrf_token:'synthetic-csrf'});
+    if(url.pathname==='/api/execution-catalog'&&request.method()==='GET')return json({entries:[]});
+    if(/^\/api\/projects\/[^/]+\/execution-specs$/.test(url.pathname)&&request.method()==='GET')return json({execution_specs:[]});
     if(url.pathname==='/api/projects'&&request.method()==='GET')return json({projects:projects.map(project=>({...project,
       recent_run:scenario==='running'&&project.id===A?{id:'fixture-run',state:'running',created_at:2200,mode:'fixture'}:null,
       recent_pm_request:{id:'request-'+project.id,state:project.id===CREATED?'pending':'completed',created_at:2000,mode:'fixture'}}))});
@@ -170,6 +172,13 @@ function overview(project) {
       if(await create.evaluate(element=>element===document.activeElement)){focused=true;break;}
     }
     assert.equal(focused,true,'new project is reachable with keyboard alone');
+    // The real refresh replaces the project-list DOM. Keyboard focus must survive
+    // that replacement rather than depending on the polling interval's timing.
+    const focusedCreate=await create.elementHandle();
+    await page.evaluate(()=>window.dispatchEvent(new Event('online')));
+    await page.waitForFunction(element=>!element.isConnected,focusedCreate);
+    await focusedCreate.dispose();
+    assert.equal(await create.evaluate(element=>element===document.activeElement),true,'background project refresh preserves the initiating keyboard focus');
     assert.equal(await create.evaluate(element=>{const s=getComputedStyle(element);return s.outlineStyle!=='none'&&parseFloat(s.outlineWidth)>0||s.boxShadow!=='none';}),true,'keyboard focus has a visible indicator');
     assert.ok((await create.boundingBox()).height>=44,'primary touch target meets the product 44px requirement');
     await page.keyboard.press('Enter');

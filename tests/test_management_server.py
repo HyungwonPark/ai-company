@@ -56,6 +56,41 @@ class ManagementHTTPTests(unittest.TestCase):
         self.assertIn("HttpOnly", headers["Set-Cookie"])
         self.assertIn("SameSite=Strict", headers["Set-Cookie"])
 
+    def test_execution_catalog_and_version_registration_are_authenticated_and_confined(self):
+        from test_execution_specs import catalog_config
+        from ai_company.contracts import digest
+        from ai_company.execution_specs import ExecutionCatalog
+        config = catalog_config()
+        self.server.execution_catalog = ExecutionCatalog({'project-main': config})
+        self.assertEqual(self.request('GET', '/api/execution-catalog')[0], 401)
+        self.login()
+        status, catalog, _ = self.request('GET', '/api/execution-catalog')
+        self.assertEqual(status, 200)
+        self.assertEqual(catalog['entries'][0]['catalog_digest'], digest(config))
+        self.assertNotIn('source_clone', json.dumps(catalog))
+        self.assertNotIn('credential_ref', json.dumps(catalog))
+        self.assertEqual(self.request('POST', '/api/execution-catalog', {})[0], 405)
+        project = self.request('POST', '/api/projects', {'name': '새 프로젝트', 'goal': '자연어 목표'})[1]['project']
+        path = '/api/projects/' + project['id'] + '/execution-specs'
+        body = {'base_version': 0, 'idempotency_key': 'http-spec-1',
+                'selection': {'catalog_id': 'project-main', 'catalog_digest': digest(config)}}
+        self.assertEqual(self.request('POST', path, body, headers={'X-CSRF-Token': 'wrong'})[0], 403)
+        first = self.request('POST', path, body)
+        self.assertEqual(first[0], 201)
+        self.assertEqual(self.request('POST', path, body)[1], first[1])
+        self.assertEqual(len(self.request('GET', path)[1]['execution_specs']), 1)
+        poisoned = {**body, 'idempotency_key': 'http-spec-2', 'base_version': 1,
+                    'selection': {**body['selection'], 'checks': {'unit': {'argv': ['sh', '-c', 'anything']}}}}
+        self.assertEqual(self.request('POST', path, poisoned)[0], 400)
+        self.assertEqual(self.request('POST', path, {**body, 'idempotency_key': 'http-conflict'})[0], 409)
+        with_store = ManagementStore(self.root / 'state')
+        try:
+            self.assertEqual(with_store.pm_requests(project['id']), [])
+            self.assertEqual(with_store.run_records(project['id']), [])
+            self.assertEqual(with_store.db.execute('SELECT COUNT(*) FROM session_jobs').fetchone()[0], 0)
+        finally:
+            with_store.close()
+
     def test_auth_origin_csrf_and_logout(self):
         self.assertEqual(self.request("GET", "/api/session")[1], {"authenticated": False})
         self.assertEqual(self.request("GET", "/api/projects")[0], 401)
