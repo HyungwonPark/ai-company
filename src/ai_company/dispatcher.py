@@ -2,6 +2,8 @@
 
 from contextlib import ExitStack
 import json
+import math
+import re
 from pathlib import Path
 import time
 from uuid import uuid4
@@ -11,9 +13,10 @@ from langsmith.run_helpers import tracing_context
 
 from ai_company.adapters.session_cli import run_session
 from ai_company.contracts import Finding, digest
-from ai_company.flow_contracts import AgentProfile, FlowSpec, StageReport, budget_available
+from ai_company.flow_contracts import AgentProfile, ContributionStageReport, FlowSpec, PMPlanStageReport, StageReport, budget_available
 from ai_company.flow_evidence import Verifier, allowed, handoff
 from ai_company.flow_graph import build_graph
+from ai_company.harness.prompts import stage_prompt
 from ai_company.runtime import ExecutionBlocked
 from ai_company.sessions import _git, SessionQueue, SessionSpec, execution_alive, repository_lock, repository_snapshot
 from ai_company.storage import controller_lock, suspended_lock
@@ -80,11 +83,12 @@ class Dispatcher:
                                 (agent.provider, agent.credential_ref, agent.quota_group))
                 self.db.execute("INSERT OR IGNORE INTO quota_groups VALUES (?,'AVAILABLE',NULL,NULL)", (agent.quota_group,))
             state = {"task_id": spec.task.task_id, "specification": spec.model_dump(mode="json"),
-                     "spec_digest": digest(spec), "stage": "developer" if spec.approved_plan else "pm",
+                     "spec_digest": digest(spec), "stage": "check" if spec.execution_scope == "integration" else ("developer" if spec.approved_plan else "pm"),
                      "status": "READY", "reason": "approved plan" if spec.approved_plan else "PM decision needed",
                      "snapshot": snapshot, "plan": spec.plan, "last_completed_stage": "approved_plan" if spec.approved_plan else "submitted",
                      "generation": 0, "active": None, "executions": [], "findings": [], "verification": None,
-                     "reviews": {}, "authors": [], "pm_sessions": [], "resume_at": self.clock(),
+                     "reviews": {}, "authors": [dict(a) for a in spec.inherited_authors],
+                     "pm_sessions": [dict(a) for a in spec.inherited_pm_sessions], "resume_at": self.clock(),
                      "usage": {"executions": 0, "runtime_seconds": 0.0, "cost_usd": 0.0, "cost_unknown": False, "repairs": 0},
                      "created_at": self.clock(), "updated_at": self.clock()}
             self._save(state, "submitted")
@@ -103,7 +107,13 @@ class Dispatcher:
             required = {"structured_result", "read_repository"}
             if role == "developer":
                 required.add("write_repository")
-            if (not agent.enabled or not agent.verified() or not required.issubset(agent.capabilities)
+            configuration_eligible = (agent.provider == "codex" and not agent.ultracode_enabled
+                                      if spec.policy.configuration_evidence == "cli_configuration" else agent.verified())
+            if spec.policy.configuration_evidence == "cli_configuration_v2":
+                from ai_company.adapters.claude_files import candidate_eligible
+                configuration_eligible = (agent.provider == "codex" and not agent.ultracode_enabled
+                                          or candidate_eligible(agent, spec, role))
+            if (not agent.enabled or not configuration_eligible or not required.issubset(agent.capabilities)
                     or any(not allowed(path.rstrip("/"), agent.allowed_paths) for path in spec.task.allowed_paths)
                     or (spec.policy.max_cost_usd is not None and agent.provider != "claude")):
                 continue
@@ -166,23 +176,38 @@ class Dispatcher:
             self._save(state, "session_materialized")
 
     def _executor(self, spec, state):
+        scope = getattr(spec, "execution_scope", "full")
         agent = next(a for a in spec.agents if a.agent_id == state["active"]["agent_id"])
+        file_tools = spec.policy.configuration_evidence == "cli_configuration_v2" and agent.provider == "claude"
 
         def execute(provider, worktree, prompt, session_id, **kwargs):
             kwargs["timeout_seconds"] = min(kwargs["timeout_seconds"], spec.policy.max_runtime_seconds - state["usage"]["runtime_seconds"])
-            prompt += ("\nReturn ONLY the required structured stage report. Use expected_report identifiers unchanged. "
-                       "Developer: commit allowed code changes and return DONE. Review: inspect the exact candidate; "
-                       "return PASS, REVISE with evidence, or BLOCK. Do not merge or deploy. "
-                       "Do not claim a different model or change acceptance criteria.")
+            prompt = stage_prompt(prompt, provider=provider, role=state["stage"], planning=scope == "planning",
+                                  contribution=scope == "contribution", file_tools=file_tools)
+            report_type = {"planning": PMPlanStageReport, "contribution": ContributionStageReport}.get(scope, StageReport)
             if self.executor:
-                return self._external(self.executor, agent, state, provider, worktree, prompt, session_id, **kwargs)
-            if spec.mode != "live":
-                raise ExecutionBlocked("fixture mode requires an explicit fixture executor")
-            return self._external(run_session, provider, worktree, prompt, session_id, **kwargs, model=agent.model,
-                               reasoning_effort=agent.reasoning_effort, ultracode_enabled=agent.ultracode_enabled, output_schema=StageReport.model_json_schema(),
-                               permission="workspace-write" if state["stage"] == "developer" else "read-only", isolate_cgroup=True, capture_configuration=True,
-                               max_cost_usd=(spec.policy.max_cost_usd - state["usage"]["cost_usd"]
-                                             if spec.policy.max_cost_usd is not None else None))
+                outcome = self._external(self.executor, agent, state, provider, worktree, prompt, session_id, **kwargs)
+            else:
+                if spec.mode != "live":
+                    raise ExecutionBlocked("fixture mode requires an explicit fixture executor")
+                runner = run_session
+                options = {"permission": "workspace-write" if state["stage"] == "developer" else "read-only",
+                           "isolate_cgroup": True, "capture_configuration": True}
+                if file_tools:
+                    from ai_company.adapters.claude_files import run_claude_files
+                    from ai_company.adapters.claude_observation import persisted_attempt
+                    runner = run_claude_files
+                    job = self.queue.get(state["active"]["job_id"])
+                    binding, _ = persisted_attempt(self.db, job)
+                    options = {"binding": binding, "writable_paths": spec.task.allowed_paths if state["stage"] == "developer" else ()}
+                outcome = self._external(runner, provider, worktree, prompt, session_id, **kwargs, **options, model=agent.model,
+                                   reasoning_effort=agent.reasoning_effort, ultracode_enabled=agent.ultracode_enabled, output_schema=report_type.model_json_schema(),
+                                   max_cost_usd=(spec.policy.max_cost_usd - state["usage"]["cost_usd"]
+                                                 if spec.policy.max_cost_usd is not None else None))
+            if scope == "contribution" and state["stage"] == "developer":
+                from ai_company.contribution_commit import commit_contribution
+                outcome = self._external(commit_contribution, spec, state, outcome, worktree, output_dir=kwargs["output_dir"])
+            return outcome
         return execute
 
     def _consume(self, state, spec, job):
@@ -205,22 +230,69 @@ class Dispatcher:
             if author not in state["authors"]:
                 state["authors"].append(author)
 
+    def _validate_cli_configuration(self, agent, job, result):
+        evidence = result.get("configuration_evidence")
+        if (agent.provider != "codex" or agent.ultracode_enabled or not isinstance(evidence, dict)
+                or evidence.get("source") != "codex_rollout" or evidence.get("scope") != "cli_turn_configuration"
+                or evidence.get("status") != "observed" or evidence.get("cli_version") != "0.154.0"
+                or evidence.get("backend_model_verified") is not False
+                or evidence.get("session_id") != job["session_id"]
+                or not re.fullmatch(r"[0-9a-f-]{36}", str(job["session_id"]))):
+            raise ExecutionBlocked("assigned Codex CLI turn configuration is missing or unbound")
+        contexts = evidence.get("contexts")
+        if not isinstance(contexts, list) or not 1 <= len(contexts) <= 128:
+            raise ExecutionBlocked("Codex configuration requires bounded nonempty turn contexts")
+        claimed = self.db.execute("""SELECT occurred_at FROM session_events WHERE job_id=?
+            AND json_extract(document,'$.attempt_count')=? AND json_extract(document,'$.status')='RUNNING'
+            ORDER BY sequence LIMIT 1""", (job["job_id"], job["attempt_count"])).fetchone()
+        if not claimed:
+            raise ExecutionBlocked("Codex configuration has no matching persisted execution window")
+        started, ended = claimed[0], job["updated_at"]
+        for context in contexts:
+            at = context.get("recorded_at") if isinstance(context, dict) else None
+            if (not isinstance(context, dict) or not isinstance(context.get("turn_id"), str)
+                    or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}", context["turn_id"])
+                    or (context.get("model"), context.get("reasoning_effort")) != (agent.model, agent.reasoning_effort)
+                    or isinstance(at, bool) or not isinstance(at, (int, float)) or not math.isfinite(at)
+                    or not started <= at <= ended):
+                raise ExecutionBlocked("Codex turn model/effort/time differs from the assigned execution")
+        # CLI settings are a narrower, explicit policy choice. Contrary backend
+        # telemetry remains a failure; settings never manufacture verified_* data.
+        if (result.get("observed_models") not in (None, [], [agent.model])
+                or result.get("observed_efforts") not in (None, [], [agent.reasoning_effort])):
+            raise ExecutionBlocked("runtime metadata conflicts with Codex CLI configuration")
+
     def accept_report(self, state, spec, job):
         active = state["active"]
         current = self.get(state["task_id"])
         if current["generation"] != active["generation"] or (current["active"] or {}).get("execution_id") != active["execution_id"]:
             raise ExecutionBlocked("late result belongs to a superseded generation")
         result = job["result"] or {}
-        report = StageReport.model_validate(result.get("structured_output"))
+        report_type = {"planning": PMPlanStageReport, "contribution": ContributionStageReport}.get(spec.execution_scope, StageReport)
+        report = report_type.model_validate(result.get("structured_output"))
         agent = next(a for a in spec.agents if a.agent_id == active["agent_id"])
-        if result.get("observed_models") != [agent.model] or result.get("observed_efforts") != [agent.reasoning_effort]:
-            raise ExecutionBlocked("actual model/reasoning metadata is missing or differs from the assigned configuration")
-        if agent.ultracode_enabled and result.get("observed_ultracode") != [True]:
-            raise ExecutionBlocked("Ultracode workflow configuration is not confirmed by runtime metadata")
+        if spec.policy.configuration_evidence == "cli_configuration_v2" and agent.provider == "claude":
+            from ai_company.adapters.claude_observation import persisted_attempt, validate_claude_result
+            binding, claimed_at = persisted_attempt(self.db, job)
+            if any(binding[key] != active[key] for key in ("execution_id", "generation", "role", "task_digest", "policy_digest")):
+                raise ExecutionBlocked("Claude persisted attempt differs from the assigned generation")
+            validate_claude_result(result, binding=binding, session_id=job["session_id"],
+                started_at=claimed_at, ended_at=job["updated_at"],
+                writable_paths=spec.task.allowed_paths if active["role"] == "developer" else ())
+        elif spec.policy.configuration_evidence in ("cli_configuration", "cli_configuration_v2"):
+            self._validate_cli_configuration(agent, job, result)
+        else:
+            if result.get("observed_models") != [agent.model] or result.get("observed_efforts") != [agent.reasoning_effort]:
+                raise ExecutionBlocked("actual model/reasoning metadata is missing or differs from the assigned configuration")
+            if agent.ultracode_enabled and result.get("observed_ultracode") != [True]:
+                raise ExecutionBlocked("Ultracode workflow configuration is not confirmed by runtime metadata")
         if (report.execution_id, report.generation, report.role, report.task_digest, report.policy_digest) != (
                 active["execution_id"], active["generation"], active["role"], digest(spec.task), digest(spec.policy)):
             raise ExecutionBlocked("stage result identity or immutable policy does not match")
-        if report.candidate_sha != job["head_commit"]:
+        if spec.execution_scope == "contribution":
+            from ai_company.contribution_commit import validate_contribution_receipt
+            validate_contribution_receipt(spec, state, job, report)
+        elif report.candidate_sha != job["head_commit"]:
             raise ExecutionBlocked("report does not target the actual candidate HEAD")
         if active["role"] != "developer" and job["repository_snapshot"] != active["input_snapshot"]:
             raise ExecutionBlocked("read-only role changed the repository")
@@ -245,15 +317,31 @@ class Dispatcher:
             progress = graph.invoke({"stage": state["stage"], "verdict": verdict, "checks_passed": checks_passed,
                                      "repairs": state["usage"]["repairs"], "max_repairs": min(spec.task.max_repairs, spec.policy.max_repairs)},
                                     {"configurable": {"thread_id": state["task_id"]}}, durability="sync")
-        state["last_completed_stage"] = state["stage"]
+        completed_stage = state["stage"]
+        state["last_completed_stage"] = completed_stage
         state.update(stage=progress["next_stage"], status=progress["status"], resume_at=self.clock())
+        if state["status"] == "READY":
+            state["reason"] = {"developer": "implementation stage is ready",
+                               "check": "candidate awaits required checks",
+                               "reviewer": "required local and remote checks passed; independent review is ready",
+                               "final": "independent review passed; designated final review is ready",
+                               "gate": "final review passed; remote evidence will be refreshed"}.get(
+                                   state["stage"], "next stage is ready")
+        if spec.execution_scope == "planning" and completed_stage == "pm" and verdict == "PASS":
+            state.update(stage="pm", status="PLAN_READY", resume_at=None, reason="PM proposal is ready for master confirmation")
+        elif spec.execution_scope == "contribution" and completed_stage == "developer" and verdict == "DONE":
+            state.update(stage="developer", status="CONTRIBUTION_READY", resume_at=None,
+                         reason="committed contribution is ready for integration; checks and review remain")
+        elif spec.execution_scope == "integration" and state["stage"] == "developer":
+            state.update(status="WAITING_ROLE_REPAIR", resume_at=None,
+                         reason="integration findings must return to contribution roles; integration cannot develop")
         if state["status"] in ("BLOCKED", "STOPPED"):
             state["resume_at"] = None
         state["usage"]["repairs"] = progress["repairs"]
         if state["active"]:
             state["executions"].append(state["active"])
         state["active"] = None
-        if state["stage"] == "developer":
+        if state["stage"] == "developer" and spec.execution_scope not in ("integration", "contribution"):
             state["reviews"] = {}
             state["verification"] = None
         with self.db:
@@ -328,7 +416,9 @@ class Dispatcher:
             state["snapshot"] = job["repository_snapshot"]
             handoff(spec, state, active, self.root / "handoffs" / state["task_id"] / active["execution_id"])
             if active["role"] == "pm":
-                state["plan"] = {"summary": report.summary, "approved": report.verdict == "PASS"}
+                state["plan"] = report.plan if spec.execution_scope == "planning" else {"summary": report.summary, "approved": report.verdict == "PASS"}
+                if spec.execution_scope == "planning":
+                    state["pm_response"] = report.model_dump(mode="json")
                 state["pm_sessions"].append({"provider": job["provider"], "session_id": job["session_id"]})
             elif active["role"] in ("reviewer", "final"):
                 state["reviews"][active["role"]] = report.model_dump(mode="json")
@@ -352,6 +442,12 @@ class Dispatcher:
 
     def _tick(self, state):
         spec = FlowSpec.model_validate(state["specification"])
+        if spec.execution_scope == "integration" and state["stage"] == "developer":
+            state.update(status="WAITING_ROLE_REPAIR", resume_at=None,
+                         reason="integration may not execute developer work; return findings to contribution roles")
+            with self.db:
+                self._save(state, "integration_repair_wait")
+            return True
         if state["status"] == "CHECK_RUNNING":
             state.update(status="NEEDS_RECONCILIATION", resume_at=None, reason="worker stopped during local checks")
             with self.db:
@@ -565,7 +661,8 @@ class Dispatcher:
                 occupied += 1
         return occupied
 
-    def run_once(self):
+    def run_once(self, *, task_ids=None):
+        allowed_task_ids = None if task_ids is None else frozenset(task_ids)
         with controller_lock(self.root / "dispatcher", blocking=True) as scheduler_lock:
             self._scheduler_lock = scheduler_lock
             try:
@@ -575,6 +672,8 @@ class Dispatcher:
                 self._recover_queue()
                 self._observe_waits()
                 for candidate in sorted(self.tasks(), key=lambda s: (s["resume_at"] or float("inf"), s["task_id"])):
+                    if allowed_task_ids is not None and candidate["task_id"] not in allowed_task_ids:
+                        continue
                     self._recover_queue()
                     self._observe_waits()
                     orphaned = self._orphaned_executions()
@@ -650,7 +749,10 @@ class Dispatcher:
             if (replacement.task != previous.task or replacement.worktree != previous.worktree
                     or replacement.mode != previous.mode or replacement.dependencies != previous.dependencies
                     or replacement.checks != previous.checks or replacement.remote_ci != previous.remote_ci
-                    or replacement.approved_plan != previous.approved_plan or replacement.plan != previous.plan):
+                    or replacement.approved_plan != previous.approved_plan or replacement.plan != previous.plan
+                    or replacement.execution_scope != previous.execution_scope
+                    or replacement.inherited_authors != previous.inherited_authors
+                    or replacement.inherited_pm_sessions != previous.inherited_pm_sessions):
                 raise ExecutionBlocked("migration may change agent pools and budgets, not task/check acceptance")
             with repository_lock(state["snapshot"]):
                 if repository_snapshot(Path(previous.worktree)) != state["snapshot"]:

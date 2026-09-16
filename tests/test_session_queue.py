@@ -168,6 +168,30 @@ class SessionQueueTests(unittest.TestCase):
         self.assertEqual(result["status"], "WAITING_RETRY")
         self.assertEqual(result["resume_at"], self.now + 60)
 
+    def test_native_budget_block_has_readable_reason_cost_and_no_automatic_retry(self):
+        spec = self.spec.model_copy(update={"provider":"claude"})
+        job = self.queue.submit(spec)
+        native = {"type":"result","subtype":"error_max_budget_usd","session_id":"saved-session-1","is_error":True}
+        result = {"total_cost_usd":.3924525,"native_terminal":native}
+        execute = self.executor(SessionOutcome("code_error","saved-session-1",result=result))
+        blocked = self.queue.run_once(executor=execute)
+        self.assertEqual(blocked["status"],"BLOCKED")
+        self.assertIn("실행 비용",blocked["reason"])
+        self.assertEqual(blocked["result"],result)
+        self.assertIsNone(blocked["resume_at"])
+        self.now += 10000; self.restart()
+        self.assertEqual(self.queue.run_once(executor=execute)["status"],"IDLE")
+        self.assertEqual(self.queue.get(job["job_id"])["attempt_count"],1)
+
+    def test_other_session_or_model_text_cannot_label_a_failure_as_native_budget(self):
+        for index,terminal in enumerate(({"type":"result","subtype":"error_max_budget_usd","session_id":"other"},
+                {"type":"assistant","subtype":"error_max_budget_usd","session_id":"saved-session-1"},
+                {"type":"result","subtype":"error_max_budget_usd","session_id":"saved-session-1","is_error":False},
+                {"type":"result","subtype":[],"session_id":"saved-session-1"})):
+            task = self.task.model_copy(update={"task_id":f"budget-label-{index}"})
+            self.queue.submit(self.spec.model_copy(update={"task":task,"provider":"claude"}))
+            result = self.queue.run_once(executor=self.executor(SessionOutcome("code_error","saved-session-1",result={"native_terminal":terminal})))
+            self.assertEqual(result["reason"],"non-retryable session outcome: code_error")
     def test_context_handoff_requires_explicit_new_session_and_keeps_checkpoint(self):
         self.queue.submit(self.spec)
         execute = self.executor(SessionOutcome("context_exhausted", "saved-session-1"),

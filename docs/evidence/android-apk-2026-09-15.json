@@ -1,0 +1,172 @@
+{
+  "checked_at": "2026-09-15T10:41:12.523140+00:00",
+  "release_at_publication": {
+    "package_id": "cloud.hyungwon.aicompany",
+    "version_name": "0.1.0",
+    "version_code": 1,
+    "min_sdk": 26,
+    "target_sdk": 36,
+    "launch_url": "https://hyungwon.cloud/",
+    "permissions": [
+      "android.permission.INTERNET",
+      "cloud.hyungwon.aicompany.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
+    ],
+    "debuggable": false,
+    "native_libraries": false,
+    "source_commit": "dfe5e3b1d5d77db1d9122dbb9af1e61fc92b55c9",
+    "workflow": ".github/workflows/android.yml",
+    "workflow_run_id": "34956647584",
+    "workflow_run_attempt": "1",
+    "artifact_kind": "signed_release_apk",
+    "apk_sha256": "8ef9685be3ad98408c0e113bf6ed069d550f058b959d61a5dd9de989e8fd0553",
+    "apk_bytes": 3732083,
+    "certificate_sha256": "E0:22:C4:1F:03:95:9B:51:54:C0:85:8C:22:F7:25:EF:49:D0:B1:F6:2F:DB:39:92:64:0F:30:86:E6:2E:98:79",
+    "unsigned_apk_sha256": "2f9de1267fd06ab8826a90e294e8311686e31bcda7f634ec19de8c6b5dd9da78",
+    "signature_schemes": [
+      "v2",
+      "v3"
+    ],
+    "inspected_payload_unchanged": true,
+    "local_signing": true,
+    "private_key_uploaded": false,
+    "signing_tool_sha256": "8059d65197b43fd5e0b23ee16d2ca346bb19b70a0ab1243020aae55c08d17cdf",
+    "apksigner_jar_sha256": "00ef9948f843fe395d2440ae3ef41405b8040a6d5d46493bd1902ac0ee6deae7",
+    "domain_association": "blocked_http_400_pending_public_path_change",
+    "physical_device": "not_tested",
+    "compiled_app_to_website_association_verified": true,
+    "assetlinks_candidate_sha256": "901ee9cee7d35d8fe61d5669eac163bca768d3856f14ff5856982e05c4c73e67"
+  },
+  "build_provenance": {
+    "id": 34956647584,
+    "head_sha": "dfe5e3b1d5d77db1d9122dbb9af1e61fc92b55c9",
+    "workflow_id": 358622511,
+    "path": ".github/workflows/android.yml",
+    "event": "pull_request",
+    "run_attempt": 1,
+    "conclusion": "success",
+    "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/34956647584",
+    "artifact_id": 10391462472,
+    "artifact_digest": "sha256:cb56f9ffb5cb0957bf57f86ada3cc6f748bb215cdcae4717e72dba95dcffe8dc",
+    "artifact_name": "android-unsigned-dfe5e3b1d5d77db1d9122dbb9af1e61fc92b55c9",
+    "artifact_digest_verified": true
+  },
+  "github_download": {
+    "url": "https://github.com/HyungwonPark/ai-company/releases/download/android-v0.1.0/ai-company-0.1.0.apk",
+    "http_status": 200,
+    "authenticated": false,
+    "bytes": 3732083,
+    "sha256": "8ef9685be3ad98408c0e113bf6ed069d550f058b959d61a5dd9de989e8fd0553",
+    "matches_local_signed_apk": true
+  },
+  "apk_alignment": {
+    "uncompressed_entries_checked": 199,
+    "all_four_byte_aligned": true
+  },
+  "signing_key_protection": {
+    "outside_repository": true,
+    "directory_mode": "0700",
+    "secret_file_mode": "0600",
+    "distinct_from_couple_certificate": true,
+    "backup": "same_host_outside_repository",
+    "off_host_backup_verified": false
+  },
+  "current_status": {
+    "signed_apk_delivered": true,
+    "public_https_assetlinks_matches_actual_apk": true,
+    "google_dal_linked": true,
+    "wrong_certificate_linked": false,
+    "wrong_package_linked": false,
+    "physical_device": "not_tested",
+    "web_image_deployed": false,
+    "pr10_status": "pending"
+  },
+  "initial_public_domain_status": 400,
+  "public_domain_checks": [
+    {
+      "url": "https://hyungwon.cloud/.well-known/assetlinks.json",
+      "method": "GET",
+      "status": 200,
+      "content_type": "application/json",
+      "location": null,
+      "body_sha256": "9e404676d5604158828cb563eee10f1dea6987db432b3b8957907d3b20be29dc",
+      "matches_actual_apk_identity_and_certificate": true
+    },
+    {
+      "url": "https://hyungwon.cloud/.well-known/assetlinks.json",
+      "method": "HEAD",
+      "status": 200,
+      "content_type": "application/json",
+      "location": null,
+      "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "approval": {
+    "answer_verbatim": "인증서 연결 경로만 적용 승인",
+    "received_at": "2026-09-15T10:34:49.616505+00:00",
+    "scope": "hyungwon.cloud의 /.well-known/assetlinks.json 경로 추가와 Caddy graceful reload 1건"
+  },
+  "public_change": {
+    "applied_at": "2026-09-15T10:37:40.927651+00:00",
+    "public_change_applied": true,
+    "rolled_back": false,
+    "container_restart": false,
+    "web_image_deployment": false
+  },
+  "google_dal_checks": [
+    {
+      "name": "actual_apk",
+      "request": {
+        "source.web.site": "https://hyungwon.cloud",
+        "relation": "delegate_permission/common.handle_all_urls",
+        "target.androidApp.packageName": "cloud.hyungwon.aicompany",
+        "target.androidApp.certificate.sha256Fingerprint": "E0:22:C4:1F:03:95:9B:51:54:C0:85:8C:22:F7:25:EF:49:D0:B1:F6:2F:DB:39:92:64:0F:30:86:E6:2E:98:79"
+      },
+      "http_status": 200,
+      "linked": true,
+      "expected_linked": true
+    },
+    {
+      "name": "wrong_certificate",
+      "request": {
+        "source.web.site": "https://hyungwon.cloud",
+        "relation": "delegate_permission/common.handle_all_urls",
+        "target.androidApp.packageName": "cloud.hyungwon.aicompany",
+        "target.androidApp.certificate.sha256Fingerprint": "F3:1D:EF:DA:93:2E:E5:BC:38:EE:59:48:CB:2F:D5:7F:0C:70:22:20:CD:BD:DC:7B:AA:D3:8F:DA:AA:CD:BC:F9"
+      },
+      "http_status": 200,
+      "linked": false,
+      "expected_linked": false
+    },
+    {
+      "name": "wrong_package",
+      "request": {
+        "source.web.site": "https://hyungwon.cloud",
+        "relation": "delegate_permission/common.handle_all_urls",
+        "target.androidApp.packageName": "life.talentaedward.app",
+        "target.androidApp.certificate.sha256Fingerprint": "E0:22:C4:1F:03:95:9B:51:54:C0:85:8C:22:F7:25:EF:49:D0:B1:F6:2F:DB:39:92:64:0F:30:86:E6:2E:98:79"
+      },
+      "http_status": 200,
+      "linked": false,
+      "expected_linked": false
+    }
+  ],
+  "preserved": {
+    "existing_service_identity_and_start_time": true,
+    "couple_home_and_assetlinks_response": true,
+    "unauthenticated_management_api_status": 401,
+    "cross_origin_write_status": 403,
+    "production_queue_writes": 0,
+    "production_timer_changes": 0,
+    "pr10_status": "pending"
+  },
+  "device_checks": {
+    "installation": "not_tested",
+    "cold_launch": "not_tested",
+    "login": "not_tested",
+    "back_navigation": "not_tested",
+    "light_black_theme": "not_tested",
+    "approval_screen": "not_tested",
+    "android_app_links": "not_tested",
+    "chrome_twa_validation": "not_tested"
+  }
+}

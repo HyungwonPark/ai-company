@@ -1,0 +1,14 @@
+# hyungwon.cloud 블록의 기존 reverse_proxy 한 줄을 아래 내용으로 교체합니다.
+# 2026-09-15 사용자 승인 후 이 내용만 공개 경로에 적용했습니다.
+    @android_assetlinks {
+        path /.well-known/assetlinks.json
+        method GET HEAD
+    }
+    handle @android_assetlinks {
+        header Content-Type "application/json"
+        header Cache-Control "public, max-age=300"
+        respond `[{"relation":["delegate_permission/common.handle_all_urls"],"target":{"namespace":"android_app","package_name":"cloud.hyungwon.aicompany","sha256_cert_fingerprints":["E0:22:C4:1F:03:95:9B:51:54:C0:85:8C:22:F7:25:EF:49:D0:B1:F6:2F:DB:39:92:64:0F:30:86:E6:2E:98:79"]}}]` 200
+    }
+    handle {
+        reverse_proxy 172.30.88.3:8766
+    }

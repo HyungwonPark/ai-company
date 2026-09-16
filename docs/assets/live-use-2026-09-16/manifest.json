@@ -1,0 +1,31 @@
+{
+  "source": "authenticated_browser_response_fixture",
+  "run": {
+    "conclusion": "success",
+    "event": "pull_request",
+    "head_branch": "feat/auto-pm-flow",
+    "head_sha": "51b911a68d8c6341a8a93ce90ec6b8a627ab2df5",
+    "id": 35035425544,
+    "path": ".github/workflows/console.yml",
+    "run_attempt": 1,
+    "workflow_id": 357711638
+  },
+  "artifact": {
+    "digest": "sha256:4bb9735e26e6baadeb8d33cf3f505b21db975c666c27455a2128ee0649af0473",
+    "id": 10423575097,
+    "name": "console-screenshots",
+    "workflow_run": {
+      "head_branch": "feat/auto-pm-flow",
+      "head_repository_id": 1367833163,
+      "head_sha": "51b911a68d8c6341a8a93ce90ec6b8a627ab2df5",
+      "id": 35035425544,
+      "repository_id": 1367833163
+    }
+  },
+  "files": {
+    "light-plan-reading.png": "7c8e924a77cc45a42fb2db98435f638903a55c46f3db3aed897a2b91d2c5503d",
+    "black-plan-reading.png": "119cdcd2ececea9ebc910bb5dbf187278679401f644f74401c3eb58a0e4413b4",
+    "light-project-report.png": "6bfea2fa77824568b6d62b77bb3264cae11bfad6a66564203e83505f9605877e",
+    "black-project-report.png": "0d48f2873a15c822a2d9a673a466877362f731df10db58b19f387b99149f80ee"
+  }
+}

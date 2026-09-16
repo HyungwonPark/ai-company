@@ -19,6 +19,7 @@ import time
 from typing import Callable
 from uuid import uuid4
 import shutil
+import copy
 
 
 @dataclass
@@ -28,6 +29,28 @@ class SessionOutcome:
     reset_at: float | None = None
     message: str = ""
     result: dict | None = None
+
+
+def codex_output_schema(schema: dict) -> dict:
+    """Codex's strict response format requires every declared property.
+
+    Pydantic defaults affect local validation, but must not make fields optional
+    on the provider wire. Preserve the caller's schema and nullable alternatives.
+    """
+    result = copy.deepcopy(schema)
+    def visit(node):
+        if isinstance(node, dict):
+            if node.get("type") == "object" and "properties" in node:
+                node["required"] = list(node["properties"])
+                node["additionalProperties"] = False
+            node.pop("default", None)
+            for value in node.values():
+                visit(value)
+        elif isinstance(node, list):
+            for value in node:
+                visit(value)
+    visit(result)
+    return result
 
 
 # Structured provider codes, not arbitrary strings found in command output.
@@ -128,6 +151,8 @@ def _read_outcome(provider: str, stdout_path: Path, session_id: str | None,
     mismatched = False
     reset: float | None = None
     invalid = False
+    claude_terminal = None
+    claude_terminal_count = 0
     with stdout_path.open(encoding="utf-8", errors="replace") as stream:
         while line := stream.readline(2_000_001):
             # Drain oversized lines in bounded chunks instead of loading them.
@@ -177,6 +202,8 @@ def _read_outcome(provider: str, stdout_path: Path, session_id: str | None,
                 elif kind == "error":
                     pending = _error_outcome(event.get("error", event), provider)
                 elif kind == "result":
+                    claude_terminal = event
+                    claude_terminal_count += 1
                     if event.get("permission_denials"):
                         terminal = SessionOutcome("permission", message="Claude reported permission denials")
                     elif event.get("stop_reason") == "model_context_window_exceeded":
@@ -220,6 +247,16 @@ def _read_outcome(provider: str, stdout_path: Path, session_id: str | None,
     if provider == "codex" and terminal is None and pending is not None and exit_code == 0:
         outcome = SessionOutcome("unknown", session_id=observed_session,
                                  message="Codex error event without a failed turn or unsuccessful exit")
+    # A failed turn can still incur cost. Keep the one session-bound native
+    # terminal fact without turning tool output, malformed input or a budget
+    # error into a successful stage report or a retryable quota event.
+    if (provider == "claude" and outcome.category != "success" and not invalid
+            and claude_terminal_count == 1 and observed_session is not None
+            and claude_terminal.get("session_id") == observed_session):
+        cost = claude_terminal.get("total_cost_usd")
+        if isinstance(cost, (int, float)) and not isinstance(cost, bool) and math.isfinite(cost) and cost >= 0:
+            outcome.result = {"total_cost_usd": cost, "native_terminal": {
+                key: claude_terminal.get(key) for key in ("type", "subtype", "session_id", "is_error")}}
     return outcome
 
 
@@ -331,7 +368,7 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
     if output_schema is not None:
         fd, schema_path = tempfile.mkstemp(prefix="schema-", suffix=".json", dir=output_dir)
         with os.fdopen(fd, "w") as schema_file:
-            json.dump(output_schema, schema_file)
+            json.dump(codex_output_schema(output_schema) if provider == "codex" else output_schema, schema_file)
     configuration_request = "configuration-" + uuid4().hex
     argv = [executable or provider]
     if provider == "codex":

@@ -1,0 +1,134 @@
+{
+  "recorded_at": "2026-09-15T12:27:55.248352+00:00",
+  "description_ko": "0.1.0 시작 종료를 실제 APK로 재현하고 0.1.1의 삭제 없는 업데이트·시작 경로를 검증함. 실기기 웹 사용 검증은 별도 대기.",
+  "apk": {
+    "package_id": "cloud.hyungwon.aicompany",
+    "version_name": "0.1.1",
+    "version_code": 2,
+    "launch_url": "https://hyungwon.cloud/",
+    "source_commit": "ad146ceca5ab9503cb7698acb79a278a94da4092",
+    "apk_sha256": "a48bb5642ab676203f56051fe8647c802a7dcbec4f6d78eaa8c351902088992c",
+    "apk_bytes": 3732083,
+    "certificate_sha256": "E0:22:C4:1F:03:95:9B:51:54:C0:85:8C:22:F7:25:EF:49:D0:B1:F6:2F:DB:39:92:64:0F:30:86:E6:2E:98:79",
+    "signature_schemes": [
+      "v2",
+      "v3"
+    ],
+    "inspected_payload_unchanged": true,
+    "private_key_uploaded": false
+  },
+  "apk_url": "https://github.com/HyungwonPark/ai-company/releases/download/android-v0.1.1/ai-company-0.1.1.apk",
+  "reproduction_010": {
+    "workflow_run_id": 34966397966,
+    "harness_commit": "72e165b0d728025cacf87c2edf8e198c125fba60",
+    "apk_sha256": "8ef9685be3ad98408c0e113bf6ed069d550f058b959d61a5dd9de989e8fd0553",
+    "installed": true,
+    "application_crashed": true,
+    "exception": "java.lang.IllegalArgumentException: Component class com.google.androidbrowserhelper.trusted.ManageDataLauncherActivity does not exist in cloud.hyungwon.aicompany"
+  },
+  "build": {
+    "id": 34967204782,
+    "head_sha": "ad146ceca5ab9503cb7698acb79a278a94da4092",
+    "workflow_id": 358622511,
+    "path": ".github/workflows/android.yml",
+    "event": "pull_request",
+    "run_attempt": 1,
+    "conclusion": "success",
+    "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/34967204782",
+    "artifact_id": 10395557160,
+    "artifact_name": "android-unsigned-ad146ceca5ab9503cb7698acb79a278a94da4092",
+    "artifact_digest": "sha256:16855cb755ee752ae70b6e385143221a790b1b569d3a28743a2c8c32e7d91c7d",
+    "artifact_digest_verified": true
+  },
+  "runtime_provenance": {
+    "id": 34967897825,
+    "head_sha": "fd84643ade0790833a1d62d2b4ddaf566fca0885",
+    "workflow_id": 358678729,
+    "path": ".github/workflows/android-runtime.yml",
+    "event": "workflow_dispatch",
+    "run_attempt": 1,
+    "conclusion": "success",
+    "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/34967897825",
+    "created_at": "2026-09-15T12:16:25Z",
+    "updated_at": "2026-09-15T12:19:20Z",
+    "artifact_id": 10395659081,
+    "artifact_name": "android-runtime-fd84643ade0790833a1d62d2b4ddaf566fca0885",
+    "artifact_digest": "sha256:ca96432b740d2079d1ff71854893d860a0c84cf9505df0c902e3d246ca2a872d",
+    "artifact_digest_verified": true
+  },
+  "runtime": {
+    "apk": "ai-company-0.1.1.apk",
+    "apk_sha256": "a48bb5642ab676203f56051fe8647c802a7dcbec4f6d78eaa8c351902088992c",
+    "device_kind": "Android emulator",
+    "physical_device": false,
+    "login_attempted": false,
+    "approval_submitted": false,
+    "android_sdk": "36",
+    "chrome_installed": true,
+    "chrome_version": "133.0.6943.137",
+    "previous_apk_sha256": "8ef9685be3ad98408c0e113bf6ed069d550f058b959d61a5dd9de989e8fd0553",
+    "installed": true,
+    "upgrade_over_010_without_uninstall": true,
+    "application_crashed": false,
+    "chrome_activity_observed": true,
+    "launch_passed": true,
+    "repeat_launches": [
+      {
+        "android_night_mode": "no",
+        "crashed": false,
+        "chrome_resumed": true
+      },
+      {
+        "android_night_mode": "yes",
+        "crashed": false,
+        "chrome_resumed": true
+      }
+    ]
+  },
+  "runtime_observation": {
+    "foreground_activity": "com.android.chrome/org.chromium.chrome.browser.firstrun.FirstRunActivity",
+    "screenshot_content": "Chrome first-run loading screen",
+    "website_login_screen_observed": false,
+    "scope": "Native startup crash regression, upgrade without uninstall, repeated launch; not end-to-end web verification"
+  },
+  "download_and_domain": {
+    "checked_at": "2026-09-15T12:17:22.565188+00:00",
+    "apk_url": "https://github.com/HyungwonPark/ai-company/releases/download/android-v0.1.1/ai-company-0.1.1.apk",
+    "apk_sha256": "a48bb5642ab676203f56051fe8647c802a7dcbec4f6d78eaa8c351902088992c",
+    "anonymous_download_verified": true,
+    "live_https_assetlinks_matches_actual_apk": true,
+    "package_id": "cloud.hyungwon.aicompany",
+    "certificate_sha256": "E0:22:C4:1F:03:95:9B:51:54:C0:85:8C:22:F7:25:EF:49:D0:B1:F6:2F:DB:39:92:64:0F:30:86:E6:2E:98:79"
+  },
+  "regression_tests": {
+    "compiled_manifest_checks": 9,
+    "python_311_312_ci": "passed",
+    "ui_ci": "passed",
+    "public_https_ci": "passed"
+  },
+  "physical_device": {
+    "version_010": "user_reported_immediate_exit",
+    "version_011": "awaiting_user_retest",
+    "exact_model_and_android_version": "not_provided"
+  },
+  "not_verified": [
+    "latest_chrome_runtime",
+    "minimum_android_8_runtime",
+    "physical_011_install_and_launch",
+    "app_website_login",
+    "app_back_navigation",
+    "web_light_black_theme",
+    "approval_screen_in_app"
+  ],
+  "preserved": {
+    "same_app_id_and_signing_key": true,
+    "private_key_uploaded": false,
+    "caddy_configuration_unchanged_for_011": true,
+    "web_deployment_performed": false,
+    "existing_services_respond": true,
+    "operating_quota_timer_active": true,
+    "operating_queue_modified": false,
+    "pr10_candidate_approval": "pending",
+    "merge_performed": false
+  }
+}

@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "status": "applied",
+  "source_commit": "559474405885fda7995fb97075cf647f7cae8921",
+  "authorization": {
+    "source": "explicit user message",
+    "observed_at": "2026-09-16T06:38:07.621560+00:00",
+    "proposal_sha256": "1ddcb29d35e613e233fa5bb9d68d0b2c4d303dae007467f4383cab67ea919c7d",
+    "merge_authorized": false,
+    "future_ui_deployment_authorized": false,
+    "master_confirmation_delegated": false
+  },
+  "web": {
+    "status": "PASS",
+    "https_assets_matched": 27,
+    "login_method": "password",
+    "anonymous_api_rejected": true,
+    "untrusted_origin_rejected": true,
+    "untrusted_host_rejected": true,
+    "assetlinks_unchanged": true,
+    "couple_https": 200,
+    "user_password_login_performed": false,
+    "authenticated_csrf_test": "covered_by_candidate_regression; no user session used in production",
+    "public_api_port_exposed": false,
+    "image": "sha256:399e353b856c71b234c2bd984d9092cfddb789dd1ea6077c4ae84c38da9cc55e"
+  },
+  "workers": {
+    "automation": {
+      "pid": 2336705,
+      "active": true,
+      "restarts": 0,
+      "actual_release": "/home/edward/ai-company/releases/control-plane-5594744",
+      "dedicated_socat_env_matches": true,
+      "configuration_digest": "2f925f653446f89b1b0d717f9a42e0d99a9df4660c90283a4cd2ba66a6d66415",
+      "heartbeat_fresh": true
+    },
+    "translation": {
+      "pid": 2336706,
+      "active": true,
+      "restarts": 0,
+      "actual_release": "/home/edward/ai-company/releases/control-plane-5594744",
+      "dedicated_socat_env_matches": true,
+      "configuration_digest": "82a45750669c8c055a72b95948d41d7f68627f04b40ca678f00dfd8e065cb90f",
+      "heartbeat_fresh": true
+    },
+    "status": "PASS",
+    "neighbors_preserved": true,
+    "timer_preserved": true,
+    "all_original_tables_unchanged_before_repair": true
+  },
+  "translation": {
+    "recorded_at": "2026-09-16T06:50:14.606689+00:00",
+    "jobs": [
+      {
+        "id": "feea3b1c1f114de08bc8e501928d949d",
+        "original_failed_job_id": "56d9b0afeed2429589ad4ab8af785fa5",
+        "action": "bounded_retry",
+        "status": "completed",
+        "new_model_calls": 1,
+        "attempts_including_original": 2,
+        "max_attempts": 2,
+        "original_preserved": true,
+        "source_digest_preserved": true,
+        "termination": "new_process_stopped",
+        "resume_at": null,
+        "reason": null,
+        "new_cost_usd": 0.008631,
+        "semantic_validation": "not_independently_verified"
+      },
+      {
+        "id": "ef208cfc6a2e4f3ab093c53d7d8ca4d9",
+        "original_failed_job_id": "ea7d58aa8f5b480aa4b40fc8173c4f09",
+        "action": "bounded_retry",
+        "status": "completed",
+        "new_model_calls": 1,
+        "attempts_including_original": 2,
+        "max_attempts": 2,
+        "original_preserved": true,
+        "source_digest_preserved": true,
+        "termination": "new_process_stopped",
+        "resume_at": null,
+        "reason": null,
+        "new_cost_usd": 0.008699,
+        "semantic_validation": "not_independently_verified"
+      },
+      {
+        "id": "40ceb1f71da649fd9cf909fd4891bad9",
+        "original_failed_job_id": "883af6124cf4432f8bbc227d6e3e9a83",
+        "action": "bounded_retry",
+        "status": "failed",
+        "new_model_calls": 1,
+        "attempts_including_original": 2,
+        "max_attempts": 2,
+        "original_preserved": true,
+        "source_digest_preserved": true,
+        "termination": "new_process_stopped",
+        "resume_at": null,
+        "reason": "negation, condition, exception, or limit marker missing",
+        "new_cost_usd": 0.010818000000000001,
+        "semantic_validation": "not_independently_verified"
+      },
+      {
+        "id": "1a381d1e9def4e32bbaec70331406e3d",
+        "original_failed_job_id": "47a8071bec474c309da5080295902408",
+        "action": "bounded_retry",
+        "status": "failed",
+        "new_model_calls": 1,
+        "attempts_including_original": 2,
+        "max_attempts": 2,
+        "original_preserved": true,
+        "source_digest_preserved": true,
+        "termination": "new_process_stopped",
+        "resume_at": null,
+        "reason": "negation, condition, exception, or limit marker missing",
+        "new_cost_usd": 0.010853,
+        "semantic_validation": "not_independently_verified"
+      },
+      {
+        "id": "5d123aeed7cd45e8aba193721d7ec505",
+        "original_failed_job_id": "b0643a945c7d43bdaa93a541e00a1247",
+        "action": "replay",
+        "status": "completed",
+        "new_model_calls": 0,
+        "attempts_including_original": 1,
+        "max_attempts": 2,
+        "original_preserved": true,
+        "source_digest_preserved": true,
+        "termination": "no_new_process_original_termination_confirmed",
+        "resume_at": null,
+        "reason": null,
+        "new_cost_usd": 0,
+        "semantic_validation": "not_independently_verified"
+      },
+      {
+        "id": "f09fe47cecd7467da1d26ca1e19af977",
+        "original_failed_job_id": "ba6e336df36b489d9c6284ada048fc50",
+        "action": "replay",
+        "status": "completed",
+        "new_model_calls": 0,
+        "attempts_including_original": 1,
+        "max_attempts": 2,
+        "original_preserved": true,
+        "source_digest_preserved": true,
+        "termination": "no_new_process_original_termination_confirmed",
+        "resume_at": null,
+        "reason": null,
+        "new_cost_usd": 0,
+        "semantic_validation": "not_independently_verified"
+      }
+    ],
+    "new_model_calls": 4,
+    "new_cost_usd": 0.039001,
+    "replay_completed": 2,
+    "retry_completed": 2,
+    "retry_failed": 2,
+    "original_failed_records": 6,
+    "original_failed_records_unchanged": true,
+    "database_changes": {
+      "management_events": {
+        "before": 375,
+        "after": 397,
+        "removed_or_replaced": 0,
+        "added_or_replaced": 22
+      },
+      "translation_jobs": {
+        "before": 20,
+        "after": 26,
+        "removed_or_replaced": 0,
+        "added_or_replaced": 6
+      },
+      "translation_links": {
+        "before": 20,
+        "after": 20,
+        "removed_or_replaced": 6,
+        "added_or_replaced": 6
+      }
+    },
+    "all_other_tables_unchanged": true,
+    "pr10_pending": true,
+    "automatic_extra_retry_scheduled": false,
+    "remaining_failure_analysis": "Korean negation form 아닙니다 and pending term 미결 are not covered by the current guard; no whole-document semantic PASS claimed"
+  },
+  "original_c2b3fec_rollout_performed": false,
+  "candidate_rollout_count": 1,
+  "host_policy_changed": false,
+  "domain_or_caddy_changed": false,
+  "apk_or_signing_key_changed": false,
+  "master_ui_goal_created": false,
+  "master_ui_confirmation_performed": false,
+  "external_backup_transferred": false,
+  "external_backup_restored": false
+}

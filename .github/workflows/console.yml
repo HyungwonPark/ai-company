@@ -23,7 +23,15 @@ jobs:
       - name: Prepare browser test tooling
         run: |
           node --check src/ai_company/web/app.js
+          node --check src/ai_company/web/theme.js
           node --check src/ai_company/web/sw.js
+          node --check src/ai_company/web/collaboration-ui.js
+          node --check src/ai_company/web/documents-ui.js
+          node --check src/ai_company/web/plan-ui.js
+          node --check src/ai_company/web/report-ui.js
+          node --check src/ai_company/web/manager-ui.js
+          node tests/ui/state_checks.mjs
+          node tests/ui/manager_checks.mjs
           npm install --prefix "$RUNNER_TEMP/ui-tooling" --no-audit --no-fund @playwright/test@1.63.0
           google-chrome --version
       - name: Prepare Korean fonts without system installation
@@ -43,6 +51,13 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
           UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
         run: uv run --frozen python tests/ui/run_smoke.py
+      - name: Test PR12 independent browser failure scenarios
+        if: always()
+        env:
+          CHROME_CHANNEL: chrome
+          NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
+          UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
+        run: node tests/ui/pr12_regressions.cjs
       - name: Save nonsecret screenshots
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

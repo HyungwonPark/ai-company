@@ -1,0 +1,50 @@
+{
+  "source_commit": "28404b2885a215ccff15df23d36550b7c67c83bb",
+  "approved_document_commit": "f42040eb7d68aa64b7b0f74f855b2e250d07faea",
+  "approval": "explicit user reply: 후속 웹 후보 적용 승인",
+  "approval_observed_at": "2026-09-16T07:33:07.094933+00:00",
+  "completed_at": "2026-09-16T07:33:42.106324+00:00",
+  "result": {
+    "status": "PASS",
+    "source_commit": "28404b2885a215ccff15df23d36550b7c67c83bb",
+    "image": "sha256:c10c4b99128627552b4a24f2289a44c99d849de1305be3975a539511cc04b33f",
+    "https_assets_verified": 27,
+    "password_login_mode": true,
+    "anonymous_api_rejected": true,
+    "wrong_origin_rejected": true,
+    "wrong_host_rejected": true,
+    "database_old_tables_unchanged": 27,
+    "added_tables": [
+      "management_project_creations"
+    ],
+    "workers_and_neighbors_unchanged": true,
+    "runtime_configuration_unchanged": true,
+    "assetlinks_unchanged": true,
+    "pr10_approval": "pending",
+    "user_password_login_performed": false,
+    "user_project_or_confirmation_created": false,
+    "model_calls": 0,
+    "database_rollback": false
+  },
+  "workers": {
+    "automation": {
+      "MainPID": "2336705",
+      "NRestarts": "0",
+      "ActiveState": "active",
+      "release": "/home/edward/ai-company/releases/control-plane-5594744"
+    },
+    "translation": {
+      "MainPID": "2336706",
+      "NRestarts": "0",
+      "ActiveState": "active",
+      "release": "/home/edward/ai-company/releases/control-plane-5594744"
+    }
+  },
+  "source_archive_sha256": "a3ad1cf9549a64cecaabae6d453c678995958d51497c1b1826399d0c1fa591d8",
+  "old_compose_sha256": "5da1d290175b157a4a3966342b556b9be998c6eb2b4428eb562144632cd8f2a9",
+  "applied_compose_sha256": "ef8c56dd878f51706622e01cee66180f5b80002a41cd7a0ed86850830fe28522",
+  "rollback_image": "sha256:399e353b856c71b234c2bd984d9092cfddb789dd1ea6077c4ae84c38da9cc55e",
+  "quota_timer_active": true,
+  "merge_performed": false,
+  "backup_restore_performed": false
+}

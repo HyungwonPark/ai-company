@@ -1,0 +1,89 @@
+name: Android runtime
+on:
+  pull_request:
+    paths: ['android/**', '.github/workflows/android-runtime.yml']
+  workflow_dispatch:
+    inputs:
+      apk_tag:
+        description: Signed APK release to test
+        required: true
+        default: android-v0.1.1
+      expected_sha256:
+        description: SHA-256 of the locally verified signed APK
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  launch:
+    # A signed APK is checked explicitly after local signing; PR builds are unsigned.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      APK_TAG: ${{ inputs.apk_tag }}
+      EXPECTED_APK_SHA256: ${{ inputs.expected_sha256 }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Download the actual signed release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/android-runtime"
+          gh release download "$APK_TAG" --repo "$GITHUB_REPOSITORY" --pattern 'ai-company-*.apk' --pattern SHA256SUMS --dir "$RUNNER_TEMP/android-runtime"
+          cd "$RUNNER_TEMP/android-runtime"
+          sha256sum --check SHA256SUMS
+          python3 -c 'import hashlib,os,pathlib,re; expected=os.environ["EXPECTED_APK_SHA256"]; assert re.fullmatch("[0-9a-f]{64}",expected); apks=list(pathlib.Path(".").glob("ai-company-*.apk")); assert len(apks)==1 and hashlib.sha256(apks[0].read_bytes()).hexdigest()==expected'
+          if [ "$APK_TAG" != 'android-v0.1.0' ]; then
+            mkdir previous
+            gh release download android-v0.1.0 --repo "$GITHUB_REPOSITORY" --pattern 'ai-company-0.1.0.apk' --pattern SHA256SUMS --dir previous
+            (cd previous && sha256sum --check SHA256SUMS)
+          fi
+      - name: Prepare an Android 36 device with Chrome
+        run: |
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/ai-company-avd"
+          export ANDROID_USER_HOME="$RUNNER_TEMP/ai-company-android-user"
+          export ANDROID_EMULATOR_HOME="$ANDROID_USER_HOME"
+          export ADB_VENDOR_KEYS="$ANDROID_USER_HOME/adbkey"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_USER_HOME=$ANDROID_USER_HOME" >> "$GITHUB_ENV"
+          echo "ANDROID_EMULATOR_HOME=$ANDROID_EMULATOR_HOME" >> "$GITHUB_ENV"
+          echo "ADB_VENDOR_KEYS=$ADB_VENDOR_KEYS" >> "$GITHUB_ENV"
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'emulator' 'system-images;android-36;google_apis_playstore;x86_64' > "$RUNNER_TEMP/android-runtime/sdk-install.log"
+          mkdir -p "$ANDROID_AVD_HOME"
+          umask 077
+          mkdir -p "$ANDROID_USER_HOME"
+          "$ANDROID_HOME/platform-tools/adb" keygen "$ADB_VENDOR_KEYS"
+          printf 'no\n' | "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" create avd --force --name ai-company-runtime --package 'system-images;android-36;google_apis_playstore;x86_64' --device pixel_6
+          test -f "$ANDROID_AVD_HOME/ai-company-runtime.ini"
+          id
+          ls -l /dev/kvm
+          # Use the existing device group for this emulator process only. Do not
+          # change /dev/kvm permissions, udev rules, or persistent group membership.
+          sudo -n setpriv --reuid "$(id -u)" --regid kvm --init-groups --reset-env --no-new-privs "$ANDROID_HOME/emulator/emulator" -accel-check
+      - name: Install and launch the real signed APK
+        run: |
+          adb start-server
+          sudo -n setpriv --reuid "$(id -u)" --regid kvm --init-groups --reset-env --no-new-privs /usr/bin/env ANDROID_AVD_HOME="$ANDROID_AVD_HOME" ANDROID_USER_HOME="$ANDROID_USER_HOME" ANDROID_EMULATOR_HOME="$ANDROID_EMULATOR_HOME" ADB_VENDOR_KEYS="$ADB_VENDOR_KEYS" ANDROID_HOME="$ANDROID_HOME" "$ANDROID_HOME/emulator/emulator" -avd ai-company-runtime -no-window -noaudio -no-boot-anim -no-snapshot -no-metrics -gpu swiftshader > "$RUNNER_TEMP/android-runtime/emulator.log" 2>&1 &
+          EMULATOR_PID=$!
+          trap 'adb emu kill >/dev/null 2>&1 || true; kill "$EMULATOR_PID" 2>/dev/null || true' EXIT
+          python3 android/runtime_smoke.py --directory "$RUNNER_TEMP/android-runtime" --emulator-pid "$EMULATOR_PID"
+      - name: Preserve Android runtime evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: android-runtime-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            ${{ runner.temp }}/android-runtime/*.json
+            ${{ runner.temp }}/android-runtime/*.txt
+            ${{ runner.temp }}/android-runtime/*.log
+            ${{ runner.temp }}/android-runtime/*.png
+          if-no-files-found: error
+          retention-days: 14
