@@ -1,8 +1,12 @@
 /* Read-only overview. No inferred completion, translated authority, or write calls. */
 const roleNames = {implementation:'개발',developer:'개발',tests:'테스트',test:'테스트',api:'서버 개발',web:'화면 개발',reviewer:'독립 검수',final_reviewer:'최종 검수'};
+export function executionReferenceMatches(project,record) {
+  const current=project?.execution_spec,reference=record?.execution_spec;
+  return !current&&!reference||Boolean(current&&reference&&['version','digest','catalog_id','catalog_digest'].every(key=>current[key]===reference[key]));
+}
 export function managerSnapshot(overview) {
   const {project={}, plans=[], pm_requests:requests=[], runs=[]} = overview;
-  const current = plans.filter(plan => plan.status !== 'stale' && (project.request_revision == null || plan.request_revision === project.request_revision));
+  const current = plans.filter(plan => plan.status !== 'stale' && executionReferenceMatches(project,plan) && (project.request_revision == null || plan.request_revision === project.request_revision));
   const plan = current.at(-1);
   const request = requests.filter(item => project.request_revision == null || item.request_revision === project.request_revision).at(-1);
   const run = plan ? runs.filter(item => item.plan_id === plan.id && item.plan_digest === plan.digest).at(-1) : undefined;
@@ -58,9 +62,11 @@ export function createManagerUI({esc,badge,label,stamp,documents,planContent}) {
     const candidate=run?.integration?.candidate_sha||run?.candidate_sha;
     const candidatePending=Boolean(run?.state==='awaiting_approval'&&candidate&&run.approval_id&&pending.some(item=>item.id===run.approval_id&&item.artifact_sha===candidate));
     const href=view=>`#${view}?project=${encodeURIComponent(project.id)}`;
-    const canReview=plan?.status==='proposed';
+    const needsSpec=Boolean(plan?.content?.execution_spec_proposal);
+    const needsFreshPlan=Boolean(project.execution_spec&&!plan&&!executionReferenceMatches(project,request));
+    const canReview=plan?.status==='proposed'&&!needsSpec;
     const received=Boolean(messages.some(message=>message.role==='user')||request||plan);
-    const status=candidatePending?'내 확인 필요':run?(run.state==='pending'?'실행 준비':label(run.state)):canReview?'계획 확인 필요':plan?.status==='confirmed'?'실행 준비':request?({pending:'PM 접수 완료',running:'PM 답변 작성 중',completed:'PM 답변 도착',blocked:'문제 발생',waiting_quota:'사용량 회복 대기',waiting_retry:'자동 재시도 대기',waiting_capacity:'담당 배정 대기',waiting_dependencies:'앞 작업 대기',waiting_dependency:'앞 작업 대기',waiting_role_repair:'수정 작업 대기',reconciliation_required:'상태 확인 필요',needs_context_handoff:'인수인계 확인 필요'}[requestState]||label(requestState)):'PM과 시작';
+    const status=candidatePending?'내 확인 필요':run?(run.state==='pending'?'실행 준비':label(run.state)):needsFreshPlan?'새 계획 필요':needsSpec?'실행 범위 검토':canReview?'계획 확인 필요':plan?.status==='confirmed'?'실행 준비':request?({pending:'PM 접수 완료',running:'PM 답변 작성 중',completed:'PM 답변 도착',blocked:'문제 발생',waiting_quota:'사용량 회복 대기',waiting_retry:'자동 재시도 대기',waiting_capacity:'담당 배정 대기',waiting_dependencies:'앞 작업 대기',waiting_dependency:'앞 작업 대기',waiting_role_repair:'수정 작업 대기',reconciliation_required:'상태 확인 필요',needs_context_handoff:'인수인계 확인 필요'}[requestState]||label(requestState)):'PM과 시작';
     const summary=preview(plan?documents.text(`plan:${plan.id}`,'summary',plan.content?.summary):documents.text(`project:${project.id}`,'goal',project.goal));
     const config=workers.automation?.configuration;
     const pm=request?.requested_configuration||config?.agents?.find(agent=>agent.roles?.includes('pm'))||overview.readiness?.pm_requested;
@@ -82,12 +88,12 @@ export function createManagerUI({esc,badge,label,stamp,documents,planContent}) {
     const runProblem=run&&['blocked','failed','stopped','reconciliation_required'].includes(String(run.state).toLowerCase());
     const waiting=run?.wait_reason||run?.reason||requestDisplay.reason;
     const resumeAt=run?.resume_at??requestDisplay.resumeAt;
-    const nextText=candidatePending?'이 실행의 결과 승인 요청을 확인하세요. 수용 여부는 별도로 결정합니다.':runProblem?'실행에 문제가 생겼습니다. 원인과 재개 조건을 확인하세요.':canReview?'확정 전에는 이 계획의 작업을 시작하지 않습니다.':run?'확정한 계획의 실제 작업과 검수 결과를 확인하세요.':plan?.status==='confirmed'?'계획 확정은 저장됐습니다. 조정기가 실행을 준비합니다.':requestProblem?'PM이 계획을 준비하지 못했습니다. 요청 근거를 확인하고 대화에서 범위를 조정하세요.':request&&!['completed','stale'].includes(request.state)?'PM 요청은 저장됐습니다. 답변이 도착하면 팀과 계획을 확인하세요.':!plan&&displayPlan?'팀을 조정하는 중입니다. 최신 PM 답변이 도착한 뒤 새 계획을 확정할 수 있습니다.':'목표와 원하는 역할을 PM에게 이야기하세요.';
+    const nextText=candidatePending?'이 실행의 결과 승인 요청을 확인하세요. 수용 여부는 별도로 결정합니다.':runProblem?'실행에 문제가 생겼습니다. 원인과 재개 조건을 확인하세요.':needsFreshPlan?'실행 명세가 바뀌었습니다. 새 범위로 PM 계획을 다시 요청하세요.':needsSpec?'실행 명세를 먼저 저장한 뒤 새 계획을 받아주세요. 아직 개발을 시작하지 않습니다.':canReview?'확정 전에는 이 계획의 작업을 시작하지 않습니다.':run?'확정한 계획의 실제 작업과 검수 결과를 확인하세요.':plan?.status==='confirmed'?'계획 확정은 저장됐습니다. 조정기가 실행을 준비합니다.':requestProblem?'PM이 계획을 준비하지 못했습니다. 요청 근거를 확인하고 대화에서 범위를 조정하세요.':request&&!['completed','stale'].includes(request.state)?'PM 요청은 저장됐습니다. 답변이 도착하면 팀과 계획을 확인하세요.':!plan&&displayPlan?'팀을 조정하는 중입니다. 최신 PM 답변이 도착한 뒤 새 계획을 확정할 수 있습니다.':'목표와 원하는 역할을 PM에게 이야기하세요.';
     const runTaskIds=new Set([run?.integration?.task_id,...(run?.task_ids||[]),...Object.values(run?.roles||{}).map(role=>role.task_id).filter(Boolean)]);
     const actualTasks=(overview.tasks||[]).filter(task=>runTaskIds.has(task.id)||task.run_id===run?.id&&Boolean(run?.id));
     const runningTasks=actualTasks.filter(task=>['RUNNING','ACTIVE'].includes(task.status)).length;
     const placement=!run?(independent>1?`독립 역할 ${independent}개 · 병렬 배치 예정`:'선행 작업에 따라 배치 예정'):actualTasks.length?`${runningTasks}개 작업 진행 중 · 실행 기록 기준`:'실행 준비 · 작업 기록 대기';
-    const action=candidatePending?`<a class="manager-primary-link" href="${href('approvals')}">승인 요청 확인 ${workspaceIcon('arrow')}</a>`:canReview?`<button class="primary" data-action="review-plan" data-id="${esc(plan.id)}" ${!connected||!plan.digest||project.source==='fixture'?'disabled':''}>계획 검토·확정 ${workspaceIcon('arrow')}</button>`:run?`<a class="manager-primary-link" href="${href('progress')}">작업 진행 보기 ${workspaceIcon('arrow')}</a>`:`<button data-action="focus-message">${received?'PM과 대화':'대화 시작'} ${workspaceIcon('arrow')}</button>`;
+    const action=candidatePending?`<a class="manager-primary-link" href="${href('approvals')}">승인 요청 확인 ${workspaceIcon('arrow')}</a>`:needsFreshPlan?`<a class="manager-primary-link" href="${href('project')}">새 계획 요청 ${workspaceIcon('arrow')}</a>`:needsSpec?`<a class="manager-primary-link" href="${href('project')}">실행 범위 확인 ${workspaceIcon('arrow')}</a>`:canReview?`<button class="primary" data-action="review-plan" data-id="${esc(plan.id)}" ${!connected||!plan.digest||project.source==='fixture'?'disabled':''}>계획 검토·확정 ${workspaceIcon('arrow')}</button>`:run?`<a class="manager-primary-link" href="${href('progress')}">작업 진행 보기 ${workspaceIcon('arrow')}</a>`:`<button data-action="focus-message">${received?'PM과 대화':'대화 시작'} ${workspaceIcon('arrow')}</button>`;
     const conversation=messages.slice(-2).map(message=>{
       const content=documents.text(`message:${message.id}`,'content',message.content), text=korean(content);
       return `<article class="discussion-message ${message.role==='user'?'from-master':'from-pm'}"><header><strong>${message.role==='user'?'나':message.role==='assistant'?'PM':'안내'}</strong><time>${stamp(message.created_at)}</time>${message.status==='stale'?badge('stale'):''}</header>${text?`<p>${esc(text.length<=260?text:text.slice(0,240)+'…')}</p>`:`<p class="muted">${message.role==='assistant'?(message.status==='blocked'?'PM이 추가 확인을 요청했습니다. 전문에서 원문을 확인하세요.':'계획이 도착했습니다. 팀과 완료 조건을 확인하세요.'):'저장된 원문이 있습니다.'}</p>`}${!text||text.length>260?`<details data-persist-key="discussion:${esc(message.id)}"><summary>전문</summary><div class="discussion-source">${esc(content)}</div>${documents.meta(`message:${message.id}`)}</details>`:''}</article>`;

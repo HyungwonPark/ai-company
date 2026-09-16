@@ -162,6 +162,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await require('./recorded_translation.cjs')({page,fixtureId,output});
     await require('./manager.cjs')({page,fixtureId,output});
     await require('./plan_reading.cjs')({page,fixtureId,output,setHTTPFixture:value=>{expectedHTTPFailure=value;}});
+    await require('./execution_specs.cjs')({page,fixtureId,output,setHTTPFixture:value=>{expectedHTTPFailure=value;}});
 
     await page.locator('.nav').getByRole('link', {name:'매니저',exact:true}).click();
     const draft = '독립 작업은 계속 진행하고, PM 판단은 복귀 후 확인합니다.';
