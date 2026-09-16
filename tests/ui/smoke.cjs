@@ -180,7 +180,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.locator('.message-content').filter({hasText:draft}).waitFor();
     await page.getByLabel('PM에게 전달할 내용').fill('원래 프로젝트에 남는 초안');
 
-    await page.locator('.project-picker-links').getByRole('link',{name:'전체',exact:true}).click();
+    await page.locator('.project-picker-links').getByRole('link',{name:'전체 프로젝트',exact:true}).click();
     await page.getByRole('button',{name:'새 프로젝트'}).click();
     const projectName = `UI persistence ${Date.now()}`;
     await page.getByLabel('이름',{exact:true}).fill(projectName);
@@ -195,7 +195,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.equal(started.pm_requests[0].state,'pending');
     assert.equal(started.roles.length,0,'roles are proposed by PM, not required from the user');
     assert.equal(started.runs.length,0,'creating a project does not confirm or develop');
-    await page.locator('.project-picker-links').getByRole('link',{name:'설정',exact:true}).click();
+    await page.locator('.project-picker-links').getByRole('link',{name:'현재 프로젝트 설정',exact:true}).click();
     await page.locator('.project-advanced>summary').click();
     await page.getByLabel('하네스 초안').fill('UI 회귀 검증 초안\n허용 경로: 격리된 테스트 작업 공간\n운영 실행 금지');
     await page.getByRole('button',{name:'초안 저장',exact:true}).click();
@@ -313,7 +313,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.getByText('모의 예시 데이터',{exact:true}).waitFor();
     await page.setViewportSize({width:360,height:800});
     for(const [view, title] of [['progress','진행'],['manager','매니저'],['reports','보고서'],['approvals','승인'],['project','프로젝트']]) {
-      if(view==='project')await page.locator('.project-picker-links').getByRole('link',{name:'설정',exact:true}).click();
+      if(view==='project')await page.locator('.project-picker-links').getByRole('link',{name:'현재 프로젝트 설정',exact:true}).click();
       else await page.locator('.nav').getByRole('link',{name:view==='reports'?'기록':title,exact:true}).click();
       await page.waitForFunction(expected => location.hash.startsWith(`#${expected}?`), view);
       if(view!=='project')assert.equal(await page.locator('.nav a[aria-current=page]').getAttribute('href'),`#${view}?project=${fixtureId}`,'main navigation marks the active screen');
@@ -332,7 +332,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
       for(const [device,width,height] of [['desktop',1440,1000],['mobile',360,800]]) {
         await page.setViewportSize({width,height});
         for(const [view,title] of [['progress','진행'],['manager','매니저'],['reports','보고서'],['approvals','승인'],['project','프로젝트']]) {
-          if(view==='project')await page.locator('.project-picker-links').getByRole('link',{name:'설정',exact:true}).click();
+          if(view==='project')await page.locator('.project-picker-links').getByRole('link',{name:'현재 프로젝트 설정',exact:true}).click();
           else await page.locator('.nav').getByRole('link',{name:view==='reports'?'기록':title,exact:true}).click();
           assert.equal(await page.locator('html').getAttribute('data-theme'),theme,'theme survives render');
           assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${theme} ${view} fits ${width}px`);
