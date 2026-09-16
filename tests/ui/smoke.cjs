@@ -126,7 +126,13 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
       await page.locator('.role').first().getByText(text,{exact:true}).first().waitFor();
       await page.locator('.role').first().getByText('재확인 예약',{exact:false}).waitFor();
     }
-    await page.locator('.role').first().getByText('이관 1건',{exact:true}).waitFor();
+    await page.locator('.role').first().getByText('역할 유지 · 담당 이관 1건',{exact:true}).waitFor();
+    await page.locator('.role').first().locator('[data-collaboration-node]').click();
+    const handoffDetail=page.getByRole('complementary',{name:'선택한 협업 상세'});
+    await handoffDetail.getByText('이관 1건',{exact:true}).click();
+    for(const sourceFact of ['fixture-a','fixture-b','모의 제한 이관']){
+      assert.ok((await handoffDetail.locator('details[data-persist-key^="handoffs:"] .verification').innerText()).includes(sourceFact),'handoff detail preserves '+sourceFact);
+    }
     const delegated=page.locator('[data-run-id="fixture-new-validation"]');
     await delegated.getByText('위임받은 검증 클라이언트',{exact:true}).waitFor();
     await delegated.getByText('위임',{exact:true}).click();

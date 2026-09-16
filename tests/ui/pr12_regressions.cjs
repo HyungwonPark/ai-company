@@ -82,7 +82,12 @@ function overview(project) {
     catch(error){if(error.code==='ENOENT')return route.fulfill({status:404,body:''});throw error;}
   });
   async function navigate(hash){await page.goto(origin+'/'+hash);await page.locator('.nav').waitFor();}
-  async function noOverflow(label){assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,label);}
+  async function noOverflow(label){
+    const measurement=await page.evaluate(()=>({viewport:innerWidth,width:document.documentElement.scrollWidth,
+      overflowing:[...document.querySelectorAll('body *')].map(element=>({element:element.tagName+'.'+element.className,
+        right:element.getBoundingClientRect().right})).filter(item=>item.right>innerWidth+1).slice(0,6)}));
+    assert.ok(measurement.width<=measurement.viewport,label+' '+JSON.stringify(measurement));
+  }
   try {
     await navigate('');
     await page.getByRole('heading',{name:'프로젝트',exact:true}).waitFor();
@@ -172,16 +177,27 @@ function overview(project) {
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('#dialog').evaluate(element=>element.open),false);
     assert.equal(await create.evaluate(element=>element===document.activeElement),true,'closing the dialog restores the initiating keyboard focus');
+    const enlargementMeasurements=[];
     for(const theme of ['light','black']){
       await selectTheme(page,theme);
       await navigate('#projects');
+      // Navigating to the same hash may retain the current document. Explicitly
+      // reload so the second theme starts at 100%, not the previous 200%.
+      await page.reload();
+      await page.getByRole('heading',{name:'프로젝트',exact:true}).waitFor();
       // A text-only enlargement fixture: double computed text and line sizes
       // without reducing the CSS viewport or claiming a physical-device test.
-      await page.evaluate(()=>{
+      const enlarged=await page.evaluate(()=>{
+        const heading=document.querySelector('.page-heading h1');
+        const baseline=parseFloat(getComputedStyle(heading).fontSize);
         const elements=[...document.querySelectorAll('button,input,textarea,label,h1,h2,h3,p,a,strong,span,summary,small,time,dt,dd')];
         const sizes=elements.map(element=>{const s=getComputedStyle(element);return [element,parseFloat(s.fontSize),parseFloat(s.lineHeight)];});
         for(const [element,font,line] of sizes){element.style.fontSize=font*2+'px';if(Number.isFinite(line))element.style.lineHeight=line*2+'px';}
+        return {baseline,enlarged:parseFloat(getComputedStyle(heading).fontSize)};
       });
+      assert.equal(enlarged.enlarged,enlarged.baseline*2,'the text enlargement is exactly 200%');
+      if(enlargementMeasurements.length)assert.equal(enlarged.baseline,enlargementMeasurements[0].baseline,'each theme starts with the same original text size');
+      enlargementMeasurements.push({theme,...enlarged});
       await noOverflow(theme+' 320px text-only enlargement 200%');
       await page.screenshot({path:path.join(output,`${theme}-320-projects-text-200-fixture.png`),fullPage:true});
     }
@@ -197,7 +213,7 @@ function overview(project) {
     assert.match(await page.locator('#connection').innerText(),/마지막/);
     assert.equal(await page.getByLabel('PM에게 전달할 내용').inputValue(),'작은 화면에서도 전송 전 초안을 보존합니다.');
     assert.deepEqual(failures,[]);
-    await fs.writeFile(path.join(output,'result.json'),JSON.stringify({kind:'browser_response_fixture',cases:['projects','missing ID','creation retry','planned vs actual','two themes four widths','offline draft'],api_writes_intercepted:writes.length,real_api_writes:0,model_calls:0},null,2));
+    await fs.writeFile(path.join(output,'result.json'),JSON.stringify({kind:'browser_response_fixture',cases:['projects','missing ID','creation retry','planned vs actual','two themes four widths','offline draft'],enlargementMeasurements,api_writes_intercepted:writes.length,real_api_writes:0,model_calls:0},null,2));
     console.log('PASS PR12 independent browser fixtures; no real API writes or model calls');
   }catch(error){await page.screenshot({path:path.join(output,'failure.png'),fullPage:true}).catch(()=>{});throw error;}
   finally{await browser.close();}
