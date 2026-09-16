@@ -47,6 +47,8 @@ uv run --frozen ai-company demo --task examples/demo-task.json
 
 ## 프런트엔드 설계와 검수
 
+- PR #15 이후 작업실·역할 그래프·모델 연결·ECC·Archify 후속 작업은 `docs/product-experience/integrated-workspace-ecc-archify-2026-09-16.md`를 통합 명세로 읽는다. 완료된 A/B/C 시안을 재제작하지 않으며 최신 그래프·모델 세부 명세를 함께 따른다. 이 문서는 기존 실행·운영 승인 범위를 확대하지 않는다.
+
 - `src/ai_company/web/`의 화면·스타일·동작 또는 관련 UI 검수를 작업할 때 `.agents/skills/ai-company-frontend/SKILL.md`를 읽고 적용한다. 서버 로직만 수정하는 작업에는 적용하지 않는다.
 - 큰 화면 개편은 기존 B형 배치·카드·색상에 고정하지 않는다. 사용자 과제, 보존할 동작, 비교한 구조와 선택 이유를 먼저 기록한다. 작은 수정은 그 범위에 맞게 진행한다.
 - 첫 적용의 기준과 원본 참고 범위는 `docs/product-experience/frontend-redesign-2026-09-16.md`에 있다. 이전 PR #12의 기능·접근성 조건은 보존하되 특정 배치·토큰은 새로 비교할 수 있다.
