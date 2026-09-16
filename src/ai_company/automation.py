@@ -12,7 +12,7 @@ import time
 from ai_company.automation_contracts import AutomationConfig, PMPlanContent
 from ai_company.contracts import Task, digest
 from ai_company.dispatcher import Dispatcher
-from ai_company.flow_contracts import FlowSpec, RemoteCI
+from ai_company.flow_contracts import FlowSpec, ProjectBudget, RemoteCI
 from ai_company.flow_evidence import allowed
 from ai_company.management import ManagementError, ManagementStore
 from ai_company.runtime import ExecutionBlocked
@@ -22,14 +22,42 @@ from ai_company.storage import controller_lock
 
 class Automation:
     def __init__(self, root: Path, config: AutomationConfig, *, clock=time.time,
-                 git=None, dispatcher_factory=Dispatcher):
+                 git=None, dispatcher_factory=Dispatcher, execution_catalog=None,
+                 project_context=None):
         from ai_company.automation_git import AutomationGit
         self.root, self.config, self.clock = Path(root).resolve(), config, clock
         self.configuration_digest = digest(config)
-        self.store = ManagementStore(self.root, clock=clock)
+        self.execution_catalog = execution_catalog
+        self.project_context = project_context
+        self.store = ManagementStore(self.root, clock=clock, execution_catalog=execution_catalog)
         self.dispatcher_factory = dispatcher_factory
         self.dispatcher = dispatcher_factory(self.root, clock=clock)
-        self.git = git or AutomationGit(self.root / "automation-git", config)
+        git_root = self.root / "automation-git"
+        if project_context:
+            git_root = git_root / project_context[0] / digest(project_context[1])
+        self.git = git or AutomationGit(git_root, config)
+
+    def _context_config(self, record):
+        reference = record.get("execution_spec")
+        if reference:
+            return self.store.execution_config_for(record["project_id"], reference)
+        return self.config
+
+    def _coordinate(self, record, operation):
+        if operation == "_pm" and record["state"] in ("completed", "stale", "blocked"):
+            return
+        if operation == "_run" and record["state"] in ("blocked", "fixture_complete", "completed", "rejected", "awaiting_approval"):
+            return self._run(record)
+        if not record.get("execution_spec"):
+            return getattr(self, operation)(record)
+        config = self._context_config(record)
+        worker = Automation(self.root, config, clock=self.clock,
+            dispatcher_factory=self.dispatcher_factory, execution_catalog=self.execution_catalog,
+            project_context=(record["project_id"], record["execution_spec"]))
+        try:
+            return getattr(worker, operation)(record)
+        finally:
+            worker.close()
 
     def close(self):
         self.dispatcher.close()
@@ -45,7 +73,8 @@ class Automation:
             if len(rows) != 1:
                 raise ExecutionBlocked("delegation requires one exact stored plan digest")
             plan = json.loads(rows[0][0])
-            if plan["configuration_digest"] != self.configuration_digest or plan["mode"] != self.config.mode:
+            config = self._context_config(plan)
+            if plan["configuration_digest"] != digest(config) or plan["mode"] != config.mode:
                 raise ExecutionBlocked("delegation cannot change the confirmed execution configuration")
             return self.store.delegate_validation(plan["digest"], authorization)
 
@@ -72,6 +101,17 @@ class Automation:
         if scope == "planning":
             policy = policy.model_copy(update={"retry": policy.retry.model_copy(update={
                 "execution_timeout_seconds": min(self.config.pm_timeout_seconds, policy.retry.execution_timeout_seconds)})})
+        if self.project_context:
+            project_id, reference = self.project_context
+            plan = {**plan, "project_id": project_id, "execution_spec": reference}
+            extra["project_budget"] = ProjectBudget(scope_id=project_id, max_parallel=self.config.max_parallel, **{
+                key: getattr(self.config.policy, key) for key in
+                ("max_cost_usd", "max_runtime_seconds", "max_executions", "max_repairs")})
+            role_key = plan.get("role", {}).get("key")
+            selection = self.store.get_execution_spec(project_id, reference["version"])["selection"]
+            pool = selection.get("role_candidates", {}).get(role_key)
+            if pool:
+                policy = policy.model_copy(update={"candidates": {**policy.candidates, "developer": tuple(pool)}})
         return FlowSpec(task=task, worktree=str(clone), agents=self.config.agents,
                         policy=policy, checks=self.config.checks,
                         approved_plan=scope != "planning", plan={**plan, "automation_configuration": self.configuration_digest},
@@ -86,6 +126,8 @@ class Automation:
         if (digest(spec) != state["spec_digest"] or spec.mode != self.config.mode
                 or spec.plan.get("automation_configuration") != self.configuration_digest):
             raise ExecutionBlocked("existing automation execution belongs to another immutable configuration")
+        if self.project_context and (spec.plan.get("project_id"), spec.plan.get("execution_spec")) != self.project_context:
+            raise ExecutionBlocked("existing automation task belongs to another project specification")
         return state
 
     @staticmethod
@@ -97,8 +139,15 @@ class Automation:
                 "usage": state["usage"]}
 
     def _validate_plan(self, value):
+        from ai_company.execution_specs import path_subset
         plan = PMPlanContent.model_validate(value)
-        if any(not allowed(path.rstrip("/"), self.config.allowed_paths)
+        config = self.config
+        if plan.execution_spec_proposal is not None:
+            if self.execution_catalog is None or self.project_context:
+                raise ExecutionBlocked("execution proposal requires an unbound request and a trusted catalog")
+            config = self.execution_catalog.resolve(plan.execution_spec_proposal)
+        path_check = path_subset if self.execution_catalog is not None else allowed
+        if any(not path_check(path, config.allowed_paths)
                for role in plan.roles for path in role.allowed_paths):
             raise ExecutionBlocked("PM proposal exceeds server-authorized output paths")
         return plan
@@ -132,6 +181,7 @@ class Automation:
                               ["Propose a bounded plan for explicit master confirmation"],
                               self.config.base_sha, self.config.allowed_paths)
             context = {"goal": request["goal"], "master_message": request["content"],
+                       "project_id": request["project_id"],
                        "conversation_context": request.get("conversation_context", {}),
                        "authorized_paths": list(self.config.allowed_paths),
                        "required_checks": list(self.config.checks),
@@ -146,6 +196,13 @@ class Automation:
                        "Only explicit dependencies delay a role. Do not execute the plan. "
                        "Write user-facing summary, role names, responsibilities, goals and acceptance/completion criteria in Korean. "
                        "Use a short, concrete summary and concise role names. Preserve identifiers, paths, commands and all constraints exactly."}
+            if self.execution_catalog is not None and not self.project_context:
+                context["execution_catalog"] = self.execution_catalog.public_entries()
+                context["instruction"] += (
+                    " Propose execution_spec_proposal using one matching catalog_id and catalog_digest. "
+                    "Explain repository, scope, required checks, model candidates and budget in Korean. "
+                    "This is only a technical proposal. It must be separately saved by the master and then replanned; "
+                    "do not claim it is registered or approved. Never invent a catalog entry.")
             state = self.dispatcher.submit(self._spec(task, clone, "planning", context))
         request = self.store.save_pm_request({**request, "state": "running",
             "configuration_digest": self.configuration_digest, "mode": self.config.mode,
@@ -196,6 +253,7 @@ class Automation:
             clone = self.git.clone(task_id, base)
             task = self._task(task_id, role.goal, role.acceptance, base, role.allowed_paths)
             context = {"confirmed_plan": plan.model_dump(mode="json"), "role": role.model_dump(mode="json"),
+                       "project_id": run["project_id"],
                        "plan_digest": run["plan_digest"], "revision": revision,
                        "repair_findings": prior.get("repair_findings", []), "dependency_artifacts": dependencies}
             if run.get("delegation_id"):
@@ -243,6 +301,7 @@ class Automation:
             request = self.store.get_pm_request(self.store.get_plan(run["project_id"], run["plan_id"])["request_id"])
             pm_state = self.dispatcher.get(request["execution"]["task_id"])
             context = {"confirmed_plan": plan.model_dump(mode="json"), "plan_digest": run["plan_digest"],
+                       "project_id": run["project_id"],
                        "contribution_artifacts": contributions}
             if run.get("delegation_id"):
                 context["master_delegation"] = self._delegation(run)
@@ -305,8 +364,6 @@ class Automation:
     def _run(self, run):
         if run["state"] in ("blocked", "fixture_complete", "completed", "rejected"):
             return
-        if run["configuration_digest"] != self.configuration_digest or run["mode"] != self.config.mode:
-            return
         if run["state"] == "awaiting_approval":
             approval = self.store._approval(run["project_id"], run["approval_id"])
             if approval["status"] != "pending":
@@ -314,6 +371,8 @@ class Automation:
                                   "changes_requested": "blocked"}[approval["status"]],
                            reason="Master decision recorded; no deployment or merge executed")
                 self.store.save_run(run)
+            return
+        if run["configuration_digest"] != self.configuration_digest or run["mode"] != self.config.mode:
             return
         plan_record = self.store.get_plan(run["project_id"], run["plan_id"])
         if plan_record["digest"] != run["plan_digest"] or digest(self.store._plan_binding(plan_record)) != run["plan_digest"]:
@@ -339,14 +398,14 @@ class Automation:
         with controller_lock(self.root / "automation-coordinator", blocking=True):
             for request in self.store.pm_requests():
                 try:
-                    self._pm(request)
+                    self._coordinate(request, "_pm")
                 except (ExecutionBlocked, ManagementError, ValueError, OSError) as exc:
                     current = self.store.get_pm_request(request["request_id"])
                     if current["state"] not in ("completed", "stale"):
                         self.store.save_pm_request({**current, "state": "blocked", "reason": str(exc)})
             for run in self.store.run_records():
                 try:
-                    self._run(run)
+                    self._coordinate(run, "_run")
                 except (ExecutionBlocked, ManagementError, ValueError, OSError) as exc:
                     self.store.save_run({**self.store.get_run(run["id"]), "state": "blocked", "reason": str(exc)})
         return {"pm_requests": self.store.pm_requests(), "runs": self.store.run_records()}
@@ -355,11 +414,19 @@ class Automation:
         current = self.reconcile()
         allowed_tasks = set()
         for request in current["pm_requests"]:
-            if (request["state"] == "running" and request.get("configuration_digest") == self.configuration_digest
-                    and request.get("mode") == self.config.mode and request.get("execution")):
+            try:
+                config = self._context_config(request)
+            except (ValueError, ManagementError):
+                continue
+            if (request["state"] == "running" and request.get("configuration_digest") == digest(config)
+                    and request.get("mode") == config.mode and request.get("execution")):
                 allowed_tasks.add(request["execution"]["task_id"])
         for run in current["runs"]:
-            if (run["configuration_digest"] == self.configuration_digest and run["mode"] == self.config.mode
+            try:
+                config = self._context_config(run)
+            except (ValueError, ManagementError):
+                continue
+            if (run["configuration_digest"] == digest(config) and run["mode"] == config.mode
                     and run["state"] in ("pending", "preparing", "running", "waiting", "blocked")):
                 # An independently blocked role does not stop its already-created
                 # siblings. Terminal tasks themselves have no scheduled resume.

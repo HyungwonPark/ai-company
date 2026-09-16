@@ -84,6 +84,9 @@ class Verifier:
         for name, command in spec.checks.items():
             log = output_dir / (name + ".log")
             remaining = spec.policy.max_runtime_seconds - state["usage"]["runtime_seconds"] - (time.monotonic() - start)
+            reservation = state.get("project_reservation")
+            if reservation is not None:
+                remaining = min(remaining, reservation["runtime_seconds"] - (time.monotonic() - start))
             if remaining <= 0:
                 raise ExecutionBlocked("cumulative execution time exhausted before checks")
             unit = None

@@ -41,7 +41,7 @@ def read_token(path):
 class ManagementHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, address, root, token_file=None, *, password_login=False, web_root=None, public_origin=None, private_bind=False, clock=time.time):
+    def __init__(self, address, root, token_file=None, *, password_login=False, web_root=None, public_origin=None, private_bind=False, clock=time.time, execution_catalog=None):
         if bool(token_file) == bool(password_login):
             raise ValueError("Choose exactly one of token_file or password_login")
         parsed = None
@@ -67,6 +67,7 @@ class ManagementHTTPServer(ThreadingHTTPServer):
             if not private_bind or not any(interface in ipaddress.IPv4Network(n) for n in networks):
                 raise ValueError("Management server requires loopback or an explicitly permitted RFC1918 interface")
         self.root = Path(root).resolve()
+        self.execution_catalog = execution_catalog
         self.password_login = password_login
         self.login_token = read_token(token_file) if token_file else None
         self.web_root = Path(web_root).resolve() if web_root else None
@@ -235,7 +236,7 @@ class ManagementHandler(BaseHTTPRequestHandler):
             if not path.startswith("/api/") and not write:
                 self._static(path)
                 return
-            store = ManagementStore(self.server.root, clock=self.server.clock)
+            store = ManagementStore(self.server.root, clock=self.server.clock, execution_catalog=self.server.execution_catalog)
             session = self._session(store)
             if path == "/api/session" and not write:
                 result = (password_auth.public_session(session) if self.server.password_login else
@@ -263,6 +264,19 @@ class ManagementHandler(BaseHTTPRequestHandler):
                 return
             if session.get("password_change_required"):
                 raise ManagementError("password_change_required", "Change the temporary password before using the workspace", 403)
+            if path == '/api/execution-catalog':
+                if write:
+                    raise ManagementError('method_not_allowed', 'Catalog is installed only by a trusted local operator', 405)
+                entries = self.server.execution_catalog.public_entries() if self.server.execution_catalog is not None else []
+                self._json(200, {'entries': entries})
+                return
+            execution_specs = re.fullmatch(r'/api/projects/([0-9a-f]{32})/execution-specs', path)
+            if execution_specs:
+                principal = 'password:' + session['username'] if self.server.password_login else 'legacy-token-master'
+                result = ({'execution_spec': store.register_execution_spec(execution_specs[1], value, principal=principal)} if write else
+                          {'execution_specs': store.execution_specs(execution_specs[1])})
+                self._json(201 if write else 200, result)
+                return
             if path == "/api/projects":
                 principal = "password:" + session["username"] if self.server.password_login else "legacy-token-master"
                 result = ({"project": store.create_project(value, principal=principal)} if write else
@@ -307,8 +321,8 @@ class ManagementHandler(BaseHTTPRequestHandler):
                 store.close()
 
 
-def serve(root, token_file=None, *, password_login=False, host="127.0.0.1", port=8765, web_root=None, public_origin=None, private_bind=False):
-    server = ManagementHTTPServer((host, port), root, token_file, password_login=password_login, web_root=web_root or Path(__file__).parent / "web", public_origin=public_origin, private_bind=private_bind)
+def serve(root, token_file=None, *, password_login=False, host="127.0.0.1", port=8765, web_root=None, public_origin=None, private_bind=False, execution_catalog=None):
+    server = ManagementHTTPServer((host, port), root, token_file, password_login=password_login, web_root=web_root or Path(__file__).parent / "web", public_origin=public_origin, private_bind=private_bind, execution_catalog=execution_catalog)
     try:
         server.serve_forever(poll_interval=0.25)
     finally:

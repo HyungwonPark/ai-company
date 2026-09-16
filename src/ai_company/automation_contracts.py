@@ -3,7 +3,7 @@
 from pathlib import PurePosixPath
 from typing import Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, model_serializer, model_validator
 
 from ai_company.contracts import Contract, Commit, Digest, Key, Text
 from ai_company.flow_contracts import AgentProfile, CheckCommand, FlowPolicy
@@ -36,9 +36,20 @@ class PMPlanContent(Contract):
     summary: Text
     roles: list[RolePlan] = Field(min_length=2, max_length=8)
     completion_criteria: list[Text] = Field(min_length=1, max_length=20)
+    execution_spec_proposal: dict | None = None
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_content(self, handler):
+        value = handler(self)
+        if self.execution_spec_proposal is None:
+            value.pop("execution_spec_proposal", None)
+        return value
 
     @model_validator(mode="after")
     def dependency_graph(self):
+        if self.execution_spec_proposal is not None:
+            from ai_company.execution_specs import ExecutionSpecSelection
+            ExecutionSpecSelection.model_validate(self.execution_spec_proposal)
         by_key = {role.key: role for role in self.roles}
         if len(by_key) != len(self.roles):
             raise ValueError("role keys must be unique")
@@ -87,4 +98,3 @@ class AutomationConfig(Contract):
     poll_seconds: float = Field(default=2, ge=0.1, le=60)
     pm_timeout_seconds: int = Field(default=180, ge=1, le=1800)
     max_parallel: int = Field(default=2, ge=1, le=2)
-

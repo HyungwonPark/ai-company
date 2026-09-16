@@ -60,6 +60,7 @@ def main() -> int:
     authentication = serve.add_mutually_exclusive_group(required=True)
     authentication.add_argument("--token-file", type=Path)
     authentication.add_argument("--password-login", action="store_true")
+    serve.add_argument("--execution-catalog", type=Path, help="trusted local project execution catalog JSON")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8765)
     serve.add_argument("--public-origin", help="exact externally served HTTPS origin for Host, Origin and secure cookies")
@@ -74,6 +75,7 @@ def main() -> int:
     automate.add_argument("action", choices=("tick", "worker", "status", "delegate"))
     automate.add_argument("--state-dir", type=Path, required=True)
     automate.add_argument("--config", type=Path, required=True, help="trusted local server configuration JSON")
+    automate.add_argument("--execution-catalog", type=Path, help="trusted local project execution catalog JSON")
     automate.add_argument("--authorization-file", type=Path,
                           help="explicit master's exact-plan, single-validation delegation receipt; delegate only")
     automate.add_argument("--max-seconds", type=float, default=1800,
@@ -91,8 +93,10 @@ def main() -> int:
                 print(json.dumps({"status": "CREATED", "username": args.username,
                                   "password_change_required": True, "temporary_valid_hours": 24}))
                 return 0
+            from ai_company.execution_specs import ExecutionCatalog
+            catalog = ExecutionCatalog.load(args.execution_catalog) if args.execution_catalog is not None else None
             serve(args.state_dir, args.token_file, password_login=args.password_login, host=args.host, port=args.port,
-                  public_origin=args.public_origin, private_bind=args.private_bind)
+                  public_origin=args.public_origin, private_bind=args.private_bind, execution_catalog=catalog)
             return 0
         except (ExecutionBlocked, ManagementError, OSError, ValueError) as exc:
             print(json.dumps({"status": "BLOCKED", "reason": str(exc)}, ensure_ascii=False))
@@ -132,7 +136,10 @@ def automation_command(args) -> int:
         config = AutomationConfig.model_validate_json(args.config.read_text())
         if args.action in ("tick", "worker"):
             ownership.enter_context(worker_ownership(args.state_dir, "automation"))
-        worker = Automation(args.state_dir, config)
+        from ai_company.execution_specs import ExecutionCatalog
+        catalog_path = getattr(args, "execution_catalog", None)
+        catalog = ExecutionCatalog.load(catalog_path) if catalog_path is not None else None
+        worker = Automation(args.state_dir, config, execution_catalog=catalog)
         if args.action == "delegate":
             if not args.authorization_file:
                 raise ValueError("delegate requires the explicit master's authorization receipt")

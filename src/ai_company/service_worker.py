@@ -153,9 +153,12 @@ def main(argv=None):
     parser.add_argument('component', choices=COMPONENTS)
     parser.add_argument('--state-dir', type=Path, required=True)
     parser.add_argument('--config', type=Path, required=True)
+    parser.add_argument('--execution-catalog', type=Path, help='trusted local project execution catalog; automation only')
     parser.add_argument('--poll-seconds', type=float, default=5)
     parser.add_argument('--execute-translations', action='store_true')
     args = parser.parse_args(argv)
+    if args.component != 'automation' and args.execution_catalog is not None:
+        parser.error('execution-catalog applies only to the automation worker')
     # Require existing reviewed state and explicit installed local configuration.
     root = args.state_dir.resolve(strict=True)
     if not (root / 'sessions' / 'sessions.sqlite').is_file():
@@ -170,7 +173,9 @@ def main(argv=None):
             from ai_company.automation import Automation
             from ai_company.automation_contracts import AutomationConfig
             config = AutomationConfig.model_validate(config)
-            worker = Automation(root, config)
+            from ai_company.execution_specs import ExecutionCatalog
+            catalog = ExecutionCatalog.load(args.execution_catalog) if args.execution_catalog is not None else None
+            worker = Automation(root, config, execution_catalog=catalog)
             tick = worker.run_once
         else:
             from ai_company.translations import configuration
