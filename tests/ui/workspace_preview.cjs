@@ -140,6 +140,10 @@ const origin='http://127.0.0.1:47993';
   const fonts=await cdp.send('CSS.getPlatformFontsForNode',{nodeId:node.nodeId});
   assert.ok(fonts.fonts.some(f=>/Noto Sans CJK/.test(f.familyName)&&f.glyphCount>0),JSON.stringify(fonts));
   checks.push('keyboard creation, 200% text stress, 44px stage controls, actual Korean glyph font');
+  await page.emulateMedia({reducedMotion:'reduce'});await click('suggest');
+  assert.equal(await page.locator('#lab-message').inputValue(),require('../../src/ai_company/web/workspace-preview/data.js').pm.suggested);
+  assert.equal(await page.evaluate(()=>document.getAnimations().filter(a=>a.playState==='running').length),0);
+  checks.push('reduced motion retains the PM answer action without active animation');
   // The downloadable single file also works without an HTTP server or external assets.
   const bundled=path.join(out,'AI-Company-preview.html');
   require('node:child_process').execFileSync('python',[path.resolve(__dirname,'../../scripts/package_workspace_preview.py'),bundled]);

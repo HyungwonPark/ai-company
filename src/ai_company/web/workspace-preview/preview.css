@@ -32,3 +32,4 @@ body{margin:0}
  #workspace-lab .inbox-list button{min-width:0;min-height:48px;padding:10px 12px}
 }
 #workspace-lab button{min-width:44px}
+#workspace-lab{word-break:keep-all;overflow-wrap:anywhere}
