@@ -50,6 +50,8 @@ PR #14의 스킬·문서는 그래프 구현 완료가 아니다. 서버 Codex�
 
 ## 다른 AI 연결 범위
 
+후속 요청으로 [모델 연결·현황 화면](model-connections-2026-09-16.md)을 추가한다. 제공자별 로그인과 모델 사용 가능 여부를 공통 메뉴에서 관리하고, 그래프의 담당 모델·대기·이관 정보와 같은 근거를 사용한다. 기존 Codex·Claude 계정부터 연결하며 이 기능의 완성을 그래프 개발의 선행 조건으로 삼지 않는다.
+
 LangGraph의 노드는 일반 함수이므로 CLI·API·로컬 모델 호출을 감쌀 수 있다. [공식 Graph API 설명](https://docs.langchain.com/oss/python/langgraph/graph-api), [공식 개요](https://docs.langchain.com/oss/python/langgraph/overview)를 따른다.
 
 현재 ai-company의 제공자 계약과 실행기는 Codex·Claude CLI만 허용한다. Gemini·Bedrock·로컬 모델을 설정 한 줄로 바로 연결할 수 있다고 표시하지 않는다. 새 제공자에는 실행/중지·결과 정규화·한도/비용·재개/복구·역할 적격성 어댑터가 필요하며, 세션 재개 미지원은 미지원으로 표시한다. 제공자 추가는 이 그래프 화면 구현의 선행 조건이 아니다.
