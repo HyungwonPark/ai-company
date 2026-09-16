@@ -88,6 +88,9 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.reload();
     await page.locator('.nav').waitFor();
     await page.setViewportSize({width:1440,height:1000});
+    await page.getByRole('heading', {name:'프로젝트',exact:true}).waitFor();
+    assert.equal(await page.locator('#project-select').inputValue(),'','first login starts at the project list');
+    await page.locator('.project-list-card h2').getByRole('link',{name:'AI Company · 예시',exact:true}).click();
     await page.getByRole('heading', {name:'매니저',exact:true}).waitFor();
     await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();
     await page.getByRole('heading', {name:'진행',exact:true}).waitFor();
@@ -171,7 +174,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.locator('.message-content').filter({hasText:draft}).waitFor();
     await page.getByLabel('PM에게 전달할 내용').fill('원래 프로젝트에 남는 초안');
 
-    await page.locator('.nav').getByRole('link',{name:'프로젝트',exact:true}).click();
+    await page.locator('.project-picker-links').getByRole('link',{name:'전체',exact:true}).click();
     await page.getByRole('button',{name:'새 프로젝트'}).click();
     const projectName = `UI persistence ${Date.now()}`;
     await page.getByLabel('이름',{exact:true}).fill(projectName);
@@ -186,7 +189,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     assert.equal(started.pm_requests[0].state,'pending');
     assert.equal(started.roles.length,0,'roles are proposed by PM, not required from the user');
     assert.equal(started.runs.length,0,'creating a project does not confirm or develop');
-    await page.locator('.nav').getByRole('link',{name:'프로젝트',exact:true}).click();
+    await page.locator('.project-picker-links').getByRole('link',{name:'설정',exact:true}).click();
     await page.locator('.project-advanced>summary').click();
     await page.getByLabel('하네스 초안').fill('UI 회귀 검증 초안\n허용 경로: 격리된 테스트 작업 공간\n운영 실행 금지');
     await page.getByRole('button',{name:'초안 저장',exact:true}).click();
@@ -304,8 +307,10 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await page.getByText('모의 예시 데이터',{exact:true}).waitFor();
     await page.setViewportSize({width:360,height:800});
     for(const [view, title] of [['progress','진행'],['manager','매니저'],['reports','보고서'],['approvals','승인'],['project','프로젝트']]) {
-      if(view==='reports'){await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();await page.locator('.progress-tabs').getByRole('link',{name:'보고서',exact:true}).click();}else await page.locator('.nav').getByRole('link',{name:title,exact:true}).click();
-      await page.waitForFunction(expected => document.querySelector(expected==='reports'?'.progress-tabs a[aria-current=page]':'.nav a[aria-current=page]')?.getAttribute('href')?.startsWith(`#${expected}?`), view);
+      if(view==='project')await page.locator('.project-picker-links').getByRole('link',{name:'설정',exact:true}).click();
+      else await page.locator('.nav').getByRole('link',{name:view==='reports'?'기록':title,exact:true}).click();
+      await page.waitForFunction(expected => location.hash.startsWith(`#${expected}?`), view);
+      if(view!=='project')assert.equal(await page.locator('.nav a[aria-current=page]').getAttribute('href'),`#${view}?project=${fixtureId}`,'main navigation marks the active screen');
       assert.equal(await page.locator('#project-select').inputValue(),fixtureId,`${view} keeps selected fixture`);
       await page.getByText('모의 예시 데이터',{exact:true}).waitFor();
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${view} fits 360px`);
@@ -321,7 +326,8 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
       for(const [device,width,height] of [['desktop',1440,1000],['mobile',360,800]]) {
         await page.setViewportSize({width,height});
         for(const [view,title] of [['progress','진행'],['manager','매니저'],['reports','보고서'],['approvals','승인'],['project','프로젝트']]) {
-          if(view==='reports'){await page.locator('.nav').getByRole('link',{name:'진행',exact:true}).click();await page.locator('.progress-tabs').getByRole('link',{name:'보고서',exact:true}).click();}else await page.locator('.nav').getByRole('link',{name:title,exact:true}).click();
+          if(view==='project')await page.locator('.project-picker-links').getByRole('link',{name:'설정',exact:true}).click();
+          else await page.locator('.nav').getByRole('link',{name:view==='reports'?'기록':title,exact:true}).click();
           assert.equal(await page.locator('html').getAttribute('data-theme'),theme,'theme survives render');
           assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${theme} ${view} fits ${width}px`);
           await settledScreenshot(page, {path:`${output}/${theme}-${device}-${view}.png`,fullPage:true});
@@ -336,10 +342,13 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await context.setOffline(false);
     await page.waitForFunction(()=>{const button=document.querySelector('#message-form button[type=submit]');return button&&!button.disabled;});
     offlineScenario = false;
-    const stored = await page.evaluate(async()=>({local:{...localStorage},session:sessionStorage.length,
+    const stored = await page.evaluate(async()=>({local:{...localStorage},session:{...sessionStorage},
       cached:(await Promise.all((await caches.keys()).map(async key=>(await (await caches.open(key)).keys()).map(request=>new URL(request.url).pathname)))).flat()}));
     assert.deepEqual(stored.local,{'ai-company-theme':'light'},'only theme preference in localStorage; no credentials');
-    assert.equal(stored.session,0,'no bearer token in sessionStorage');
+    assert.ok(Object.keys(stored.session).every(key=>key.startsWith('ai-company:draft:edward:')||key==='ai-company:recent:edward'||key==='ai-company:create-intent:v1'),
+      'sessionStorage contains only account-scoped drafts, recent project and creation retry intent');
+    assert.equal(/token|csrf|password|cookie/i.test(Object.keys(stored.session).join(' ')),false,'no authentication material is stored under a session key');
+    assert.equal(JSON.stringify(stored.session).includes(password)||JSON.stringify(stored.session).includes('new-pass10'),false,'passwords are never retained in draft storage');
     assert.equal(stored.cached.some(path=>path.startsWith('/api/')),false,'no authenticated API cache');
     await page.evaluate(()=>navigator.serviceWorker.ready);
     offlineScenario=true;await context.setOffline(true);
@@ -355,6 +364,9 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
     await openAccountMenu();
     await page.locator('.workspace-account-menu').getByRole('button',{name:'로그아웃',exact:true}).click();
     await page.getByRole('heading',{name:'AI Company',exact:true}).waitFor();
+    const afterLogout=await page.evaluate(()=>({...sessionStorage}));
+    assert.equal(Object.keys(afterLogout).some(key=>key.startsWith('ai-company:draft:')),false,'logout removes private message drafts');
+    assert.equal(afterLogout['ai-company:create-intent:v1'],undefined,'a completed creation cannot leave a private draft after logout');
     await page.getByLabel('비밀번호',{exact:true}).fill('new-pass10');
     await page.getByRole('button',{name:'로그인',exact:true}).click();
     await page.locator('.nav').waitFor();

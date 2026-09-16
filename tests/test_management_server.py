@@ -4,8 +4,11 @@ from pathlib import Path
 import tempfile
 import threading
 import unittest
+from unittest.mock import patch
 
-from ai_company.management_server import ManagementHTTPServer, read_token
+from ai_company import password_auth
+from ai_company.management import ManagementStore
+from ai_company.management_server import ManagementHTTPServer, ManagementHandler, read_token
 
 
 class ManagementHTTPTests(unittest.TestCase):
@@ -129,3 +132,65 @@ class ManagementHTTPTests(unittest.TestCase):
                 ManagementHTTPServer((host, 0), self.root / "invalid-state", self.root / "login-token",
                                      public_origin=origin, private_bind=private)
         self.assertFalse((self.root / "invalid-state").exists())
+
+    def test_committed_creation_lost_http_response_retries_once_after_restart_and_login(self):
+        self.login()
+        intent = {"name": "새 프로젝트", "goal": "자연어 목표", "start_pm": True,
+                  "idempotency_key": "same-creation-intent"}
+        original_json = ManagementHandler._json
+        def drop_creation_response(handler, status, data, cookie=None):
+            if status == 201:
+                handler.close_connection = True
+                return
+            return original_json(handler, status, data, cookie)
+        with patch.object(ManagementHandler, "_json", drop_creation_response):
+            with self.assertRaises(http.client.RemoteDisconnected):
+                self.request("POST", "/api/projects", intent)
+        self.server.shutdown(); self.server.server_close(); self.thread.join()
+        self.server = ManagementHTTPServer(("127.0.0.1", 0), self.root / "state", self.root / "login-token",
+            web_root=self.web, clock=lambda: self.now)
+        self.thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
+        self.thread.start()
+        self.cookie = self.csrf = None
+        self.login()
+        original = self.request("GET", "/api/projects")[1]["projects"]
+        self.assertEqual(len(original), 1)
+        status, result, _ = self.request("POST", "/api/projects", intent)
+        self.assertEqual((status, result["project"]["id"]), (201, original[0]["id"]))
+        overview = self.request("GET", f"/api/projects/{original[0]['id']}/overview")[1]
+        self.assertEqual(len(overview["messages"]), 1)
+        self.assertEqual(len(overview["pm_requests"]), 1)
+        self.assertEqual(overview["runs"], [])
+        status, result, _ = self.request("POST", "/api/projects", {**intent, "goal": "changed"})
+        self.assertEqual((status, result["error"]["code"]), (409, "idempotency_conflict"))
+        self.assertEqual(self.request("POST", "/api/projects", intent, headers={"X-CSRF-Token": "wrong"})[0], 403)
+
+    def test_creation_key_is_bound_to_authenticated_username_not_cookie_or_client_body(self):
+        self.server.shutdown(); self.server.server_close(); self.thread.join()
+        store = ManagementStore(self.root / "state")
+        password_auth.initialize(store.db)
+        with store.db:
+            for username in ("edward", "another"):
+                password_auth.create_user(store.db, username, "fixture-password-10", self.now)
+            # Fixture accounts have already completed the mandatory first password change.
+            store.db.execute("UPDATE console_users SET must_change=0,temporary_expires=NULL")
+        store.close()
+        self.server = ManagementHTTPServer(("127.0.0.1", 0), self.root / "state",
+            password_login=True, clock=lambda: self.now)
+        self.thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
+        self.thread.start()
+        intent = {"name": "같은 이름", "goal": "같은 목표", "start_pm": True, "idempotency_key": "same-intent-key"}
+        ids = []
+        for username in ("edward", "another", "edward"):
+            self.cookie = self.csrf = None
+            status, result, headers = self.request("POST", "/api/login", {"username": username, "password": "fixture-password-10"})
+            self.assertEqual(status, 200)
+            self.cookie = headers["Set-Cookie"].split(";", 1)[0]
+            self.csrf = result["csrf_token"]
+            status, result, _ = self.request("POST", "/api/projects", intent)
+            self.assertEqual(status, 201)
+            ids.append(result["project"]["id"])
+        self.assertNotEqual(ids[0], ids[1])
+        self.assertEqual(ids[0], ids[2])
+        self.assertEqual(self.request("POST", "/api/projects", {**intent, "principal": "password:another"})[0], 400)
+        self.assertEqual(len(self.request("GET", "/api/projects")[1]["projects"]), 2)

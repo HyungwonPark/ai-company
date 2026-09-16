@@ -34,6 +34,7 @@ class ProjectInput(Contract):
     goal: Text
     roles: list[RoleInput] = Field(default_factory=list, max_length=32)
     start_pm: StrictBool = False
+    idempotency_key: str | None = Field(default=None, pattern=r"^[a-zA-Z0-9_.:-]{8,128}$")
 
 
 class MessageInput(Contract):
@@ -110,6 +111,8 @@ class ManagementStore:
         self.db.executescript("""
             CREATE TABLE IF NOT EXISTS flow_tasks(task_id TEXT PRIMARY KEY, document TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS management_projects(id TEXT PRIMARY KEY, document TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS management_project_creations(principal TEXT NOT NULL, idempotency_key TEXT NOT NULL,
+                request_digest TEXT NOT NULL, project_id TEXT NOT NULL, PRIMARY KEY(principal,idempotency_key));
             CREATE TABLE IF NOT EXISTS management_roles(id TEXT PRIMARY KEY, project_id TEXT NOT NULL, document TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS management_harnesses(project_id TEXT NOT NULL, version INTEGER NOT NULL,
                 document TEXT NOT NULL, PRIMARY KEY(project_id,version));
@@ -182,8 +185,10 @@ class ManagementStore:
             raise ManagementError("not_found", "Project not found", 404)
         return json.loads(row[0])
 
-    def create_project(self, value):
+    def create_project(self, value, *, principal="local-master"):
+        # principal is supplied by the authenticated HTTP adapter, never the JSON body.
         value = ProjectInput.model_validate(value)
+        request_digest = digest(value.model_dump(mode="json", exclude={"idempotency_key"}))
         project_id = uuid4().hex
         project = {"id": project_id, "name": value.name, "goal": value.goal, "status": "PLANNING",
                    "harness_version": 1, "request_revision": 0, "source": "unverified", "created_at": self.clock()}
@@ -191,6 +196,14 @@ class ManagementStore:
         harness = {"version": 1, "status": "active", "content": content, "digest": digest(content), "created_at": self.clock()}
         with self.db:
             self.db.execute("BEGIN IMMEDIATE")
+            if value.idempotency_key is not None:
+                prior = self.db.execute("SELECT request_digest,project_id FROM management_project_creations "
+                                        "WHERE principal=? AND idempotency_key=?",
+                                        (principal, value.idempotency_key)).fetchone()
+                if prior:
+                    if prior[0] != request_digest:
+                        raise ManagementError("idempotency_conflict", "이 생성 요청은 다른 내용으로 이미 사용됐습니다. 원래 입력으로 결과를 확인하세요.")
+                    return self._project(prior[1])
             self.db.execute("INSERT INTO management_projects VALUES (?,?)", (project_id, json.dumps(project)))
             self.db.execute("INSERT INTO management_harnesses VALUES (?,?,?)", (project_id, 1, json.dumps(harness)))
             for role in value.roles:
@@ -201,10 +214,46 @@ class ManagementStore:
                 self._append_pm_request(project, MessageInput(content=
                     "이 목표를 함께 구체화하고 필요한 역할과 완료 기준을 제안해주세요. "
                     "제가 역할과 범위를 조정할 수 있도록 설명해주세요. 계획 확정 전에는 개발을 시작하지 마세요."))
+            if value.idempotency_key is not None:
+                self.db.execute("INSERT INTO management_project_creations VALUES (?,?,?,?)",
+                                (principal, value.idempotency_key, request_digest, project_id))
         return project
 
-    def list_projects(self):
-        return [json.loads(r[0]) for r in self.db.execute("SELECT document FROM management_projects ORDER BY rowid")]
+    def list_projects(self, *, summary=False):
+        if not summary:
+            return [json.loads(r[0]) for r in self.db.execute("SELECT document FROM management_projects ORDER BY rowid")]
+        # One read snapshot, using recorded activity and currently actionable approvals.
+        # Expiry is projected; viewing a list never writes a decision or advances work.
+        rows = self.db.execute("""WITH activity AS (
+                SELECT project_id,MAX(json_extract(document,'$.created_at')) AS updated_at
+                FROM management_events GROUP BY project_id
+            ), pending AS (
+                SELECT project_id,COUNT(*) AS count FROM management_approvals
+                WHERE json_extract(document,'$.status')='pending' AND json_extract(document,'$.expires_at')>?
+                GROUP BY project_id
+            ) SELECT p.document,a.updated_at,COALESCE(pending.count,0),
+                (SELECT json_object('id',r.id,'state',json_extract(r.document,'$.state'),
+                    'created_at',json_extract(r.document,'$.created_at'),'mode',json_extract(r.document,'$.mode'))
+                 FROM management_runs r WHERE r.project_id=p.id
+                 ORDER BY json_extract(r.document,'$.created_at') DESC,r.id DESC LIMIT 1),
+                (SELECT json_object('id',m.message_id,'state',json_extract(m.document,'$.state'),
+                    'created_at',json_extract(m.document,'$.created_at'),'mode',json_extract(m.document,'$.mode'),
+                    'execution',CASE WHEN json_type(m.document,'$.execution')='object' THEN
+                        json_object('status',json_extract(m.document,'$.execution.status'),
+                            'reason',json_extract(m.document,'$.execution.reason'),
+                            'resume_at',json_extract(m.document,'$.execution.resume_at')) ELSE NULL END)
+                 FROM management_pm_requests m WHERE m.project_id=p.id
+                 ORDER BY json_extract(m.document,'$.created_at') DESC,m.message_id DESC LIMIT 1)
+              FROM management_projects p LEFT JOIN activity a ON a.project_id=p.id
+              LEFT JOIN pending ON pending.project_id=p.id ORDER BY p.rowid""", (self.clock(),))
+        result = []
+        for row in rows:
+            project = json.loads(row[0])
+            result.append({**project, "updated_at": max(project["created_at"], row[1] or project["created_at"]),
+                           "pending_approval_count": row[2],
+                           "recent_run": json.loads(row[3]) if row[3] else None,
+                           "recent_pm_request": json.loads(row[4]) if row[4] else None})
+        return result
 
     def post_message(self, project_id, value):
         value = MessageInput.model_validate(value)

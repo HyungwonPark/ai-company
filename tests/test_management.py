@@ -1,9 +1,13 @@
 import copy
+from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
+
+from pydantic import ValidationError
 
 from ai_company.dispatcher import Dispatcher
 from ai_company.management import ManagementError, ManagementStore
@@ -180,3 +184,167 @@ class ManagementTests(unittest.TestCase):
         next_page = self.store.events(self.pid, first["cursor"])
         self.assertEqual([e["kind"] for e in next_page["events"]], ["pm_request_saved"])
         self.assertEqual(self.store.events(self.pid, next_page["cursor"])["events"], [])
+
+    def test_project_list_projects_activity_and_actionable_approvals_without_writes(self):
+        self.now = 1100
+        pending = self.store.request_approval(self.pid, self.subject)
+        expired = self.store.request_approval(self.pid, {**self.subject, "expires_at": 1200})
+        self.now = 1150
+        decided = self.store.request_approval(self.pid, self.subject)
+        self.store.decide(self.pid, decided["id"], self.decision(decided))
+        self.now = 1250
+        other = self.store.create_project({"name": "Other", "goal": "Another project"})
+        self.now = 1300
+        self.store.post_message(self.pid, {"content": "다음 계획을 설명해주세요"})
+        before = list(self.store.db.iterdump())
+        summaries = {p["id"]: p for p in self.store.list_projects(summary=True)}
+        self.assertEqual(summaries[self.pid]["updated_at"], 1300)
+        self.assertEqual(summaries[self.pid]["pending_approval_count"], 1)
+        self.assertEqual(summaries[other["id"]]["pending_approval_count"], 0)
+        self.assertEqual(summaries[other["id"]]["updated_at"], 1250)
+        self.assertEqual(list(self.store.db.iterdump()), before)
+        self.assertEqual(self.store._approval(self.pid, expired["id"])["status"], "pending")
+        self.assertEqual(self.store._approval(self.pid, pending["id"]), pending)
+        # Existing store callers still get the original project documents.
+        self.assertNotIn("updated_at", self.store.list_projects()[0])
+
+    def test_project_list_separates_plan_recent_pm_and_run_facts_without_inventing_execution(self):
+        other = self.store.create_project({"name": "Other", "goal": "다른 프로젝트"})
+        requests = [
+            {"id": "c" * 32, "project_id": self.pid, "created_at": 1100, "state": "waiting_quota", "mode": "fixture"},
+            {"id": "a" * 32, "project_id": self.pid, "created_at": 1050, "state": "completed", "mode": "fixture"},
+        ]
+        runs = [
+            {"id": "d" * 32, "project_id": self.pid, "created_at": 1100, "state": "running", "mode": "fixture"},
+            {"id": "c" * 32, "project_id": self.pid, "created_at": 1100, "state": "blocked", "mode": "fixture"},
+            {"id": "f" * 32, "project_id": self.pid, "created_at": 1050, "state": "completed", "mode": "fixture"},
+            {"id": "e" * 32, "project_id": other["id"], "created_at": 5000, "state": "pending", "mode": "fixture"},
+        ]
+        with self.store.db:
+            for item in requests:
+                self.store.db.execute("INSERT INTO management_pm_requests VALUES (?,?,?)", (item["id"], item["project_id"], json.dumps(item)))
+            for item in runs:
+                self.store.db.execute("INSERT INTO management_runs VALUES (?,?,?)", (item["id"], item["project_id"], json.dumps(item)))
+        empty = self.store.create_project({"name": "New", "goal": "아직 요청하지 않은 목표"})
+        for state in ("running", "blocked", "completed"):
+            with self.store.db:
+                self.store.db.execute("UPDATE management_runs SET document=? WHERE id=?", (json.dumps({**runs[0], "state": state}), runs[0]["id"]))
+            before = list(self.store.db.iterdump())
+            summaries = {p["id"]: p for p in self.store.list_projects(summary=True)}
+            current = summaries[self.pid]
+            self.assertEqual(current["status"], "PLANNING")
+            self.assertEqual(current["recent_run"], {"id": runs[0]["id"], "state": state, "created_at": 1100, "mode": "fixture"})
+            self.assertEqual(current["recent_pm_request"], {"id": requests[0]["id"], "state": "waiting_quota", "created_at": 1100, "mode": "fixture", "execution": None})
+            self.assertEqual(summaries[other["id"]]["recent_run"]["id"], runs[-1]["id"])
+            self.assertIsNone(summaries[empty["id"]]["recent_run"])
+            self.assertIsNone(summaries[empty["id"]]["recent_pm_request"])
+            self.assertEqual(list(self.store.db.iterdump()), before)
+
+    def test_project_list_preserves_running_pm_request_with_actual_execution_wait(self):
+        message = self.store.post_message(self.pid, {"content": "역할을 제안해주세요"})
+        request = self.store.get_pm_request(message["id"])
+        waiting = {"status": "WAITING_CAPACITY", "reason": "적격 PM 계정의 공유 한도를 기다립니다.", "resume_at": 1600}
+        request = self.store.save_pm_request({**request, "state": "running", "mode": "fixture",
+            "configuration_digest": "a" * 64, "execution": {**waiting, "task_id": "private-task-reference"}})
+        before = list(self.store.db.iterdump())
+        summary = next(item for item in self.store.list_projects(summary=True) if item["id"] == self.pid)
+        self.assertEqual(summary["recent_pm_request"]["state"], "running")
+        self.assertEqual(summary["recent_pm_request"]["execution"], waiting)
+        self.assertNotIn("private-task-reference", json.dumps(summary))
+        self.assertEqual(self.store.get_pm_request(message["id"]), request)
+        self.assertEqual(list(self.store.db.iterdump()), before)
+
+
+class ProjectCreationRetryTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.store = ManagementStore(self.root)
+        self.intent = {"name": "새 검증", "goal": "상태를 이해하기 쉽게 정리합니다", "start_pm": True,
+                       "idempotency_key": "4e7bf1c7-5940-4ff6-9a24-216a65fa2951"}
+
+    def tearDown(self):
+        self.store.close()
+        self.tmp.cleanup()
+
+    def count(self, table):
+        return self.store.db.execute("SELECT COUNT(*) FROM " + table).fetchone()[0]
+
+    def test_restart_after_lost_result_preserves_one_project_and_original_pm_request(self):
+        original = self.store.create_project(self.intent)
+        request = self.store.pm_requests(original["id"])[0]
+        events = self.store.events(original["id"])
+        harness = self.store.overview(original["id"])["project"]["harness_content"]
+        # The caller lost the result after commit and must recover from durable intent.
+        self.store.close()
+        self.store = ManagementStore(self.root)
+        retry = self.store.create_project(self.intent)
+        self.assertEqual(retry["id"], original["id"])
+        self.assertEqual(self.store.pm_requests(original["id"]), [request])
+        self.assertEqual(self.store.events(original["id"]), events)
+        self.assertEqual(self.store.overview(original["id"])["project"]["harness_content"], harness)
+        self.assertEqual((self.count("management_projects"), self.count("management_messages")), (1, 1))
+        self.assertEqual((self.count("management_runs"), self.count("session_jobs"), self.count("flow_tasks")), (0, 0, 0))
+
+    def test_same_intent_rejects_changed_payload_without_changing_original(self):
+        original = self.store.create_project(self.intent)
+        for change in ({"name": "다른 이름"}, {"goal": "다른 목표"}, {"start_pm": False},
+                       {"roles": [{"name": "추가 역할", "responsibility": "추가 업무"}]}):
+            with self.subTest(change=change), self.assertRaises(ManagementError) as conflict:
+                self.store.create_project({**self.intent, **change})
+            self.assertEqual((conflict.exception.code, conflict.exception.status), ("idempotency_conflict", 409))
+        self.assertEqual(self.store.list_projects(), [original])
+        self.assertEqual(self.count("management_pm_requests"), 1)
+        self.assertEqual(self.count("management_roles"), 0)
+
+    def test_same_name_is_independent_for_new_intents_and_authenticated_principals(self):
+        first = self.store.create_project(self.intent, principal="password:edward")
+        second = self.store.create_project(self.intent, principal="password:another")
+        third = self.store.create_project({**self.intent, "idempotency_key": "different-intent"}, principal="password:edward")
+        legacy = {key: value for key, value in self.intent.items() if key != "idempotency_key"}
+        fourth = self.store.create_project(legacy)
+        fifth = self.store.create_project(legacy)
+        self.assertEqual(len({item["id"] for item in (first, second, third, fourth, fifth)}), 5)
+        self.assertEqual(self.store.create_project(self.intent, principal="password:edward")["id"], first["id"])
+        self.assertEqual(self.count("management_pm_requests"), 5)
+
+    def test_concurrent_connections_commit_one_project_and_one_pm_request(self):
+        barrier = threading.Barrier(6)
+        def create():
+            store = ManagementStore(self.root)
+            try:
+                barrier.wait(timeout=10)
+                return store.create_project(self.intent, principal="password:edward")["id"]
+            finally:
+                store.close()
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            ids = list(pool.map(lambda _: create(), range(6)))
+        self.assertEqual(len(set(ids)), 1)
+        self.assertEqual((self.count("management_projects"), self.count("management_pm_requests")), (1, 1))
+        self.assertEqual([event["kind"] for event in self.store.events(ids[0])["events"]],
+                         ["project_created", "pm_request_saved"])
+
+    def test_failure_after_pm_insert_rolls_back_entire_intent_then_retry_succeeds(self):
+        original_event = self.store._event
+        def fail_after_pm_insert(project_id, kind, subject_id):
+            original_event(project_id, kind, subject_id)
+            if kind == "pm_request_saved":
+                raise RuntimeError("interruption before transaction commit")
+        with patch.object(self.store, "_event", side_effect=fail_after_pm_insert):
+            with self.assertRaisesRegex(RuntimeError, "interruption"):
+                self.store.create_project(self.intent)
+        for table in ("management_projects", "management_harnesses", "management_roles", "management_messages",
+                      "management_pm_requests", "management_events", "management_project_creations"):
+            self.assertEqual(self.count(table), 0, table)
+        self.store.close()
+        self.store = ManagementStore(self.root)
+        result = self.store.create_project(self.intent)
+        self.assertEqual(len(self.store.pm_requests(result["id"])), 1)
+
+    def test_invalid_keys_and_client_supplied_principal_create_nothing(self):
+        for key in ("", "short", "a" * 129, "with/slash", "한글식별자123", 12345678):
+            with self.subTest(key=key), self.assertRaises(ValidationError):
+                self.store.create_project({**self.intent, "idempotency_key": key})
+        with self.assertRaises(ValidationError):
+            self.store.create_project({**self.intent, "principal": "password:another"})
+        self.assertEqual(self.count("management_projects"), 0)

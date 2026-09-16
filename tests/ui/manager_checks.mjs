@@ -17,9 +17,17 @@ assert.ok(!html.includes('Long original English specification'),'untranslated pr
 assert.match(html,/확정 전에는 이 계획의 작업을 시작하지 않습니다/);
 assert.match(html,/details class="manager-plan-detail"/,'full original plan remains available');
 assert.doesNotMatch(ui.render(overview,{...options,connected:false}),/data-action="review-plan"[^>]+(?<!disabled)>/);
-const current={plan_id:'p',plan_digest:'current',state:'awaiting_approval',candidate_sha:'candidate'};
+const current={plan_id:'p',plan_digest:'current',state:'awaiting_approval',candidate_sha:'candidate',approval_id:'result-approval'};
 assert.match(ui.render({...overview,runs:[{...current,roles:{implementation:{status:'RUNNING'}}}],roles:[{id:'live-role',plan_id:'p',key:'implementation',status:'WAITING_QUOTA'}]},options),/WAITING_QUOTA/,'current session quota state is visible before the coordinator updates its run summary');
 assert.doesNotMatch(ui.render({...overview,runs:[current],approvals:[{status:'pending',artifact_sha:'unrelated'}]},options),/승인 요청 확인/,'unrelated approvals cannot become the next action for this run');
-assert.match(ui.render({...overview,runs:[current],approvals:[{status:'pending',artifact_sha:'candidate'}]},options),/승인 요청 확인/);
+assert.match(ui.render({...overview,runs:[current],approvals:[{id:'result-approval',status:'pending',artifact_sha:'candidate'}]},options),/승인 요청 확인/);
+assert.doesNotMatch(ui.render({...overview,runs:[current],approvals:[{id:'different-operation',status:'pending',artifact_sha:'candidate'}]},options),/승인 요청 확인/,'the same artifact cannot substitute another operation approval');
+assert.doesNotMatch(ui.render({...overview,runs:[{...current,state:'running'}],approvals:[{id:'result-approval',status:'pending',artifact_sha:'candidate'}]},options),/승인 요청 확인|같은 후보의 검수가 끝났습니다/,'an active run cannot be promoted to completed review by a pending approval');
 assert.match(ui.render({...overview,runs:[{...current,state:'pending'}]},options),/실행 준비/,'a queued execution is not presented as already running');
+const quotaRequest={...overview,plans:[],runs:[],pm_requests:[{request_revision:2,state:'running',updated_at:1000,
+  execution:{status:'WAITING_CAPACITY',reason:'공유 계정 사용량이 회복될 때까지 기다립니다.',resume_at:2100}}]};
+const quotaHTML=ui.render(quotaRequest,options);
+assert.doesNotMatch(quotaHTML,/PM 답변 작성 중|PM이 답변을 작성하고 있습니다/,'persisted PM request running does not override its actual execution wait');
+assert.match(quotaHTML,/공유 계정 사용량이 회복될 때까지 기다립니다/,'nested execution wait reason is visible');
+assert.match(quotaHTML,/2100/,'the recorded nested execution resume time is visible');
 console.log('PASS: current revision/digest, dependency counts, read-only projection, original access, disconnected confirmation and candidate-bound next action');

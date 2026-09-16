@@ -264,7 +264,9 @@ class ManagementHandler(BaseHTTPRequestHandler):
             if session.get("password_change_required"):
                 raise ManagementError("password_change_required", "Change the temporary password before using the workspace", 403)
             if path == "/api/projects":
-                result = {"project": store.create_project(value)} if write else {"projects": store.list_projects()}
+                principal = "password:" + session["username"] if self.server.password_login else "legacy-token-master"
+                result = ({"project": store.create_project(value, principal=principal)} if write else
+                          {"projects": store.list_projects(summary=True)})
                 self._json(201 if write else 200, result)
                 return
             confirmation = re.fullmatch(r"/api/projects/([0-9a-f]{32})/plans/([0-9a-f]{32})/confirm", path)
