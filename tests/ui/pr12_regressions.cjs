@@ -214,6 +214,7 @@ function overview(project) {
     assert.equal(await page.getByLabel('PM에게 전달할 내용').inputValue(),'작은 화면에서도 전송 전 초안을 보존합니다.');
     assert.deepEqual(failures,[]);
     await fs.writeFile(path.join(output,'result.json'),JSON.stringify({kind:'browser_response_fixture',cases:['projects','missing ID','creation retry','planned vs actual','two themes four widths','offline draft'],enlargementMeasurements,api_writes_intercepted:writes.length,real_api_writes:0,model_calls:0},null,2));
+    console.log(JSON.stringify({scenario:'text_only_enlargement_fixture',enlargementMeasurements,real_api_writes:0,model_calls:0}));
     console.log('PASS PR12 independent browser fixtures; no real API writes or model calls');
   }catch(error){await page.screenshot({path:path.join(output,'failure.png'),fullPage:true}).catch(()=>{});throw error;}
   finally{await browser.close();}

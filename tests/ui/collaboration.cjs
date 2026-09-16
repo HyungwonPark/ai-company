@@ -77,6 +77,11 @@ module.exports=async function({page,context,fixtureId,output,setNetworkFixture,s
       await selectTheme(page, theme);
       await page.setViewportSize({width:1440,height:1000});
       await settledScreenshot(page, {path:`${output}/${theme}-desktop-collaboration-fixture.png`,fullPage:true});
+      await page.locator('.transfer-row[data-collaboration-transfer="past-repair"]').click();
+      const transferDetail=page.getByRole('complementary',{name:'선택한 협업 상세'});
+      await transferDetail.getByRole('heading',{name:'수정 반환',exact:true}).waitFor();
+      await transferDetail.screenshot({path:`${output}/${theme}-desktop-transfer-detail-fixture.png`});
+      await page.locator('[data-collaboration-clear]').click();
       await page.locator('.progress-tabs').getByRole('link',{name:'보고서',exact:true}).click();
       await page.getByText('번역된 예시 보고서',{exact:true}).and(page.locator('.document-title')).waitFor();
       assert.equal(await page.evaluate(()=>Boolean(window.translationInjected)),false);
