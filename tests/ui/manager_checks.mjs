@@ -21,4 +21,5 @@ const current={plan_id:'p',plan_digest:'current',state:'awaiting_approval',candi
 assert.match(ui.render({...overview,runs:[{...current,roles:{implementation:{status:'RUNNING'}}}],roles:[{id:'live-role',plan_id:'p',key:'implementation',status:'WAITING_QUOTA'}]},options),/WAITING_QUOTA/,'current session quota state is visible before the coordinator updates its run summary');
 assert.doesNotMatch(ui.render({...overview,runs:[current],approvals:[{status:'pending',artifact_sha:'unrelated'}]},options),/승인 요청 확인/,'unrelated approvals cannot become the next action for this run');
 assert.match(ui.render({...overview,runs:[current],approvals:[{status:'pending',artifact_sha:'candidate'}]},options),/승인 요청 확인/);
+assert.match(ui.render({...overview,runs:[{...current,state:'pending'}]},options),/실행 준비/,'a queued execution is not presented as already running');
 console.log('PASS: current revision/digest, dependency counts, read-only projection, original access, disconnected confirmation and candidate-bound next action');
