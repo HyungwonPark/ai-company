@@ -1,0 +1,87 @@
+{
+  "scope": "isolated_copy_of_live_records",
+  "new_model_calls": 0,
+  "operating_applied": false,
+  "proposal_sha256": "5d4fa5b4c1a4583d40c1b276958dc01ce8908e18e860e60d0495c80568a78420",
+  "original_translation_jobs_byte_identical": true,
+  "unchanged_tables": [
+    "session_jobs",
+    "session_events",
+    "flow_tasks",
+    "management_projects",
+    "management_roles",
+    "management_harnesses",
+    "management_links",
+    "management_messages",
+    "management_approvals",
+    "management_decisions",
+    "management_auth",
+    "management_pm_requests",
+    "management_plans",
+    "management_runs",
+    "management_confirmations",
+    "flow_events",
+    "quota_groups",
+    "credential_groups",
+    "flow_migrations",
+    "management_delegations",
+    "console_users",
+    "console_sessions",
+    "console_login_limit",
+    "translation_settings",
+    "management_project_creations"
+  ],
+  "changed_tables": [
+    "management_events",
+    "translation_jobs",
+    "translation_links"
+  ],
+  "new_table": "translation_saved_rechecks",
+  "idempotency": true,
+  "review_results": [
+    {
+      "job_id": "40ceb1f71da649fd9cf909fd4891bad9",
+      "status": "rejected",
+      "reason": "semantic_review_blocked",
+      "result_job_id": null,
+      "review_digest": "8e4ddf4c4cf2ecc4955f48a7a20f8c95ce8bf95bd8e4b02dc5fc3c52eb25f84c",
+      "source_digest": "eb4f9772cac9d0a6739574f8912b1e33186ddbdede6450b973a0cc96d08b52b6",
+      "raw_sha256": "78dcb357ca21464765385ce2d2058a8863b017d2b8130592b05d3e42e18d471a"
+    },
+    {
+      "job_id": "1a381d1e9def4e32bbaec70331406e3d",
+      "status": "completed",
+      "reason": null,
+      "result_job_id": "426bdf0111864e2b8cf4c328d6f5cb31",
+      "review_digest": "b0f2ac2d89c3ab2504e54d55d1e9d80a73527caf27d1f614d63ee8352e390d0d",
+      "source_digest": "a6e4fa3b81af9e78e5c102e90f526cd6a8fdf865d68d33045ba2d6e08cf94fe8",
+      "raw_sha256": "1e162212a415b71825582c01b24ab38830e81a12d56b635fce7452e85de266db"
+    }
+  ],
+  "baseline": "69471e8",
+  "operating_failed_jobs_unchanged": true,
+  "operating_statuses": [
+    "failed",
+    "failed"
+  ],
+  "regression": {
+    "translation_tests": 47,
+    "passed": 47
+  },
+  "rollback": {
+    "scope": "isolated_copy_only",
+    "new_worker_sync_preserves_v4_selection": true,
+    "uncoordinated_old_worker_would_drop_v4_selection": true,
+    "restore_link_before_old_worker_preserves_v3_failure": true,
+    "restore_idempotent": true,
+    "all_artifacts_byte_identical": true,
+    "operating_applied": false,
+    "new_model_calls": 0
+  },
+  "source_sha256": {
+    "src/ai_company/translations.py": "73c4e838e672be14d39900bff7c28d2343f53c009671389840b11526f4913642",
+    "src/ai_company/adapters/translation_cli.py": "ab7375ad92399b233728c1e23e5379fc195b34fd2ce3541482da9551b536425f",
+    "scripts/recheck_saved_translations.py": "212b9a246bf7cc43aa97d494200bc0ff195858eba775c5ed04555584c109a469",
+    "tests/test_translation_saved_recheck.py": "79cba6c470a6300eba9eb67370388590cdaad5336b6f95dc4ecb622b24192bd5"
+  }
+}

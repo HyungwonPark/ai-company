@@ -1,0 +1,24 @@
+[
+  {
+    "version": "saved-korean-review-v1",
+    "job_id": "40ceb1f71da649fd9cf909fd4891bad9",
+    "source_digest": "eb4f9772cac9d0a6739574f8912b1e33186ddbdede6450b973a0cc96d08b52b6",
+    "raw_sha256": "78dcb357ca21464765385ce2d2058a8863b017d2b8130592b05d3e42e18d471a",
+    "fields_digest": "8cbe1b1faaff02a94c1eeb03cba67a44b8fe4d9cd925383d48e54b75c37854a6",
+    "verdict": "BLOCK",
+    "reviewer": "서버 Codex · 저장된 원문/출력 8문장 대조 · 2026-09-16",
+    "findings": [
+      "summary::5의 Authorization을 ‘인증’으로 옮겨 승인 권한과 로그인 인증을 혼동하게 합니다. 부정 표현 오탐이 해소돼도 이 번역은 채택하지 않습니다."
+    ]
+  },
+  {
+    "version": "saved-korean-review-v1",
+    "job_id": "1a381d1e9def4e32bbaec70331406e3d",
+    "source_digest": "a6e4fa3b81af9e78e5c102e90f526cd6a8fdf865d68d33045ba2d6e08cf94fe8",
+    "raw_sha256": "1e162212a415b71825582c01b24ab38830e81a12d56b635fce7452e85de266db",
+    "fields_digest": "02a1efd3ed26904f1963133330e6389c7897c78a8e136bef873af410e27f90d7",
+    "verdict": "PASS",
+    "reviewer": "서버 Codex · 저장된 원문/출력 8문장 대조 · 2026-09-16",
+    "findings": []
+  }
+]
