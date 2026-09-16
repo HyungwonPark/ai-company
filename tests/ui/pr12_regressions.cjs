@@ -55,6 +55,8 @@ function overview(project) {
     requests.push({method:request.method(),path:url.pathname});
     const json=(value,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(value)});
     if(url.pathname==='/api/session')return json({authenticated:true,username:'fixture-user',login_method:'password',csrf_token:'synthetic-csrf'});
+    if(url.pathname==='/api/execution-catalog'&&request.method()==='GET')return json({entries:[]});
+    if(/^\/api\/projects\/[^/]+\/execution-specs$/.test(url.pathname)&&request.method()==='GET')return json({execution_specs:[]});
     if(url.pathname==='/api/projects'&&request.method()==='GET')return json({projects:projects.map(project=>({...project,
       recent_run:scenario==='running'&&project.id===A?{id:'fixture-run',state:'running',created_at:2200,mode:'fixture'}:null,
       recent_pm_request:{id:'request-'+project.id,state:project.id===CREATED?'pending':'completed',created_at:2000,mode:'fixture'}}))});

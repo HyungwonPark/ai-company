@@ -59,7 +59,7 @@ function projectHref(view,id){return '#'+view+'?project='+encodeURIComponent(id)
 
 
 async function api(path,{method='GET',body}={}){
-  if(body&&new TextEncoder().encode(JSON.stringify(body)).length>65536)throw new Error('입력 내용이 서버 제한을 초과했습니다. 내용을 줄여 다시 저장해주세요.');
+  if(body&&new TextEncoder().encode(JSON.stringify(body)).length>65536){const error=new Error('입력 내용이 서버 제한을 초과했습니다. 내용을 줄여 다시 저장해주세요.');error.code='body_too_large';error.status=413;throw error;}
   const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),15000);
   try{
     const response=await fetch(path,{method,credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{Accept:'application/json',...(body?{'Content-Type':'application/json'}:{}),...(method!=='GET'&&state.csrf?{'X-CSRF-Token':state.csrf}:{})},...(body?{body:JSON.stringify(body)}:{})});
@@ -224,14 +224,14 @@ async function saveExecutionSpec(){
   }
   busyForms.add('execution-spec');state.executionError='';render();
   try{await api(`/api/projects/${encodeURIComponent(project)}/execution-specs`,{method:'POST',body:intent.body});storeExecutionIntent(null,project);await refresh();notify('명세를 저장했습니다. PM에게 새 계획을 요청한 뒤 직접 확정하세요.');}
-  catch(error){if([400,409].includes(error.status)&&['invalid_input','execution_spec_invalid','stale_execution_spec','execution_catalog_unavailable','execution_catalog_mismatch','idempotency_conflict','fixture_only'].includes(error.code)){storeExecutionIntent(null,project);await refresh();}state.executionError=error.message;notify(error.message);}
+  catch(error){if([400,409,413].includes(error.status)&&['invalid_input','execution_spec_invalid','stale_execution_spec','execution_catalog_unavailable','execution_catalog_mismatch','idempotency_conflict','fixture_only','body_too_large'].includes(error.code)){storeExecutionIntent(null,project);await refresh();}state.executionError=error.message;notify(error.message);}
   finally{busyForms.delete('execution-spec');render();}
 }
 async function requestExecutionPlan(){
   if(!state.connected||busyForms.has('execution-spec'))return;
-  const project=state.projectId;
+  const project=state.projectId,view=state.view;
   busyForms.add('execution-spec');render();
-  try{await api(`/api/projects/${encodeURIComponent(project)}/messages`,{method:'POST',body:{content:executionMessage}});await refresh();location.hash=projectHref('manager',project);notify('PM에게 새 계획을 요청했습니다. 계획은 아직 확정하지 않았습니다.');}
+  try{await api(`/api/projects/${encodeURIComponent(project)}/messages`,{method:'POST',body:{content:executionMessage}});await refresh();if(state.projectId===project&&state.view===view){state.view='manager';location.hash=projectHref('manager',project);}notify('PM에게 새 계획을 요청했습니다. 계획은 아직 확정하지 않았습니다.');}
   catch(error){state.executionError=error.message;await refresh();notify(error.message);}
   finally{busyForms.delete('execution-spec');render();}
 }

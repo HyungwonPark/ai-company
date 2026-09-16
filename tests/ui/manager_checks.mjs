@@ -71,3 +71,4 @@ const unavailableHTML=executionUI.render(overview,{entries:[],loaded:false,error
 assert.match(unavailableHTML,/카탈로그 조회 실패/);assert.doesNotMatch(unavailableHTML,/두 파일|카탈로그가 등록되지/,'a failed read is not proof of a missing catalog');
 assert.match(executionUI.render(proposed,{entries:[{...entry,budget:{...entry.budget,max_cost_usd:null}}],loaded:true}),/지정된 Codex PM·최종 검수는 적격 후보 없음으로 차단/,'a finite PM selection must disclose executor restrictions even when its catalog is unbounded');
 console.log('PASS: catalog-bound scope, escaped facts, unavailable catalog, pending-request display, current specification confirmation and finite-budget restriction');
+await import('./execution_save_checks.mjs');
