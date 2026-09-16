@@ -1,16 +1,16 @@
 {
-  "source_commit": "17697208211eff970f60304614cc88efab8ede35",
+  "source_commit": "c2b3fec4201912432f1f0518e3abb45303af7999",
   "status": "prepared_not_applied",
   "console": {
     "old_image": "sha256:0b335d24f67c3a727a366b63879165ea2b8ef54323cbb5ca267b4d050cb3aaed",
-    "new_image": "sha256:b1d7f0f88e2149173748805b4f13eb71f0be5487f76f3fdd0534f7bf4479640e",
+    "new_image": "sha256:2f404f44b326c9644af1feb33f2e1fd68559554ff122e132dccc32ad84281c13",
     "original_compose_sha256": "872f8beb446ebdd78df223ea8d9aae03f0b2149ddef00b5ae1931036dc41614b",
     "changed_field": "services.console.image"
   },
   "workers": {
     "alias": "/home/edward/ai-company/releases/control-plane",
     "old_release": "/home/edward/ai-company/releases/control-plane-51b911a",
-    "new_release": "/home/edward/ai-company/releases/control-plane-ce2def6",
+    "new_release": "/home/edward/ai-company/releases/control-plane-c2b3fec",
     "units": [
       "ai-company-automation.service",
       "ai-company-translation.service"
@@ -22,10 +22,10 @@
   "approval_10": "pending",
   "deployed": false,
   "verification": {
-    "local_python_tests": 311,
-    "remote_ci": "https://github.com/HyungwonPark/ai-company/actions/runs/35043551481",
-    "remote_ui": "https://github.com/HyungwonPark/ai-company/actions/runs/35043551436",
-    "android_build": "https://github.com/HyungwonPark/ai-company/actions/runs/35043551439",
+    "local_python_tests": 321,
+    "remote_ci": "https://github.com/HyungwonPark/ai-company/actions/runs/35046468421",
+    "remote_ui": "https://github.com/HyungwonPark/ai-company/actions/runs/35046468446",
+    "android_build": "https://github.com/HyungwonPark/ai-company/actions/runs/35046468385",
     "container": {
       "status": "PASS",
       "web_assets_verified": 27,
@@ -61,6 +61,28 @@
       "light-desktop-pm-workspace.png": "4f1552539281d2d5f27d7a55339173ad8787755d21b1291afd79b8ee64c2d5a4",
       "light-mobile-manager-team.png": "07b81eeca4b3351d1ce981814ab0215b6750125587b013b2b55118ac792dd33d",
       "light-mobile-new-project.png": "3c51e8097bfad7813d97b281920307df5f61b8d1696f26ef810f7e9252afe28f"
-    }
+    },
+    "installed_worker": {
+      "status": "PASS",
+      "installed_python_files": 30,
+      "editable_install": false,
+      "temporary_project_pm_requests": 1,
+      "development_runs": 0,
+      "model_calls": 0,
+      "new_parser_path_validation": true
+    },
+    "screenshots_source_commit": "17697208211eff970f60304614cc88efab8ede35",
+    "web_assets_identical_to_screenshot_revision": true
+  },
+  "source_archive_sha256": "61051d74da5d2fc9a828b47aa8b64cef6fbf6422543616efa3ca6e4a90229438",
+  "translation_repair": {
+    "proposal_sha256": "7b0405ba361ae583b1edca634992310a79b377c7f3b3593bc7a466dd4a601a80",
+    "replay_jobs": 2,
+    "bounded_retry_jobs": 4,
+    "maximum_new_model_calls": 4,
+    "operating_applied": false,
+    "original_failed_jobs_preserved": true,
+    "native_replay_new_model_calls": 0,
+    "new_default_policy": false
   }
 }
