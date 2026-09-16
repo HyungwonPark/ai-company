@@ -1,0 +1,28 @@
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+// Data imports keep these pure helpers testable without a browser or package.json.
+const moduleAt=async path=>import('data:text/javascript;base64,'+Buffer.from(await readFile(new URL(path,import.meta.url),'utf8')).toString('base64'));
+const {createDocumentUI}=await moduleAt('../../src/ai_company/web/documents-ui.js');
+const {createCollaborationUI}=await moduleAt('../../src/ai_company/web/collaboration-ui.js');
+const esc=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
+const document={id:'approval:one',project_id:'one',source_digest:'new-source',source_version:2,fields:{title:'Do not approve',impact:'USD 30 only'},protected:{cost_usd:30},translation:{id:'translation-1',source_digest:'new-source',status:'completed',fields:{title:'승인하지 마세요',impact:'USD 30만'},model:'fixture'}};
+let overview={documents:{'approval:one':document}};
+const docs=createDocumentUI({esc,readable:JSON.stringify,stamp:String,getOverview:()=>overview});
+assert.equal(docs.text('approval:one','title'),'승인하지 마세요');
+assert.deepEqual(docs.translationRef('approval:one'),{id:'translation-1',source_digest:'new-source'});
+assert.equal(document.protected.cost_usd,30);
+docs.toggle('approval:one');assert.equal(docs.text('approval:one','title'),'Do not approve');assert.equal(docs.translationRef('approval:one'),null);
+docs.toggle('approval:one');document.source_digest='newer-source';assert.equal(docs.text('approval:one','title'),'Do not approve');assert.equal(docs.translationRef('approval:one'),null);assert.match(docs.meta('approval:one'),/원문 갱신/);
+document.source_digest='new-source';document.translation.status='failed';assert.equal(docs.text('approval:one','title'),'Do not approve');
+document.translation.status='completed';document.translation.fields.title='<script>alert(1)</script>';assert.equal(esc(docs.text('approval:one','title')),'&lt;script&gt;alert(1)&lt;/script&gt;');
+const ui=createCollaborationUI({esc,badge:value=>esc(value),stamp:String,readable:JSON.stringify,evidenceLinks:()=>'',label:String,documents:docs});
+const snapshot=(cursor,transfers=[])=>({collaboration:{cursor,nodes:[{id:'role',name:'role',kind:'role',status:'RUNNING',assignment:{requested:{model:'request'},observed:{status:'unavailable'}}}],transfers},tasks:[]});
+assert.equal(ui.ingest(snapshot(5),'a'),true);
+assert.equal(ui.ingest(snapshot(4),'a'),false,'old cursors cannot overwrite current snapshots');
+assert.equal(ui.ingest(snapshot(5),'a'),true,'same cursor can update live job observations');
+const facts=snapshot(6,[{id:'same',cursor:6},{id:'same',cursor:5}]);ui.ingest(facts,'a');assert.equal(facts.collaboration.transfers.length,1);assert.equal(facts.collaboration.transfers[0].cursor,6);
+ui.disconnect('a');assert.equal(ui.ingest(snapshot(7),'a'),true);
+assert.equal(ui.ingest(snapshot(1),'b'),true,'projects have independent cursors');
+assert.equal(ui.ingest(snapshot(1),'a'),true,'project re-entry establishes a new baseline');
+ui.select('a','node','role');const html=ui.render(snapshot(2),'a');assert.match(html,/aria-pressed="true"/);assert.match(html,/적용 미확인/);assert.doesNotMatch(html,/관측 근거 있음/);
+console.log('PASS: document source binding, original toggle, failed/stale translation, HTML escaping, cursor ordering, duplicate events, project isolation, requested-vs-observed rendering');

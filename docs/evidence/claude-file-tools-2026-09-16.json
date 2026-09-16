@@ -1,0 +1,212 @@
+{
+  "schema": "claude-file-tools-validation-v1",
+  "observed_at": "2026-09-16T03:18:39.922664+00:00",
+  "status": "FILE_TOOLS_VERIFIED_NOT_REGISTERED",
+  "source_sha256": {
+    "src/ai_company/adapters/workspace_files.py": "edce536888b255ea0f83d193b53a797ae8ab8f7d0b7902c53b11ffb557fd9986",
+    "src/ai_company/adapters/workspace_mcp.py": "7d41c055100037a4d0769678a5a617efb7801e9bf7e62b4e9941ad0e23a037b0",
+    "tests/test_workspace_files.py": "43744477cd4a5bd800f5b94694f01f3c8fd34a2e892994e8356231a00bcecac4",
+    "tests/test_workspace_mcp.py": "6269202b8d8f3fc07b80167aa5fac7eb68d4b4281d7a1b2437236698b0f74781"
+  },
+  "runtime": {
+    "bwrap_sha256": "ae27935781511400c65ebcc0b4669775d602f46251b8707c947a1ac1b160c1c8",
+    "profile_sha256": "11d39094f044f0cda0febb3ad517b830301da6b2ce929664af09ee9e4dd264f9",
+    "profile": "bwrap//&unpriv_bwrap (enforce)",
+    "cap_eff": 0,
+    "cap_bnd": 0,
+    "no_new_privs": 1,
+    "unprivileged_userns_clone": 1,
+    "apparmor_restrict_unprivileged_userns": 1
+  },
+  "host_tests": {
+    "total": 15,
+    "passed": 15,
+    "skipped": 0,
+    "log_sha256": "f648a3f42c45a894e26cd649c3d71292219d5df0872b906e0229a05f1e7e82d2",
+    "native_cases": [
+      "UTF-8 literal read/write",
+      "exact assigned file vs neighboring file",
+      "outside read/write",
+      "TCP and abstract Unix socket isolation",
+      "detached child cleanup on success and timeout"
+    ],
+    "regression_tests": 336,
+    "regression_passed": 336,
+    "regression_log_sha256": "7d5da62544235e081193765b3e8734e50bffd4ab00362b99158acfc06fa93a12",
+    "regression_note": "full regression preceded final non-string tool-name rejection; affected MCP tests and all 15 file-tool tests passed again afterward"
+  },
+  "claude": {
+    "session_id": "78cc064e-8c4a-4010-868f-a1a11173f9bf",
+    "cli_version": "2.1.270",
+    "model": "claude-opus-5",
+    "applied": [
+      {
+        "request_id": "applied-before-24d46db8b8fd44a6b1ec2fe69ffc6b4e",
+        "applied": {
+          "model": "claude-opus-5",
+          "effort": "xhigh",
+          "ultracode": true
+        },
+        "has_errors": false
+      },
+      {
+        "request_id": "applied-after-b5a14060aa6f4399a3f6ca2a5fb686d5",
+        "applied": {
+          "model": "claude-opus-5",
+          "effort": "xhigh",
+          "ultracode": true
+        },
+        "has_errors": false
+      }
+    ],
+    "native_tools": [
+      "mcp__company_files__read_file",
+      "mcp__company_files__write_file"
+    ],
+    "mcp_servers": [
+      {
+        "name": "company_files",
+        "status": "connected"
+      }
+    ],
+    "matched_invocations": [
+      {
+        "native_tool_use_id": "toolu_01UebebP3uDiAWeJemQdCWPG",
+        "mcp_request_id": 2,
+        "tool": "write_file",
+        "path": "src/unassigned-file.py",
+        "state": "failed",
+        "arguments_sha256": "cc1eb871912a2bb6c240008a875ed50011163d4d2ad4e39c51d8692ccdef228b",
+        "result_sha256": null
+      },
+      {
+        "native_tool_use_id": "toolu_01LYYH1QjJi5u76ZsJzoj2WE",
+        "mcp_request_id": 3,
+        "tool": "read_file",
+        "path": "src/model-fixture.py",
+        "state": "completed",
+        "arguments_sha256": "459744032b962e424680e7b92291b5331395b3ea631a9eb4f6def814c28cbed4",
+        "result_sha256": "17f1253c3cf266058952ae757064db7c82146a8658acffc0e578038334cf8244"
+      },
+      {
+        "native_tool_use_id": "toolu_01GHYjpTCnZdVtdK8TqiJK5S",
+        "mcp_request_id": 4,
+        "tool": "write_file",
+        "path": "src/model-fixture.py",
+        "state": "completed",
+        "arguments_sha256": "556dd924ae23698eb1f1718352d203963a2738600db82975dadf7a1e46710586",
+        "result_sha256": "4d411a302a03aae11d89bbaf1e57eaf4713fc802752316eb0082c4c6016690f0"
+      },
+      {
+        "native_tool_use_id": "toolu_01VjsnxC9oCkQorWsohpBqaN",
+        "mcp_request_id": 5,
+        "tool": "read_file",
+        "path": "src/model-fixture.py",
+        "state": "completed",
+        "arguments_sha256": "459744032b962e424680e7b92291b5331395b3ea631a9eb4f6def814c28cbed4",
+        "result_sha256": "4d411a302a03aae11d89bbaf1e57eaf4713fc802752316eb0082c4c6016690f0"
+      }
+    ],
+    "matching_scope": "ordered native calls, argument/result digests, broker request IDs and execution window; not a provider cryptographic attestation",
+    "main_api_requests": [
+      {
+        "session.id": "78cc064e-8c4a-4010-868f-a1a11173f9bf",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "request_id": "req_011Cf6PZm7hLpkPuLXXtcsUn",
+        "query_source": "sdk",
+        "event.timestamp": "2026-09-16T03:14:26.613Z"
+      },
+      {
+        "session.id": "78cc064e-8c4a-4010-868f-a1a11173f9bf",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "request_id": "req_011Cf6PaQ8fgjJzrbb9v6r1V",
+        "query_source": "sdk",
+        "event.timestamp": "2026-09-16T03:14:36.535Z"
+      },
+      {
+        "session.id": "78cc064e-8c4a-4010-868f-a1a11173f9bf",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "request_id": "req_011Cf6Pb8qC5wGSigUfEept5",
+        "query_source": "sdk",
+        "event.timestamp": "2026-09-16T03:14:38.748Z"
+      },
+      {
+        "session.id": "78cc064e-8c4a-4010-868f-a1a11173f9bf",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "request_id": "req_011Cf6PbJCkh6yMmLFnnrwH2",
+        "query_source": "sdk",
+        "event.timestamp": "2026-09-16T03:14:40.435Z"
+      },
+      {
+        "session.id": "78cc064e-8c4a-4010-868f-a1a11173f9bf",
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "request_id": "req_011Cf6PbRSaLVdroMmgEAYMh",
+        "query_source": "sdk",
+        "event.timestamp": "2026-09-16T03:14:48.214Z"
+      }
+    ],
+    "cost_usd": 0.09152999999999999,
+    "duration_seconds": 33.42812156677246,
+    "cgroup_stopped": true,
+    "collector_closed": true,
+    "stdout_sha256": "ce432f4f7ef879be2ef8c62d1ae39c36e2358debcffb74bb962e9310008a5c40",
+    "audit_sha256": "b55890dbf17debda6da751b867aeed6059a7e83ef87f3adc3e0fa77706a01cb4",
+    "file_sha256": "4d411a302a03aae11d89bbaf1e57eaf4713fc802752316eb0082c4c6016690f0",
+    "unassigned_file_absent": true,
+    "backend_model_verified": false
+  },
+  "exploration": [
+    {
+      "case": "native-mcp",
+      "session_id": "a1d37116-ec98-44e5-9170-ba8b8487d602",
+      "cost_usd": 0.03671749999999999,
+      "cgroup_stopped": true,
+      "scope": "reserved server rejected; no file tools"
+    },
+    {
+      "case": "native-mcp-v2",
+      "session_id": "deaa29e5-a44b-4cd7-ad82-a1fb52e17f46",
+      "cost_usd": 0.075441,
+      "cgroup_stopped": true,
+      "scope": "preliminary file smoke before argument-validation fix"
+    },
+    {
+      "case": "native-mcp-boundary",
+      "session_id": "78cc064e-8c4a-4010-868f-a1a11173f9bf",
+      "cost_usd": 0.09152999999999999,
+      "cgroup_stopped": true,
+      "scope": "final-source isolation boundary"
+    }
+  ],
+  "exploration_total_cost_usd": 0.20368849999999997,
+  "production": {
+    "claude_developer_eligible": false,
+    "new_policy_registered": false,
+    "public_rollout_applied": false,
+    "unchanged": {
+      "management_projects": true,
+      "management_pm_requests": true,
+      "management_runs": true,
+      "session_jobs": true,
+      "translation_jobs": true,
+      "pr10": true,
+      "services": true,
+      "timer": true,
+      "worker_release": true,
+      "public_image": true,
+      "neighbors": true
+    }
+  },
+  "not_verified": [
+    "Dispatcher configuration evidence contract integration",
+    "actual Claude handoff and same-session quota resume",
+    "Workflow child file operations",
+    "actual master APK confirmation and full run",
+    "offsite signing-key restoration"
+  ]
+}

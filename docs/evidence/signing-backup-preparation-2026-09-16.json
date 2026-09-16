@@ -1,0 +1,19 @@
+{
+  "prepared_at": "2026-09-15T23:45:38.561542+00:00",
+  "status": "encrypted_and_locally_restored",
+  "package_id": "cloud.hyungwon.aicompany",
+  "archive_sha256": "d18f7fe187ff50961b6dd1ab7321546f51a8761cdeced7b97871e639e31e5f93",
+  "certificate_sha256": "E0:22:C4:1F:03:95:9B:51:54:C0:85:8C:22:F7:25:EF:49:D0:B1:F6:2F:DB:39:92:64:0F:30:86:E6:2E:98:79",
+  "encryption": "OpenPGP AES256, salted iterated S2K",
+  "encrypted_archive_bytes": 10315,
+  "restored_bytes_equal": true,
+  "keystore_opens": true,
+  "private_key_valid": true,
+  "private_key_matches_certificate": true,
+  "wrong_recovery_code_rejected": true,
+  "damaged_ciphertext_rejected": true,
+  "original_files_unchanged": true,
+  "plaintext_copies_written": false,
+  "external_transfer_performed": false,
+  "external_restore_verified": false
+}

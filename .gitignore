@@ -4,3 +4,10 @@ __pycache__/
 *.egg-info/
 .ai-company/
 dist/
+android/.gradle/
+android/**/build/
+android/local.properties
+*.keystore
+*.jks
+*.p12
+*.pfx

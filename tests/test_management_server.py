@@ -30,7 +30,7 @@ class ManagementHTTPTests(unittest.TestCase):
 
     def request(self, method, path, body=None, *, authenticated=True, headers=None):
         connection = http.client.HTTPConnection("127.0.0.1", self.server.server_port, timeout=5)
-        base = {"Origin": self.server.origin}
+        base = {"Origin": self.server.origin, "Host": self.server.authority}
         if authenticated and self.cookie:
             base["Cookie"] = self.cookie
             base["X-CSRF-Token"] = self.csrf
@@ -88,3 +88,44 @@ class ManagementHTTPTests(unittest.TestCase):
         self.assertEqual(self.request("POST", "/api/projects", {"name": "P", "goal": "G", "execute": True})[0], 400)
         self.now += 8 * 3600
         self.assertEqual(self.request("GET", "/api/projects")[0], 401)
+
+    def test_public_origin_secure_cookie_and_exact_proxy_request_boundaries(self):
+        self.server.shutdown(); self.server.server_close(); self.thread.join()
+        self.server = ManagementHTTPServer(("127.0.0.1", 0), self.root / "state", self.root / "login-token",
+            web_root=self.web, public_origin="https://hyungwon.cloud", clock=lambda: self.now)
+        self.thread = threading.Thread(target=self.server.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
+        self.thread.start()
+        status, result, headers = self.request("POST", "/api/login", {"token": self.token})
+        self.assertEqual(status, 200)
+        self.assertIn("; Secure", headers["Set-Cookie"])
+        self.assertIn("HttpOnly", headers["Set-Cookie"])
+        self.assertIn("SameSite=Strict", headers["Set-Cookie"])
+        self.cookie = headers["Set-Cookie"].split(";", 1)[0]; self.csrf = result["csrf_token"]
+        for headers in ({"Host": "talenta-edward.life"}, {"Host": "127.0.0.1"},
+                        {"Origin": "http://hyungwon.cloud"}, {"Origin": "https://evil.example"},
+                        {"Origin": "https://hyungwon.cloud.evil.example"}, {"X-CSRF-Token": "wrong"},
+                        {"Sec-Fetch-Site": "cross-site"},
+                        {"Host": "evil.example", "X-Forwarded-Host": "hyungwon.cloud"},
+                        {"Origin": "https://evil.example", "X-Forwarded-Proto": "https"}):
+            with self.subTest(headers=headers):
+                self.assertEqual(self.request("POST", "/api/projects", {"name": "P", "goal": "G"}, headers=headers)[0], 403)
+        self.assertEqual(self.request("GET", "/api/projects")[1]["projects"], [])
+        self.assertEqual(self.request("POST", "/api/projects", {"name": "P", "goal": "G"})[0], 201)
+        self.assertEqual(len(self.request("GET", "/api/projects")[1]["projects"]), 1)
+
+    def test_public_origin_and_interface_errors_rejected_before_state_creation(self):
+        for origin in ("http://hyungwon.cloud", "https://hyungwon.cloud/", "https://hyungwon.cloud?",
+                       "https://hyungwon.cloud#", "https://user@hyungwon.cloud", "https://@hyungwon.cloud",
+                       "https://hyungwon.cloud:65536", "https://hyungwon.cloud:0", "https://hyungwon.cloud:wrong",
+                       "https://hyungwon.cloud\n", "https://hyungwon.cloud/path", "//hyungwon.cloud"):
+            with self.subTest(origin=origin), self.assertRaises(ValueError):
+                ManagementHTTPServer(("127.0.0.1", 0), self.root / "invalid-state", self.root / "login-token", public_origin=origin)
+        for host, private, origin in (("0.0.0.0", True, "https://hyungwon.cloud"),
+                                     ("161.118.250.112", True, "https://hyungwon.cloud"),
+                                     ("169.254.1.1", True, "https://hyungwon.cloud"),
+                                     ("172.30.88.1", False, "https://hyungwon.cloud"),
+                                     ("172.30.88.1", True, None), ("172.30.88.1", True, "http://127.0.0.1")):
+            with self.subTest(host=host, private=private, origin=origin), self.assertRaises(ValueError):
+                ManagementHTTPServer((host, 0), self.root / "invalid-state", self.root / "login-token",
+                                     public_origin=origin, private_bind=private)
+        self.assertFalse((self.root / "invalid-state").exists())

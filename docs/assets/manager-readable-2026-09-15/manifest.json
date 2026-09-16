@@ -1,0 +1,23 @@
+{
+  "id": 34976391985,
+  "workflow_id": 357711638,
+  "path": ".github/workflows/console.yml",
+  "head_sha": "074dd96241bd8affe3c053212ee43de859e89c96",
+  "event": "pull_request",
+  "conclusion": "success",
+  "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/34976391985",
+  "run_attempt": 1,
+  "artifact_id": 10398859673,
+  "artifact_digest": "sha256:2f78eb3d8770effeeba85350e2652ccd38e949889e8a933990edfda0a5759f38",
+  "artifact_digest_verified": true,
+  "screenshot_sha256": {
+    "light-mobile-manager-first-screen.png": "cceb63a21f2890dec4e7408143a90be78788e6825d33e868567530ccb3059c49",
+    "light-mobile-manager-simple.png": "99237b01d09351ad769eeaef1f5f30ae78d3872678e401319e63de7d5e4d9ba6",
+    "light-desktop-manager-simple.png": "53b1a2ba9629d5bfbe5bfc8a718c5327fe04770b9a70e43b4485f7c0f073f161",
+    "black-mobile-manager-first-screen.png": "7bc29d5ceff3d71e763a83c118417f9e73b5ca25caca414eaa37ff839468c049",
+    "black-mobile-manager-simple.png": "f2e653954f6923ebc9713ecc0a32342e2e7b8ef0c3c01d7d38568a4c200fc1ee",
+    "black-desktop-manager-simple.png": "393c94385114ef921fcff3fb6b0049173acdd477ab1bcc3bc6776634d6aade98"
+  },
+  "fixture_data": true,
+  "production_deployment": false
+}

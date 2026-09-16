@@ -23,7 +23,15 @@ jobs:
       - name: Prepare browser test tooling
         run: |
           node --check src/ai_company/web/app.js
+          node --check src/ai_company/web/theme.js
           node --check src/ai_company/web/sw.js
+          node --check src/ai_company/web/collaboration-ui.js
+          node --check src/ai_company/web/documents-ui.js
+          node --check src/ai_company/web/plan-ui.js
+          node --check src/ai_company/web/report-ui.js
+          node --check src/ai_company/web/manager-ui.js
+          node tests/ui/state_checks.mjs
+          node tests/ui/manager_checks.mjs
           npm install --prefix "$RUNNER_TEMP/ui-tooling" --no-audit --no-fund @playwright/test@1.63.0
           google-chrome --version
       - name: Prepare Korean fonts without system installation

@@ -1,0 +1,17 @@
+{
+  "source_commit": "131ac551b44716490ff52c33e5cd6c25ebcf8466",
+  "ci_head": "0f5988e71f8ffe2ffcdb4d000b6f74381d7a1428",
+  "run_id": 35029085501,
+  "artifact_id": 10420362684,
+  "artifact_sha256": "504b4a7a2eceb891689a92626d54568ec5a089881015917d9dcdb67d61aaac78",
+  "fixture_data": true,
+  "production_deployment": false,
+  "files": {
+    "light-mobile-manager-first-screen.png": "0bf88f16e082154d6c0ac021230763f9f0d53e90b4f5ec57ac2b491d75863187",
+    "light-mobile-manager-simple.png": "3b77ebecfe77d462638625ee58aa3c7a030dd61df5beb5b97b31d2a362fdefd4",
+    "black-mobile-manager-first-screen.png": "79638c80b2ca4089237b966e6e1cbbf2b80f07676a8b23e3f3ef0d06caa38a2b",
+    "black-mobile-manager-simple.png": "2bccdd436d7ef4a78abca3fa04769d9e726c41806f70381d095447c55ab521e0"
+  },
+  "workflow_id": 357711638,
+  "workflow_path": ".github/workflows/console.yml"
+}

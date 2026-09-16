@@ -1,7 +1,8 @@
 """Immutable role pools, execution settings, budgets and review evidence."""
 
+import re
 from typing import Literal
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_serializer, model_validator
 from ai_company.contracts import Contract, Task, Key, Text, Digest, Commit, Finding
 from ai_company.sessions import RetryPolicy
 
@@ -40,6 +41,14 @@ class FlowPolicy(Contract):
     max_cost_usd: float | None = Field(default=None, gt=0, allow_inf_nan=False)
     max_repairs: int = Field(default=3, ge=0, le=20)
     retry: RetryPolicy = Field(default_factory=RetryPolicy)
+    configuration_evidence: Literal["runtime_metadata", "cli_configuration"] = "runtime_metadata"
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_digest(self, handler):
+        document = handler(self)
+        if self.configuration_evidence == "runtime_metadata":
+            document.pop("configuration_evidence", None)
+        return document
 
     @model_validator(mode="after")
     def complete_roles(self):
@@ -76,9 +85,45 @@ class FlowSpec(Contract):
     plan: dict = Field(default_factory=dict)
     dependencies: tuple[Key, ...] = ()
     mode: Literal["live", "fixture"] = "live"
+    execution_scope: Literal["full", "planning", "contribution", "integration"] = "full"
+    inherited_authors: tuple[dict, ...] = ()
+    inherited_pm_sessions: tuple[dict, ...] = ()
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_digest(self, handler):
+        document = handler(self)
+        if self.execution_scope == "full":
+            document.pop("execution_scope", None)
+        if not self.inherited_authors:
+            document.pop("inherited_authors", None)
+        if not self.inherited_pm_sessions:
+            document.pop("inherited_pm_sessions", None)
+        return document
+
+    @field_validator("inherited_authors", "inherited_pm_sessions")
+    @classmethod
+    def valid_inherited_sessions(cls, sessions):
+        if len(sessions) > 1000:
+            raise ValueError("too many inherited sessions")
+        for session in sessions:
+            if (set(session) != {"provider", "session_id"} or session["provider"] not in ("codex", "claude")
+                    or not isinstance(session["session_id"], str)
+                    or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}", session["session_id"])):
+                raise ValueError("inherited author/PM identity requires exact provider and session_id")
+        if len({(s["provider"], s["session_id"]) for s in sessions}) != len(sessions):
+            raise ValueError("inherited sessions must be unique")
+        return sessions
 
     @model_validator(mode="after")
     def validate_configuration(self):
+        if self.execution_scope == "planning" and self.approved_plan:
+            raise ValueError("planning cannot skip PM work with an approved plan")
+        if self.execution_scope in ("contribution", "integration") and not self.approved_plan:
+            raise ValueError("contribution/integration require the confirmed plan")
+        if self.execution_scope == "integration" and not self.inherited_authors:
+            raise ValueError("integration requires inherited authors to enforce independent review")
+        if self.execution_scope != "integration" and (self.inherited_authors or self.inherited_pm_sessions):
+            raise ValueError("inherited review exclusions belong to integration scope")
         by_id = {a.agent_id: a for a in self.agents}
         if len(by_id) != len(self.agents):
             raise ValueError("agent IDs must be unique")
@@ -122,6 +167,50 @@ class StageReport(Contract):
     findings: tuple[Finding, ...] = ()
     resolved_findings: tuple[Key, ...] = ()
     summary: Text
+
+
+
+
+class ContributionStageReport(StageReport):
+    commit_requested: bool
+
+    @model_validator(mode="after")
+    def contribution_verdict(self):
+        if self.role != "developer":
+            raise ValueError("contribution report is only for development")
+        if self.verdict == "DONE" and not self.commit_requested:
+            raise ValueError("contribution DONE requires an explicit runner commit request")
+        return self
+
+
+class PMPlanStageReport(StageReport):
+    # A local validator avoids automation_contracts -> flow_contracts circular imports.
+    plan: dict | None
+
+    @field_validator("plan")
+    @classmethod
+    def typed_plan(cls, value):
+        if value is None:
+            return None
+        from ai_company.automation_contracts import PMPlanContent
+        return PMPlanContent.model_validate(value).model_dump(mode="json")
+
+    @model_validator(mode="after")
+    def planning_verdict(self):
+        if self.role != "pm" or self.verdict not in ("PASS", "BLOCK"):
+            raise ValueError("planning report must be PM PASS or BLOCK")
+        if self.verdict == "PASS" and self.plan is None:
+            raise ValueError("planning PASS requires a validated plan")
+        return self
+
+    @classmethod
+    def model_json_schema(cls, *args, **kwargs):
+        from ai_company.automation_contracts import PMPlanContent
+        schema = super().model_json_schema(*args, **kwargs)
+        plan_schema = PMPlanContent.model_json_schema()
+        schema.setdefault("$defs", {}).update(plan_schema.pop("$defs", {}))
+        schema["properties"]["plan"] = {"anyOf": [plan_schema, {"type": "null"}]}
+        return schema
 
 
 def budget_available(task: dict, policy: FlowPolicy) -> bool:
