@@ -4,7 +4,7 @@ const {selectTheme,settledScreenshot}=require('./capture.cjs');
 module.exports=async function managerChecks({page,fixtureId,output}){
   const overviewPath=`**/api/projects/${fixtureId}/overview`;
   const original='Plan this exact bounded goal with two independent roles. Implementation owns only src/ai_company/pilot_status.py. Tests own only tests/test_pilot_status.py. Do not deploy or merge.';
-  let translated=true, revising=false;
+  let translated=true, revising=false, friendly=false;
   const writes=[];
   const observe=request=>{if(request.method()!=='GET'&&new URL(request.url()).pathname.startsWith('/api/'))writes.push(request.url());};
   page.on('request',observe);
@@ -13,7 +13,7 @@ module.exports=async function managerChecks({page,fixtureId,output}){
     const roles=[{key:'implementation',name:'개발',responsibility:'상태를 집계하는 함수 구현',goal:'역할 상태 집계',acceptance:['원본 상태를 바꾸지 않음'],allowed_paths:['src/ai_company/pilot_status.py'],depends_on:[]},{key:'tests',name:'테스트',responsibility:'개발과 독립된 회귀 검사',goal:'상태 집계 검증',acceptance:['빈 입력·알 수 없는 상태 확인'],allowed_paths:['tests/test_pilot_status.py'],depends_on:[]}];
     const plan={id:'manager-preview',digest:'e'.repeat(64),request_revision:1,status:'proposed',mode:'fixture',base_harness_version:1,content:{summary:original,roles,completion_criteria:['같은 후보 커밋의 검사와 독립 검수 통과','배포·병합 없이 결과 보고']}};
     const doc={id:'plan:'+plan.id,project_id:fixtureId,source_digest:'source-preview',source_version:1,fields:{summary:original},translation:translated?{id:'translation-preview',source_digest:'source-preview',status:'completed',fields:{summary:'역할별 작업 상태를 한눈에 모아보는 기능'},model:'화면 검증용 번역 예시'}:{status:'waiting_quota',source_digest:'source-preview'}};
-    await route.fulfill({response,json:{...base,project:{...base.project,name:'AI Company · 화면 검증',request_revision:revising?2:1},readiness:{...base.readiness,mode:'fixture'},plans:[plan],runs:[],pm_requests:[{request_revision:revising?2:1,state:revising?'pending':'completed',requested_configuration:{provider:'codex',model:'gpt-6-astra',reasoning_effort:'ultra'}}],messages:[{id:'master-preview',role:'user',content:original,created_at:1789447440},{id:'pm-preview',role:'assistant',content:original,created_at:1789447560}],roles:[],documents:{[doc.id]:doc},reports:[{id:'preview-report',title:'검사 기록',summary:'화면 검증용 보고서',source:'fixture'}],approvals:[{id:'preview-approval',status:'pending',title:'후보 승인 · 화면 검증용',artifact_sha:'a'.repeat(40)}]}});
+    await route.fulfill({response,json:{...base,project:{...base.project,name:'AI Company · 화면 검증',request_revision:revising?2:1},readiness:{...base.readiness,mode:'fixture'},plans:[plan],runs:[],pm_requests:[{request_revision:revising?2:1,state:revising?'pending':'completed',requested_configuration:{provider:'codex',model:'gpt-6-astra',reasoning_effort:'ultra'}}],messages:[{id:'master-preview',role:'user',content:friendly?'역할별로 누가 일하고 있고, 무엇을 기다리는지 한눈에 보고 싶어요.':original,created_at:1789447440},{id:'pm-preview',role:'assistant',content:friendly?'개발과 검사, 두 역할로 시작해 볼까요? 서로 기다리지 않고 진행할 수 있어요. 팀에서 각 역할의 책임을 확인하고 조정해 주세요.':original,created_at:1789447560}],roles:[],documents:{[doc.id]:doc},reports:[{id:'preview-report',title:'검사 기록',summary:'화면 검증용 보고서',source:'fixture'}],approvals:[{id:'preview-approval',status:'pending',title:'후보 승인 · 화면 검증용',artifact_sha:'a'.repeat(40)}]}});
   });
   try{
     await page.locator('.nav').getByRole('link',{name:'매니저',exact:true}).click();
@@ -65,6 +65,19 @@ module.exports=async function managerChecks({page,fixtureId,output}){
     assert.equal(await page.getByRole('link',{name:/승인.*검토를/}).count(),1,'approval navigation remains available during translation wait');
     await page.locator('.manager-plan-detail>summary').click();
     await page.getByText('번역 사용량 대기',{exact:true}).waitFor();
+    friendly=true;translated=true;await page.reload();await page.getByRole('heading',{name:'매니저',exact:true}).waitFor();
+    for(const theme of ['light','black']){
+      await selectTheme(page,theme);
+      for(const [device,width,height] of [['desktop',1440,1000],['mobile',360,800]]){
+        await page.setViewportSize({width,height});await page.evaluate(()=>window.scrollTo(0,0));
+        await settledScreenshot(page,{path:`${output}/${theme}-${device}-pm-workspace.png`,fullPage:true});
+        await page.getByRole('button',{name:'새 프로젝트',exact:true}).click();
+        await page.getByLabel('이름',{exact:true}).fill('우리 팀 작업실');
+        await page.getByLabel('목표',{exact:true}).fill('팀에서 누가 무엇을 하고 있는지 한눈에 보고 싶어요.');
+        await settledScreenshot(page,{path:`${output}/${theme}-${device}-new-project.png`});
+        await page.getByRole('button',{name:'대화상자 닫기',exact:true}).click();
+      }
+    }
     assert.deepEqual(writes,[],'reading, themes and expanding source records send no execution/approval requests');
     console.log('PASS: simplified manager, two themes, 320/360px, collapsed exact originals, preserved draft, translation wait and zero writes');
   }finally{
