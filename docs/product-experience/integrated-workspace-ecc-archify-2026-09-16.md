@@ -257,3 +257,7 @@ CI·모의 데이터 통과를 Android 실기기·운영 모델 호출 성공으
 - Archify: [패키지](https://github.com/tt-a1i/archify/blob/72c750bb070d95171dbb2244e5b62b1b7da69c12/archify/package.json), [MIT](https://github.com/tt-a1i/archify/blob/72c750bb070d95171dbb2244e5b62b1b7da69c12/LICENSE), [외부 자산](https://github.com/tt-a1i/archify/blob/72c750bb070d95171dbb2244e5b62b1b7da69c12/THIRD_PARTY_NOTICES.md).
 
 이번 변경은 외부 구현·스킬 본문을 복제하지 않고 선택 기준과 프로젝트 요구를 자체 작성한 명세다. 실제 코드를 도입할 때 해당 저작권·라이선스 고지와 변경 기록을 함께 보존한다.
+
+## 구현 추적
+
+- [P1 역할 그래프 구현·검수·미리보기](integrated-graph-validation-2026-09-17.md): 고정 후보와 회귀, 독립 검수, 적용/복구 경계. P2·운영·실기기 완료와 구분한다.
