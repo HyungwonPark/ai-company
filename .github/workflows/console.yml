@@ -82,7 +82,16 @@ jobs:
           CHROME_CHANNEL: chrome
           NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
           UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
-        run: uv run --frozen python tests/ui/run_workspace_graph.py
+        run: |
+          uv run --frozen python tests/ui/run_workspace_graph.py
+          node tests/ui/graph_preview.cjs
+      - name: Independently test integrated graph interactions
+        if: always()
+        env:
+          CHROME_CHANNEL: chrome
+          NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
+          UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
+        run: uv run --frozen python tests/ui/run_workspace_graph.py --scenario workspace_graph_independent.cjs
       - name: Package offline working preview
         if: always()
         run: |

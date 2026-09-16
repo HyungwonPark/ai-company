@@ -113,6 +113,8 @@ def seed_graph(store, root):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--export", type=Path, help="write sanitized fixture overview without starting a server/browser")
+    parser.add_argument("--scenario", choices=("workspace_graph.cjs", "workspace_graph_independent.cjs"),
+                        default="workspace_graph.cjs", help="run one browser review against a fresh temporary database")
     args = parser.parse_args()
     repository = Path(__file__).resolve().parents[2]
     with tempfile.TemporaryDirectory(prefix="ai-company-graph-ui-") as directory:
@@ -135,7 +137,7 @@ def main():
                 return 0
         finally:
             store.close()
-        scenario = repository / "tests" / "ui" / "workspace_graph.cjs"
+        scenario = repository / "tests" / "ui" / args.scenario
         if not scenario.exists():
             raise SystemExit("workspace_graph.cjs is not present; no browser started")
         server = ManagementHTTPServer(("127.0.0.1", 0), state, password_login=True,
