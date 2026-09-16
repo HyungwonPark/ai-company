@@ -8,9 +8,42 @@ from zipfile import ZipFile
 
 from ai_company.contracts import digest
 from ai_company.flow_contracts import RemoteCI
-from ai_company.flow_evidence import Verifier
+from ai_company.flow_evidence import Verifier, handoff
 from ai_company.runtime import ExecutionBlocked
 from test_dispatcher import FlowFixture
+from ai_company.sessions import repository_snapshot
+
+
+class HandoffRepositoryStateTests(FlowFixture):
+    def bundle(self, name, *, new_policy=True):
+        spec = self.spec.model_copy(update={'policy':self.spec.policy.model_copy(update={
+            'configuration_evidence':'cli_configuration_v2' if new_policy else 'runtime_metadata'})})
+        state = {'stage':'reviewer','task_id':spec.task.task_id,'generation':1,'last_completed_stage':'check',
+                 'findings':[],'verification':None,'plan':{},'usage':{},'snapshot':{'clean':'untrusted-state-hint'}}
+        return handoff(spec, state, {}, self.root/name)
+
+    def test_clean_fingerprint_is_not_a_dirty_boolean(self):
+        original = repository_snapshot(self.repo)
+        bundle = self.bundle('clean')
+        self.assertTrue(bundle['snapshot']['dirty_digest'])
+        self.assertEqual(bundle['repository_state'], {'source':'runner_git_status',
+            'snapshot_digest':digest(original),'head_commit':original['head_commit'],'clean':True})
+        self.assertEqual(repository_snapshot(self.repo), original)
+
+    def test_tracked_and_untracked_edits_are_reported_dirty_then_clean_after_commit(self):
+        for name in ('src/code.txt','src/extra.txt'):
+            (self.repo/name).write_text('changed')
+            bundle = self.bundle(name.replace('/','-'))
+            self.assertFalse(bundle['repository_state']['clean'])
+            self.assertEqual(bundle['repository_state']['snapshot_digest'], digest(repository_snapshot(self.repo)))
+            self.commit()
+            self.assertTrue(self.bundle('committed-'+name.replace('/','-'))['repository_state']['clean'])
+
+    def test_legacy_handoff_keeps_original_snapshot_shape(self):
+        before = repository_snapshot(self.repo)
+        bundle = self.bundle('legacy',new_policy=False)
+        self.assertNotIn('repository_state',bundle)
+        self.assertEqual(bundle['snapshot'],before)
 
 
 class EvidenceTests(FlowFixture):

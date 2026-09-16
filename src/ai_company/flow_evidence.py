@@ -60,6 +60,14 @@ def handoff(spec: FlowSpec, state: dict, execution: dict, destination: Path) -> 
               "verification": state["verification"], "plan": state["plan"], "usage": state["usage"],
               "snapshot": snapshot, "files": files, "next_action": state["stage"],
               "partial_changes_are_unverified": True}
+    if spec.policy.configuration_evidence == "cli_configuration_v2":
+        # dirty_digest is a fingerprint even for a clean worktree. File-only
+        # reviewers cannot run Git; supply the runner's actual status separately.
+        bundle["repository_state"] = {
+            "source": "runner_git_status", "snapshot_digest": digest(snapshot),
+            "head_commit": snapshot["head_commit"],
+            "clean": not bool(_git(root, "status", "--porcelain=v1", "--untracked-files=all").strip()),
+        }
     return bundle
 
 

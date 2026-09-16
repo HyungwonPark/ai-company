@@ -68,6 +68,11 @@ def stage_prompt(checkpoint_prompt: str, *, provider: str, role: str, planning: 
                 "Read repository files only with mcp__company_files__read_file. No command execution, "
                 "Bash, native Read/Glob/Grep, Workflow or other MCP tools are available. Use the supplied "
                 "snapshot SHA as runner-owned identity evidence; you cannot execute Git independently. "
+                "snapshot.dirty_digest is always a fingerprint, including when Git status is empty; "
+                "its presence does not mean the worktree is dirty. When supplied, checkpoint.repository_state "
+                "contains the runner's actual Git status bound to that snapshot. Attribute this to the "
+                "runner and do not claim you ran Git. Inspect the source yourself and compare the supplied "
+                "verification records; a clean worktree alone never proves code correctness or passed checks. "
             )
         elif provider == "claude":
             work += (

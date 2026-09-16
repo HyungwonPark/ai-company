@@ -428,7 +428,17 @@ class SessionQueue:
         if category == "success":
             return self._finish(job, "SESSION_COMPLETED", "agent session completed; tests and review are separate gates", owner)
         status = "NEEDS_RECONCILIATION" if category == "reconciliation" else "BLOCKED"
-        return self._finish(job, status, "non-retryable session outcome: " + category, owner)
+        reason = "non-retryable session outcome: " + category
+        terminal = (outcome.result or {}).get("native_terminal")
+        if (job["provider"] == "claude" and category == "code_error" and isinstance(terminal, dict)
+                and terminal.get("type") == "result" and terminal.get("session_id") == job["session_id"]
+                and terminal.get("is_error") is True and isinstance(terminal.get("subtype"), str)):
+            reason = {
+                "error_max_budget_usd": "실행 비용 기준에 도달해 중단됐습니다. 예산과 검수 입력을 확인하세요.",
+                "error_max_turns": "한 번의 실행에 허용된 작업 횟수에 도달했습니다. 남은 작업과 실행 설정을 확인하세요.",
+                "error_max_structured_output_retries": "정해진 형식의 최종 보고서를 받지 못했습니다. 출력 기록과 보고 형식을 확인하세요.",
+            }.get(terminal.get("subtype"), reason)
+        return self._finish(job, status, reason, owner)
 
     def run_once(self, *, executor=None, job_id: str | None = None) -> dict:
         if executor is None:

@@ -2,7 +2,8 @@
 from ai_company.contracts import digest
 
 DONE = {'CONTRIBUTION_READY', 'MERGE_READY', 'COMPLETE', 'COMPLETED', 'DONE'}
-BLOCKED = {'BLOCKED', 'FAILED', 'RECONCILIATION_REQUIRED', 'WAITING_ROLE_REPAIR',
+NEEDS_OPERATOR = {'BLOCKED', 'FAILED', 'STOPPED', 'RECONCILIATION_REQUIRED', 'NEEDS_RECONCILIATION', 'NEEDS_CONTEXT_HANDOFF'}
+BLOCKED = NEEDS_OPERATOR | {'WAITING_ROLE_REPAIR',
            'WAITING_QUOTA', 'WAITING_RETRY', 'WAITING_CAPACITY', 'WAITING_DEPENDENCIES', 'WAITING_DEPENDENCY'}
 
 
@@ -78,6 +79,8 @@ def project_report(overview):
         result['next_actions'].append(dict(owner='master', text='후보와 검수 근거를 확인하고 수용 여부를 결정하세요.', view='approvals'))
     elif any(a['status'] == 'expired' for a in related):
         result['next_actions'].append(dict(owner='operator', text='만료된 승인 요청의 대상과 조건을 다시 검토하세요.', view='approvals'))
+    elif any(item['status'] in NEEDS_OPERATOR for item in result['blockers']):
+        result['next_actions'].append(dict(owner='operator', text='차단 사유와 실행 기록을 확인하고 재개 조건을 검토하세요.', view='progress'))
     elif result['blockers']:
         result['next_actions'].append(dict(owner='coordinator', text='대기 원인과 예약 시각을 확인합니다. 독립 작업은 계속합니다.', view='progress'))
     elif run and run.get('state') in ('blocked', 'rejected'):

@@ -2,6 +2,8 @@
 
 **별도 시험 큐에서 실제 Claude 개발 이관과 같은 세션의 예약 재개를 확인했다. 운영에는 적용하지 않았다.** 공개 작업실 후보 `c2b3fec`, 현재 서비스 `51b911a`, 기존 실행 정책과 PR #10 `pending`은 유지한다. [기계 판독 증거](evidence/claude-dispatcher-2026-09-16.json)
 
+후속 [검수 입력·차단 보고 보완](claude-review-2026-09-16.md)에서 같은 후보의 새 읽기 전용 로컬 검수 PASS를 확인했다. 아래 비용 중단과 당시 미검증 표시는 원래 시험 기록으로 보존한다.
+
 ## 구현
 
 실행 연결 코드는 `a90ae7333c7fe515d69e61d5c1e1ce027bdd7d0b`다. 새 `cli_configuration_v2` 정책을 명시한 작업에서만 Claude 파일 실행기를 사용한다. 기존 `runtime_metadata`·`cli_configuration`의 판정과 digest를 유지한다. 기존 작업의 정책을 바꿔 통과시키지 않는다.

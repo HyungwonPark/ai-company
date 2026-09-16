@@ -64,3 +64,17 @@ class ProjectReportTests(unittest.TestCase):
         self.assertEqual(report['blockers'][0]['resume_at'], 90)
         self.assertEqual(report['source'], 'system')
         self.assertEqual(report['next_actions'][0]['owner'], 'pm')
+
+    def test_terminal_blocks_require_review_while_scheduled_waits_stay_with_coordinator(self):
+        for status in ('BLOCKED','FAILED','STOPPED','NEEDS_RECONCILIATION','NEEDS_CONTEXT_HANDOFF'):
+            overview = self.fixture()
+            overview['tasks'][0].update(status=status, resume_at=None, wait_reason='실행 비용 기준에 도달했습니다.')
+            original = copy.deepcopy(overview)
+            report = project_report(overview)
+            self.assertEqual(report['blockers'][0]['status'],status)
+            self.assertEqual(report['next_actions'][0]['owner'],'operator')
+            self.assertEqual([item['task_id'] for item in report['completed']],['b'])
+            self.assertEqual(overview,original)
+        report = project_report(self.fixture())
+        self.assertEqual(report['next_actions'][0]['owner'],'coordinator')
+        self.assertEqual(report['blockers'][0]['resume_at'],50)
