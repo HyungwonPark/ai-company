@@ -33,6 +33,7 @@ jobs:
           node tests/ui/state_checks.mjs
           node tests/ui/manager_checks.mjs
           node tests/ui/workspace_model.cjs
+          node tests/ui/workspace_graph_checks.mjs
           npm install --prefix "$RUNNER_TEMP/ui-tooling" --no-audit --no-fund @playwright/test@1.63.0
           google-chrome --version
       - name: Prepare Korean fonts without system installation
@@ -75,15 +76,24 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
           UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
         run: node tests/ui/workspace_independent.cjs
+      - name: Review integrated graph through real read API
+        if: always()
+        env:
+          CHROME_CHANNEL: chrome
+          NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
+          UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
+        run: uv run --frozen python tests/ui/run_workspace_graph.py
       - name: Package offline working preview
         if: always()
-        run: python scripts/package_workspace_preview.py "$RUNNER_TEMP/workspace-preview/AI-Company-preview.html"
+        run: |
+          python scripts/package_workspace_preview.py "$RUNNER_TEMP/workspace-preview/AI-Company-preview.html"
+          python scripts/package_graph_preview.py "$RUNNER_TEMP/workspace-preview/AI-Company-graph.html"
       - name: Save offline preview
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: workspace-preview
-          path: ${{ runner.temp }}/workspace-preview/AI-Company-preview.html
+          path: ${{ runner.temp }}/workspace-preview/*.html
           retention-days: 30
       - name: Save nonsecret screenshots
         if: always()

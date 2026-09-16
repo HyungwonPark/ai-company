@@ -1022,6 +1022,8 @@ class ManagementStore:
             "session_id": (summary.get("observed_configuration") or {}).get("session_id"),
             "quota": summary.get("quota"), "harness_version": project["harness_version"]},
             "wait_reason": summary.get("reason"), "resume_at": summary.get("resume_at"), "handoffs": [], "active": True})
+        from ai_company.workspace_graph import workspace_graph
+        overview["workspace_graph"] = workspace_graph(self.db, overview, observed_at=self.clock())
         return overview
 
     def seed_demo(self):
