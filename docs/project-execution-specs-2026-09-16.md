@@ -4,7 +4,7 @@
 
 ## 고정 후보와 검증 결과
 
-[초안 PR #13](https://github.com/HyungwonPark/ai-company/pull/13)은 PR #8의 `69471e8`에서 분리했다. 코드 후보는 `9e6c0c18258eb2fa1710957807d2054899ab3fc4`이며 이후 검증 기록만 별도로 추가한다. 이전 목표의 완료 기록은 보존했고 미완료 항목을 완료로 바꾸지 않았다.
+[초안 PR #13](https://github.com/HyungwonPark/ai-company/pull/13)은 PR #8의 `69471e8`에서 분리했다. 제품 코드 후보는 `9e6c0c18258eb2fa1710957807d2054899ab3fc4`이며 이후 검증 기록과 브라우저 시험 정리 보완만 별도로 추가한다. 이전 목표의 완료 기록은 보존했고 미완료 항목을 완료로 바꾸지 않았다.
 
 | 확인 | 실제 결과 |
 |---|---|
@@ -21,6 +21,8 @@
 관련 코드 CI와 브라우저 CI는 위 코드 후보에 연결했다. 제품 실행용 `Automation evidence` workflow는 이 개발 브랜치에서 **skip**이며 PASS로 세지 않는다. 임시 프로젝트의 모델·원격 검사·최종 검수는 fixture를 사용했다. 제품 Astra CLI의 새 최종 검수, 일반 프로젝트의 운영 자동개발, 마스터의 APK 직접 조작을 수행했다는 뜻이 아니다.
 
 로컬 Chrome은 기존 AppArmor/userns 제약으로 실행하지 못했으며 격리를 해제하지 않았다. 화면 검증은 원격 CI의 sandboxed Chrome에서 완료했다. 상세 해시·검사 목록·운영 대조는 [검증 원장](evidence/project-execution-validation-2026-09-16.json), 번역 의미 판정은 [별도 기록](translation-saved-recheck-2026-09-16.md)에 보존했다.
+
+문서 커밋 `da55b02`의 [화면 CI 35092106928](https://github.com/HyungwonPark/ai-company/actions/runs/35092106928)은 협업 fixture의 후반 화면을 저장한 뒤 `Route is already handled` 오류로 실패했다. 기존 정리가 진행 중인 `fetch`·`fulfill` 완료를 기다리지 않는 누락을 독립 검수로 확인해, `collaboration.cjs`에서 `unrouteAll({behavior:'wait'})` 후에 새로고침하도록 보완했다. [Playwright 1.63의 정리 대기 구현](https://github.com/microsoft/playwright/blob/v1.63.0/packages/playwright-core/src/client/network.ts#L827)에 따른 변경이며 오류를 삼키거나 화면 검사를 제거하지 않는다. 로그만으로 내부 중복 처리 경로 전체를 확정하지 않는다. 후속 시험 커밋의 CI 결과는 PR #13에 연결하고, 이 변경으로 제품 코드·고정 이미지·운영 상태를 바꾸지 않는다.
 
 ## 기존 상태
 

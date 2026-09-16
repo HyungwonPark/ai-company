@@ -213,5 +213,16 @@
   "user_owned_pending": [
     "APK goal input and plan confirmation",
     "signing key offsite storage and external restore"
-  ]
+  ],
+  "browser_ci_followup": {
+    "failed_documentation_commit": "da55b02ace47caf0b8dfa48d16cc7c874be5d129",
+    "failed_run_id": 35092106928,
+    "error": "Route is already handled",
+    "observed_stage": "collaboration fixture later screenshots saved",
+    "correction": "await page.unrouteAll({behavior: wait}) before fixture teardown reload",
+    "independent_review": "PASS",
+    "product_code_changed": false,
+    "internal_duplicate_route_path_fully_determined": false,
+    "followup_results_location": "https://github.com/HyungwonPark/ai-company/pull/13"
+  }
 }
