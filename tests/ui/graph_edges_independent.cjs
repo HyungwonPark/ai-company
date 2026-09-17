@@ -33,7 +33,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
   return page.evaluate(({id,label})=>{
    const group=[...document.querySelectorAll('.rg-edge')].find(g=>g.dataset.rgEdgeId===id),viewport=document.querySelector('.rg-viewport').getBoundingClientRect();
    const visible=p=>p.x>Math.max(0,viewport.left)+2&&p.x<Math.min(innerWidth,viewport.right)-2&&p.y>Math.max(0,viewport.top)+2&&p.y<Math.min(innerHeight,viewport.bottom)-2;
-   if(label){const node=group.querySelector('.rg-edge-label'),r=node.querySelector('rect').getBoundingClientRect(),p={x:r.x+r.width/2,y:r.y+r.height/2};return node.getAttribute('visibility')!=='hidden'&&visible(p)&&document.elementFromPoint(p.x,p.y)?.closest('[data-rg-label]')?.dataset.rgLabel===id?p:null;}
+   if(label){const node=[...document.querySelectorAll('.rg-edge-label')].find(n=>n.dataset.rgLabel===id),r=node.querySelector('rect').getBoundingClientRect(),p={x:r.x+r.width/2,y:r.y+r.height/2};return node.getAttribute('visibility')!=='hidden'&&visible(p)&&document.elementFromPoint(p.x,p.y)?.closest('[data-rg-label]')?.dataset.rgLabel===id?p:null;}
    const target=group.querySelector('.rg-edge-line'),matrix=target.getScreenCTM(),length=target.getTotalLength();
    const others=[...document.querySelectorAll('.rg-edge-line')].filter(p=>p!==target).map(p=>{const m=p.getScreenCTM(),len=p.getTotalLength();return Array.from({length:161},(_,i)=>p.getPointAtLength(len*i/160).matrixTransform(m));});
    let best=null;
@@ -41,14 +41,14 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
    return best;
   },{id,label});
  }
- async function revealPointer(id){
+ async function revealPointer(id,labelOnly=false){
   const wire=page.locator(`.rg-edge-hit[data-rg-edge="${id}"]`);
   // Move the camera through actual keyboard input; never dispatch click or alter
   // graph positions/styles. A leader line does not define the label hit box.
-  for(const fraction of [null,.5,.25,.75]){
+  for(const fraction of labelOnly?[null]:[null,.5,.25,.75]){
    const move=await page.evaluate(({id,fraction})=>{
     const group=[...document.querySelectorAll('.rg-edge')].find(g=>g.dataset.rgEdgeId===id),viewport=document.querySelector('.rg-viewport').getBoundingClientRect();
-    const label=group.querySelector('.rg-edge-label');let point;
+    const label=[...document.querySelectorAll('.rg-edge-label')].find(n=>n.dataset.rgLabel===id);let point;
     if(fraction===null){if(label.getAttribute('visibility')==='hidden')return null;const rect=label.querySelector('rect').getBoundingClientRect();point={x:rect.x+rect.width/2,y:rect.y+rect.height/2};}
     else{const line=group.querySelector('.rg-edge-line');point=line.getPointAtLength(line.getTotalLength()*fraction).matrixTransform(line.getScreenCTM());}
     return {x:(Math.max(0,viewport.left)+Math.min(innerWidth,viewport.right))/2-point.x,y:(Math.max(0,viewport.top)+Math.min(innerHeight,viewport.bottom))/2-point.y};
@@ -59,7 +59,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
     for(let i=0;i<count;i++)await page.keyboard.press(delta<0?negative:positive);
    }
    await settle();
-   const stroke=await pointerPoint(id,false);if(stroke)return {point:stroke,label:false};
+   const stroke=labelOnly?null:await pointerPoint(id,false);if(stroke)return {point:stroke,label:false};
    const labelPoint=await pointerPoint(id,true);if(labelPoint)return {point:labelPoint,label:true};
   }
   return null;
@@ -81,7 +81,13 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
    const hitIds=[],labelIds=[];
    for(const edge of snapshot.edges){
     let point=await pointerPoint(edge.id,false);if(point){await page.mouse.click(point.x,point.y);await selection(edge,snapshot);hitIds.push(edge.id);await close();await page.locator('.rg-viewport').scrollIntoViewIfNeeded();}
-    point=await pointerPoint(edge.id,true);if(point){await page.mouse.click(point.x,point.y);await selection(edge,snapshot);labelIds.push(edge.id);await close();await page.locator('.rg-viewport').scrollIntoViewIfNeeded();}
+    // Every rendered label, including a label previously covered by a later
+    // edge's wide transparent hit stroke, must resolve to its own relationship.
+    if(await page.locator(`.rg-edge-label[data-rg-label="${edge.id}"]`).getAttribute('visibility')!=='hidden'){
+     point=await pointerPoint(edge.id,true);if(!point)point=(await revealPointer(edge.id,true))?.point;
+     assert.ok(point,`${width}/${theme}: visible label ${edge.id} is covered or inaccessible after keyboard pan`);
+     await page.mouse.click(point.x,point.y);await selection(edge,snapshot);labelIds.push(edge.id);await close();await page.locator('.rg-viewport').scrollIntoViewIfNeeded();
+    }
     if(!hitIds.includes(edge.id)&&!labelIds.includes(edge.id)){
      const revealed=await revealPointer(edge.id);assert.ok(revealed,`${width}/${theme}: ${edge.id} (${edge.kind}, ${edge.from}→${edge.to}) has no physically selectable path or label after keyboard pan`);
      await page.mouse.click(revealed.point.x,revealed.point.y);await selection(edge,snapshot);(revealed.label?labelIds:hitIds).push(edge.id);await close();await page.locator('.rg-viewport').scrollIntoViewIfNeeded();
