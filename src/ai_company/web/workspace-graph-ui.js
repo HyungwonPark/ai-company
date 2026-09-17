@@ -112,7 +112,7 @@ export function createWorkspaceGraph({esc,label=v=>statusLabels[v]||v,stamp=v=>v
  function mount(container,overview,project){
   disposeMount();resizeObserver?.disconnect();const root=container.querySelector('[data-rg-root]');if(!root)return;activeProject=project;
   const controller=new AbortController(),signal=controller.signal;
-  let dragging=null,finishedGesture=null,suppressClick=false,finishTimer=null;
+  let dragging=null,finishedGesture=null,suppressClick=false,finishTimer=null,tabNavigation=false,tabTimer=null;
   function finishInteraction({cancelled=false,paint=true,notify=true}={}){
    clearTimeout(finishTimer);finishTimer=null;
    const gesture=dragging||finishedGesture;dragging=null;finishedGesture=null;
@@ -130,7 +130,7 @@ export function createWorkspaceGraph({esc,label=v=>statusLabels[v]||v,stamp=v=>v
    if(notify)onInteractionEnd({project,cancelled});
   }
   disposeMount=()=>{
-   controller.abort();const active=interaction?.project===project;
+   controller.abort();clearTimeout(tabTimer);tabNavigation=false;const active=interaction?.project===project;
    finishInteraction({cancelled:true,paint:false,notify:false});
    if(active)queueMicrotask(()=>onInteractionEnd({project,cancelled:true}));
   };
@@ -172,6 +172,26 @@ export function createWorkspaceGraph({esc,label=v=>statusLabels[v]||v,stamp=v=>v
    const viewport=root.querySelector('.rg-viewport');if(!viewport)return;
    if(action==='fit'){v.zoom=clamp(Math.min(viewport.clientWidth/v.canvas.width,viewport.clientHeight/v.canvas.height),.25,1);v.pan={x:(viewport.clientWidth-v.canvas.width*v.zoom)/2,y:8};}
    else {const old=v.zoom;v.zoom=clamp(old*(action==='zoom-in'?1.25:.8),.25,2.5);v.pan={x:viewport.clientWidth/2-(viewport.clientWidth/2-v.pan.x)*v.zoom/old,y:viewport.clientHeight/2-(viewport.clientHeight/2-v.pan.y)*v.zoom/old};}
+   transform();
+  },{signal});
+  root.addEventListener('keydown',event=>{
+   if(event.key!=='Tab'||event.altKey||event.ctrlKey||event.metaKey)return;
+   tabNavigation=true;clearTimeout(tabTimer);
+   tabTimer=setTimeout(()=>{tabNavigation=false;tabTimer=null;},0);
+  },{signal});
+  root.addEventListener('focusin',event=>{
+   if(!tabNavigation)return;
+   tabNavigation=false;clearTimeout(tabTimer);tabTimer=null;
+   const target=event.target.closest('[data-rg-node],[data-rg-edge]'),viewport=target?.closest('.rg-viewport'),s=scope(project);
+   if(!viewport||!s)return;
+   viewport.scrollIntoView({block:'center',inline:'nearest'});
+   const bounds=target.getBoundingClientRect(),frame=viewport.getBoundingClientRect();
+   if(bounds.left>=frame.left+1&&bounds.right<=frame.right-1&&bounds.top>=frame.top+1&&bounds.bottom<=frame.bottom-1)return;
+   // Only an actual Tab move reveals clipped targets. Polling focus restoration
+   // leaves the camera untouched, and graph navigation never uses native scroll.
+   const v=view(s);
+   v.pan.x+=(frame.left+frame.right-bounds.left-bounds.right)/2;
+   v.pan.y+=(frame.top+frame.bottom-bounds.top-bounds.bottom)/2;
    transform();
   },{signal});
   root.addEventListener('keydown',event=>{capture(root,project);const n=event.target.closest('[data-rg-node]'),e=event.target.closest('[data-rg-edge]'),s=scope(project);if(!s)return;const v=view(s);if(event.key==='Escape'&&v.selection){event.preventDefault();const prior=v.selection;v.selection=null;v.detailScroll=0;v.detailOpen=[];redraw(prior);return;}if(e&&['Enter',' '].includes(event.key)){event.preventDefault();e.dispatchEvent(new MouseEvent('click',{bubbles:true}));return;}if(!event.key.startsWith('Arrow')||!event.target.closest('.rg-viewport'))return;event.preventDefault();const delta={ArrowLeft:[-24,0],ArrowRight:[24,0],ArrowUp:[0,-24],ArrowDown:[0,24]}[event.key];if(n&&event.altKey){const p=v.positions[n.dataset.rgNode];p.x=Math.max(0,p.x+delta[0]);p.y=Math.max(0,p.y+delta[1]);redraw({id:n.dataset.rgNode,kind:'node'});}else {v.pan.x+=delta[0];v.pan.y+=delta[1];transform();}},{signal});
