@@ -260,4 +260,6 @@ CI·모의 데이터 통과를 Android 실기기·운영 모델 호출 성공으
 
 ## 구현 추적
 
+- P2-A/B 고정 그림·ECC 역할 전달: [후속 구현·실제 캡처·CI·독립 검수·적용/복구안](integrated-followups-validation-2026-09-17.md), 초안 [PR #19](https://github.com/HyungwonPark/ai-company/pull/19). 개발/fixture 검증 범위이며 운영 적용·실제 모델 준수·마스터 APK 확인은 포함하지 않는다. P2-C 모델 연결은 별도 미완료 항목이다.
+
 - [P1 역할 그래프 구현·검수·미리보기](integrated-graph-validation-2026-09-17.md): 고정 후보와 회귀, 독립 검수, 적용/복구 경계. P2·운영·실기기 완료와 구분한다.

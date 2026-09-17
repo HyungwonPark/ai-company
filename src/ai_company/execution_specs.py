@@ -100,6 +100,9 @@ class ExecutionCatalog:
             if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.-]{0,63}', key):
                 raise ExecutionSpecError('Invalid catalog identity')
             config = AutomationConfig.model_validate(copy.deepcopy(value.model_dump(mode='json') if isinstance(value, AutomationConfig) else value))
+            if config.guidance is not None:
+                from ai_company.harness.guidance import load
+                load(config.guidance)
             for path in config.allowed_paths:
                 confined_path(path)
             ids = [agent.agent_id for agent in config.agents]
@@ -177,6 +180,7 @@ class ExecutionCatalog:
     def summary(config, *, role_candidates=None):
         policy = config.policy
         return {
+            **({'guidance': config.guidance.model_dump(mode='json')} if config.guidance is not None else {}),
             'repository': config.repository, 'base_branch': config.base_branch, 'base_sha': config.base_sha,
             'allowed_paths': list(config.allowed_paths),
             'checks': {key: command.model_dump(mode='json') for key, command in config.checks.items()},

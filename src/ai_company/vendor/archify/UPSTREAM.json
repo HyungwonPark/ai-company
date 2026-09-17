@@ -1,0 +1,28 @@
+{
+  "repository": "https://github.com/tt-a1i/archify",
+  "commit": "72c750bb070d95171dbb2244e5b62b1b7da69c12",
+  "upstream_version": "2.17.0-dev.1",
+  "files": {
+    "LICENSE": "b799ab081703e7821ae5096d2c1abdf14bbdc75e8ea1c4045998c36ed6db9706",
+    "THIRD_PARTY_NOTICES.md": "0b7fb59365dc21c93b0f62526d74ee913aeec9ae532c112bc76afa7edcd56e14",
+    "renderers/shared/brand-marks.mjs": "4557b7f3eec25a3dba66a0f5da1c5dca6ec607e2a68e9be51cd697cefe9e6425",
+    "renderers/shared/cli.mjs": "92ea6537c3138a2c11f302b9f1546af7539ca42d6b400bebc29cadbb5184f664",
+    "renderers/shared/diagnostics.mjs": "032bbcb4892c67fcda0f9c69f55fbcdd6b11dd291386a0cf118b1ba73ecda36f",
+    "renderers/shared/engineering-profiles.mjs": "7e99f9d5423f66cc9ab6224da56dc2d5aa6c6faec29178034794e9db6b5b2889",
+    "renderers/shared/generated-brand-marks.mjs": "0f157d229c12df6f53763a3b88684baa5803a52484c49c4d34ec40b8743beea2",
+    "renderers/shared/generated-validators.mjs": "a1843e5612916e7ff71511d8577cdbea9a1355eee0ed1379de0ffd668992387f",
+    "renderers/shared/geometry.mjs": "161785af32241fc96df051c9be4f2bb9c3b897418d708f4a051b63f1c44952cf",
+    "renderers/shared/i18n.mjs": "0d9e839c3e5346160b0028d07fcf78c86671189e0714ea069dc99913e859fcdb",
+    "renderers/shared/legend.mjs": "4c8b37f10fb5c783a28bff6aa35bc3966155213ee32f64a8252eab5b9e64a747",
+    "renderers/shared/output-path.mjs": "44a5f63239703a0a56623711bb9565272488c540650cb8c3f0a3aac57928d1cf",
+    "renderers/shared/repository-evidence.mjs": "e8676fb59df158bdca00e76efdf897285f8d96d23b41a426c9bc575786f0932f",
+    "renderers/shared/repository-location.mjs": "e82fa68ab46e71566eb7aefdb48f6df67b34fd27ce36489e7787410dbfba05ce",
+    "renderers/shared/text-fit.mjs": "35b6ef2c64d88c1ea4e5aab2af7c4e8a2c2e1be62db71263787d39a9797e7dea",
+    "renderers/shared/utils.mjs": "20124265300eb286db184a053561005cc32b6128dc1bc1b3f9520ffa8d43a241",
+    "renderers/shared/validator.mjs": "7460d7fcbcdf710649256c5e96142ae26d807a655d3296ee8caf7f5e158622cc",
+    "renderers/workflow/workflow-compiler.mjs": "aa2a42d3d5c79642a4aaa0faef95fec9ce01727ad1d97e92ff8e59cba4926204",
+    "renderers/workflow/workflow-migration-geometry.mjs": "ebfc5085dd008ae63802f500402fb7bf8ca0ae28460997d867f45e5493b8fbe6",
+    "schemas/common.schema.json": "2630c958314eeebb92e0f6f6330475f1a2bc48f8c1b53201ba3b58889b319c80",
+    "schemas/workflow.schema.json": "2128e82afd2b971fcb7d80ada86fa836bb4a5035b504053b87d3aeefec380e3c"
+  }
+}

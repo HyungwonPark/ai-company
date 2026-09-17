@@ -1,0 +1,19 @@
+{
+  "source_commit": "5083669c5315de13467e938ce19e73a311bc147e",
+  "run_id": 35177986553,
+  "fixture": true,
+  "files": {
+    "workspace-diagram-light-390.png": "c94d119664fcbb4fea10fa219833924bb9aa28f194d1f83528ad28dbab4482b7",
+    "workspace-diagram-black-390.png": "32cbebd717961932906fec2566e89167aee1796c7ba3cd04f1a1453de3fd0d44",
+    "workspace-diagram-light-1440.png": "b27876ec2c23af4755efc5a93976359e507c02c6727f5e5bd5b879566e79918d",
+    "workspace-diagram-black-320.png": "ab7cf1109cfdcd915f5d6c50a46dbc7e1388555de39d971b01eeb611a6fb5c1a",
+    "workspace-diagram-200-percent-640.png": "66fd8671366bea63bf9efd207aaff79b15d0fdd5bc0ef8664275bd0154f9627d",
+    "diagram-independent-failed-history-390.png": "040f1b16a0b7b6484b29096a57f45b29a88d5699d0c0a4d2a623e387e2157bac",
+    "diagram-independent-prepared-recovery-390.png": "1822e6ec9e40c40d377d4de1084fbfdbd50e08e73b44e254ce5651871a4c96f5",
+    "workspace-diagram.html": "2cfde4e97720dbb62031b049df8108f88b8ebb2ed790740cd5c038a8b795de39",
+    "workspace-diagram.svg": "8665aabf8c494024f7619482ef669cb0555dc4277ed120451d2ef6cbf1c801f0",
+    "workspace-diagram-receipt.json": "d40e48ad0fd04817f02ab83389cbad76cc792ca5dfbc5675ac6d5ca6eb71f09a",
+    "workspace-diagram-validation.json": "adc8f25a847662ce4049e3052a5d017c1a7f016828277dd01752076c75f28d57",
+    "diagram-independent-validation.json": "a597802a064ac6e669a2bd8147c786f5316424f93cdfd11317e2d02c91c72c9e"
+  }
+}

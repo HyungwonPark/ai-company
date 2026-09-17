@@ -7,6 +7,7 @@ from pydantic import Field, model_serializer, model_validator
 
 from ai_company.contracts import Contract, Commit, Digest, Key, Text
 from ai_company.flow_contracts import AgentProfile, CheckCommand, FlowPolicy
+from ai_company.harness.guidance import GuidanceRef
 
 
 class RolePlan(Contract):
@@ -98,3 +99,11 @@ class AutomationConfig(Contract):
     poll_seconds: float = Field(default=2, ge=0.1, le=60)
     pm_timeout_seconds: int = Field(default=180, ge=1, le=1800)
     max_parallel: int = Field(default=2, ge=1, le=2)
+    guidance: GuidanceRef | None = None
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_configuration(self, handler):
+        value = handler(self)
+        if self.guidance is None:
+            value.pop("guidance", None)
+        return value

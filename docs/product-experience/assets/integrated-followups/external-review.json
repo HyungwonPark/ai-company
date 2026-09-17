@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "source": "separate reviewer agent and CI; not generator receipt",
+  "candidate_commit": "5083669c5315de13467e938ce19e73a311bc147e",
+  "python_ci_run": 35177986558,
+  "console_ci_run": 35177986553,
+  "reviewer": "frontend_ux_reviewer",
+  "verdict": "PASS",
+  "scope": "implementation and fixture validation only",
+  "checks": [
+    "모바일 그림 위치 개선 y970→약 y495",
+    "Light·Black 내부 테마와 한국어 줄바꿈",
+    "640px에서 본문·버튼·iframe 본문 200% 확대",
+    "실패 원인·대상·중단 요청의 이력 보존",
+    "HTML·SVG hash 대조",
+    "브라우저 실제 조작 및 합성 실패 회귀"
+  ],
+  "limitations": [
+    "모바일 축소 도식은 개요; 세부 내용은 역할/관계 목록",
+    "별도 목록 확대 캡처 없음",
+    "실제 모델 지침 준수 검증 아님",
+    "운영 배포·APK 직접 조작·마스터 승인 아님"
+  ],
+  "generator_receipt_preserved": true
+}

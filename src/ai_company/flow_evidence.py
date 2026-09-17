@@ -60,6 +60,9 @@ def handoff(spec: FlowSpec, state: dict, execution: dict, destination: Path) -> 
               "verification": state["verification"], "plan": state["plan"], "usage": state["usage"],
               "snapshot": snapshot, "files": files, "next_action": state["stage"],
               "partial_changes_are_unverified": True}
+    if "guidance" in spec.plan:
+        bundle["guidance"] = spec.plan["guidance"]
+        bundle["previous_guidance_deliveries"] = execution.get("guidance_receipts", [])
     if spec.policy.configuration_evidence == "cli_configuration_v2":
         # dirty_digest is a fingerprint even for a clean worktree. File-only
         # reviewers cannot run Git; supply the runner's actual status separately.

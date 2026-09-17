@@ -39,6 +39,10 @@ class Dispatcher:
             CREATE TABLE IF NOT EXISTS credential_groups(provider TEXT PRIMARY KEY,
                 credential_ref TEXT NOT NULL, group_id TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS flow_migrations(id TEXT PRIMARY KEY, document TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS guidance_deliveries(
+                id TEXT PRIMARY KEY, execution_id TEXT NOT NULL, attempt INTEGER NOT NULL,
+                phase TEXT NOT NULL, document TEXT NOT NULL,
+                UNIQUE(execution_id, attempt, phase));
         """)
 
     def close(self):
@@ -62,6 +66,9 @@ class Dispatcher:
 
     def submit(self, spec: FlowSpec):
         spec = FlowSpec.model_validate(spec.model_dump(mode="json"))
+        if "guidance" in spec.plan:
+            from ai_company.harness.guidance import load
+            load(spec.plan["guidance"])
         snapshot = repository_snapshot(Path(spec.worktree))
         if snapshot["repository"].lower() != spec.task.repository.lower():
             raise ExecutionBlocked("logical task repository does not match worktree")
@@ -184,6 +191,36 @@ class Dispatcher:
         with self.db:
             self._save(state, "session_materialized")
 
+    def _guidance_event(self, record, phase, **facts):
+        """Append-only delivery facts; never mutate accounting or model evidence."""
+        key = digest([record["execution_id"], record["attempt"], phase])
+        value = {**record, "id": key, "phase": phase, "at": self.clock(), **facts}
+        with self.db:
+            prior = self.db.execute("SELECT document FROM guidance_deliveries WHERE id=?", (key,)).fetchone()
+            if prior:
+                saved = json.loads(prior[0])
+                if any(saved.get(name) != item for name, item in {**record, **facts}.items() if name != "prepared_at"):
+                    raise ExecutionBlocked("guidance delivery identity was reused with different content")
+                return saved
+            self.db.execute("INSERT INTO guidance_deliveries VALUES (?,?,?,?,?)",
+                (key, record["execution_id"], record["attempt"], phase, json.dumps(value, ensure_ascii=False)))
+        return value
+
+    def _guided_external(self, record, function, *args, **kwargs):
+        if record is None:
+            return self._external(function, *args, **kwargs)
+        # This is the executor invocation boundary, not proof that preflight,
+        # subprocess launch or a model call succeeded. Crashes retain this fact.
+        self._guidance_event(record, "executor_invocation_started")
+        try:
+            outcome = self._external(function, *args, **kwargs)
+        except Exception as error:
+            self._guidance_event(record, "executor_failed", error_type=type(error).__name__)
+            raise
+        delivered = self._guidance_event(record, "executor_returned", outcome_category=outcome.category)
+        outcome.result = {**(outcome.result or {}), "guidance_receipt": delivered}
+        return outcome
+
     def _executor(self, spec, state):
         scope = getattr(spec, "execution_scope", "full")
         agent = next(a for a in spec.agents if a.agent_id == state["active"]["agent_id"])
@@ -196,9 +233,24 @@ class Dispatcher:
                 kwargs["timeout_seconds"] = min(kwargs["timeout_seconds"], reservation["runtime_seconds"])
             prompt = stage_prompt(prompt, provider=provider, role=state["stage"], planning=scope == "planning",
                                   contribution=scope == "contribution", file_tools=file_tools)
+            guidance = None
+            if "guidance" in spec.plan:
+                from ai_company.harness.guidance import augment, receipt
+                prompt, document_hash = augment(prompt, spec.plan["guidance"], state["stage"])
+                job = self.queue.get(state["active"]["job_id"])
+                if job["status"] != "RUNNING" or job["attempt_count"] < 1:
+                    raise ExecutionBlocked("guidance delivery requires a claimed queue attempt")
+                guidance = receipt(spec, state, job, prompt, document_hash, self.clock())
+                self._guidance_event(guidance, "prepared")
+                original_spawn = kwargs.get("on_spawn")
+                def observed_spawn(identity):
+                    if original_spawn:
+                        original_spawn(identity)
+                    self._guidance_event(guidance, "process_started")
+                kwargs["on_spawn"] = observed_spawn
             report_type = {"planning": PMPlanStageReport, "contribution": ContributionStageReport}.get(scope, StageReport)
             if self.executor:
-                outcome = self._external(self.executor, agent, state, provider, worktree, prompt, session_id, **kwargs)
+                outcome = self._guided_external(guidance, self.executor, agent, state, provider, worktree, prompt, session_id, **kwargs)
             else:
                 if spec.mode != "live":
                     raise ExecutionBlocked("fixture mode requires an explicit fixture executor")
@@ -215,7 +267,7 @@ class Dispatcher:
                     job = self.queue.get(state["active"]["job_id"])
                     binding, _ = persisted_attempt(self.db, job)
                     options = {"binding": binding, "writable_paths": spec.task.allowed_paths if state["stage"] == "developer" else ()}
-                outcome = self._external(runner, provider, worktree, prompt, session_id, **kwargs, **options, model=agent.model,
+                outcome = self._guided_external(guidance, runner, provider, worktree, prompt, session_id, **kwargs, **options, model=agent.model,
                                    reasoning_effort=agent.reasoning_effort, ultracode_enabled=agent.ultracode_enabled, output_schema=report_type.model_json_schema(),
                                    max_cost_usd=min(cost_limits) if cost_limits else None)
             if scope == "contribution" and state["stage"] == "developer":
@@ -226,6 +278,10 @@ class Dispatcher:
 
     def _consume(self, state, spec, job):
         active = state["active"]
+        if "guidance" in spec.plan:
+            active["guidance_receipts"] = [json.loads(row[0]) for row in self.db.execute(
+                "SELECT document FROM guidance_deliveries WHERE execution_id=? ORDER BY attempt, rowid",
+                (active["execution_id"],))]
         delta = job["attempt_count"] - active["accounted_attempts"]
         if delta <= 0:
             return

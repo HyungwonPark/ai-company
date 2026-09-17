@@ -1,0 +1,11 @@
+{
+  "fixture": true,
+  "browser": "152.0.7977.82",
+  "sandbox": true,
+  "checks": [
+    "no generation on GET; lost response + reload reuse same key and one frozen artifact",
+    "actual compiler SVG, opaque iframe, no scripts/API access, main CSP unchanged",
+    "Light/Black 320/390/1440, Korean controls, 44px, HTML download SHA256",
+    "keyboard/list anchors, no execution/approval writes, invalid link safe"
+  ]
+}
