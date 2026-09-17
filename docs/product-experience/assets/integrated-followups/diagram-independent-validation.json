@@ -1,0 +1,13 @@
+{
+  "fixture": true,
+  "api": "synthetic intercept; all unlisted API and external requests blocked",
+  "browser": "152.0.7977.82",
+  "sandbox": true,
+  "checks": [
+    "explicit prepared history wins over a different session key",
+    "opening history does not generate; in-flight generation disabled",
+    "authorization and network failure preserve exact request through reload",
+    "failed-only history never claims an existing artifact; original causes remain keyboard-readable",
+    "mobile Korean recovery actions; no execution/approval API"
+  ]
+}

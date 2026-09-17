@@ -1,0 +1,86 @@
+{
+  "adapter_sha256": "b33da4370de4372ea5c85b9b71758e3b42092867a7fca025a40a8f4ca41abf50",
+  "archify_commit": "72c750bb070d95171dbb2244e5b62b1b7da69c12",
+  "cursor": 25,
+  "directory": "2a827e7d682bad23b859066c5d4a6c03375bf5b1acb17322eaa4a8bf5c2af9f8",
+  "files": {
+    "LICENSE": {
+      "bytes": 1102,
+      "sha256": "b799ab081703e7821ae5096d2c1abdf14bbdc75e8ea1c4045998c36ed6db9706"
+    },
+    "THIRD_PARTY_NOTICES.md": {
+      "bytes": 5248,
+      "sha256": "0b7fb59365dc21c93b0f62526d74ee913aeec9ae532c112bc76afa7edcd56e14"
+    },
+    "archify.json": {
+      "bytes": 3376,
+      "sha256": "1bfc7d4a83fc7ffd47610266809e6af9f265713dbc13db4d366ac61618d22927"
+    },
+    "compiler-receipt.json": {
+      "bytes": 3229,
+      "sha256": "4ee4fd26b5ee4765c248e868b4ca8cf3d2e387acf0cb5463bb5265d342460f99"
+    },
+    "diagram.svg": {
+      "bytes": 22742,
+      "sha256": "8665aabf8c494024f7619482ef669cb0555dc4277ed120451d2ef6cbf1c801f0"
+    },
+    "index.html": {
+      "bytes": 29933,
+      "sha256": "2cfde4e97720dbb62031b049df8108f88b8ebb2ed790740cd5c038a8b795de39"
+    },
+    "input.json": {
+      "bytes": 19605,
+      "sha256": "d467c740ec47ea8a136ff5be9346e27fa2ac9c25228fa8ebb8e6bc028ac2c506"
+    },
+    "mapping.json": {
+      "bytes": 2148,
+      "sha256": "5d14cfcc236636cc925650658cf39f1e8111626f9b0cc42e8236fd45d155c9c3"
+    },
+    "preview-black.html": {
+      "bytes": 29544,
+      "sha256": "1b2f147b62705061bd11449a50ce8fbe9ee813cecbc229eb1bf06acd10e9d59b"
+    },
+    "preview-light.html": {
+      "bytes": 29374,
+      "sha256": "c3a168a8353fac586ef8b96eaf42d52b43d1a0b48531e2e3f061b488e792e6d3"
+    }
+  },
+  "generator_sha256": "9f5b9330d355a4036305b5a52bb0fc831e7d3c5acf53ec2be96181e3d44004ed",
+  "generator_version": "ai-company-archify-1",
+  "id": "2a827e7d682bad23b859066c5d4a6c03375bf5b1acb17322eaa4a8bf5c2af9f8",
+  "input_sha256": "d467c740ec47ea8a136ff5be9346e27fa2ac9c25228fa8ebb8e6bc028ac2c506",
+  "mode": "execution",
+  "observed_at": 1789615521.7894413,
+  "plan_digest": "6ae752749da96fa1b95bd7dfccf21198fa19aee941c6f08ee88d94662c05ea94",
+  "plan_id": "baafffaea6b1480793c1bdce6e550af2",
+  "project_id": "eb9d3114d6324416873af81b908da287",
+  "renderer_exclusions": [
+    {
+      "edge_id": "graph:3df7d0b61459f0b8b785766a:1883b1644bc38663af12eb995258932a44e58e677937834d9a4851434cd4b08f",
+      "original_reason": "같은 역할·작업의 담당 실행 이관",
+      "reason": "self_loop_unsupported",
+      "status": "started"
+    },
+    {
+      "edge_id": "graph:3df7d0b61459f0b8b785766a:27de9591c5c12746c43e36129c577fd00ccdc5d7c9113c955f53ce5617d3a3ef",
+      "original_reason": "같은 역할·작업의 담당 실행 이관",
+      "reason": "self_loop_unsupported",
+      "status": "waiting"
+    }
+  ],
+  "run_id": "graph-fixture-new-run",
+  "schema_version": 1,
+  "snapshot_fingerprint": "9ac21e085da25a54ff1f893bafb66d16bdd637323dd383739ffff052d1222e55",
+  "snapshot_id": "graph:3df7d0b61459f0b8b785766a",
+  "source": "fixture",
+  "status": "completed",
+  "validation": {
+    "browser": "not_run",
+    "compiler": "passed",
+    "official_deliver": "not_run",
+    "profile": "standard",
+    "scope_and_svg": "passed",
+    "visual_review": "not_run"
+  },
+  "vendor_sha256": "ef70e9492e35051b1509418e5bd814886e41c435171672e02a37a8dbd8a07afa"
+}
