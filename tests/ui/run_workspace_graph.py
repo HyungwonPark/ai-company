@@ -20,9 +20,14 @@ from ai_company.management import ManagementStore
 from ai_company.management_server import ManagementHTTPServer
 
 
-def seed_graph(store, root):
+def seed_graph(store, root, *, long_names=False):
     project = store.create_project({"name": "역할 상태 확인 · 그래프 예시", "goal": "역할별로 무엇을 하는지 한눈에 보고 싶어요."})
     pid = project["id"]
+    # Synthetic original text, only for the frozen-diagram readability scenario.
+    role_names = {
+        "dev": "개발 · 프로젝트별 실행 명세와 역할별 산출물 전달을 확인하는 한국어 긴 이름 Original Workspace Implementation" if long_names else "개발",
+        "tests": "독립 검사 · 입력과 승인 원문을 보존하며 병렬 작업의 결과를 대조하는 Korean Evidence Review 담당" if long_names else "검사",
+    }
     message = store.post_message(pid, {"content": "개발과 검사를 나누고 전달한 결과와 대기 이유를 보여 주세요."})
     request = store.get_pm_request(message["id"])
     store.save_pm_request({**request, "state": "running", "configuration_digest": "c" * 64, "mode": "fixture"}, expected_state="pending")
@@ -30,8 +35,8 @@ def seed_graph(store, root):
         "summary": "함수 개발과 독립 검사를 나눕니다. 예시 기록이며 실제 모델을 실행하지 않았습니다.",
         "roles": [{"key": key, "name": name, "responsibility": duty, "goal": duty,
                    "acceptance": ["빈 입력과 모든 상태 확인"], "allowed_paths": [path], "depends_on": []}
-                  for key, name, duty, path in [("dev", "개발", "역할 상태를 집계합니다.", "src/ai_company/pilot_status.py"),
-                                                ("tests", "검사", "별도 테스트로 결과를 확인합니다.", "tests/test_pilot_status.py")]],
+                  for key, name, duty, path in [("dev", role_names["dev"], "역할 상태를 집계합니다.", "src/ai_company/pilot_status.py"),
+                                                ("tests", role_names["tests"], "별도 테스트로 결과를 확인합니다.", "tests/test_pilot_status.py")]],
         "completion_criteria": ["격리 검사", "같은 후보의 독립 검수와 Astra 최종 검수"],
     }, evidence={"source": "fixture", "verification_level": "graph browser fixture; no models"})
     first = store.confirm_plan(pid, plan["id"], {"plan_digest": plan["digest"], "base_harness_version": plan["base_harness_version"],
@@ -105,7 +110,7 @@ def seed_graph(store, root):
         with store.db:
             other.update(source="fixture", fixture_tasks=[], fixture_reports=[])
             store.db.execute("UPDATE management_projects SET document=? WHERE id=?", (json.dumps(other), other["id"]))
-        return {"project_id": pid, "plan_id": plan["id"], "run_ids": [first["id"], second["id"]], "other_project_id": other["id"]}
+        return {"project_id": pid, "plan_id": plan["id"], "run_ids": [first["id"], second["id"]], "other_project_id": other["id"], **({"synthetic_long_names": list(role_names.values())} if long_names else {})}
     finally:
         dispatcher.close()
 
@@ -113,7 +118,7 @@ def seed_graph(store, root):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--export", type=Path, help="write sanitized fixture overview without starting a server/browser")
-    parser.add_argument("--scenario", choices=("workspace_graph.cjs", "workspace_graph_independent.cjs", "diagram_view.cjs", "diagram_independent.cjs", "graph_edges_independent.cjs", "graph_edge_records.cjs"),
+    parser.add_argument("--scenario", choices=("workspace_graph.cjs", "workspace_graph_independent.cjs", "diagram_view.cjs", "diagram_independent.cjs", "graph_edges_independent.cjs", "graph_edge_records.cjs", "mobile_entry.cjs"),
                         default="workspace_graph.cjs", help="run one browser review against a fresh temporary database")
     args = parser.parse_args()
     repository = Path(__file__).resolve().parents[2]
@@ -125,7 +130,7 @@ def main():
             password_auth.initialize(store.db)
             with store.db:
                 password_auth.create_user(store.db, "edward", password, time.time())
-            fixtures = seed_graph(store, state)
+            fixtures = seed_graph(store, state, long_names=args.scenario == "diagram_view.cjs")
             if args.export:
                 overview = store.overview(fixtures["project_id"])
                 # The preview needs identifiers, graph facts and readable source documents;

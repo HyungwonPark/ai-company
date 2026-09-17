@@ -14,7 +14,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 ARCHIFY_COMMIT = "72c750bb070d95171dbb2244e5b62b1b7da69c12"
-GENERATOR_VERSION = "ai-company-archify-1"
+GENERATOR_VERSION = "ai-company-archify-2"
 MANIFEST_SHA256 = "ea780a88c751270cee61afc120948dba2673073bf7b102fe9e4d429172816a65"
 ROOT = Path(__file__).resolve().parent
 BINDING = ("project_id", "plan_id", "plan_digest", "run_id")
@@ -120,6 +120,15 @@ def to_archify_workflow(snapshot, *, project_id):
                            "width": max(160, len(node["name"]) * 14 + 48, len(status) * 11 + 48, len(tag or "") * 9 + 48),
                            "height": 86 if tag else 64, "sublabel": status,
                            **({"tag": tag} if tag else {})})
+    # The pinned readable-v2 compiler reserves the left inset from rank zero
+    # only (94px start, 120px minimum pitch). Normalize sparse leading ranks
+    # and reserve enough first-rank width for every later box's left extent.
+    # Keep the upstream compiler and every original label unchanged.
+    first_col = min(node["col"] for node in translated)
+    for node in translated:
+        node["col"] -= first_col
+    anchor = next(node for node in translated if node["col"] == 0)
+    anchor["width"] = max(node["width"] - 240 * node["col"] for node in translated)
     workflow = {"schema_version": 2, "diagram_type": "workflow",
                 "meta": {"title": "역할 계획" if snapshot["mode"] == "planned" else "실행 보고", "quality_profile": "standard",
                          "animation": "none", "legend": {"mode": "hidden"}}, "lanes": lanes, "nodes": translated,

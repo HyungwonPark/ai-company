@@ -29,7 +29,8 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
   page.on('console', msg => { if(msg.type()==='error'&&((!offlineScenario&&!expectedHTTPFailure)||/content.security|violates|CSP/i.test(msg.text()))) failures.push(msg.text()); });
   await fs.mkdir(output, {recursive:true});
   try {
-    await page.goto(base);
+    // Preserve the legacy-layout regression; mobile_entry.cjs covers default '/'.
+    await page.goto(base+'/?workspace=legacy');
     assert.equal(await page.getByLabel('아이디',{exact:true}).inputValue(),'edward');
     assert.equal(await page.getByLabel('접근 토큰',{exact:true}).count(),0);
     // Theme changes only presentation; input, authentication and navigation stay intact.
