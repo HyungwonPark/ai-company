@@ -15,7 +15,41 @@
 
 `tests/ui/graph_drag_stability.cjs`: 이전 고정 코드0655de2와 수정본에 같은 최근 fixture, Light·Black320/390/1440. 실제 Playwright mouse 이동으로 +8↔+9를 반복하고 경로·히트영역·이름표 좌표·trusted pointer 이벤트를 기록한다. 해제·다시 렌더·정확한 이름표 선택과 원본 기록 불변도 검사한다. 화면 캡처는 각 조건의 +8/+9에서 저장한다.
 
-로컬 Node 검사는 통과했다. 로컬 임시 Chromium은 공유 라이브러리 부족으로 시작되지 않아, 브라우저 샌드박스를 유지하는 GitHub Chrome에서 검증한다. 원격 결과·캡처·독립 검수의 고정 링크는 결과 확인 후 추가한다.
+## 확인 결과와 출처
+
+- 제품 수정: `5fafaaa270cafedeec0e18d24a24fced506dcd5d`. 이후 변경은 검사·문서·증거이며 이 제품 코드와 동일하다.
+- 실제 1px 조작 증거: `bc7b9d6c3ef5d82ec518462fb4f12832d02f37fa`, Chrome `152.0.7977.82`, `chromiumSandbox:true`. [원격 실행 로그](https://github.com/HyungwonPark/ai-company/actions/runs/35187598708)에서 새 왕복 드래그 검사, 전후 비교, 독립 관계 선택 검사가 각각 PASS했다.
+- 두 테마×세 화면폭×이전/수정본 =12조건, 각8개 포인터 좌표를 저장했다. 실제 `isTrusted=true`, mouse 이벤트와 노드 x좌표를 확인했다. 수정본의 경로 좌표·이름표 변화는 각1px 이내이며 해제 후 경로와 이름표도 같다.
+- 회귀: 기존38관계·480생성ID 배치, 세 시작점의24왕복 좌표, 신규 관계 도착38경계, 장애물 진입과 관계 제거/교체 검사 PASS. 독립 검수자가 별도로 같은 개수의 ID/종류 교체76경계도 통과 확인했다.
+- [이 커밋의 Python CI](https://github.com/HyungwonPark/ai-company/actions/runs/35187598636)는 PASS. 화면 CI 전체는 기존 터치 검사의 ‘이름표가 반드시 바뀌어야 함’ 조건에서 실패했다. 유효 이름표 유지 요구와 충돌하는 조건을 선·이름표 연결 정합 검사로 수정했고, 노드 실제 이동·경로 변화·path=hit·during=after·실제 터치·원본 기록 보존 조건은 유지한다. 이 이전 실행 전체를 PASS로 바꾸어 기록하지 않는다.
+- 앞선 [35187353857](https://github.com/HyungwonPark/ai-company/actions/runs/35187353857) 실패는 새 테스트가 이동 모드를 켜지 않은 원인이었다. 실제 ‘이동’ 버튼을 클릭하도록 수정한 이후 위12조건을 통과했다.
+- 독립 검수자가 위12조건/96포인터 표본과 Light1440 전후4장·Black320 왕복·Light390 화면을 대조해 새 시각 차단이 없음을 확인했다. 수정한 터치 정합 검사는 최종 후보 CI에서 따로 실행한다.
+- 최종 후보의 Python·전체 화면 CI와 독립 검수 결과는 [PR #21](https://github.com/HyungwonPark/ai-company/pull/21) 본문과 해당 HEAD의 Checks에 연결한다. 아래 그림·좌표 원본은 위 `bc7b9d6`에 고정하며 새 실행의 증거로 덮어쓰지 않는다.
+- 로컬 임시 Chromium은 공유 라이브러리 부족으로 시작하지 못했다. 로컬 브라우저 PASS로 보고하지 않으며, GitHub의 샌드박스 Chrome 조작 결과와 구분한다.
+
+| 실제 데스크톱 조건 | +8px | +9px | 변화 |
+| --- | --- | --- | --- |
+| 이전 가로선 y |194|274|80px 급변|
+| 이전 이름표 x |103|212.6667|109.6667px 급변|
+| 수정 가로선 y |274|274|유지|
+| 수정 이름표 x |211.6667|212.6667|1px|
+
+수정본을 기본 배치에서 처음 드래그하면 y274 경로를 유지한다. +8에서 처음 계산한 y194 경로로 시작하는 경우도 순수 함수 회귀에서 보존을 확인했다. 특정 y값을 강제한 것이 아니라 현재 유효한 경로를 유지한다.
+
+## 조작 화면과 다운로드
+
+[작동하는 HTML 내려받기](assets/graph-drag-stability/AI-Company-graph.html) · [96개 실제 포인터 표본](assets/graph-drag-stability/workspace-drag-stability-validation.json) · [파일별 SHA-256·출처](assets/graph-drag-stability/manifest.json)
+
+HTML에서 ‘진행’ → ‘실행 2 · 최근’ → ‘이동’을 누른 뒤 PM 카드를 조금 오른쪽으로 옮겨 왕복한다. 노드·이름표 선택은 예시 기록만 읽으며 운영 API·모델 호출·승인 쓰기는 하지 않는다.
+
+| 테마·폭 | 이전 +8 / +9 | 수정 +8 / +9 |
+| --- | --- | --- |
+| light 320px | [+8](assets/graph-drag-stability/workspace-drag-before-light-320-plus8.png) / [+9](assets/graph-drag-stability/workspace-drag-before-light-320-plus9.png) | [+8](assets/graph-drag-stability/workspace-drag-after-light-320-plus8.png) / [+9](assets/graph-drag-stability/workspace-drag-after-light-320-plus9.png) |
+| light 390px | [+8](assets/graph-drag-stability/workspace-drag-before-light-390-plus8.png) / [+9](assets/graph-drag-stability/workspace-drag-before-light-390-plus9.png) | [+8](assets/graph-drag-stability/workspace-drag-after-light-390-plus8.png) / [+9](assets/graph-drag-stability/workspace-drag-after-light-390-plus9.png) |
+| light 1440px | [+8](assets/graph-drag-stability/workspace-drag-before-light-1440-plus8.png) / [+9](assets/graph-drag-stability/workspace-drag-before-light-1440-plus9.png) | [+8](assets/graph-drag-stability/workspace-drag-after-light-1440-plus8.png) / [+9](assets/graph-drag-stability/workspace-drag-after-light-1440-plus9.png) |
+| black 320px | [+8](assets/graph-drag-stability/workspace-drag-before-black-320-plus8.png) / [+9](assets/graph-drag-stability/workspace-drag-before-black-320-plus9.png) | [+8](assets/graph-drag-stability/workspace-drag-after-black-320-plus8.png) / [+9](assets/graph-drag-stability/workspace-drag-after-black-320-plus9.png) |
+| black 390px | [+8](assets/graph-drag-stability/workspace-drag-before-black-390-plus8.png) / [+9](assets/graph-drag-stability/workspace-drag-before-black-390-plus9.png) | [+8](assets/graph-drag-stability/workspace-drag-after-black-390-plus8.png) / [+9](assets/graph-drag-stability/workspace-drag-after-black-390-plus9.png) |
+| black 1440px | [+8](assets/graph-drag-stability/workspace-drag-before-black-1440-plus8.png) / [+9](assets/graph-drag-stability/workspace-drag-before-black-1440-plus9.png) | [+8](assets/graph-drag-stability/workspace-drag-after-black-1440-plus8.png) / [+9](assets/graph-drag-stability/workspace-drag-after-black-1440-plus9.png) |
 
 ## 적용·복구
 

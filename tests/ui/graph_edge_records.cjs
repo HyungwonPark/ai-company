@@ -103,8 +103,24 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
   await close();await page.setViewportSize({width:390,height:844});await page.locator('#rg-snapshot').selectOption(snapshots[1].id);await action('fit').click();await action('pan').click();await page.locator('.rg-viewport').evaluate(el=>el.scrollIntoView({block:'start'}));await settle();
   const touchNode=snapshots[1].nodes.find(n=>n.kind==='role'),touchEdge=snapshots[1].edges.find(e=>e.from===touchNode.id&&e.kind==='handoff');assert.ok(touchEdge);
   currentCase={...currentCase,width:390,stage:'native touch synchronization',edge:{id:touchEdge.id,from:touchEdge.from,to:touchEdge.to,kind:touchEdge.kind}};
-  const geometry=()=>page.evaluate(({nodeId,edgeId})=>{const node=[...document.querySelectorAll('.rg-node')].find(n=>n.dataset.rgNode===nodeId),line=[...document.querySelectorAll('.rg-edge')].find(n=>n.dataset.rgEdgeId===edgeId).querySelector('.rg-edge-line'),label=[...document.querySelectorAll('.rg-edge-label')].find(n=>n.dataset.rgLabel===edgeId);return {left:node.style.left,top:node.style.top,path:line.getAttribute('d'),hit:line.nextElementSibling.getAttribute('d'),label:label.querySelector('rect').outerHTML,leader:label.querySelector('line').outerHTML};},{nodeId:touchNode.id,edgeId:touchEdge.id});
-  const beforeTouch=await geometry(),nodeRect=await page.locator(`[data-rg-node="${touchNode.id}"]`).boundingBox();assert.ok(nodeRect);const x=nodeRect.x+nodeRect.width/2,y=nodeRect.y+nodeRect.height/2;assert.ok(x>0&&x<390&&y>0&&y<844);
+  const geometry=()=>page.evaluate(({nodeId,edgeId})=>{
+   const node=[...document.querySelectorAll('.rg-node')].find(n=>n.dataset.rgNode===nodeId),line=[...document.querySelectorAll('.rg-edge')].find(n=>n.dataset.rgEdgeId===edgeId).querySelector('.rg-edge-line'),label=[...document.querySelectorAll('.rg-edge-label')].find(n=>n.dataset.rgLabel===edgeId);
+   const rect=label.querySelector('rect'),text=label.querySelector('text'),leader=label.querySelector('line'),number=(el,key)=>Number(el.getAttribute(key));
+   const anchor={x:number(leader,'x1'),y:number(leader,'y1')},length=line.getTotalLength();let anchorDistance=Infinity;
+   // Sample the rendered SVG curve, not a copy of the routing implementation.
+   for(let at=0;at<=length;at+=.25){const point=line.getPointAtLength(at);anchorDistance=Math.min(anchorDistance,Math.hypot(point.x-anchor.x,point.y-anchor.y));}
+   const end=line.getPointAtLength(length);anchorDistance=Math.min(anchorDistance,Math.hypot(end.x-anchor.x,end.y-anchor.y));
+   return {left:node.style.left,top:node.style.top,path:line.getAttribute('d'),hit:line.nextElementSibling.getAttribute('d'),label:rect.outerHTML,leader:leader.outerHTML,
+    alignment:{textX:number(text,'x'),textY:number(text,'y'),centerX:number(rect,'x')+number(rect,'width')/2,centerY:number(rect,'y')+number(rect,'height')/2,leaderX:number(leader,'x2'),leaderY:number(leader,'y2'),anchorDistance,width:number(rect,'width'),height:number(rect,'height'),text:text.textContent,visible:[label,rect,text,leader,line].every(el=>{const style=getComputedStyle(el);return style.visibility==='visible'&&style.display!=='none'&&Number(style.opacity)>0;})}};
+  },{nodeId:touchNode.id,edgeId:touchEdge.id});
+  const aligned=geometry=>{
+   const a=geometry.alignment;assert.ok(a.visible&&a.width>0&&a.height>0&&a.text.trim(),'rendered relationship label stays visible');
+   for(const [value,expected]of [[a.textX,a.centerX],[a.textY,a.centerY],[a.leaderX,a.textX],[a.leaderY,a.textY]])assert.ok(Math.abs(value-expected)<.01,'text, rectangle and leader endpoint stay aligned');
+   // An anchor on the original orthogonal corner may be up to 2.83 units
+   // from its rounded (8-unit quadratic) SVG bend; sampling adds at most .125.
+   assert.ok(a.anchorDistance<=3,'leader anchor stays on its rendered relationship path');
+  };
+  const beforeTouch=await geometry();aligned(beforeTouch);const nodeRect=await page.locator(`[data-rg-node="${touchNode.id}"]`).boundingBox();assert.ok(nodeRect);const x=nodeRect.x+nodeRect.width/2,y=nodeRect.y+nodeRect.height/2;assert.ok(x>0&&x<390&&y>0&&y<844);
   const cdp=await context.newCDPSession(page);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
   await page.evaluate(()=>{window.__recordTouchTypes=[];window.__recordTouchMove=null;document.addEventListener('pointerdown',event=>window.__recordTouchTypes.push(event.pointerType),{once:true});document.addEventListener('pointermove',event=>{if(event.pointerType==='touch')window.__recordTouchMove={pointerType:event.pointerType,clientX:event.clientX,clientY:event.clientY};});});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});
@@ -113,8 +129,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
   // document listener runs after the graph's bubbling pointermove handler,
   // so observing the final coordinates also establishes completed DOM updates.
   await page.waitForFunction(({x,y})=>window.__recordTouchMove?.pointerType==='touch'&&Math.abs(window.__recordTouchMove.clientX-x)<.1&&Math.abs(window.__recordTouchMove.clientY-y)<.1,{x,y:y+20});
-  const duringTouch=await geometry();assert.notEqual(duringTouch.path,beforeTouch.path);assert.equal(duringTouch.path,duringTouch.hit);assert.notEqual(duringTouch.label+ duringTouch.leader,beforeTouch.label+beforeTouch.leader);
-  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await settle();assert.deepEqual(await page.evaluate(()=>window.__recordTouchTypes),['touch']);const afterTouch=await geometry();assert.deepEqual(afterTouch,duringTouch);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});await cdp.detach();
+  const duringTouch=await geometry();assert.notEqual(duringTouch.path,beforeTouch.path);assert.equal(duringTouch.path,duringTouch.hit);assert.notDeepEqual([duringTouch.left,duringTouch.top],[beforeTouch.left,beforeTouch.top],'native touch moves the actual node');aligned(duringTouch);
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await settle();assert.deepEqual(await page.evaluate(()=>window.__recordTouchTypes),['touch']);const afterTouch=await geometry();aligned(afterTouch);assert.deepEqual(afterTouch,duringTouch);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});await cdp.detach();
   await action('pan').click();await clickLabel(touchEdge.id);await detail(touchEdge,snapshots[1]);await fs.writeFile(path.join(out,'graph-edge-touch-validation.json'),JSON.stringify({browser:'CDP Input.dispatchTouchEvent',pointerType:'touch',node_id:touchNode.id,edge_id:touchEdge.id,before:beforeTouch,during:duringTouch,after:afterTouch},null,2));
   const after=await page.evaluate(async endpoint=>(await fetch(endpoint)).json(),endpoint);assert.deepEqual(after.runs,before.runs);assert.deepEqual(after.approvals,before.approvals);assert.deepEqual(after.plans,before.plans);assert.deepEqual(violations,[]);assert.deepEqual(errors,[]);assert.ok(writes.every(p=>['/api/login','/api/password'].includes(p)));
   await fs.writeFile(path.join(out,'graph-edge-records-validation.json'),JSON.stringify({source:'real ephemeral fixture API; no graph injection/model/production work',browser:await browser.version(),sandbox:true,checks,captures,writes},null,2));console.log('PASS: all 17 real fixture relationships across six viewports, exact record selection and emphasis restoration');
