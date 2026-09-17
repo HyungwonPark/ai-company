@@ -1,0 +1,112 @@
+{
+  "product_source": "5fafaaa270cafedeec0e18d24a24fced506dcd5d",
+  "browser_source": "bc7b9d6c3ef5d82ec518462fb4f12832d02f37fa",
+  "ci_run": "https://github.com/HyungwonPark/ai-company/actions/runs/35187598708",
+  "scope": "New one-pixel drag browser scenario PASS; whole run failed an older touch test requiring every label to move. See validation document for subsequent test-contract correction and final CI.",
+  "files": {
+    "AI-Company-graph.html": {
+      "bytes": 129008,
+      "sha256": "2c09d0a83a0f191a5430830b30180d17b428cceab7f33a25ea18e04f7f13d26f"
+    },
+    "workspace-drag-after-black-1440-plus8.png": {
+      "bytes": 88109,
+      "sha256": "7dd9d0da9b59556ca7e786d7a833bd77b9454f75fee98ebe77d972789e1d3a9f"
+    },
+    "workspace-drag-after-black-1440-plus9.png": {
+      "bytes": 88107,
+      "sha256": "5a76e60b7f70825f7eb9a50a21a97b315ae4ac2cc353041339999267a62a37dc"
+    },
+    "workspace-drag-after-black-320-plus8.png": {
+      "bytes": 71936,
+      "sha256": "5a0afbcab817314f23ec69c784e3c4f6b40f8b632cb90b4d946364e0f2dbdba0"
+    },
+    "workspace-drag-after-black-320-plus9.png": {
+      "bytes": 71938,
+      "sha256": "739079a29ecf8a88152238a389e34009c7ea5f229b8ad91a585bba74bcb84af9"
+    },
+    "workspace-drag-after-black-390-plus8.png": {
+      "bytes": 74442,
+      "sha256": "ae0c66cbe0d7f62f836bfc4986674352702194171bb1bd1089acfeada602b287"
+    },
+    "workspace-drag-after-black-390-plus9.png": {
+      "bytes": 74442,
+      "sha256": "d37f05f35162d0ce481962885f549a196a69a4ebc135b1f37a505df4fe6862be"
+    },
+    "workspace-drag-after-light-1440-plus8.png": {
+      "bytes": 87516,
+      "sha256": "d778417a1ee122f2db3420dbf2d7f4535358d6fc7acf2804b10b60c193afb7bf"
+    },
+    "workspace-drag-after-light-1440-plus9.png": {
+      "bytes": 87517,
+      "sha256": "5bc8e4dec96dd274369bb3951f52696c9a9122e4389af1b8f5996d51d801cd38"
+    },
+    "workspace-drag-after-light-320-plus8.png": {
+      "bytes": 71085,
+      "sha256": "afca6912da52b8ffbe01f63fceff873ee545adc1f1402f4d33596102492603d1"
+    },
+    "workspace-drag-after-light-320-plus9.png": {
+      "bytes": 71083,
+      "sha256": "0c68b237ab3de6b5211e99665d7b40326e3ca907a1a1a16eff9d33acaf75c11d"
+    },
+    "workspace-drag-after-light-390-plus8.png": {
+      "bytes": 73684,
+      "sha256": "3f525ecf43480bcd0c648061af64a48f40d296f2fb05161833f1531e4ee47da6"
+    },
+    "workspace-drag-after-light-390-plus9.png": {
+      "bytes": 73685,
+      "sha256": "d6c86db56ea26c4cb0c1596ab1b19bacfee465f2eb3f2c014e740b196a5487c6"
+    },
+    "workspace-drag-before-black-1440-plus8.png": {
+      "bytes": 88295,
+      "sha256": "db7462a294e10d8b7263e1aa960712e2e12b9fe684df36c27eb732de325307c1"
+    },
+    "workspace-drag-before-black-1440-plus9.png": {
+      "bytes": 88107,
+      "sha256": "5a76e60b7f70825f7eb9a50a21a97b315ae4ac2cc353041339999267a62a37dc"
+    },
+    "workspace-drag-before-black-320-plus8.png": {
+      "bytes": 71916,
+      "sha256": "1d59458a2397c1f3dd9732249e9a5e4a45a19d4af15f6113d10bf157dd5e5274"
+    },
+    "workspace-drag-before-black-320-plus9.png": {
+      "bytes": 71921,
+      "sha256": "f2b16ea4c5529c1c5b3ef83070629cbc4609771515e3ee64bf69e279754e6647"
+    },
+    "workspace-drag-before-black-390-plus8.png": {
+      "bytes": 74575,
+      "sha256": "346b1f0fb7f75ed31013f2ed10d0bd073acc88482a6e5c95bd91fa99fadd5581"
+    },
+    "workspace-drag-before-black-390-plus9.png": {
+      "bytes": 74578,
+      "sha256": "304c1cd243e0a522cd60b7cf962548ea8d5a4cfd5aceb0834036e5773a750a21"
+    },
+    "workspace-drag-before-light-1440-plus8.png": {
+      "bytes": 87734,
+      "sha256": "69d8c263148576abac5aafb0c0b8885deaf503321501f92b62c0ae4cdfc7515f"
+    },
+    "workspace-drag-before-light-1440-plus9.png": {
+      "bytes": 87517,
+      "sha256": "5bc8e4dec96dd274369bb3951f52696c9a9122e4389af1b8f5996d51d801cd38"
+    },
+    "workspace-drag-before-light-320-plus8.png": {
+      "bytes": 71098,
+      "sha256": "2ce1730f2f6472bad77f390c52b4864e2e6a165c95767cada7af861fe175671d"
+    },
+    "workspace-drag-before-light-320-plus9.png": {
+      "bytes": 71101,
+      "sha256": "87cd81e0cb306e6a23ae1a0c69e25771bc19b5c0766c0012ae9d799232c2eb9f"
+    },
+    "workspace-drag-before-light-390-plus8.png": {
+      "bytes": 73882,
+      "sha256": "59c1b7faa87dedc213f761cb802843942ccd677339a053bb3bafa696a80a6927"
+    },
+    "workspace-drag-before-light-390-plus9.png": {
+      "bytes": 73886,
+      "sha256": "ef5861e2f25391e09726fe2873b62732d402d859f0de212d2e41976364c3dce0"
+    },
+    "workspace-drag-stability-validation.json": {
+      "bytes": 61630,
+      "sha256": "b3f959ad761f42f719a8635eb2601db3ff15191a54507c5e7838bc0093078df3"
+    }
+  }
+}

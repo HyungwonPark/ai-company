@@ -10,9 +10,11 @@ permissions:
 jobs:
   browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12"
@@ -35,6 +37,7 @@ jobs:
           node tests/ui/manager_checks.mjs
           node tests/ui/workspace_model.cjs
           node tests/ui/workspace_graph_checks.mjs
+          node tests/ui/graph_routing_checks.mjs
           npm install --prefix "$RUNNER_TEMP/ui-tooling" --no-audit --no-fund @playwright/test@1.63.0
           google-chrome --version
       - name: Prepare Korean fonts without system installation
@@ -48,6 +51,24 @@ jobs:
           cp extracted/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc "$HOME/.local/share/fonts/"
           fc-cache -f "$HOME/.local/share/fonts"
           fc-match 'sans:lang=ko'
+      - name: Compare and independently inspect integrated edge routing
+        if: always()
+        env:
+          CHROME_CHANNEL: chrome
+          NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
+          UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
+        run: |
+          node tests/ui/graph_drag_stability.cjs
+          node tests/ui/graph_edge_comparison.cjs
+          uv run --frozen python tests/ui/run_workspace_graph.py --scenario graph_edges_independent.cjs
+          uv run --frozen python tests/ui/run_workspace_graph.py --scenario graph_edge_records.cjs
+      - name: Review default mobile entry through isolated API
+        if: always()
+        env:
+          CHROME_CHANNEL: chrome
+          NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
+          UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
+        run: uv run --frozen python tests/ui/run_workspace_graph.py --scenario mobile_entry.cjs
       - name: Test persistent console with sandboxed Chrome
         env:
           CHROME_CHANNEL: chrome
@@ -126,5 +147,12 @@ jobs:
             ${{ runner.temp }}/ui-artifacts/workspace-diagram.svg
             ${{ runner.temp }}/ui-artifacts/workspace-diagram-receipt.json
             ${{ runner.temp }}/ui-artifacts/diagram-independent-validation.json
+            ${{ runner.temp }}/ui-artifacts/mobile-entry-validation.json
+            ${{ runner.temp }}/ui-artifacts/mobile-entry-failure.json
+            ${{ runner.temp }}/ui-artifacts/graph-edges-independent-validation.json
+            ${{ runner.temp }}/ui-artifacts/graph-edge-records-validation.json
+            ${{ runner.temp }}/ui-artifacts/graph-edge-touch-validation.json
+            ${{ runner.temp }}/ui-artifacts/graph-edge-records-failure.json
+            ${{ runner.temp }}/ui-artifacts/graph-edge-records-failure.svg
           if-no-files-found: ignore
           retention-days: 7

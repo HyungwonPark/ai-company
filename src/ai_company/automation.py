@@ -199,7 +199,10 @@ class Automation:
                        "Define shared interfaces so implementation and tests can proceed independently. "
                        "Only explicit dependencies delay a role. Do not execute the plan. "
                        "Write user-facing summary, role names, responsibilities, goals and acceptance/completion criteria in Korean. "
-                       "Use a short, concrete summary and concise role names. Preserve identifiers, paths, commands and all constraints exactly."}
+                       "Use short, concrete Korean sentences in 합니다/습니다 form and concise role names. "
+                       "State the task, current result, or decision directly. Avoid generic praise, rhetorical questions, "
+                       "and repeated explanations of obvious benefits. Preserve uncertainty, identifiers, paths, commands "
+                       "and all constraints exactly."}
             if self.config.guidance is not None:
                 context["pm_request_id"] = request["request_id"]
             if self.execution_catalog is not None and not self.project_context:

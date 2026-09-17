@@ -6,13 +6,15 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
  await fs.mkdir(out,{recursive:true});
  const browser=await chromium.launch({headless:true,chromiumSandbox:true,...(process.env.CHROME_CHANNEL?{channel:process.env.CHROME_CHANNEL}:{}),...(process.env.CHROMIUM_EXECUTABLE?{executablePath:process.env.CHROMIUM_EXECUTABLE}:{})});
  const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'}),page=await context.newPage();page.setDefaultTimeout(12000);
- const errors=[],writes=[],checks=[];page.on('pageerror',e=>errors.push(e.message));context.on('request',r=>{if(r.method()!=='GET')writes.push({path:new URL(r.url()).pathname,body:r.postDataJSON()});});
+ const errors=[],writes=[],checks=[],longNameReadings=[];page.on('pageerror',e=>errors.push(e.message));context.on('request',r=>{if(r.method()!=='GET')writes.push({path:new URL(r.url()).pathname,body:r.postDataJSON()});});
  try{
   await page.goto(base+'/?workspace=integrated#projects');
   await page.getByLabel('비밀번호',{exact:true}).fill(process.env.TEST_PASSWORD);await page.getByRole('button',{name:'로그인',exact:true}).click();
   await page.getByLabel('현재 비밀번호',{exact:true}).fill(process.env.TEST_PASSWORD);await page.getByLabel('새 비밀번호',{exact:true}).fill('diagram-test-only-strong-password');await page.getByLabel('새 비밀번호 확인',{exact:true}).fill('diagram-test-only-strong-password');await page.getByRole('button',{name:'비밀번호 변경 후 계속'}).click();await page.locator('.nav').waitFor();
   const before=await page.evaluate(async id=>await(await fetch('/api/projects/'+id+'/overview')).json(),fixtures.project_id);
   const current=before.workspace_graph.snapshots.find(s=>s.run_id===fixtures.run_ids[1]),endpoint='/api/projects/'+fixtures.project_id+'/diagrams';
+  const longNames=fixtures.synthetic_long_names;assert.ok(Array.isArray(longNames)&&longNames.length===2);assert.ok(longNames.every(name=>name.length>40&&name.length<90&&/[가-힣]/.test(name)&&/[A-Za-z]/.test(name)));assert.ok(longNames.every(name=>current.nodes.some(n=>n.name===name)));assert.ok(current.nodes.find(n=>n.kind==='pm').name.length<30);
+
   await page.evaluate(id=>location.hash='#progress?project='+id,fixtures.project_id);await page.locator('.rg-export').waitFor();
   const [viewer]=await Promise.all([context.waitForEvent('page'),page.locator('.rg-export').click()]);viewer.setDefaultTimeout(12000);viewer.on('pageerror',e=>errors.push(e.message));
   await viewer.getByRole('button',{name:'그림 만들기',exact:true}).waitFor();
@@ -36,13 +38,29 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
    await viewer.setViewportSize({width,height:width>700?1000:844});await viewer.locator(`header [data-theme=${theme}]`).click();await viewer.evaluate(()=>document.fonts.ready);const framed=viewer.frames().find(f=>f!==viewer.mainFrame());await framed.waitForURL('**/preview-'+theme+'.html');await framed.waitForLoadState('domcontentloaded');await framed.waitForSelector('svg');const color=await framed.evaluate(()=>getComputedStyle(document.body).backgroundColor);const rgb=color.match(/\d+/g).map(Number);assert.ok(theme==='black'?rgb[0]<60:rgb[0]>200,'embedded theme '+theme+' '+color);
    assert.ok(await viewer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`overflow ${width} ${theme}`);
    const sizes=await viewer.locator('header button,#actions button,.downloads a').evaluateAll(nodes=>nodes.map(n=>({w:n.getBoundingClientRect().width,h:n.getBoundingClientRect().height})));assert.ok(sizes.every(x=>x.w>=44&&x.h>=44));
+   await framed.evaluate(()=>document.fonts.ready);
+   const reading=await framed.evaluate(names=>{
+    const svg=document.querySelector('svg'),view=svg.viewBox.baseVal,inverse=svg.getScreenCTM().inverse();
+    const textBounds=[...svg.querySelectorAll('text')].filter(el=>el.textContent.trim()).map(el=>{
+     const bbox=el.getBBox(),matrix=inverse.multiply(el.getScreenCTM()),points=[[bbox.x,bbox.y],[bbox.x+bbox.width,bbox.y],[bbox.x,bbox.y+bbox.height],[bbox.x+bbox.width,bbox.y+bbox.height]].map(([x,y])=>new DOMPoint(x,y).matrixTransform(matrix));
+     return {text:el.textContent,left:Math.min(...points.map(p=>p.x)),right:Math.max(...points.map(p=>p.x)),top:Math.min(...points.map(p=>p.y)),bottom:Math.max(...points.map(p=>p.y))};
+    });
+    return {viewBox:{x:view.x,y:view.y,width:view.width,height:view.height},textBounds,listNames:[...document.querySelectorAll('#roles>ul>li>strong')].map(el=>el.textContent),listFonts:[...document.querySelectorAll('#roles li,#roles li strong,#roles li p')].map(el=>parseFloat(getComputedStyle(el).fontSize)),overflow:document.documentElement.scrollWidth>innerWidth,expected:names};
+   },longNames);
+   for(const box of reading.textBounds)assert.ok(box.left>=reading.viewBox.x-.5&&box.top>=reading.viewBox.y-.5&&box.right<=reading.viewBox.x+reading.viewBox.width+.5&&box.bottom<=reading.viewBox.y+reading.viewBox.height+.5,`SVG text clipped: ${width}/${theme} ${JSON.stringify(box)}`);
+   for(const name of longNames){assert.ok(reading.textBounds.some(box=>box.text===name),'SVG keeps the exact synthetic original role name');assert.ok(reading.listNames.includes(name),'reading list keeps the full original');}
+   assert.ok(reading.listFonts.length&&reading.listFonts.every(size=>size>=16),'iframe reading list is at least 16px');assert.equal(reading.overflow,false,'iframe long names do not overflow the page');
+   longNameReadings.push({width,theme,...reading});
    await viewer.screenshot({path:path.join(out,`workspace-diagram-${theme}-${width}.png`),fullPage:true});
+   await framed.getByRole('link',{name:'역할 목록',exact:true}).click();await framed.getByRole('heading',{name:'역할',exact:true}).waitFor();
+   await viewer.screenshot({path:path.join(out,`workspace-diagram-long-names-list-${theme}-${width}.png`),fullPage:true});
+   await framed.evaluate(()=>scrollTo(0,0));
   }
   const [download]=await Promise.all([viewer.waitForEvent('download'),viewer.getByRole('link',{name:'HTML',exact:true}).click()]);assert.equal(download.suggestedFilename(),'index.html');
   const downloadFile=path.join(out,'workspace-diagram.html');await download.saveAs(downloadFile);const bytes=await fs.readFile(downloadFile);assert.equal(require('node:crypto').createHash('sha256').update(bytes).digest('hex'),r.files['index.html'].sha256);
   await fs.writeFile(path.join(out,'workspace-diagram.svg'),await(await context.request.get(base+endpoint+'/'+r.id+'/diagram.svg')).body());
   await fs.writeFile(path.join(out,'workspace-diagram-receipt.json'),JSON.stringify(r,null,2));
-  checks.push('Light/Black 320/390/1440, Korean controls, 44px, HTML download SHA256');
+  checks.push('Light/Black 320/390/1440, Korean controls, 44px, HTML download SHA256; synthetic long Korean/English original names, actual SVG text bounds, 16px full reading list without overflow');
   // Keyboard navigation and enlarged text retain every action; iframe has readable list anchors.
   await viewer.setViewportSize({width:640,height:900});await viewer.evaluate(()=>{document.documentElement.style.fontSize='200%';});assert.equal(await viewer.evaluate(()=>getComputedStyle(document.body).fontSize),'32px');assert.equal(await viewer.locator('#generate').evaluate(el=>getComputedStyle(el).fontSize),'32px');const inner=viewer.frames().find(f=>f!==viewer.mainFrame());await inner.evaluate(()=>{document.documentElement.style.fontSize='200%';});assert.equal(await inner.evaluate(()=>getComputedStyle(document.body).fontSize),'32px');assert.equal(await inner.evaluate(()=>{try{void navigator.serviceWorker;return 'allowed';}catch{return 'denied';}}),'denied');await viewer.screenshot({path:path.join(out,'workspace-diagram-200-percent-640.png'),fullPage:true});assert.ok(await viewer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await viewer.keyboard.press('Tab');assert.ok(await viewer.evaluate(()=>document.activeElement!==document.body));
   await frame.getByRole('link',{name:'역할 목록',exact:true}).click();await frame.getByRole('heading',{name:'역할',exact:true}).waitFor();
@@ -51,6 +69,6 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
   assert.ok(writes.every(w=>['/api/login','/api/password',endpoint].includes(w.path)));
   await viewer.goto(base+'/diagram-view.html?project=invalid');assert.ok((await viewer.locator('#notice').textContent()).includes('진행 화면'));
   assert.deepEqual(errors,[]);checks.push('keyboard/list anchors, no execution/approval writes, invalid link safe');
-  await fs.writeFile(path.join(out,'workspace-diagram-validation.json'),JSON.stringify({fixture:true,browser:await browser.version(),sandbox:true,checks},null,2));console.log('PASS: '+checks.join('; '));
+  await fs.writeFile(path.join(out,'workspace-diagram-validation.json'),JSON.stringify({fixture:true,browser:await browser.version(),sandbox:true,checks,longNameSource:"synthetic fixture original names only; no real project/model",longNameReadings},null,2));console.log('PASS: '+checks.join('; '));
  }finally{await context.close();await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});

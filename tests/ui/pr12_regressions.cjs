@@ -83,7 +83,7 @@ function overview(project) {
     try{return route.fulfill({body:await fs.readFile(file),contentType:types[path.extname(file)]||'application/octet-stream'});}
     catch(error){if(error.code==='ENOENT')return route.fulfill({status:404,body:''});throw error;}
   });
-  async function navigate(hash){await page.goto(origin+'/'+hash);await page.locator('.nav').waitFor();}
+  async function navigate(hash){await page.goto(origin+'/?workspace=legacy'+hash);await page.locator('.nav').waitFor();}
   async function noOverflow(label){
     const measurement=await page.evaluate(()=>({viewport:innerWidth,width:document.documentElement.scrollWidth,
       overflowing:[...document.querySelectorAll('body *')].map(element=>({element:element.tagName+'.'+element.className,

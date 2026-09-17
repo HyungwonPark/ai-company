@@ -100,6 +100,32 @@ class DiagramExportTests(unittest.TestCase):
         self.assertTrue(all(":" not in node["id"] for node in workflow["nodes"]))
         self.assertEqual(json.loads((directory / "input.json").read_text()), self.value)
 
+    def test_long_original_names_render_in_sparse_and_mixed_ranks(self):
+        names = ["역" * size for size in (2, 12, 24, 48, 100)]
+        names.append("개발 · API/검증 <원문> & 상태 " * 4)
+        for index, name in enumerate(names):
+            for kind in ("pm", "role", "document"):
+                with self.subTest(length=len(name), kind=kind):
+                    value = copy.deepcopy(self.value)
+                    value["nodes"] = [{**value["nodes"][0], "name": name, "kind": kind}]
+                    value["edges"] = []
+                    original = copy.deepcopy(value)
+                    receipt = self.render(value, self.root / f"single-{index}-{kind}")
+                    directory = self.root / f"single-{index}-{kind}" / receipt["directory"]
+                    workflow = json.loads((directory / "archify.json").read_text())
+                    self.assertEqual(workflow["nodes"][0]["label"], name)
+                    self.assertEqual(workflow["lanes"][0]["label"], name)
+                    svg = ET.fromstring((directory / "diagram.svg").read_text())
+                    self.assertIn(name, [item.text for item in svg.iter()])
+                    self.assertEqual(value, original)
+        # A short PM at rank zero must also reserve space for a much wider
+        # later rank. Moving only the first occupied rank would miss this case.
+        value = copy.deepcopy(self.value)
+        value["nodes"][1]["name"] = "긴 역할 이름 원문 보존 " * 7
+        original = copy.deepcopy(value)
+        self.assertEqual(self.render(value)["validation"]["compiler"], "passed")
+        self.assertEqual(value, original)
+
     def test_korean_html_is_inert_and_user_markup_is_text(self):
         self.value["nodes"][1]["name"] = '<img onerror="X">'
         self.value["nodes"][1]["responsibility"] = '</script><script>alert(1)</script>'

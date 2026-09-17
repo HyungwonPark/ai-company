@@ -14,9 +14,10 @@ const paths = {manager:['01','매니저'],progress:['02','진행'],approvals:['0
 const views = {...paths,project:['04','설정'],projects:['04','프로젝트']};
 const labels = {WAITING_PROJECT_BUDGET:'프로젝트 예산 대기',waiting_project_budget:'프로젝트 예산 대기',PASS:'통과 의견',REVISE:'수정 의견',PLAN_READY:'계획 제안 완료',CONTRIBUTION_READY:'역할 산출물 준비',WAITING_ROLE_REPAIR:'담당 역할 수정 대기',WAITING_DEPENDENCIES:'선행 산출물 대기',fixture_complete:'모의 자동 흐름 완료',PLAN_CONFIRMED:'계획 확정',plan_proposed:'계획 제안 완료',preparing:'작업 준비',waiting:'예약 대기',awaiting_approval:'승인 대기',proposed:'계획 제안',confirmed:'계획 확정',stale:'이전 요청',completed:'처리 완료',running:'처리 중',blocked:'차단',waiting_quota:'사용량 대기',waiting_retry:'재시도 대기',waiting_capacity:'후보 복귀 대기',IDLE:'배정 대기',MERGE_READY:'검수 통과',expired:'만료',developer:'개발',reviewer:'독립 검수',final_reviewer:'최종 검수',PLANNING:'계획 중',active:'활성',draft:'초안',superseded:'이전 버전',awaiting_worker:'실행기 연결 대기',READY:'준비',RUNNING:'진행 중',ACTIVE:'진행 중',PENDING:'검토 대기',pending:'검토 대기',DRAFT:'초안',WAITING_QUOTA:'사용량 대기',WAITING_CAPACITY:'후보 복귀 대기',WAITING_RETRY:'재시도 대기',WAITING_DEPENDENCY:'산출물 대기',WAITING_APPROVAL:'승인 대기',WAITING_PM:'PM 대기',RECONCILIATION_REQUIRED:'상태 대조 필요',BLOCK:'차단',BLOCKED:'차단',COMPLETE:'완료',COMPLETED:'완료',DONE:'완료',DEMO_READY:'모의 검증 완료',approved:'승인 기록됨',rejected:'반려됨',changes_requested:'수정 요청됨',request_changes:'수정 요청됨',EXPIRED:'만료',awaiting_pm:'PM 응답 대기',queued:'예약됨',unverified:'미검증',fixture:'모의 예시',live:'실제 연결'};
 const state = {authenticated:false,loginMethod:'password',passwordChangeRequired:false,changingPassword:false,username:'',csrf:'',projects:[],projectId:new URLSearchParams(location.hash.split('?')[1]||'').get('project')||'',overview:null,view:readView(),projectMissing:false,projectSearch:'',createdProjectId:'',connected:navigator.onLine,updatedAt:null,error:'',loading:true,refreshing:false,drafts:{},planningTabs:{},demo:false};
-const integrated=new URLSearchParams(location.search).get('workspace')==='integrated';
+const integrated=new URLSearchParams(location.search).get('workspace')!=='legacy';
 let recordParams=new URLSearchParams(location.hash.split('?')[1]||'');
-const workspaceGraph=createWorkspaceGraph({esc,diagramLinks:true,label,stamp});
+let pendingGraphRender=false;
+const workspaceGraph=createWorkspaceGraph({esc,diagramLinks:true,label,stamp,onInteractionEnd:()=>{if(pendingGraphRender){pendingGraphRender=false;render();}}});
 let lastPayload = '';
 let toastTimer;
 let requestEpoch = 0;
@@ -207,6 +208,10 @@ function project(){const {project,roles=[],harnesses=[]}=state.overview;return p
 
 function render(){
   const pendingRoute=new URLSearchParams(location.hash.split('?')[1]||'');const routeMatches=readView()===state.view&&(!pendingRoute.has('project')||pendingRoute.get('project')===state.projectId)&&(!integrated||['run','approval','report'].every(key=>pendingRoute.get(key)===recordParams.get(key)));
+  // Finish a pointer gesture before polling replaces its DOM and pointer capture.
+  // Navigation, disconnection and authentication changes still render immediately.
+  if(integrated&&state.authenticated&&state.connected&&!state.projectMissing&&!state.passwordChangeRequired&&!state.changingPassword&&state.view==='progress'&&routeMatches&&workspaceGraph.isInteracting(state.projectId)){pendingGraphRender=true;return;}
+  pendingGraphRender=false;
   if(state.authenticated&&routeMatches){let target=state.view==='projects'?'#projects':state.projectId?projectHref(state.view,state.projectId):'#projects';if(integrated&&['approvals','reports'].includes(state.view))for(const name of ['run','approval','report'])if(recordParams.get(name))target+='&'+name+'='+encodeURIComponent(recordParams.get(name));history.replaceState(null,'',target);}
   const active=document.activeElement;const focusId=active?.id;const selection=active&&typeof active.selectionStart==='number'?[active.selectionStart,active.selectionEnd]:null;
   if(state.authenticated)for(const detail of app.querySelectorAll('details[data-persist-key]'))openDetails.set(`${state.projectId}:${detail.dataset.persistKey}`,detail.open);
