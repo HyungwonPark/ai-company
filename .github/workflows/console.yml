@@ -51,6 +51,16 @@ jobs:
           cp extracted/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc "$HOME/.local/share/fonts/"
           fc-cache -f "$HOME/.local/share/fonts"
           fc-match 'sans:lang=ko'
+      - name: Compare and independently inspect integrated edge routing
+        if: always()
+        env:
+          CHROME_CHANNEL: chrome
+          NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
+          UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
+        run: |
+          node tests/ui/graph_edge_comparison.cjs
+          uv run --frozen python tests/ui/run_workspace_graph.py --scenario graph_edges_independent.cjs
+          uv run --frozen python tests/ui/run_workspace_graph.py --scenario graph_edge_records.cjs
       - name: Test persistent console with sandboxed Chrome
         env:
           CHROME_CHANNEL: chrome
@@ -96,16 +106,6 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
           UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
         run: uv run --frozen python tests/ui/run_workspace_graph.py --scenario workspace_graph_independent.cjs
-      - name: Compare and independently inspect integrated edge routing
-        if: always()
-        env:
-          CHROME_CHANNEL: chrome
-          NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
-          UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
-        run: |
-          node tests/ui/graph_edge_comparison.cjs
-          uv run --frozen python tests/ui/run_workspace_graph.py --scenario graph_edges_independent.cjs
-          uv run --frozen python tests/ui/run_workspace_graph.py --scenario graph_edge_records.cjs
       - name: Package offline working preview
         if: always()
         run: |

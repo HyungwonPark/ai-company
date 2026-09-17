@@ -34,10 +34,10 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
  async function styleState(id){return page.evaluate(id=>{
   const group=[...document.querySelectorAll('.rg-edge')].find(el=>el.dataset.rgEdgeId===id),line=group.querySelector('.rg-edge-line');
   const label=[...document.querySelectorAll('.rg-edge-label')].find(el=>el.dataset.rgLabel===id),markerId=line.getAttribute('marker-end').match(/#([^)]*)/)[1],marker=document.getElementById(markerId).querySelector('path');
-  return {stroke:getComputedStyle(line).stroke,width:Number.parseFloat(getComputedStyle(line).strokeWidth),dash:getComputedStyle(line).strokeDasharray,markerId,markerFill:getComputedStyle(marker).fill,groupOpacity:Number(getComputedStyle(group).opacity),labelOpacity:Number(getComputedStyle(label).opacity),labelSelected:label.classList.contains('is-selected'),selected:group.classList.contains('is-selected'),related:[...document.querySelectorAll('.rg-node.is-related')].map(n=>n.dataset.rgNode).sort(),otherGroups:[...document.querySelectorAll('.rg-edge')].filter(el=>el!==group).map(el=>Number(getComputedStyle(el).opacity)),otherLabels:[...document.querySelectorAll('.rg-edge-label')].filter(el=>el!==label).map(el=>Number(getComputedStyle(el).opacity))};
+  return {stroke:getComputedStyle(line).stroke,hitStroke:getComputedStyle(group.querySelector('.rg-edge-hit')).stroke,width:Number.parseFloat(getComputedStyle(line).strokeWidth),dash:getComputedStyle(line).strokeDasharray,markerId,markerFill:getComputedStyle(marker).fill,groupOpacity:Number(getComputedStyle(group).opacity),labelOpacity:Number(getComputedStyle(label).opacity),labelSelected:label.classList.contains('is-selected'),selected:group.classList.contains('is-selected'),related:[...document.querySelectorAll('.rg-node.is-related')].map(n=>n.dataset.rgNode).sort(),otherGroups:[...document.querySelectorAll('.rg-edge')].filter(el=>el!==group).map(el=>Number(getComputedStyle(el).opacity)),otherLabels:[...document.querySelectorAll('.rg-edge-label')].filter(el=>el!==label).map(el=>Number(getComputedStyle(el).opacity))};
  },id);}
  async function selectedStyle(edge,baseline){
-  const state=await styleState(edge.id);assert.equal(state.markerId,'rg-arrow-selected');assert.equal(state.markerFill,state.stroke);assert.notEqual(state.stroke,baseline.stroke);assert.ok(state.width>baseline.width);
+  const state=await styleState(edge.id);assert.equal(state.markerId,'rg-arrow-selected');assert.equal(state.markerFill,state.stroke);assert.notEqual(state.stroke,baseline.stroke);assert.ok(state.width>baseline.width);assert.ok(state.hitStroke==='transparent'||/^rgba\([^)]*,\s*0\s*\)$/.test(state.hitStroke),'the 44px hit stroke must not paint over the visible path or arrow: '+state.hitStroke);
   assert.equal(state.labelSelected,true);assert.equal(state.groupOpacity,1);assert.equal(state.labelOpacity,1);assert.deepEqual(state.related,[...new Set([edge.from,edge.to])].sort());
   assert.ok(state.otherGroups.every(x=>x>0&&x<1));assert.ok(state.otherLabels.every(x=>x>0&&x<1));assert.equal(state.dash,baseline.dash,'selection preserves planned/recorded line meaning');
  }
@@ -46,9 +46,11 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
   await page.locator('.rg-viewport').evaluate(el=>el.scrollIntoView({block:'start'}));
   const move=await page.evaluate(({id,selected})=>{
    const label=[...document.querySelectorAll('.rg-edge-label')].find(n=>n.dataset.rgLabel===id),rect=label.querySelector('rect').getBoundingClientRect(),vp=document.querySelector('.rg-viewport').getBoundingClientRect();
+   let target={left:rect.left,right:rect.right,top:rect.top,bottom:rect.bottom};
+   if(selected&&innerWidth>700){const parts=[rect,...[...document.querySelectorAll('.rg-node.is-related,.rg-edge.is-selected .rg-edge-line')].map(el=>el.getBoundingClientRect())];target={left:Math.min(...parts.map(r=>r.left)),right:Math.max(...parts.map(r=>r.right)),top:Math.min(...parts.map(r=>r.top)),bottom:Math.max(...parts.map(r=>r.bottom))};}
    const panel=selected&&innerWidth<=700?document.querySelector('.rg-detail.is-open')?.getBoundingClientRect():null;
    const left=Math.max(0,vp.left),right=Math.min(innerWidth,vp.right),top=Math.max(0,vp.top),bottom=Math.min(innerHeight,vp.bottom,panel&&panel.top>top+60?panel.top:Infinity);
-   return {x:(left+right)/2-(rect.left+rect.right)/2,y:(top+bottom)/2-(rect.top+rect.bottom)/2};
+   return {x:(left+right)/2-(target.left+target.right)/2,y:(top+bottom)/2-(target.top+target.bottom)/2};
   },{id,selected});
   await wire(id).evaluate(el=>el.focus({preventScroll:true}));
   for(const [delta,negative,positive] of [[move.x,'ArrowLeft','ArrowRight'],[move.y,'ArrowUp','ArrowDown']]){const count=Math.round(Math.abs(delta)/24);assert.ok(count<=180,'bounded graph pan');for(let i=0;i<count;i++)await page.keyboard.press(delta<0?negative:positive);}
@@ -87,9 +89,9 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
     if(capture){
      for(let n=0;n<7&&Number.parseInt(await page.locator('.rg-zoom').textContent(),10)<90;n++)await action('zoom-in').click();
      await centerLabel(edge.id,true);await detail(edge,snapshot);await selectedStyle(edge,baseline);await page.evaluate(()=>document.fonts.ready);
-     const filename=`graph-record-${runIndex?'recent':'previous'}-${theme}-${width}-${edge.kind}-${index}.png`;await page.screenshot({path:path.join(out,filename),fullPage:false});captures.push({filename,edge_id:edge.id,run_id:snapshot.run_id,from:edge.from,to:edge.to,kind:edge.kind,zoom:await page.locator('.rg-zoom').textContent()});
+     const filename=`graph-record-${runIndex?'recent':'previous'}-${theme}-${width}-${edge.kind}-${index}.png`;await page.screenshot({path:path.join(out,filename),fullPage:false});captures.push({filename,edge_id:edge.id,run_id:snapshot.run_id,from:edge.from,to:edge.to,kind:edge.kind,zoom:await page.locator('.rg-zoom').textContent(),framing:width>700?'selected endpoints, path and label bounds':'enlarged relationship segment and readable detail; use fit for full overview'});
     }
-    await action('list').click();await page.locator(`.rg-list [data-rg-edge="${edge.id}"]`).click();await detail(edge,snapshot,false);
+    await close();await action('list').click();await page.locator(`.rg-list [data-rg-edge="${edge.id}"]`).click();await detail(edge,snapshot,false);
     assert.equal(await page.locator('.rg-list [data-rg-edge]').count(),snapshot.edges.length);await close();await action('graph').click();await restoredStyle(edge.id,baseline);
    }
    assert.deepEqual(selectedIds,snapshot.edges.map(e=>e.id));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));checks.push({width,theme,run_id:snapshot.run_id,edge_ids:selectedIds,physical:'label centers',keyboard:'SVG Enter',list:'same original reference',selection:'path/arrow/label/endpoints and dim restore'});
