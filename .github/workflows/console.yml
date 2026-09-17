@@ -125,5 +125,6 @@ jobs:
             ${{ runner.temp }}/ui-artifacts/workspace-diagram.html
             ${{ runner.temp }}/ui-artifacts/workspace-diagram.svg
             ${{ runner.temp }}/ui-artifacts/workspace-diagram-receipt.json
+            ${{ runner.temp }}/ui-artifacts/diagram-independent-validation.json
           if-no-files-found: ignore
           retention-days: 7

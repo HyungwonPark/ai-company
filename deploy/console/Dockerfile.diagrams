@@ -6,7 +6,8 @@ FROM ${NODE_IMAGE} AS diagram_node
 FROM ${PYTHON_IMAGE}
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 UV_PYTHON_DOWNLOADS=never ARCHIFY_UPDATE_CHECK_DISABLED=1
-COPY --from=diagram_node /usr/local/bin/node /usr/local/bin/node
+# The renderer intentionally uses os.defpath, never a caller's PATH or NODE_OPTIONS.
+COPY --from=diagram_node /usr/local/bin/node /usr/bin/node
 COPY pyproject.toml uv.lock ./
 COPY src ./src
 RUN node --version && python -m pip install --no-cache-dir uv==0.12.11 \
