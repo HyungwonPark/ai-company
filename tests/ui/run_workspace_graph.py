@@ -113,7 +113,7 @@ def seed_graph(store, root):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--export", type=Path, help="write sanitized fixture overview without starting a server/browser")
-    parser.add_argument("--scenario", choices=("workspace_graph.cjs", "workspace_graph_independent.cjs", "diagram_view.cjs", "diagram_independent.cjs", "graph_edges_independent.cjs"),
+    parser.add_argument("--scenario", choices=("workspace_graph.cjs", "workspace_graph_independent.cjs", "diagram_view.cjs", "diagram_independent.cjs", "graph_edges_independent.cjs", "graph_edge_records.cjs"),
                         default="workspace_graph.cjs", help="run one browser review against a fresh temporary database")
     args = parser.parse_args()
     repository = Path(__file__).resolve().parents[2]
@@ -145,7 +145,7 @@ def main():
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         try:
-            return subprocess.run(["node", str(scenario)], cwd=repository, timeout=300, check=False,
+            return subprocess.run(["node", str(scenario)], cwd=repository, timeout=600 if args.scenario == "graph_edge_records.cjs" else 300, check=False,
                 env={**os.environ, "BASE_URL": f"http://127.0.0.1:{server.server_port}", "TEST_PASSWORD": password,
                      "GRAPH_FIXTURES": json.dumps(fixtures)}).returncode
         finally:

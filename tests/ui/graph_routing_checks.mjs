@@ -14,6 +14,10 @@ for(const small of [true,false])for(const snapshot of fixture.workspace_graph.sn
  for(const [id,r] of result.routes){
   assert.equal(r.issue,null,id);assert.ok(r.label,id+' has a readable label');
   assert.ok(!labels.some(b=>overlaps(r.label,b)),id+' label avoids other names');labels.push(r.label);
+  for(const other of result.routes.values()){
+   const b=other.target,side=other.toSide,arrow={left:b.x-(side==='left'?24:side==='right'?4:10),right:b.x+(side==='right'?24:side==='left'?4:10),top:b.y-(side==='top'?24:side==='bottom'?4:10),bottom:b.y+(side==='bottom'?24:side==='top'?4:10)};
+   assert.ok(!overlaps(r.label,arrow),id+' label preserves arrow direction');
+  }
   for(const [node,p]of Object.entries(l.positions)){
    const box={left:p.x,top:p.y,right:p.x+l.nodeWidth,bottom:p.y+l.nodeHeight};
    assert.ok(!overlaps(r.label,box),id+' label avoids '+node);
@@ -41,3 +45,13 @@ assert.equal(moved.routes.get('same').fromSide,routes.get('same').fromSide);
 const near=new Map([['one',{points:[{x:0,y:0},{x:100,y:0}]}],['two',{points:[{x:0,y:10},{x:100,y:10}]}]]);
 assert.equal(nearestGraphEdge(near,{x:40,y:1}).id,'one');assert.equal(nearestGraphEdge(near,{x:40,y:9}).id,'two');
 console.log(`PASS: ${covered} stored relations, labels/role avoidance, stable ports, self/return/same-row, deterministic routing, input preservation and nearest stroke selection`);
+for(const small of [true,false]){
+ const nodes=[{id:'a',kind:'role'},{id:'b',kind:'role'},{id:'c',kind:'reviewer'}],layout=graphLayout(nodes,small);
+ const repeated=[...Array.from({length:3},(_,i)=>({id:'parallel'+i,from:'a',to:'b',kind:'dependency'})),{id:'reverse',from:'b',to:'a',kind:'dependency'},...edges.filter(e=>!e.id.startsWith('parallel')&&e.id!=='same')];
+ const routed=routeGraphEdges(repeated,layout.positions,layout.nodeWidth,layout.nodeHeight),labels=[];
+ for(const [id,r]of routed.routes){assert.equal(r.issue,null);assert.ok(r.label,id+' duplicate has label');assert.ok(!labels.some(l=>overlaps(l,r.label)),id+' duplicate labels separated');labels.push(r.label);
+  for(const p of Object.values(layout.positions))assert.ok(!overlaps(r.label,{left:p.x,top:p.y,right:p.x+layout.nodeWidth,bottom:p.y+layout.nodeHeight}));
+  for(const other of routed.routes.values()){const b=other.target,side=other.toSide;assert.ok(!overlaps(r.label,{left:b.x-(side==='left'?24:side==='right'?4:10),right:b.x+(side==='right'?24:side==='left'?4:10),top:b.y-(side==='top'?24:side==='bottom'?4:10),bottom:b.y+(side==='bottom'?24:side==='top'?4:10)}));}
+ }
+}
+console.log('PASS: duplicate same-row labels avoid each other, roles and arrowheads at both widths');

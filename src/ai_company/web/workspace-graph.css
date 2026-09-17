@@ -14,3 +14,10 @@ html[data-theme=black] .integrated-workspace{--bg:#111413;--surface:#1a1e1c;--si
 .rg-edge-label{pointer-events:all;cursor:pointer}.rg-edge-label rect{fill:var(--surface);stroke:var(--line);stroke-width:1}.rg-edge-label text{stroke:none;font-size:14px;fill:var(--muted)}.rg-edge-label.is-selected rect{stroke:var(--accent)}.rg-edge-label.is-selected text{fill:var(--ink)}.rg-edge:focus-within .rg-edge-line,.rg-edge:hover .rg-edge-line{stroke:var(--accent);stroke-width:3}
 .rg-edge-label line{stroke:var(--muted);stroke-width:1;pointer-events:none}
 .rg-edge-hit{vector-effect:non-scaling-stroke}
+.workspace-graph .rg-lines #rg-arrow-selected path{fill:var(--accent)}
+.workspace-graph .rg-lines.has-selection .rg-edge:not(.is-selected){opacity:.5}
+.workspace-graph .rg-lines.has-selection .rg-edge-label:not(.is-selected){opacity:.9}
+.workspace-graph .rg-edge-label.is-selected rect{fill:var(--accent-soft);stroke-width:2}
+.workspace-graph .rg-edge-label.is-selected text{fill:var(--ink);font-weight:600}
+
+.workspace-graph .rg-edge-label.is-selected line{stroke:var(--accent);stroke-width:1.5}

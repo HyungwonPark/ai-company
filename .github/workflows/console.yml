@@ -10,7 +10,7 @@ permissions:
 jobs:
   browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -105,6 +105,7 @@ jobs:
         run: |
           node tests/ui/graph_edge_comparison.cjs
           uv run --frozen python tests/ui/run_workspace_graph.py --scenario graph_edges_independent.cjs
+          uv run --frozen python tests/ui/run_workspace_graph.py --scenario graph_edge_records.cjs
       - name: Package offline working preview
         if: always()
         run: |
@@ -139,5 +140,7 @@ jobs:
             ${{ runner.temp }}/ui-artifacts/workspace-diagram-receipt.json
             ${{ runner.temp }}/ui-artifacts/diagram-independent-validation.json
             ${{ runner.temp }}/ui-artifacts/graph-edges-independent-validation.json
+            ${{ runner.temp }}/ui-artifacts/graph-edge-records-validation.json
+            ${{ runner.temp }}/ui-artifacts/graph-edge-touch-validation.json
           if-no-files-found: ignore
           retention-days: 7
