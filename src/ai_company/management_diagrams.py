@@ -11,7 +11,7 @@ from ai_company.diagram_export import DiagramExportError, export_diagram
 from ai_company.management import ManagementError
 
 
-FILES = {"index.html", "diagram.svg", "input.json", "archify.json", "mapping.json",
+FILES = {"index.html", "preview-light.html", "preview-black.html", "diagram.svg", "input.json", "archify.json", "mapping.json",
          "compiler-receipt.json", "receipt.json", "LICENSE", "THIRD_PARTY_NOTICES.md"}
 
 

@@ -283,7 +283,7 @@ class ManagementHandler(BaseHTTPRequestHandler):
                     self.send_header("Referrer-Policy", "no-referrer")
                     # Even top-level HTML has an opaque origin with no scripts or API access.
                     self.send_header("Content-Security-Policy", "sandbox; default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; connect-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'")
-                    if filename != "index.html" or parsed.query:
+                    if not filename.endswith(".html") or parsed.query:
                         self.send_header("Content-Disposition", 'attachment; filename="' + filename + '"')
                     self.end_headers()
                     self.wfile.write(body)

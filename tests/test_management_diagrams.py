@@ -41,7 +41,7 @@ class DiagramStoreTests(unittest.TestCase):
         with patch.object(diagrams, "export_diagram", side_effect=AssertionError("must not regenerate")):
             self.assertEqual(result, diagrams.generate(self.store, self.pid, self.body))
         receipt = result["receipt"]
-        for name in ("index.html", "diagram.svg", "input.json"):
+        for name in ("index.html", "preview-light.html", "preview-black.html", "diagram.svg", "input.json"):
             data = diagrams.read_file(self.store, self.pid, receipt["id"], name)
             self.assertEqual(hashlib.sha256(data).hexdigest(), receipt["files"][name]["sha256"])
         for table, rows in before.items():
@@ -127,6 +127,13 @@ class DiagramHTTPTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("sandbox; default-src 'none'", headers["Content-Security-Policy"])
         self.assertIn("script-src 'none'", headers["Content-Security-Policy"])
+        for theme in ("light", "black"):
+            preview = path + "/" + result["receipt"]["id"] + "/preview-" + theme + ".html"
+            status, _, preview_headers = self.request("GET", preview)
+            self.assertEqual(status, 200)
+            self.assertIn("sandbox;", preview_headers["Content-Security-Policy"])
+            self.assertNotIn("Content-Disposition", preview_headers)
+            self.assertEqual(self.request("GET", preview, authenticated=False)[0], 401)
         self.assertIn("attachment", self.request("GET", file + "?download=1")[2]["Content-Disposition"])
         self.assertNotIn("unsafe-inline", self.request("GET", "/")[2]["Content-Security-Policy"])
         self.assertEqual(self.request("POST", file, {})[0], 405)

@@ -28,12 +28,12 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
   checks.push('no generation on GET; lost response + reload reuse same key and one frozen artifact');
   await viewer.locator('iframe').evaluate(el=>new Promise(resolve=>{if(el.contentWindow)resolve();else el.addEventListener('load',resolve,{once:true});}));
   assert.equal(await viewer.locator('iframe').getAttribute('sandbox'),'');assert.equal(await viewer.locator('iframe').evaluate(el=>el.contentDocument),null);
-  const frame=viewer.frameLocator('iframe');await frame.getByRole('heading',{name:'그림',exact:true}).waitFor();assert.ok(await frame.locator('svg').count());
+  const frame=viewer.frameLocator('iframe');await frame.locator('svg').waitFor();assert.ok(await frame.locator('svg').count());
   const htmlResponse=await context.request.get(base+endpoint+'/'+r.id+'/index.html');assert.ok(htmlResponse.headers()['content-security-policy'].includes("sandbox; default-src 'none'"));
   assert.ok((await context.request.get(base+'/')).headers()['content-security-policy'].includes("style-src 'self'"));
   checks.push('actual compiler SVG, opaque iframe, no scripts/API access, main CSP unchanged');
   for(const width of [1440,390,320])for(const theme of ['light','black']){
-   await viewer.setViewportSize({width,height:width>700?1000:844});await viewer.locator(`header [data-theme=${theme}]`).click();await viewer.evaluate(()=>document.fonts.ready);
+   await viewer.setViewportSize({width,height:width>700?1000:844});await viewer.locator(`header [data-theme=${theme}]`).click();await viewer.evaluate(()=>document.fonts.ready);const framed=viewer.frames().find(f=>f!==viewer.mainFrame());await framed.waitForURL('**/preview-'+theme+'.html');await framed.waitForLoadState('domcontentloaded');await framed.waitForSelector('svg');const color=await framed.evaluate(()=>getComputedStyle(document.body).backgroundColor);const rgb=color.match(/\d+/g).map(Number);assert.ok(theme==='black'?rgb[0]<60:rgb[0]>200,'embedded theme '+theme+' '+color);
    assert.ok(await viewer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`overflow ${width} ${theme}`);
    const sizes=await viewer.locator('header button,#actions button,.downloads a').evaluateAll(nodes=>nodes.map(n=>({w:n.getBoundingClientRect().width,h:n.getBoundingClientRect().height})));assert.ok(sizes.every(x=>x.w>=44&&x.h>=44));
    await viewer.screenshot({path:path.join(out,`workspace-diagram-${theme}-${width}.png`),fullPage:true});

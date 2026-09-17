@@ -176,7 +176,7 @@ def _safe_svg(value, snapshot):
     return ET.tostring(root, encoding="unicode")
 
 
-def _html(snapshot, svg):
+def _document_parts(snapshot):
     esc = lambda value: html.escape(str(value), quote=True)
     facts = "".join(f"<dt>{label}</dt><dd>{esc(snapshot.get(key) or '없음')}</dd>" for key, label in
                     (("project_id", "프로젝트"), ("plan_id", "계획"), ("plan_digest", "계획 digest"), ("run_id", "실행"),
@@ -188,10 +188,33 @@ def _html(snapshot, svg):
         artifacts = "".join(f"<li>{esc(item.get('label') or '산출물')} · <code>{esc(item.get('sha') or '식별자 미확인')}</code></li>" for item in edge.get("artifact_refs", []))
         relationships.append(f"<li><strong>{esc(names[edge['from']])} → {esc(names[edge['to']])}</strong><p>{esc(edge.get('title') or edge['kind'])} · {esc(_status(edge.get('status')))} · {'예정' if edge['phase']=='planned' else '저장된 관계'}</p><p>{esc(edge.get('reason') or '')}</p><details><summary>근거</summary><p>관계 ID · <code>{esc(edge['id'])}</code></p>{('<ul>' + artifacts + '</ul>') if artifacts else '<p>연결된 산출물 식별자 없음</p>'}</details></li>")
     relationships = "".join(relationships)
+    return facts, rows, relationships
+
+
+def _html(snapshot, svg):
+    facts, rows, relationships = _document_parts(snapshot)
     excluded = sum(edge["from"] == edge["to"] for edge in snapshot["edges"])
     exclusion = f"자기 자신에게 연결되는 이관 이력 {excluded}건은 그림의 선에서 제외하고 아래 원본 관계 목록에 보존했습니다." if excluded else "모든 조회 관계를 그림에 포함했습니다."
     source = "예시 자료 · 실제 실행 아님" if snapshot["source"] == "fixture" else "고정 계획 · 실제 실행 전" if snapshot["mode"] == "planned" else "특정 시점의 저장된 실행 기록"
     return f'''<!doctype html><html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'none'; base-uri 'none'; form-action 'none'"><title>AI Company · 그림</title><style>body{{margin:0;background:#f6f7f2;color:#24342e;font:1rem/1.6 'Noto Sans CJK KR','Noto Sans KR',sans-serif}}main{{max-width:1100px;margin:auto;padding:24px}}h1{{font-size:1.75rem}}a,summary{{color:inherit;min-height:44px}}.picture{{overflow:auto;border:1px solid #9cae9e}}.picture svg{{display:block;min-width:900px;width:100%;height:auto}}dt{{font-weight:bold}}dd{{margin:0 0 12px;overflow-wrap:anywhere}}li{{margin:16px 0}}p{{margin:4px 0}}code{{overflow-wrap:anywhere}}nav{{display:flex;gap:24px;margin:16px 0;flex-wrap:wrap}}@media(prefers-color-scheme:dark){{body{{background:#111a16;color:#edf4ec}}}}@media(max-width:400px){{main{{padding:16px}}}}</style><main><h1>그림</h1><p>{source}</p><p>아래 그림은 고정된 자료입니다. 실시간 상태·승인·실행을 변경하지 않습니다.</p><nav><a href="#roles">역할 목록</a><a href="#relations">관계 목록</a><a href="#source">원본 기준</a></nav><p>{exclusion}</p><div class="picture" tabindex="0" role="region" aria-label="좌우로 이동할 수 있는 역할 그림">{svg}</div><p>좁은 화면에서는 그림을 좌우로 이동할 수 있습니다. 같은 내용은 아래 목록에서도 읽을 수 있습니다.</p><section id="roles"><h2>역할</h2><ul>{rows}</ul></section><section id="relations"><h2>관계</h2><ul>{relationships}</ul></section><details id="source"><summary>원본 기준</summary><dl>{facts}</dl><p>Archify {ARCHIFY_COMMIT} · {GENERATOR_VERSION}</p><p>그림 검사는 실행 검사·독립 검수·마스터 승인을 대신하지 않습니다.</p></details></main></html>'''
+
+
+def _preview_html(snapshot, svg, theme):
+    """A fixed-theme inert frame. The parent owns the heading and source notice."""
+    if theme not in ("light", "black"):
+        raise ValueError("unsupported preview theme")
+    facts, rows, relationships = _document_parts(snapshot)
+    dark = theme == "black"
+    paper, ink, border = ("#111a16", "#edf4ec", "#45594d") if dark else ("#f6f7f2", "#24342e", "#9cae9e")
+    svg_css = CSS.split("@media(prefers-color-scheme:dark)", 1)[0]
+    if dark:
+        svg_css += "svg{--paper:#17211d;--ink:#edf4ec;--line:#9bb2a5;--accent:#a5d7bb}.c-lane{fill:#1e2b24;stroke:#45594d}.c-grid{stroke:#26382e}.c-security-group{fill:#352b1e;stroke:#ba996b}"
+    # This exact stylesheet is inserted by _safe_svg, not supplied by the caller.
+    expected = "<style>" + CSS + "</style>"
+    if svg.count(expected) != 1:
+        raise DiagramExportError("unsafe_svg", "고정 그림 스타일을 확인할 수 없습니다.")
+    preview_svg = svg.replace(expected, "<style>" + svg_css + "</style>", 1)
+    return f'''<!doctype html><html lang="ko" data-theme="{theme}"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'none'; base-uri 'none'; form-action 'none'"><title>AI Company · 그림 미리보기</title><style>:root{{color-scheme:{'dark' if dark else 'light'}}}body{{margin:0;background:{paper};color:{ink};font:1rem/1.6 'Noto Sans CJK KR','Noto Sans KR',sans-serif;word-break:keep-all;overflow-wrap:break-word}}main{{max-width:1100px;margin:auto;padding:0 1rem 1rem}}nav{{display:flex;gap:1.5rem;flex-wrap:wrap;margin:0 0 .5rem}}a,summary{{color:inherit;min-height:44px;display:inline-flex;align-items:center}}a:focus-visible,summary:focus-visible{{outline:2px solid currentColor;outline-offset:2px}}.picture{{border:1px solid {border}}}.picture svg{{display:block;width:100%;max-width:100%;height:auto}}h2{{font-size:1.25rem;margin:1.5rem 0 .5rem}}li{{margin:1rem 0}}p{{margin:.25rem 0}}ul{{padding-left:1.25rem}}dt{{font-weight:bold}}dd{{margin:0 0 .75rem}}code,dd{{word-break:normal;overflow-wrap:anywhere}}section,details{{scroll-margin-top:1rem}}</style><main><nav aria-label="그림 읽기"><a href="#roles">역할 목록</a><a href="#relations">관계 목록</a></nav><div class="picture" role="region" aria-label="역할 그림 전체 개요">{preview_svg}</div><section id="roles"><h2>역할</h2><ul>{rows}</ul></section><section id="relations"><h2>관계</h2><ul>{relationships}</ul></section><details id="source"><summary>원본 기준</summary><dl>{facts}</dl><p>Archify {ARCHIFY_COMMIT} · {GENERATOR_VERSION}</p></details></main></html>'''
 
 
 def _atomic_json(path, value):
@@ -232,7 +255,7 @@ def export_diagram(snapshot, output_dir, *, project_id, node_command="node", tim
             if any(file.is_symlink() for file in final.iterdir()):
                 raise DiagramExportError("unsafe_path", "그림 파일에 심볼릭 링크가 있습니다.")
             receipt = json.loads((final / "receipt.json").read_text())
-            expected_files = {"input.json", "archify.json", "diagram.svg", "index.html", "mapping.json", "compiler-receipt.json", "LICENSE", "THIRD_PARTY_NOTICES.md"}
+            expected_files = {"input.json", "archify.json", "diagram.svg", "index.html", "preview-light.html", "preview-black.html", "mapping.json", "compiler-receipt.json", "LICENSE", "THIRD_PARTY_NOTICES.md"}
             if (receipt.get("id") != identity or receipt.get("input_sha256") != request_hash
                     or any(receipt.get(key) != snapshot.get(key) for key in (*BINDING, "source", "mode", "cursor", "observed_at"))
                     or receipt.get("archify_commit") != ARCHIFY_COMMIT or receipt.get("generator_sha256") != generator_hash
@@ -263,6 +286,8 @@ def export_diagram(snapshot, output_dir, *, project_id, node_command="node", tim
             svg = _safe_svg(rendered["svg"], snapshot)
             (staging / "diagram.svg").write_text(svg, encoding="utf-8")
             (staging / "index.html").write_text(_html(snapshot, svg), encoding="utf-8")
+            for theme in ("light", "black"):
+                (staging / f"preview-{theme}.html").write_text(_preview_html(snapshot, svg, theme), encoding="utf-8")
             (staging / "mapping.json").write_bytes(_bytes(mapping))
             (staging / "compiler-receipt.json").write_bytes(_bytes(rendered["compiler_receipt"]))
             shutil.copyfile(ROOT / "vendor" / "archify" / "LICENSE", staging / "LICENSE")

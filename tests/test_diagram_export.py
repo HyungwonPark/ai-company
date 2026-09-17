@@ -53,6 +53,43 @@ class DiagramExportTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), (self.root / "other" / second["directory"] / name).read_bytes())
         self.assertNotIn(str(self.root), json.dumps(first))
 
+    def test_fixed_theme_previews_are_deterministic_inert_and_keep_reading_content(self):
+        first = self.render()
+        second = self.render(output=self.root / "second-preview")
+        directory = self.output / first["directory"]
+        full = (directory / "index.html").read_text()
+        self.assertIn("<h1>그림</h1>", full)
+        self.assertIn("실시간 상태·승인·실행을 변경하지 않습니다.", full)
+        self.assertIn("min-width:900px", full)
+        self.assertIn("prefers-color-scheme", full)
+        for theme, paper, svg_paper, color_scheme in (("light", "#f6f7f2", "#fafbf8", "light"),
+                                                     ("black", "#111a16", "#17211d", "dark")):
+            name = f"preview-{theme}.html"
+            page = (directory / name).read_text()
+            self.assertEqual(first["files"][name], second["files"][name])
+            self.assertEqual((directory / name).read_bytes(), (self.root / "second-preview" / second["directory"] / name).read_bytes())
+            self.assertIn(f'data-theme="{theme}"', page)
+            self.assertIn(f"color-scheme:{color_scheme}", page)
+            self.assertIn(f"background:{paper}", page)
+            self.assertIn(f"--paper:{svg_paper}", page)
+            self.assertNotIn("prefers-color-scheme", page)
+            self.assertNotIn("<h1>", page)
+            self.assertNotIn("실시간 상태·승인·실행을 변경하지 않습니다.", page)
+            self.assertNotIn("min-width:", page)
+            self.assertNotIn("<script", page)
+            self.assertIn("script-src 'none'", page)
+            self.assertIn("max-width:100%", page)
+            self.assertIn("min-height:44px", page)
+            self.assertIn("font:1rem/1.6", page)
+            self.assertIn("word-break:keep-all", page)
+            self.assertIn("overflow-wrap:anywhere", page)
+            self.assertLess(page.index("그림 읽기"), page.index('class="picture"'))
+            self.assertLess(page.index('class="picture"'), page.index('<section id="roles">'))
+            self.assertIn("PM → 개발", page)
+            self.assertIn("실제 배정이 아닙니다.", page)
+            self.assertIn("원본 기준", page)
+            self.assertIn(self.value["plan_digest"], page)
+
     def test_id_mapping_and_planned_relation_semantics_are_preserved(self):
         result = self.render()
         directory = self.output / result["directory"]
@@ -117,6 +154,9 @@ class DiagramExportTests(unittest.TestCase):
         self.assertEqual(result["renderer_exclusions"][0]["edge_id"], edge["id"])
         directory = self.output / result["directory"]
         self.assertIn("공유 한도 대기 후 담당 이관", (directory / "index.html").read_text())
+        for name in ("preview-light.html", "preview-black.html"):
+            self.assertIn("공유 한도 대기 후 담당 이관", (directory / name).read_text())
+            self.assertIn("개발 → 개발", (directory / name).read_text())
         self.assertIn("이관 이력 1건", (directory / "diagram.svg").read_text())
         self.assertIn(edge, json.loads((directory / "input.json").read_text())["edges"])
 
