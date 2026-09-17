@@ -104,7 +104,9 @@ jobs:
           CHROME_CHANNEL: chrome
           NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
           UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
-        run: uv run --frozen python tests/ui/run_workspace_graph.py --scenario diagram_view.cjs
+        run: |
+          uv run --frozen python tests/ui/run_workspace_graph.py --scenario diagram_view.cjs
+          uv run --frozen python tests/ui/run_workspace_graph.py --scenario diagram_independent.cjs
       - name: Save offline preview
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
