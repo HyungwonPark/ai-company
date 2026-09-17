@@ -30,7 +30,7 @@ module.exports=async function({page,fixtureId,output,setHTTPFixture}){
   await page.route(messagePath,async route=>{messages.push(route.request().postDataJSON());phase='newplan';await route.fulfill({json:{message:{id:'fresh-pm-request'}}});});
   await page.route(confirmPath,async route=>{confirmations.push(route.request().postDataJSON());await route.fulfill({status:409,json:{error:{code:'plan_mismatch',message:'fixture confirmation intercepted'}}});});
   try{
-    await page.goto(new URL('/#manager?project='+fixtureId,page.url()).href);await page.reload();
+    await page.goto(new URL('#manager?project='+fixtureId,page.url()).href);await page.reload();
     await page.getByRole('link',{name:'실행 범위 확인'}).click();
     const panel=page.locator('#execution');await panel.locator(':scope > summary').click();
     await panel.getByText('fixture-company/example',{exact:true}).waitFor();
