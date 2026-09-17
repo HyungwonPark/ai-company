@@ -73,3 +73,51 @@ for(let seed=0;seed<80;seed++)for(const small of [true,false])for(const snapshot
  varied++;
 }
 console.log(`PASS: ${varied} placements with regenerated IDs retain every label without covering labels, roles or arrowheads`);
+
+// A valid corridor must survive tiny moves even when another route becomes
+// cheaper. Exercise both initial choices and repeated reversals with real IDs.
+const recent=fixture.workspace_graph.snapshots.at(-1),wide=graphLayout(recent.nodes,false);
+const pm=recent.nodes.find(n=>n.kind==='pm'),spec=recent.edges.find(e=>e.from===pm.id&&e.kind==='specification'&&recent.nodes.find(n=>n.id===e.to).name.includes('검사'));
+const at=offset=>{const p=structuredClone(wide.positions);p[pm.id].x+=offset;return p;};
+for(const first of [0,8,9]){
+ let prior=routeGraphEdges(recent.edges,at(first),wide.nodeWidth,wide.nodeHeight,{basePositions:wide.positions}).routes;
+ for(const offset of [8,9,8,9,8,9,8,9]){
+  const original=JSON.stringify([...prior]),next=routeGraphEdges(recent.edges,at(offset),wide.nodeWidth,wide.nodeHeight,{basePositions:wide.positions,previousRoutes:prior}).routes;
+  const a=prior.get(spec.id),b=next.get(spec.id),dx=Math.abs(b.source.x-a.source.x);
+  assert.equal(b.points.length,a.points.length,'valid corridor retains bends');
+  for(let i=0;i<a.points.length;i++)assert.ok(Math.hypot(b.points[i].x-a.points[i].x,b.points[i].y-a.points[i].y)<=dx+1e-8,'one pixel must not change corridor');
+  assert.ok(Math.hypot(b.label.x-a.label.x,b.label.y-a.label.y)<=dx+1e-8,'one pixel must not move label to another segment');
+  assert.equal(JSON.stringify([...prior]),original,'previous geometry remains immutable');
+  assert.deepEqual(routeGraphEdges(recent.edges,at(offset),wide.nodeWidth,wide.nodeHeight,{basePositions:wide.positions,previousRoutes:next}).routes,next,'redraw after release is idempotent');
+  prior=next;
+ }
+}
+// Move an unrelated card into a previously valid straight corridor. Stability
+// must not freeze a now-obstructed route or hide the need for rerouting.
+const obstacleEdges=[{id:'test',from:'a',to:'b',kind:'dependency'}];
+const clear={a:{x:0,y:0},b:{x:0,y:400},blocker:{x:200,y:180}};
+const initial=routeGraphEdges(obstacleEdges,clear,100,100).routes;
+const obstructed={...clear,blocker:{x:0,y:180}};
+const rerouted=routeGraphEdges(obstacleEdges,obstructed,100,100,{basePositions:clear,previousRoutes:initial}).routes.get('test');
+assert.equal(rerouted.issue,null);assert.notEqual(rerouted.path,initial.get('test').path);
+for(let i=1;i<rerouted.points.length;i++){
+ const a=rerouted.points[i-1],b=rerouted.points[i];
+ for(const p of Object.values(obstructed))assert.ok(!(a.x===b.x?a.x>p.x&&a.x<p.x+100&&Math.max(a.y,b.y)>p.y&&Math.min(a.y,b.y)<p.y+100:a.y>p.y&&a.y<p.y+100&&Math.max(a.x,b.x)>p.x&&Math.min(a.x,b.x)<p.x+100),'rerouting avoids actual obstacle');
+}
+assert.ok(!overlaps(rerouted.label,{left:0,top:180,right:100,bottom:280}),'new obstacle also invalidates old name placement');
+const removed=routeGraphEdges([],obstructed,100,100,{previousRoutes:initial});assert.equal(removed.routes.size,0,'removed relationships never survive through cached routes');
+const replaced=routeGraphEdges([{...obstacleEdges[0],to:'blocker'}],clear,100,100,{previousRoutes:initial}).routes.get('test');
+assert.notDeepEqual(replaced.target,initial.get('test').target,'same ID cannot retain old endpoint identity');
+console.log('PASS: reported +8/+9 reversal from three initial corridors, immutable previous geometry, release redraw, real obstruction rerouting and replaced/removed records');
+// A newly observed short connection gets the same allocation as a fresh graph;
+// old labels must not consume all of its narrow mobile gutter.
+let arrivals=0;
+for(const small of [true,false])for(const snapshot of fixture.workspace_graph.snapshots){
+ const l=graphLayout(snapshot.nodes,small),fresh=routeGraphEdges(snapshot.edges,l.positions,l.nodeWidth,l.nodeHeight);
+ for(const arriving of snapshot.edges){
+  const partial=routeGraphEdges(snapshot.edges.filter(e=>e.id!==arriving.id),l.positions,l.nodeWidth,l.nodeHeight);
+  const next=routeGraphEdges(snapshot.edges,l.positions,l.nodeWidth,l.nodeHeight,{previousRoutes:partial.routes});
+  assert.deepEqual(next,fresh,'new relationships reallocate ports and label capacity');arrivals++;
+ }
+}
+console.log(`PASS: ${arrivals} newly observed relationship boundaries preserve every label`);

@@ -58,6 +58,7 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
           UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
         run: |
+          node tests/ui/graph_drag_stability.cjs
           node tests/ui/graph_edge_comparison.cjs
           uv run --frozen python tests/ui/run_workspace_graph.py --scenario graph_edges_independent.cjs
           uv run --frozen python tests/ui/run_workspace_graph.py --scenario graph_edge_records.cjs

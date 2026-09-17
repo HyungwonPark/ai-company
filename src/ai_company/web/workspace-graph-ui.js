@@ -29,8 +29,12 @@ export function placeGraphNodes(nodes,layout,retained){
 }
 // Geometry is derived from the complete relationship set. Base positions fix port
 // sides while dragging; stable IDs determine slots and lanes, never API array order.
-export function routeGraphEdges(edges,positions,width,height,{basePositions=positions,labels={}}={}){
+export function routeGraphEdges(edges,positions,width,height,{basePositions=positions,labels={},previousRoutes=null}={}){
  const ordered=edges.filter(e=>positions[e.from]&&positions[e.to]).slice().sort((a,b)=>a.id.localeCompare(b.id));
+ const identity=e=>JSON.stringify([e.from,e.to,e.kind,width,height]);
+ // A changed relationship set is a new layout problem: ports and scarce label
+ // slots must be allocated together so a newly arrived short edge is not hidden.
+ if(previousRoutes&&(previousRoutes.size!==ordered.length||ordered.some(e=>previousRoutes.get(e.id)?.identity!==identity(e))))previousRoutes=null;
  const boxes=Object.entries(positions).map(([id,p])=>({id,left:p.x,top:p.y,right:p.x+width,bottom:p.y+height}));
  const outerRight=Math.max(0,...boxes.map(b=>b.right)),ports=new Map(),plans=new Map();let outerLane=0;
  const add=(id,side,key)=>{const group=id+':'+side;if(!ports.has(group))ports.set(group,[]);ports.get(group).push(key);};
@@ -78,21 +82,63 @@ export function routeGraphEdges(edges,positions,width,height,{basePositions=posi
  const simplify=path=>{const result=[];for(const p of path){const last=result.at(-1);if(last&&last.x===p.x&&last.y===p.y)continue;const before=result.at(-2);if(before&&last&&(before.x===last.x&&last.x===p.x||before.y===last.y&&last.y===p.y))result.pop();result.push(p);}return result;};
  const rounded=path=>{let value=`M ${path[0].x} ${path[0].y}`;for(let i=1;i<path.length-1;i++){const a=path[i-1],b=path[i],c=path[i+1],d1=Math.abs(b.x-a.x)+Math.abs(b.y-a.y),d2=Math.abs(c.x-b.x)+Math.abs(c.y-b.y),r=Math.min(8,d1/2,d2/2);const before={x:b.x+(a.x-b.x)*r/d1,y:b.y+(a.y-b.y)*r/d1},after={x:b.x+(c.x-b.x)*r/d2,y:b.y+(c.y-b.y)*r/d2};value+=` L ${before.x} ${before.y} Q ${b.x} ${b.y} ${after.x} ${after.y}`;}const end=path.at(-1);return value+` L ${end.x} ${end.y}`;};
  const intersects=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
- for(const [index,e] of ordered.entries()){const plan=plans.get(e.id),{a,b,start,end}=endpoints.get(e.id);let middle;
+ // Preserve the chosen corridor, not its cost ranking. Moving an endpoint slides
+ // its first/last segment; interior bends stay put until clearance is lost.
+ const retainedPath=(old,plan,a,b,start,end)=>{
+  if(!old||old.issue||old.fromSide!==plan.fromSide||old.toSide!==plan.toSide||old.type!==plan.type)return null;
+  const path=old.points.map(p=>({...p}));
+  if(path.length<2)return null;
+  const firstVertical=path[0].x===path[1].x,lastVertical=path.at(-1).x===path.at(-2).x;
+  if(path.length===2){if(firstVertical?a.x!==b.x:a.y!==b.y)return null;path[0]=a;path[1]=b;}
+  else {
+   path[0]=a;path[path.length-1]=b;
+   if(firstVertical)path[1].x=a.x;else path[1].y=a.y;
+   if(lastVertical)path[path.length-2].x=b.x;else path[path.length-2].y=b.y;
+  }
+  const leaves=(p,next,stub)=> (next.x-p.x)*(stub.x-p.x)+(next.y-p.y)*(stub.y-p.y)>=100;
+  if(!leaves(a,path[1],start)||!leaves(b,path.at(-2),end))return null;
+  // Test the entire middle against padded cards, including moved endpoints.
+  const middle=[start,...path.slice(1,-1),end];
+  for(let i=1;i<middle.length;i++){
+   const c=middle[i-1],d=middle[i];
+   if(c.x!==d.x&&c.y!==d.y||obstacles.some(r=>crosses(c,d,r)))return null;
+  }
+  return simplify(path);
+ };
+ for(const [index,e] of ordered.entries()){const plan=plans.get(e.id),{a,b,start,end}=endpoints.get(e.id);
+  const old=previousRoutes?.get(e.id),retained=old?.identity===identity(e)?retainedPath(old,plan,a,b,start,end):null;let middle;
+  if(retained)middle=retained.slice(1,-1);
+  else
   if(plan.outerX!==null){
    const waypoints=[start,{x:start.x,y:plan.exitY},{x:plan.outerX,y:plan.exitY},{x:plan.outerX,y:plan.entryY},{x:end.x,y:plan.entryY},end];
    middle=[];for(let i=1;i<waypoints.length;i++){const leg=search(waypoints[i-1],waypoints[i]);if(!leg){middle=null;break;}middle.push(...leg);}
   }
   else middle=search(start,end);
-  const issue=middle?null:'space-limited',path=simplify([a,...(middle||[start,{x:start.x,y:end.y},end]),b]);
+  const issue=middle?null:'space-limited',path=retained||simplify([a,...(middle||[start,{x:start.x,y:end.y},end]),b]);
   for(let i=1;i<path.length;i++)used.push([path[i-1],path[i]]);
-  routes.set(e.id,{...plan,points:path,path:rounded(path),label:null,issue,source:a,target:b});
+  routes.set(e.id,{...plan,points:path,path:rounded(path),label:null,issue,source:a,target:b,identity:identity(e)});
+ }
+ const labelFits=label=>!arrowBoxes.some(b=>intersects(label,b))&&!boxes.some(b=>intersects(label,{left:b.left-8,right:b.right+8,top:b.top-8,bottom:b.bottom+8}))&&!labelBoxes.some(b=>intersects(label,{left:b.left-6,right:b.right+6,top:b.top-6,bottom:b.bottom+6}));
+ // Reserve still-valid names before searching for new ones. Project each old
+ // anchor onto its current line, retaining its offset and text; no segment-length
+ // re-ranking while dragging. Invalid labels alone re-enter normal placement.
+ for(const e of ordered){
+  const old=previousRoutes?.get(e.id),route=routes.get(e.id),label=old?.label;
+  if(!label||old.identity!==route.identity||label.compact||label.text!==(labels[e.id]||relationLabels[e.kind]||e.kind||'관계'))continue;
+  let anchor=null,distance=Infinity;
+  for(let i=1;i<route.points.length;i++){
+   const a=route.points[i-1],b=route.points[i],point={x:clamp(label.anchor.x,Math.min(a.x,b.x),Math.max(a.x,b.x)),y:clamp(label.anchor.y,Math.min(a.y,b.y),Math.max(a.y,b.y))},d=Math.hypot(point.x-label.anchor.x,point.y-label.anchor.y);
+   if(d<distance){distance=d;anchor=point;}
+  }
+  const dx=anchor.x-label.anchor.x,dy=anchor.y-label.anchor.y,candidate={...label,anchor,x:label.x+dx,y:label.y+dy,left:label.left+dx,right:label.right+dx,top:label.top+dy,bottom:label.bottom+dy};
+  if(labelFits(candidate)&&!boxes.some(b=>crosses(anchor,{x:candidate.x,y:candidate.y},b))){route.label=candidate;labelBoxes.push(candidate);}
  }
  // Short, constrained connections (especially a mobile same-row gutter)
  // choose a name position before long routes that have more free segments.
  const length=route=>route.points.slice(1).reduce((sum,p,i)=>sum+Math.abs(p.x-route.points[i].x)+Math.abs(p.y-route.points[i].y),0);
  const labelOrder=ordered.slice().sort((a,b)=>length(routes.get(a.id))-length(routes.get(b.id))||a.id.localeCompare(b.id));
  for(const [index,e] of labelOrder.entries()){
+  if(routes.get(e.id).label)continue;
   const path=routes.get(e.id).points;
   const full=labels[e.id]||relationLabels[e.kind]||e.kind||'관계',segments=path.slice(1).map((p,i)=>({a:path[i],b:p,length:Math.abs(p.x-path[i].x)+Math.abs(p.y-path[i].y)})).sort((a,b)=>b.length-a.length);
   let label=null;
@@ -162,7 +208,7 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
    const camera=v.camerasBySize.get(small);
    v.adjustCamera=!camera&&v.small!==null;
    if(camera){v.pan={...camera.pan};v.zoom=camera.zoom;}
-   v.positions=v.positionsBySize.get(small)||{};v.small=small;
+   v.positions=v.positionsBySize.get(small)||{};v.small=small;v.routes=null;
   }
   v.positions=placeGraphNodes(snapshot.nodes,layout,v.positions);
   v.nodeWidth=layout.nodeWidth;v.nodeHeight=layout.nodeHeight;
@@ -180,7 +226,7 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
  }
  function routeLabel(id,label,selected=false){return `<g class="rg-edge-label ${selected?'is-selected':''}" data-rg-label="${esc(id)}" aria-hidden="true" ${label?'':'visibility="hidden"'}><line x1="${label?.anchor.x||0}" y1="${label?.anchor.y||0}" x2="${label?.x||0}" y2="${label?.y||0}"/><rect x="${label?.left||0}" y="${label?.top||0}" width="${label?.width||0}" height="28" rx="6"/><text x="${label?.x||0}" y="${label?.y||0}" text-anchor="middle" dominant-baseline="central">${esc(label?.text||'')}</text></g>`;}
  function updateRoutes(snapshot,v){
-  const {routes,bounds}=routeGraphEdges(snapshot.edges,Object.fromEntries(snapshot.nodes.map(n=>[n.id,v.positions[n.id]])),v.nodeWidth,v.nodeHeight,{basePositions:v.basePositions});
+  const {routes,bounds}=routeGraphEdges(snapshot.edges,Object.fromEntries(snapshot.nodes.map(n=>[n.id,v.positions[n.id]])),v.nodeWidth,v.nodeHeight,{basePositions:v.basePositions,previousRoutes:v.routes});
   v.routes=routes;v.canvas={x:bounds.left,y:bounds.top,width:bounds.right-bounds.left,height:bounds.bottom-bounds.top};
  }
  function list(snapshot,v){return `<div class="rg-list"><h3>역할</h3>${snapshot.nodes.map(n=>`<button type="button" id="rg-list-node-${esc(n.id)}" data-rg-node="${esc(n.id)}" aria-pressed="${v.selection?.kind==='node'&&v.selection.id===n.id}"><strong>${esc(n.name)}</strong><span>${esc(status(n.status))} · ${planned(n)?'예정':'기록'}</span><span>${esc(summaryNode(n))}</span></button>`).join('')}<h3>관계</h3>${snapshot.edges.map(e=>`<button type="button" id="rg-list-edge-${esc(e.id)}" data-rg-edge="${esc(e.id)}" aria-pressed="${v.selection?.kind==='edge'&&v.selection.id===e.id}"><strong>${esc(snapshot.nodes.find(n=>n.id===e.from)?.name||e.from)} → ${esc(snapshot.nodes.find(n=>n.id===e.to)?.name||e.to)}</strong><span>${esc(e.title||relationLabels[e.kind]||e.kind)} · ${planned(e)?'예정':'기록'}</span></button>`).join('')||'<p>이 응답에 연결된 관계가 없습니다.</p>'}</div>`;}
