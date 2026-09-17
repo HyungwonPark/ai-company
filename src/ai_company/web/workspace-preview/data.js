@@ -8,7 +8,7 @@
       {id:'fixture-pilot',name:'역할 상태 확인',goal:'흩어진 역할 상태를 한눈에 확인하고 싶어요. 개발과 검사를 나눠 진행해 주세요.',next:'PM 질문에 답하기',changed:'오늘 14:20',phase:'question'},
       {id:'fixture-notes',name:'읽은 책 정리',goal:'책에서 기억할 문장을 모아 보고 싶어요.',next:'목표 구체화하기',changed:'어제',phase:'empty'}
     ],
-    pm:{name:'Astra',model:'gpt-6-astra',effort:'ultra',question:'처음 보는 상태는 어떻게 셀까요?',body:'진행·대기·차단·완료에 해당하지 않는 상태를 ‘알 수 없음’으로 모으는 방법을 제안해요. 이렇게 하면 누락 없이 전체 역할 수를 확인할 수 있습니다.',suggested:'좋아요. 알 수 없음으로 모으고 빈 입력도 확인해 주세요.'},
+    pm:{name:'Astra',model:'gpt-6-astra',effort:'ultra',question:'정의되지 않은 상태 처리',body:'진행·대기·차단·완료 외의 상태는 ‘알 수 없음’으로 집계하겠습니다.',suggested:'그 기준을 계획에 반영하고, 빈 입력도 검사해 주세요.'},
     roles:[
       {id:'implementation',name:'개발',responsibility:'역할 상태를 집계하는 함수',task:'알 수 없는 상태의 처리 보완',status:'진행',provider:'Codex',model:'gpt-6-astra',effort:'high',observed:null,path:'src/ai_company/pilot_status.py',wait:null,run:'fixture-run-02'},
       {id:'tests',name:'검사',responsibility:'같은 계약의 독립 테스트',task:'빈 입력·모든 분류·입력 보존 검사',status:'대기',provider:'Claude',model:'claude-opus-5',effort:'xhigh',observed:null,path:'tests/test_pilot_status.py',wait:'Claude 공유 계정 한도 회복을 기다립니다. 개발 역할은 계속 진행합니다.',resume:'15:10 예약 재개',run:'fixture-run-02'}

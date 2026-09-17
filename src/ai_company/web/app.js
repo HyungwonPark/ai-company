@@ -16,7 +16,8 @@ const labels = {WAITING_PROJECT_BUDGET:'프로젝트 예산 대기',waiting_proj
 const state = {authenticated:false,loginMethod:'password',passwordChangeRequired:false,changingPassword:false,username:'',csrf:'',projects:[],projectId:new URLSearchParams(location.hash.split('?')[1]||'').get('project')||'',overview:null,view:readView(),projectMissing:false,projectSearch:'',createdProjectId:'',connected:navigator.onLine,updatedAt:null,error:'',loading:true,refreshing:false,drafts:{},planningTabs:{},demo:false};
 const integrated=new URLSearchParams(location.search).get('workspace')==='integrated';
 let recordParams=new URLSearchParams(location.hash.split('?')[1]||'');
-const workspaceGraph=createWorkspaceGraph({esc,label,stamp});
+let pendingGraphRender=false;
+const workspaceGraph=createWorkspaceGraph({esc,label,stamp,onInteractionEnd:()=>{if(pendingGraphRender){pendingGraphRender=false;render();}}});
 let lastPayload = '';
 let toastTimer;
 let requestEpoch = 0;
@@ -207,6 +208,10 @@ function project(){const {project,roles=[],harnesses=[]}=state.overview;return p
 
 function render(){
   const pendingRoute=new URLSearchParams(location.hash.split('?')[1]||'');const routeMatches=readView()===state.view&&(!pendingRoute.has('project')||pendingRoute.get('project')===state.projectId)&&(!integrated||['run','approval','report'].every(key=>pendingRoute.get(key)===recordParams.get(key)));
+  // Finish a pointer gesture before polling replaces its DOM and pointer capture.
+  // Navigation, disconnection and authentication changes still render immediately.
+  if(integrated&&state.authenticated&&state.connected&&!state.projectMissing&&!state.passwordChangeRequired&&!state.changingPassword&&state.view==='progress'&&routeMatches&&workspaceGraph.isInteracting(state.projectId)){pendingGraphRender=true;return;}
+  pendingGraphRender=false;
   if(state.authenticated&&routeMatches){let target=state.view==='projects'?'#projects':state.projectId?projectHref(state.view,state.projectId):'#projects';if(integrated&&['approvals','reports'].includes(state.view))for(const name of ['run','approval','report'])if(recordParams.get(name))target+='&'+name+'='+encodeURIComponent(recordParams.get(name));history.replaceState(null,'',target);}
   const active=document.activeElement;const focusId=active?.id;const selection=active&&typeof active.selectionStart==='number'?[active.selectionStart,active.selectionEnd]:null;
   if(state.authenticated)for(const detail of app.querySelectorAll('details[data-persist-key]'))openDetails.set(`${state.projectId}:${detail.dataset.persistKey}`,detail.open);
