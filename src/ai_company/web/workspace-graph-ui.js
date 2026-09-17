@@ -62,7 +62,7 @@ export function createWorkspaceGraph({esc,label=v=>statusLabels[v]||v,stamp=v=>v
   return true;
  }
  function scope(project){const p=projects.get(project);if(!p)return null;return p.data.snapshots.find(s=>s.id===p.selected)||p.data.snapshots[0];}
- function view(snapshot){const k=graphKey(snapshot);if(!views.has(k))views.set(k,{mode:'graph',selection:null,zoom:1,pan:{x:0,y:0},positions:{},positionsBySize:new Map(),small:null,panMode:false,seen:new Set(),focus:null,detailScroll:0,detailOpen:[]});return views.get(k);}
+ function view(snapshot){const k=graphKey(snapshot);if(!views.has(k))views.set(k,{mode:'graph',selection:null,zoom:1,pan:{x:0,y:0},positions:{},positionsBySize:new Map(),camerasBySize:new Map(),adjustCamera:false,small:null,panMode:false,seen:new Set(),focus:null,detailScroll:0,detailOpen:[]});return views.get(k);}
  function refs(snapshot){return `<details class="rg-provenance"><summary>기록 기준</summary><dl><dt>프로젝트</dt><dd><code>${esc(snapshot.project_id)}</code></dd><dt>계획</dt><dd><code>${esc(snapshot.plan_id||'없음')}</code><code>${esc(snapshot.plan_digest||'없음')}</code></dd><dt>실행</dt><dd><code>${esc(snapshot.run_id||'확정 전 · 실행 없음')}</code></dd><dt>조회 시각 · 순서</dt><dd>${esc(stamp(snapshot.observed_at))} · ${esc(snapshot.cursor)}</dd></dl></details>`;}
  function nodeInfo(node){if(node.kind==='document')return `<p>${node.document_kind==='approval'?'후보 수용을 결정하는 승인 문서입니다.':'이 실행의 시스템 보고 문서입니다.'}</p><p>아래 실행별 링크에서 원문과 대상 식별자를 확인할 수 있습니다.</p><details><summary>문서 참조</summary><pre>${esc(JSON.stringify({reference:node.reference||{},configuration:node.assignment||{}},null,2))}</pre></details>`;const a=node.assignment||{},r=a.requested||{},o=a.observed||{};return `<dl class="rg-facts"><div><dt>종류</dt><dd>${esc(kindLabels[node.kind]||node.kind)} · ${planned(node)?'예정':'저장된 기록'}</dd></div><div><dt>담당 업무</dt><dd>${esc(node.current_task_title||node.task_title||node.current_work||node.responsibility||'연결된 작업 없음')}</dd></div><div><dt>요청</dt><dd>${esc(r.model||'미배정')} · ${esc(r.reasoning_effort||'추론 미설정')}<br>Ultracode ${r.ultracode_enabled===true?'요청함':r.ultracode_enabled===false?'요청 안 함':'미확인'}</dd></div><div><dt>실행에서 확인된 설정</dt><dd>${o.status==='observed'?`${esc(o.model||'모델 미확인')} · ${esc(o.reasoning_effort||'추론 미확인')}`:'미확인'}</dd></div><div><dt>확인 근거</dt><dd>${esc(o.source||'없음')} · ${esc(o.scope||'미확인')}<br>모델의 자기 설명을 근거로 사용하지 않습니다.</dd></div>${node.wait_reason?`<div><dt>대기 이유</dt><dd>${esc(node.wait_reason)}${node.resume_at?`<br>재개 예약 ${esc(stamp(node.resume_at))}`:''}</dd></div>`:''}${a.quota?.status?`<div><dt>공유 한도</dt><dd>${esc(status(a.quota.status))}${a.quota.reset_at?` · ${esc(stamp(a.quota.reset_at))}`:''}</dd></div>`:''}</dl>${node.handoffs?.length?`<details><summary>담당 이관 ${node.handoffs.length}건</summary><p>역할과 작업은 유지하고 담당 세션만 바뀝니다.</p><pre>${esc(JSON.stringify(node.handoffs,null,2))}</pre></details>`:''}<details><summary>원본 참조</summary><pre>${esc(JSON.stringify({reference:node.reference||{},configuration:node.assignment||{}},null,2))}</pre></details>`;}
  function edgeInfo(edge,snapshot){const name=id=>snapshot.nodes.find(n=>n.id===id)?.name||id;return `<p class="rg-direction">${esc(name(edge.from))} → ${esc(name(edge.to))}</p><p>${esc(edge.reason||edge.title||'관계의 상세 이유는 기록되지 않았습니다.')}</p><dl class="rg-facts"><div><dt>구분</dt><dd>${planned(edge)?'계획의 예정 관계 · 실제 전달 아님':'저장된 전달 사실'}</dd></div><div><dt>상태</dt><dd>${esc(status(edge.status))}</dd></div><div><dt>기록 시각</dt><dd>${esc(stamp(edge.created_at))}</dd></div></dl><h4>산출물</h4>${edge.artifact_refs?.length?edge.artifact_refs.map(a=>`<div class="rg-artifact"><strong>${esc(a.kind||'근거')}</strong><code>${esc(a.sha||a.path||a.uri||a.id||'식별자 미기록')}</code></div>`).join(''):'<p>연결된 산출물 근거가 없습니다.</p>'}<details><summary>원본 참조</summary><pre>${esc(JSON.stringify(edge.reference||edge.source_ref||{},null,2))}</pre></details>`;}
@@ -70,8 +70,15 @@ export function createWorkspaceGraph({esc,label=v=>statusLabels[v]||v,stamp=v=>v
  function summaryNode(node){if(node.kind==='document')return node.document_kind==='approval'?'승인 원문':'시스템 보고';const a=node.assignment||{},o=a.observed||{},r=a.requested||{};return `${o.status==='observed'?'확인':'요청'} · ${shortModel(o.status==='observed'?o.model:r.model)}`;}
  function graph(snapshot,v){const small=innerWidth<=700,layout=graphLayout(snapshot.nodes,small);
   if(v.small!==small){
-   if(v.small!==null)v.positionsBySize.set(v.small,v.positions);
-   // Keep each width's custom placement, and retain the same camera on resize.
+   if(v.small!==null){
+    v.positionsBySize.set(v.small,v.positions);
+    v.camerasBySize.set(v.small,{pan:{...v.pan},zoom:v.zoom});
+   }
+   // Restore each width's camera. A newly visited width keeps the zoom but
+   // recentres horizontally, so a wide-screen offset cannot hide the graph.
+   const camera=v.camerasBySize.get(small);
+   v.adjustCamera=!camera&&v.small!==null;
+   if(camera){v.pan={...camera.pan};v.zoom=camera.zoom;}
    v.positions=v.positionsBySize.get(small)||{};v.small=small;
   }
   v.positions=placeGraphNodes(snapshot.nodes,layout,v.positions);
@@ -93,7 +100,14 @@ export function createWorkspaceGraph({esc,label=v=>statusLabels[v]||v,stamp=v=>v
   for(const id of record.fresh)v.seen.add(id);
   return `<header class="rg-header"><div><h2>진행</h2><p>${snapshot.source==='fixture'?'예시 기록 · 실제 실행 아님':snapshot.mode==='planned'||!snapshot.run_id?'계획 · 실제 실행 전':'저장된 실행 기록'}</p></div><label>대상<select id="rg-snapshot" data-rg-snapshot aria-label="그래프 대상">${record.data.snapshots.map(s=>`<option value="${esc(s.id)}" ${s.id===snapshot.id?'selected':''}>${esc(s.run_id?`실행 ${record.data.snapshots.filter(x=>x.run_id).findIndex(x=>x.id===s.id)+1}`:s.plan_id?`계획 ${record.data.snapshots.filter(x=>!x.run_id).findIndex(x=>x.id===s.id)+1}`:'준비')}${s.id===record.data.default_snapshot_id?' · 최근':''}</option>`).join('')}</select></label></header>${record.missingSelection?'<p class="rg-alert">선택한 실행이 이번 조회에 없어 최근 대상을 표시합니다. 실행 식별자를 확인하세요.</p>':''}${(snapshot.warnings||[]).map(w=>`<p class="rg-alert">${esc(w)}</p>`).join('')}${record.disconnected?'<p class="rg-alert" role="status">연결이 끊겼습니다. 마지막 조회 자료를 표시합니다.</p>':''}<div class="rg-tools"><div role="group" aria-label="진행 보기">${button('그래프','graph',`aria-pressed="${v.mode==='graph'}"`)}${button('목록','list',`aria-pressed="${v.mode==='list'}"`)}</div>${v.mode==='graph'?`<div role="group" aria-label="그래프 탐색">${button('−','zoom-out','aria-label="축소"')}${button('+','zoom-in','aria-label="확대"')}${button('맞춤','fit')}${button('이동','pan',`aria-pressed="${v.panMode}"`)}</div><output class="rg-zoom" aria-label="확대 비율">${Math.round(v.zoom*100)}%</output>`:''}</div><div class="rg-layout"><section class="rg-map" aria-label="관계 보기">${snapshot.nodes.length?v.mode==='graph'?graph(snapshot,v):list(snapshot,v):`<p class="rg-empty">${esc(snapshot.empty_reason||'저장된 역할이 없습니다. PM의 역할 제안을 확인하세요.')}</p>`}<p class="rg-small">실선: 저장된 관계 · 점선: 예정 관계<br>표시 ${snapshot.edges.length}건${Number.isInteger(history.total)?` / 조회 대상 ${history.total}건`:''}${history.complete===false?' · 과거 이력 일부만 포함':''}. 위치는 실행 순서를 뜻하지 않습니다.</p><details class="rg-help"><summary>조작</summary><p>노드·선을 눌러 상세를 엽니다. 이동 모드를 켜면 화면과 노드를 끌 수 있습니다. 키보드는 방향키로 화면 이동, 노드에서 Alt+방향키로 배치 이동합니다. 목록에서도 같은 기록을 선택할 수 있습니다.</p></details><p class="rg-update" role="status">${newCount?`새 전달 ${newCount}건`:`조회 순서 ${record.data.cursor}`}</p></section>${detail(snapshot,v)}</div>`;
  }
- function render(overview,project){if(!overview.workspace_graph)return '<p class="rg-empty">이 서버에는 실행별 그래프 조회가 연결되지 않았습니다. 기존 진행 기록을 이용하세요.</p>';if(!projects.has(project))ingest(overview,project);return `<section class="workspace-graph" data-rg-root data-project="${esc(project)}" data-snapshot="${esc(scope(project)?.id||'')}">${body(project)}</section>`;}
+ function render(overview,project){
+  // A forced replacement (offline, navigation) must settle queued data before
+  // creating markup; mount() must not apply a different snapshot to old markup.
+  disposeMount();
+  if(!overview.workspace_graph)return '<p class="rg-empty">이 서버에는 실행별 그래프 조회가 연결되지 않았습니다. 기존 진행 기록을 이용하세요.</p>';
+  if(!projects.has(project))ingest(overview,project);
+  return `<section class="workspace-graph" data-rg-root data-project="${esc(project)}" data-snapshot="${esc(scope(project)?.id||'')}">${body(project)}</section>`;
+ }
  function capture(container,project){const s=scope(project);if(!s)return;const graphRoot=container.matches?.('[data-rg-root]')?container:container.querySelector('[data-rg-root]');if(graphRoot?.dataset.project!==project||graphRoot?.dataset.snapshot!==s.id)return;const panel=graphRoot.querySelector('.rg-detail');if(!panel)return;const v=view(s);v.detailScroll=panel.scrollTop;v.detailOpen=[...panel.querySelectorAll('details')].filter(d=>d.open).map(d=>d.querySelector('summary')?.dataset.rgDetailKey).filter(Boolean);}
  function mount(container,overview,project){
   disposeMount();resizeObserver?.disconnect();const root=container.querySelector('[data-rg-root]');if(!root)return;activeProject=project;
@@ -112,7 +126,7 @@ export function createWorkspaceGraph({esc,label=v=>statusLabels[v]||v,stamp=v=>v
     if(disconnected)projects.get(queued.project).disconnected=true;
    }
    const current=scope(project),resized=current&&view(current).small!==(innerWidth<=700);
-   if(paint&&root.isConnected&&(gesture?.moved||queued||resized))redraw(gesture?.id?{id:gesture.id,kind:'node'}:null);
+   if(paint&&root.isConnected&&(gesture?.moved||queued||resized))redraw(gesture?.moved&&gesture.id?{id:gesture.id,kind:'node'}:null);
    if(notify)onInteractionEnd({project,cancelled});
   }
   disposeMount=()=>{
@@ -121,8 +135,29 @@ export function createWorkspaceGraph({esc,label=v=>statusLabels[v]||v,stamp=v=>v
    if(active)queueMicrotask(()=>onInteractionEnd({project,cancelled:true}));
   };
   function restoreFocus(id,kind){if(!id)return;const attr=kind==='edge'?'data-rg-edge':'data-rg-node';[...root.querySelectorAll(`[${attr}]`)].find(el=>el.getAttribute(attr)===id)?.focus({preventScroll:true});}
-  function redraw(focus){root.innerHTML=body(project);root.dataset.snapshot=scope(project)?.id||'';geometry();if(focus)restoreFocus(focus.id,focus.kind);}
-  function geometry(){const s=scope(project),v=s&&view(s),scene=root.querySelector('.rg-scene');if(!v)return;const panel=root.querySelector('.rg-detail');if(panel){panel.querySelectorAll('details').forEach(d=>{d.open=v.detailOpen.includes(d.querySelector('summary')?.dataset.rgDetailKey);});panel.scrollTop=v.detailScroll;}if(!scene)return;scene.style.width=v.canvas.width+'px';scene.style.height=v.canvas.height+'px';for(const el of root.querySelectorAll('.rg-node')){const p=v.positions[el.dataset.rgNode];el.style.left=p.x+'px';el.style.top=p.y+'px';el.style.width=v.nodeWidth+'px';el.style.height=v.nodeHeight+'px';}transform();}
+  function redraw(focus){
+   const active=document.activeElement,focusId=root.contains(active)?active.id:null;
+   root.innerHTML=body(project);root.dataset.snapshot=scope(project)?.id||'';geometry();
+   if(focus)restoreFocus(focus.id,focus.kind);
+   else if(focusId){const replacement=document.getElementById(focusId);if(root.contains(replacement))replacement.focus({preventScroll:true});}
+  }
+  function geometry(){
+   const s=scope(project),v=s&&view(s),scene=root.querySelector('.rg-scene');if(!v)return;
+   const panel=root.querySelector('.rg-detail');
+   if(panel){panel.querySelectorAll('details').forEach(d=>{d.open=v.detailOpen.includes(d.querySelector('summary')?.dataset.rgDetailKey);});panel.scrollTop=v.detailScroll;}
+   if(!scene)return;
+   scene.style.width=v.canvas.width+'px';scene.style.height=v.canvas.height+'px';
+   for(const el of root.querySelectorAll('.rg-node')){
+    const p=v.positions[el.dataset.rgNode];el.style.left=p.x+'px';el.style.top=p.y+'px';el.style.width=v.nodeWidth+'px';el.style.height=v.nodeHeight+'px';
+   }
+   if(v.adjustCamera){
+    const viewport=root.querySelector('.rg-viewport');
+    const selected=v.selection?.kind==='node'?v.positions[v.selection.id]:null,anchor=selected||v.positions[s.nodes[0]?.id];
+    if(viewport&&anchor)v.pan.x=viewport.clientWidth/2-(anchor.x+v.nodeWidth/2)*v.zoom;
+    v.adjustCamera=false;
+   }
+   transform();
+  }
   function transform(){const s=scope(project),v=s&&view(s),scene=root.querySelector('.rg-scene');if(scene&&v){scene.style.transform=`translate(${v.pan.x}px,${v.pan.y}px) scale(${v.zoom})`;const o=root.querySelector('.rg-zoom');if(o)o.textContent=`${Math.round(v.zoom*100)}%`;}}
   root.addEventListener('change',event=>{capture(root,project);if(event.target.matches('[data-rg-snapshot]')){projects.get(project).selected=event.target.value;redraw();root.querySelector('[data-rg-snapshot]')?.focus();}},{signal});
   root.addEventListener('click',event=>{capture(root,project);if(suppressClick&&event.detail!==0){suppressClick=false;event.preventDefault();event.stopPropagation();return;}const n=event.target.closest('[data-rg-node]'),e=event.target.closest('[data-rg-edge]'),action=event.target.closest('[data-rg-action]')?.dataset.rgAction,s=scope(project);if(!s)return;const v=view(s);
