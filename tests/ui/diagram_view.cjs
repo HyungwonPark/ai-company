@@ -21,8 +21,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
   // The response is lost after server completion. The client must reuse its key on reload.
   let lost=true;await viewer.route('**'+endpoint,async route=>{if(route.request().method()==='POST'&&lost){lost=false;await route.fetch();await route.abort('failed');}else await route.continue();});
   await viewer.getByRole('button',{name:'그림 만들기',exact:true}).click();await viewer.getByRole('button',{name:'같은 요청 확인',exact:true}).waitFor();
-  await viewer.reload();await viewer.getByRole('button',{name:'같은 요청 확인',exact:true}).click();await viewer.getByRole('button',{name:'그림 만들기',exact:true}).waitFor();await viewer.locator('iframe').waitFor();
-  const list=(await(await context.request.get(base+endpoint)).json()).items;assert.equal(list.length,1);assert.equal(list[0].status,'completed');
+  await viewer.reload();await viewer.getByRole('button',{name:'같은 요청 확인',exact:true}).click();await viewer.getByRole('button',{name:'그림 만들기',exact:true}).waitFor();
+  const list=(await(await context.request.get(base+endpoint)).json()).items;assert.equal(list.length,1);assert.equal(list[0].status,'completed',JSON.stringify(list[0]));await viewer.locator('iframe').waitFor();
   const r=list[0].receipt;assert.equal(r.project_id,fixtures.project_id);assert.equal(r.run_id,current.run_id);assert.equal(r.plan_digest,current.plan_digest);assert.equal(r.source,'fixture');
   const posts=writes.filter(w=>w.path===endpoint);assert.equal(posts.length,2);assert.deepEqual(posts[0].body,posts[1].body);
   checks.push('no generation on GET; lost response + reload reuse same key and one frozen artifact');
@@ -44,7 +44,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
   await fs.writeFile(path.join(out,'workspace-diagram-receipt.json'),JSON.stringify(r,null,2));
   checks.push('Light/Black 320/390/1440, Korean controls, 44px, HTML download SHA256');
   // Keyboard navigation and enlarged text retain every action; iframe has readable list anchors.
-  await viewer.setViewportSize({width:640,height:900});await viewer.evaluate(()=>{document.documentElement.style.fontSize='200%';});await viewer.keyboard.press('Tab');assert.ok(await viewer.evaluate(()=>document.activeElement!==document.body));
+  await viewer.setViewportSize({width:640,height:900});await viewer.evaluate(()=>{document.documentElement.style.fontSize='200%';});assert.equal(await viewer.evaluate(()=>getComputedStyle(document.body).fontSize),'32px');assert.equal(await viewer.locator('#generate').evaluate(el=>getComputedStyle(el).fontSize),'32px');const inner=viewer.frames().find(f=>f!==viewer.mainFrame());await inner.evaluate(()=>{document.documentElement.style.fontSize='200%';});assert.equal(await inner.evaluate(()=>getComputedStyle(document.body).fontSize),'32px');assert.ok(await viewer.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await viewer.keyboard.press('Tab');assert.ok(await viewer.evaluate(()=>document.activeElement!==document.body));
   await frame.getByRole('link',{name:'역할 목록',exact:true}).click();await frame.getByRole('heading',{name:'역할',exact:true}).waitFor();
   const after=await(await context.request.get(base+'/api/projects/'+fixtures.project_id+'/overview')).json();
   assert.deepEqual(after.runs,before.runs);assert.deepEqual(after.approvals,before.approvals);assert.deepEqual(after.plans,before.plans);

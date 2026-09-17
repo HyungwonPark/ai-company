@@ -2,6 +2,7 @@
 import copy
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -224,6 +225,16 @@ class DiagramExportTests(unittest.TestCase):
         shutil.copytree(diagrams.ROOT / "vendor", package / "vendor")
         value = self.root / "snapshot.json"; value.write_text(json.dumps(self.value))
         program = "import json;from ai_company.diagram_export import export_diagram;s=json.load(open('snapshot.json'));r=export_diagram(s,'installed-output',project_id=s['project_id']);print(r['status'])"
-        result = subprocess.run([sys.executable, "-c", program], cwd=self.root, env={"PYTHONPATH": str(package.parent), "PATH": "/usr/bin:/bin"}, capture_output=True, text=True, check=False)
+        result = subprocess.run([sys.executable, "-c", program], cwd=self.root, env={"PYTHONPATH": str(package.parent), "PATH": os.environ["PATH"]}, capture_output=True, text=True, check=False)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "completed")
+
+    def test_operator_node_path_resolved_without_inheriting_node_options(self):
+        executable = shutil.which("node")
+        self.assertTrue(executable)
+        installed = self.root / "operator-bin"
+        installed.mkdir()
+        (installed / "node").symlink_to(executable)
+        # Reproduce hosted CI/NVM-style runtime placement outside os.defpath.
+        with patch.dict(os.environ, {"PATH": str(installed), "NODE_OPTIONS": "--require /must-not-load.js"}):
+            self.assertEqual(self.render()["status"], "completed")
