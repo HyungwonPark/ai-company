@@ -103,7 +103,7 @@ export function createWorkspaceGraph({esc,label=v=>statusLabels[v]||v,stamp=v=>v
  function render(overview,project){
   // A forced replacement (offline, navigation) must settle queued data before
   // creating markup; mount() must not apply a different snapshot to old markup.
-  disposeMount();
+  disposeMount();resizeObserver?.disconnect();
   if(!overview.workspace_graph)return '<p class="rg-empty">이 서버에는 실행별 그래프 조회가 연결되지 않았습니다. 기존 진행 기록을 이용하세요.</p>';
   if(!projects.has(project))ingest(overview,project);
   return `<section class="workspace-graph" data-rg-root data-project="${esc(project)}" data-snapshot="${esc(scope(project)?.id||'')}">${body(project)}</section>`;
@@ -142,6 +142,7 @@ export function createWorkspaceGraph({esc,label=v=>statusLabels[v]||v,stamp=v=>v
    else if(focusId){const replacement=document.getElementById(focusId);if(root.contains(replacement))replacement.focus({preventScroll:true});}
   }
   function geometry(){
+   if(signal.aborted||!root.isConnected)return;
    const s=scope(project),v=s&&view(s),scene=root.querySelector('.rg-scene');if(!v)return;
    const panel=root.querySelector('.rg-detail');
    if(panel){panel.querySelectorAll('details').forEach(d=>{d.open=v.detailOpen.includes(d.querySelector('summary')?.dataset.rgDetailKey);});panel.scrollTop=v.detailScroll;}
@@ -153,8 +154,10 @@ export function createWorkspaceGraph({esc,label=v=>statusLabels[v]||v,stamp=v=>v
    if(v.adjustCamera){
     const viewport=root.querySelector('.rg-viewport');
     const selected=v.selection?.kind==='node'?v.positions[v.selection.id]:null,anchor=selected||v.positions[s.nodes[0]?.id];
-    if(viewport&&anchor)v.pan.x=viewport.clientWidth/2-(anchor.x+v.nodeWidth/2)*v.zoom;
-    v.adjustCamera=false;
+    if(viewport?.clientWidth>0&&anchor){
+     v.pan.x=viewport.clientWidth/2-(anchor.x+v.nodeWidth/2)*v.zoom;
+     v.adjustCamera=false;
+    }
    }
    transform();
   }
@@ -208,7 +211,14 @@ export function createWorkspaceGraph({esc,label=v=>statusLabels[v]||v,stamp=v=>v
   }
   root.addEventListener('pointerup',end,{signal});root.addEventListener('pointercancel',end,{signal});root.addEventListener('lostpointercapture',end,{signal});
   geometry();
-  let lastSmall=innerWidth<=700;resizeObserver=new ResizeObserver(()=>{const small=innerWidth<=700;if(small!==lastSmall){lastSmall=small;if(!interaction)redraw();}});resizeObserver.observe(root);
+  let lastSmall=innerWidth<=700;
+  resizeObserver=new ResizeObserver(()=>{
+   if(signal.aborted||!root.isConnected)return;
+   const small=innerWidth<=700,current=scope(project);
+   if(small!==lastSmall){lastSmall=small;if(!interaction)redraw();}
+   else if(!interaction&&current&&view(current).adjustCamera)geometry();
+  });
+  resizeObserver.observe(root);
  }
  return {ingest,render,mount,capture,isInteracting:project=>Boolean(interaction&&interaction.project===project),disconnect:project=>{const p=projects.get(project);if(p)p.disconnected=true;},reset:()=>{disposeMount();resizeObserver?.disconnect();projects.clear();views.clear();pendingEnvelope=null;interaction=null;activeProject='';}};
 }

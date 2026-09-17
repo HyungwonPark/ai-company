@@ -9,7 +9,7 @@ const {createHash}=require('node:crypto');
  await fs.mkdir(out,{recursive:true});
  const browser=await chromium.launch({headless:true,chromiumSandbox:true,...(process.env.CHROME_CHANNEL?{channel:process.env.CHROME_CHANNEL}:{}),...(process.env.CHROMIUM_EXECUTABLE?{executablePath:process.env.CHROMIUM_EXECUTABLE}:{})});
  const context=await browser.newContext({viewport:{width:1440,height:1000},serviceWorkers:'block',reducedMotion:'reduce'}),page=await context.newPage();page.setDefaultTimeout(8000);
- const errors=[],writes=[],checks=[];
+ const errors=[],writes=[],checks=[],cameraReadings=[];
  page.on('pageerror',e=>errors.push(e.message));
  page.on('request',r=>{if(r.method()!=='GET')writes.push(new URL(r.url()).pathname);});
  const action=name=>page.locator(`[data-rg-action="${name}"]`).click();
@@ -17,7 +17,12 @@ const {createHash}=require('node:crypto');
  const shot=async name=>{await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:path.join(out,`workspace-graph-${name}.png`),fullPage:true});};
  const graph=()=>page.locator('[data-rg-root]');
  const pointerCenter=async locator=>{
-  await locator.scrollIntoViewIfNeeded();
+  // Move only the page. Scrolling a node's ancestors must not create a second,
+  // untracked camera inside the transform-controlled graph viewport.
+  await locator.evaluate(node=>{
+   const viewport=node.closest('.rg-viewport').getBoundingClientRect();
+   window.scrollBy(0,viewport.top+Math.min(viewport.height,innerHeight)/2-innerHeight/2);
+  });
   return locator.evaluate(node=>{
    const box=node.getBoundingClientRect(),viewport=node.closest('.rg-viewport').getBoundingClientRect();
    const left=Math.max(0,box.left,viewport.left),right=Math.min(innerWidth,box.right,viewport.right);
@@ -49,6 +54,14 @@ const {createHash}=require('node:crypto');
    assert.equal(await page.locator('.rg-node').count(),current.nodes.length);
    assert.equal(await page.locator('.rg-edge-hit').count(),current.edges.length);
    assert.ok(await page.locator('.rg-lines').isVisible());
+   const reading=await page.locator('.rg-viewport').evaluate(viewport=>{
+    const bounds=element=>{const r=element.getBoundingClientRect();return {left:r.left,right:r.right,width:r.width};};
+    return {viewport:bounds(viewport),first:bounds(viewport.querySelector('.rg-node')),clientWidth:viewport.clientWidth,scrollLeft:viewport.scrollLeft,scrollTop:viewport.scrollTop,transform:viewport.querySelector('.rg-scene').style.transform};
+   });
+   cameraReadings.push({width,theme,...reading});
+   assert.ok(reading.first.left>=reading.viewport.left-1&&reading.first.right<=reading.viewport.right+1,`initial ${width}/${theme} role must be fully visible horizontally: ${JSON.stringify(reading)}`);
+   assert.equal(reading.scrollLeft,0,'native horizontal scrolling must not move the graph');
+   assert.equal(reading.scrollTop,0,'native vertical scrolling must not move the graph');
    await shot(`${theme}-${width}`);
    const first=page.locator('.rg-node').first();await first.click();await page.locator('.rg-detail h3').waitFor();await overflow('detail');
    await shot(`${theme}-${width}-detail`);await action('clear');
@@ -197,7 +210,7 @@ const {createHash}=require('node:crypto');
   await page.mouse.up();
   checks.push('injected 401 during held drag immediately removes the authenticated graph and clears interaction state');
   assert.deepEqual(writes,['/api/login','/api/password'],'graph interactions never write execution or approvals');assert.deepEqual(errors,[]);
-  await fs.writeFile(path.join(out,'workspace-graph-validation.json'),JSON.stringify({status:'PASS',source:'temporary SQLite + actual ManagementHTTPServer; fixture model facts',checks,write_paths:writes},null,2));
+  await fs.writeFile(path.join(out,'workspace-graph-validation.json'),JSON.stringify({status:'PASS',source:'temporary SQLite + actual ManagementHTTPServer; fixture model facts',checks,camera_readings:cameraReadings,write_paths:writes},null,2));
   console.log(JSON.stringify({status:'PASS',checks}));
  }catch(error){await shot('failure').catch(()=>{});console.error({url:page.url(),errors});throw error;}
  finally{await browser.close();}
