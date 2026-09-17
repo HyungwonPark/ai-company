@@ -147,6 +147,8 @@ jobs:
             ${{ runner.temp }}/ui-artifacts/workspace-diagram.svg
             ${{ runner.temp }}/ui-artifacts/workspace-diagram-receipt.json
             ${{ runner.temp }}/ui-artifacts/diagram-independent-validation.json
+            ${{ runner.temp }}/ui-artifacts/mobile-entry-validation.json
+            ${{ runner.temp }}/ui-artifacts/mobile-entry-failure.json
             ${{ runner.temp }}/ui-artifacts/graph-edges-independent-validation.json
             ${{ runner.temp }}/ui-artifacts/graph-edge-records-validation.json
             ${{ runner.temp }}/ui-artifacts/graph-edge-touch-validation.json

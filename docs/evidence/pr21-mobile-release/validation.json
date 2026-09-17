@@ -1,0 +1,104 @@
+{
+  "source": "sanitized verification summary; no production payloads or connection details",
+  "product_commit": "2087eccae3f946bc6d676904462a9b2acabd8521",
+  "image_id": "sha256:181b99ab1f87f5c46023a79ac7265ff5fe95d81decd826a8386cc185480df7aa",
+  "source_archive_sha256": "f24262f35281f2d5582eaea3ee55beb8eacb3409738c3118d216ee7650b90a85",
+  "production_applied": false,
+  "ecc_enabled": false,
+  "new_models_connected": false,
+  "translation_replaced": false,
+  "image_check": {
+    "installed_files_matching_commit": 113,
+    "existing_records_unchanged": true,
+    "http": {
+      "home": 200,
+      "unauthenticated_api": 401,
+      "wrong_host_rejected": true,
+      "wrong_origin_rejected": true,
+      "graph_module": 200,
+      "diagram_view": 200
+    },
+    "isolation": {
+      "root_write_denied": true,
+      "external_network_denied": true
+    },
+    "new_tables": [
+      "management_diagrams",
+      "guidance_deliveries"
+    ],
+    "tables_initially_empty": true
+  },
+  "previously_failed_diagrams": {
+    "tested_on": "private copy only",
+    "count": 3,
+    "all_completed": true,
+    "frozen_original_input_and_names_preserved": true,
+    "production_requests_created": 0
+  },
+  "minimal_cases": [
+    {
+      "label_characters": 2,
+      "node_width": 160,
+      "returncode": 0,
+      "ok": true,
+      "diagnostics": null,
+      "seconds": 0.588
+    },
+    {
+      "label_characters": 12,
+      "node_width": 216,
+      "returncode": 0,
+      "ok": true,
+      "diagnostics": null,
+      "seconds": 0.511
+    },
+    {
+      "label_characters": 24,
+      "node_width": 384,
+      "returncode": 0,
+      "ok": true,
+      "diagnostics": null,
+      "seconds": 0.587
+    },
+    {
+      "label_characters": 48,
+      "node_width": 720,
+      "returncode": 0,
+      "ok": true,
+      "diagnostics": null,
+      "seconds": 0.512
+    },
+    {
+      "label_characters": 100,
+      "node_width": 1448,
+      "returncode": 0,
+      "ok": true,
+      "diagnostics": null,
+      "seconds": 0.583
+    }
+  ],
+  "rollback": {
+    "old_release": "23ac8a723f6bfc4d67fe12949c9253e9f8acf04c",
+    "reads_additive_schema": true,
+    "all_rows_preserved": true,
+    "worker_tick_performed": false,
+    "future_contracts_verified": false
+  },
+  "apk": {
+    "checked_at": "2026-09-17T08:28:34.224978+00:00",
+    "download_bytes_match_signed_release": true,
+    "apk_sha256": "a48bb5642ab676203f56051fe8647c802a7dcbec4f6d78eaa8c351902088992c",
+    "package_id": "cloud.hyungwon.aicompany",
+    "version_name": "0.1.1",
+    "version_code": 2,
+    "launch_url": "https://hyungwon.cloud/",
+    "certificate_sha256": "E0:22:C4:1F:03:95:9B:51:54:C0:85:8C:22:F7:25:EF:49:D0:B1:F6:2F:DB:39:92:64:0F:30:86:E6:2E:98:79",
+    "live_assetlinks_match": true,
+    "signature_evidence": "existing apksigner verified signed release; downloaded APK hash identical",
+    "device_verification": "pending after web deployment",
+    "new_apk_required": false
+  },
+  "physical_device": "pending; user operates existing APK after deployment",
+  "service_worker_upgrade": "pending after deployment; mobile fixture browser blocks service workers",
+  "existing_configuration_and_catalog_preserved": true
+}
