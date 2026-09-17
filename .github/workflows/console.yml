@@ -30,6 +30,7 @@ jobs:
           node --check src/ai_company/web/plan-ui.js
           node --check src/ai_company/web/report-ui.js
           node --check src/ai_company/web/manager-ui.js
+          node --check src/ai_company/web/diagram-view.js
           node tests/ui/state_checks.mjs
           node tests/ui/manager_checks.mjs
           node tests/ui/workspace_model.cjs
@@ -97,6 +98,13 @@ jobs:
         run: |
           python scripts/package_workspace_preview.py "$RUNNER_TEMP/workspace-preview/AI-Company-preview.html"
           python scripts/package_graph_preview.py "$RUNNER_TEMP/workspace-preview/AI-Company-graph.html"
+      - name: Test frozen diagrams through authenticated API
+        if: always()
+        env:
+          CHROME_CHANNEL: chrome
+          NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
+          UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
+        run: uv run --frozen python tests/ui/run_workspace_graph.py --scenario diagram_view.cjs
       - name: Save offline preview
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -112,5 +120,8 @@ jobs:
           path: |
             ${{ runner.temp }}/ui-artifacts/*.png
             ${{ runner.temp }}/ui-artifacts/workspace*-validation.json
+            ${{ runner.temp }}/ui-artifacts/workspace-diagram.html
+            ${{ runner.temp }}/ui-artifacts/workspace-diagram.svg
+            ${{ runner.temp }}/ui-artifacts/workspace-diagram-receipt.json
           if-no-files-found: ignore
           retention-days: 7

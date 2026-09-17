@@ -16,7 +16,7 @@ const labels = {WAITING_PROJECT_BUDGET:'프로젝트 예산 대기',waiting_proj
 const state = {authenticated:false,loginMethod:'password',passwordChangeRequired:false,changingPassword:false,username:'',csrf:'',projects:[],projectId:new URLSearchParams(location.hash.split('?')[1]||'').get('project')||'',overview:null,view:readView(),projectMissing:false,projectSearch:'',createdProjectId:'',connected:navigator.onLine,updatedAt:null,error:'',loading:true,refreshing:false,drafts:{},planningTabs:{},demo:false};
 const integrated=new URLSearchParams(location.search).get('workspace')==='integrated';
 let recordParams=new URLSearchParams(location.hash.split('?')[1]||'');
-const workspaceGraph=createWorkspaceGraph({esc,label,stamp});
+const workspaceGraph=createWorkspaceGraph({esc,diagramLinks:true,label,stamp});
 let lastPayload = '';
 let toastTimer;
 let requestEpoch = 0;

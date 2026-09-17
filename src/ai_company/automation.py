@@ -112,6 +112,10 @@ class Automation:
             pool = selection.get("role_candidates", {}).get(role_key)
             if pool:
                 policy = policy.model_copy(update={"candidates": {**policy.candidates, "developer": tuple(pool)}})
+        if self.config.guidance is not None:
+            from ai_company.harness.guidance import load
+            load(self.config.guidance)
+            plan = {**plan, "guidance": self.config.guidance.model_dump(mode="json")}
         return FlowSpec(task=task, worktree=str(clone), agents=self.config.agents,
                         policy=policy, checks=self.config.checks,
                         approved_plan=scope != "planning", plan={**plan, "automation_configuration": self.configuration_digest},
@@ -196,6 +200,8 @@ class Automation:
                        "Only explicit dependencies delay a role. Do not execute the plan. "
                        "Write user-facing summary, role names, responsibilities, goals and acceptance/completion criteria in Korean. "
                        "Use a short, concrete summary and concise role names. Preserve identifiers, paths, commands and all constraints exactly."}
+            if self.config.guidance is not None:
+                context["pm_request_id"] = request["request_id"]
             if self.execution_catalog is not None and not self.project_context:
                 context["execution_catalog"] = self.execution_catalog.public_entries()
                 context["instruction"] += (
@@ -256,6 +262,8 @@ class Automation:
                        "project_id": run["project_id"],
                        "plan_digest": run["plan_digest"], "revision": revision,
                        "repair_findings": prior.get("repair_findings", []), "dependency_artifacts": dependencies}
+            if self.config.guidance is not None:
+                context.update(plan_id=run["plan_id"], run_id=run["id"])
             if run.get("delegation_id"):
                 context["master_delegation"] = self._delegation(run)
             state = self.dispatcher.submit(self._spec(task, clone, "contribution", context))
@@ -303,6 +311,8 @@ class Automation:
             context = {"confirmed_plan": plan.model_dump(mode="json"), "plan_digest": run["plan_digest"],
                        "project_id": run["project_id"],
                        "contribution_artifacts": contributions}
+            if self.config.guidance is not None:
+                context.update(plan_id=run["plan_id"], run_id=run["id"])
             if run.get("delegation_id"):
                 context["master_delegation"] = self._delegation(run)
             state = self.dispatcher.submit(self._spec(task, clone, "integration", context,

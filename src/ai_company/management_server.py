@@ -20,6 +20,7 @@ from pydantic import ValidationError
 
 from ai_company.management import ManagementError, ManagementStore
 from ai_company import password_auth
+from ai_company import management_diagrams
 
 
 MAX_BODY = 65536
@@ -77,6 +78,7 @@ class ManagementHTTPServer(ThreadingHTTPServer):
         with_store = ManagementStore(self.root, clock=clock)
         try:
             password_auth.initialize(with_store.db)
+            management_diagrams.initialize(with_store.db)
             users = with_store.db.execute("SELECT COUNT(*) FROM console_users").fetchone()[0]
             if password_login and not users:
                 raise ValueError("Create a master account with manage create-user before serving")
@@ -264,6 +266,33 @@ class ManagementHandler(BaseHTTPRequestHandler):
                 return
             if session.get("password_change_required"):
                 raise ManagementError("password_change_required", "Change the temporary password before using the workspace", 403)
+            diagrams = re.fullmatch(r"/api/projects/([0-9a-f]{32})/diagrams(?:/([0-9a-f]{64})/([A-Za-z0-9_.-]+))?", path)
+            if diagrams:
+                project_id, artifact_id, filename = diagrams.groups()
+                if artifact_id:
+                    if write:
+                        raise ManagementError("method_not_allowed", "그림 파일은 읽기만 가능합니다.", 405)
+                    if parsed.query not in ("", "download=1"):
+                        raise ManagementError("invalid_query", "그림 다운로드 요청을 확인해 주세요.", 400)
+                    body = management_diagrams.read_file(store, project_id, artifact_id, filename)
+                    self.send_response(200)
+                    self.send_header("Content-Type", mimetypes.guess_type(filename)[0] or "application/octet-stream")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Cache-Control", "no-store")
+                    self.send_header("X-Content-Type-Options", "nosniff")
+                    self.send_header("Referrer-Policy", "no-referrer")
+                    # Even top-level HTML has an opaque origin with no scripts or API access.
+                    self.send_header("Content-Security-Policy", "sandbox; default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; connect-src 'none'; frame-ancestors 'self'; base-uri 'none'; form-action 'none'")
+                    if filename != "index.html" or parsed.query:
+                        self.send_header("Content-Disposition", 'attachment; filename="' + filename + '"')
+                    self.end_headers()
+                    self.wfile.write(body)
+                else:
+                    if parsed.query:
+                        raise ManagementError("invalid_query", "그림 요청을 확인해 주세요.", 400)
+                    result = management_diagrams.generate(store, project_id, value) if write else management_diagrams.listing(store, project_id)
+                    self._json(200, result)
+                return
             if path == '/api/execution-catalog':
                 if write:
                     raise ManagementError('method_not_allowed', 'Catalog is installed only by a trusted local operator', 405)
