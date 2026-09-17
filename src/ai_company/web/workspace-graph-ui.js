@@ -27,13 +27,85 @@ export function placeGraphNodes(nodes,layout,retained){
  }
  return positions;
 }
-export function edgeGeometry(edge,positions,width,height,index=0){
- // Ports describe the relationship, not the momentary vertical order while dragging.
- const from=positions[edge.from],to=positions[edge.to],reverse=edge.kind==='revision_return';
- const x1=from.x+width/2,y1=from.y+(reverse?0:height),x2=to.x+width/2,y2=to.y+(reverse?height:0);
- const bend=Math.max(60,Math.abs(y2-y1)/2);
- return {path:reverse?`M ${x1} ${y1} C ${Math.max(x1,x2)+90} ${y1-60}, ${Math.max(x1,x2)+90} ${y2+60}, ${x2} ${y2}`:`M ${x1} ${y1} C ${x1} ${y1+bend}, ${x2} ${y2-bend}, ${x2} ${y2}`,x:(x1+x2)/2+9,y:(y1+y2)/2-8+index%2*16};
+// Geometry is derived from the complete relationship set. Base positions fix port
+// sides while dragging; stable IDs determine slots and lanes, never API array order.
+export function routeGraphEdges(edges,positions,width,height,{basePositions=positions,labels={}}={}){
+ const ordered=edges.filter(e=>positions[e.from]&&positions[e.to]).slice().sort((a,b)=>a.id.localeCompare(b.id));
+ const boxes=Object.entries(positions).map(([id,p])=>({id,left:p.x,top:p.y,right:p.x+width,bottom:p.y+height}));
+ const outerRight=Math.max(0,...boxes.map(b=>b.right)),ports=new Map(),plans=new Map();let outerLane=0;
+ const add=(id,side,key)=>{const group=id+':'+side;if(!ports.has(group))ports.set(group,[]);ports.get(group).push(key);};
+ for(const e of ordered){const a=basePositions[e.from]||positions[e.from],b=basePositions[e.to]||positions[e.to];
+  let fromSide='bottom',toSide='top',type='forward';
+  if(e.from===e.to){fromSide=toSide='right';type='self';}
+  else if(e.kind==='revision_return'){fromSide=toSide='right';type='return';}
+  else if(Math.abs(a.y-b.y)<height/2&&Math.abs(a.x-b.x)>width/2){fromSide=a.x<b.x?'right':'left';toSide=a.x<b.x?'left':'right';type='same-row';}
+  else if(a.y>b.y){fromSide=toSide='right';type='backward';}
+  plans.set(e.id,{fromSide,toSide,type,exitY:positions[e.from].y-24,entryY:positions[e.to].y+height+24,outerX:['self','return','backward'].includes(type)?outerRight+38+outerLane++*32:null});
+  add(e.from,fromSide,e.id+':from');add(e.to,toSide,e.id+':to');
+ }
+ for(const values of ports.values())values.sort();
+ const port=(id,side,key)=>{const p=positions[id],slots=ports.get(id+':'+side),fraction=(slots.indexOf(key)+1)/(slots.length+1);
+  return side==='top'||side==='bottom'?{x:p.x+width*fraction,y:p.y+(side==='bottom'?height:0)}:{x:p.x+(side==='right'?width:0),y:p.y+height*fraction};};
+ const stub=(p,side)=>({x:p.x+(side==='right'?10:side==='left'?-10:0),y:p.y+(side==='bottom'?10:side==='top'?-10:0)});
+ const obstacles=boxes.map(b=>({...b,left:b.left-6,right:b.right+6,top:b.top-6,bottom:b.bottom+6}));
+ const crosses=(a,b,r)=>a.x===b.x?a.x>r.left&&a.x<r.right&&Math.max(a.y,b.y)>r.top&&Math.min(a.y,b.y)<r.bottom:a.y>r.top&&a.y<r.bottom&&Math.max(a.x,b.x)>r.left&&Math.min(a.x,b.x)<r.right;
+ const points=[],endpoints=new Map();
+ for(const e of ordered){const plan=plans.get(e.id),a=port(e.from,plan.fromSide,e.id+':from'),b=port(e.to,plan.toSide,e.id+':to');const start=stub(a,plan.fromSide),end=stub(b,plan.toSide);endpoints.set(e.id,{a,b,start,end});points.push(start,end);}
+ const xs=[...new Set([...points.map(p=>p.x),...boxes.flatMap(b=>[b.left-12,b.right+12]),...[...plans.values()].map(p=>p.outerX).filter(v=>v!==null)])].sort((a,b)=>a-b);
+ const ys=[...new Set([...points.map(p=>p.y),...boxes.flatMap(b=>[b.top-12,b.bottom+12]),...[...plans.values()].filter(p=>p.outerX!==null).flatMap(p=>[p.exitY,p.entryY])])].sort((a,b)=>a-b);
+ const used=[],blocked=new Map(),routes=new Map(),labelBoxes=[];
+ const overlap=(a,b,c,d)=>a.x===b.x&&c.x===d.x&&a.x===c.x?Math.max(0,Math.min(Math.max(a.y,b.y),Math.max(c.y,d.y))-Math.max(Math.min(a.y,b.y),Math.min(c.y,d.y))):a.y===b.y&&c.y===d.y&&a.y===c.y?Math.max(0,Math.min(Math.max(a.x,b.x),Math.max(c.x,d.x))-Math.max(Math.min(a.x,b.x),Math.min(c.x,d.x))):0;
+ const search=(start,end)=>{
+  if(start.x===end.x&&start.y===end.y)return [start];
+  if(xs.length*ys.length>30000)return null;
+  const nx=xs.length,initial=ys.indexOf(start.y)*nx+xs.indexOf(start.x),finish=ys.indexOf(end.y)*nx+xs.indexOf(end.x),total=nx*ys.length*3;
+  const cost=new Float64Array(total).fill(Infinity),previous=new Int32Array(total).fill(-1),heap=[];
+  const push=item=>{let i=heap.length;heap.push(item);while(i){const parent=(i-1)>>1;if(heap[parent][0]<=item[0])break;heap[i]=heap[parent];i=parent;}heap[i]=item;};
+  const pop=()=>{const first=heap[0],last=heap.pop();if(heap.length){let i=0;while(i*2+1<heap.length){let child=i*2+1;if(child+1<heap.length&&heap[child+1][0]<heap[child][0])child++;if(heap[child][0]>=last[0])break;heap[i]=heap[child];i=child;}heap[i]=last;}return first;};
+  cost[initial*3]=0;push([0,initial*3,0]);let limit=0;
+  while(heap.length&&limit++<30000){const [,state,saved]=pop();if(saved!==cost[state])continue;const cell=Math.floor(state/3),direction=state%3,x=cell%nx,y=Math.floor(cell/nx),a={x:xs[x],y:ys[y]};
+   if(cell===finish){const path=[];for(let key=state;key!==-1;key=previous[key]){const at=Math.floor(key/3);path.push({x:xs[at%nx],y:ys[Math.floor(at/nx)]});}return path.reverse();}
+   for(const [dx,dy,nextDirection] of [[1,0,1],[-1,0,1],[0,1,2],[0,-1,2]]){const xx=x+dx,yy=y+dy;if(xx<0||xx>=nx||yy<0||yy>=ys.length)continue;const nextCell=yy*nx+xx,b={x:xs[xx],y:ys[yy]},key=Math.min(cell,nextCell)+':'+Math.max(cell,nextCell);
+    if(!blocked.has(key))blocked.set(key,obstacles.some(r=>crosses(a,b,r)));if(blocked.get(key))continue;
+    const distance=Math.abs(a.x-b.x)+Math.abs(a.y-b.y),congestion=used.reduce((n,[c,d])=>n+overlap(a,b,c,d)*4,0),next=nextCell*3+nextDirection;
+    const score=saved+distance+congestion+(direction&&direction!==nextDirection?18:0);if(score>=cost[next])continue;cost[next]=score;previous[next]=state;push([score+Math.abs(b.x-end.x)+Math.abs(b.y-end.y),next,score]);
+   }
+  }return null;
+ };
+ const simplify=path=>{const result=[];for(const p of path){const last=result.at(-1);if(last&&last.x===p.x&&last.y===p.y)continue;const before=result.at(-2);if(before&&last&&(before.x===last.x&&last.x===p.x||before.y===last.y&&last.y===p.y))result.pop();result.push(p);}return result;};
+ const rounded=path=>{let value=`M ${path[0].x} ${path[0].y}`;for(let i=1;i<path.length-1;i++){const a=path[i-1],b=path[i],c=path[i+1],d1=Math.abs(b.x-a.x)+Math.abs(b.y-a.y),d2=Math.abs(c.x-b.x)+Math.abs(c.y-b.y),r=Math.min(8,d1/2,d2/2);const before={x:b.x+(a.x-b.x)*r/d1,y:b.y+(a.y-b.y)*r/d1},after={x:b.x+(c.x-b.x)*r/d2,y:b.y+(c.y-b.y)*r/d2};value+=` L ${before.x} ${before.y} Q ${b.x} ${b.y} ${after.x} ${after.y}`;}const end=path.at(-1);return value+` L ${end.x} ${end.y}`;};
+ const intersects=(a,b)=>a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;
+ for(const [index,e] of ordered.entries()){const plan=plans.get(e.id),{a,b,start,end}=endpoints.get(e.id);let middle;
+  if(plan.outerX!==null){
+   const waypoints=[start,{x:start.x,y:plan.exitY},{x:plan.outerX,y:plan.exitY},{x:plan.outerX,y:plan.entryY},{x:end.x,y:plan.entryY},end];
+   middle=[];for(let i=1;i<waypoints.length;i++){const leg=search(waypoints[i-1],waypoints[i]);if(!leg){middle=null;break;}middle.push(...leg);}
+  }
+  else middle=search(start,end);
+  const issue=middle?null:'space-limited',path=simplify([a,...(middle||[start,{x:start.x,y:end.y},end]),b]);
+  for(let i=1;i<path.length;i++)used.push([path[i-1],path[i]]);
+  const full=labels[e.id]||relationLabels[e.kind]||e.kind||'관계',segments=path.slice(1).map((p,i)=>({a:path[i],b:p,length:Math.abs(p.x-path[i].x)+Math.abs(p.y-path[i].y)})).sort((a,b)=>b.length-a.length);
+  let label=null;
+  // Prefer labels on the line. In a narrow mobile gutter, move the label into
+  // free space with a small leader instead of covering a role or another name.
+  for(const compact of [false,true]){const text=compact?String(index+1):full,w=compact?30:Math.max(52,[...text].reduce((n,c)=>n+(c.charCodeAt(0)>255?14:8),0)+20),h=28;
+   for(const offset of [0,32,-32,64,-64,96,-96,128,-128,192,-192]){
+    for(const segment of segments){for(const fraction of [.5,.25,.75,.4,.6,.125,.875]){
+     const anchor={x:segment.a.x+(segment.b.x-segment.a.x)*fraction,y:segment.a.y+(segment.b.y-segment.a.y)*fraction};
+     const x=anchor.x+(segment.a.x===segment.b.x?offset:0),y=anchor.y+(segment.a.y===segment.b.y?offset:0),rect={left:x-w/2,top:y-h/2,right:x+w/2,bottom:y+h/2};
+     if(boxes.some(b=>intersects(rect,{left:b.left-8,right:b.right+8,top:b.top-8,bottom:b.bottom+8}))||labelBoxes.some(b=>intersects(rect,{left:b.left-6,right:b.right+6,top:b.top-6,bottom:b.bottom+6})))continue;
+     if(offset&&boxes.some(b=>crosses(anchor,{x,y},b)))continue;
+     label={...rect,x,y,width:w,height:h,text,compact,anchor};break;
+    }if(label)break;}if(label)break;
+   }if(label)break;
+  }
+  if(label)labelBoxes.push(label);
+  routes.set(e.id,{...plan,points:path,path:rounded(path),label,issue,source:a,target:b});
+ }
+ const all=[...routes.values()].flatMap(r=>r.points),bounds={left:Math.min(0,...all.map(p=>p.x),...labelBoxes.map(b=>b.left))-12,top:Math.min(0,...all.map(p=>p.y),...labelBoxes.map(b=>b.top))-12,right:Math.max(0,...boxes.map(b=>b.right),...all.map(p=>p.x),...labelBoxes.map(b=>b.right))+20,bottom:Math.max(0,...boxes.map(b=>b.bottom),...all.map(p=>p.y),...labelBoxes.map(b=>b.bottom))+20};
+ return {routes,bounds};
 }
+export function edgeGeometry(edge,positions,width,height){const routed=routeGraphEdges([{...edge,id:edge.id||'edge'}],positions,width,height).routes.values().next().value;return {...routed,x:routed.label?.x||0,y:routed.label?.y||0};}
+export function nearestGraphEdge(routes,point){let found=null,distance=Infinity;for(const [id,route] of routes){for(let i=1;i<route.points.length;i++){const a=route.points[i-1],b=route.points[i],dx=b.x-a.x,dy=b.y-a.y,t=clamp(((point.x-a.x)*dx+(point.y-a.y)*dy)/(dx*dx+dy*dy||1),0,1),d=Math.hypot(point.x-a.x-t*dx,point.y-a.y-t*dy);if(d<distance){distance=d;found=id;}}}return {id:found,distance};}
 export function graphKey(snapshot){return [snapshot.project_id,snapshot.plan_id,snapshot.plan_digest,snapshot.run_id||'planned',snapshot.id].join(':');}
 export function validateGraphEnvelope(envelope,project){
  if(!(envelope?.schema_version===1&&envelope.project_id===project&&Number.isSafeInteger(envelope.cursor)&&envelope.cursor>=0&&Array.isArray(envelope.snapshots)))return false;
@@ -83,22 +155,28 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
   }
   v.positions=placeGraphNodes(snapshot.nodes,layout,v.positions);
   v.nodeWidth=layout.nodeWidth;v.nodeHeight=layout.nodeHeight;
-  const positions=v.positions,width=Math.max(layout.width,...snapshot.nodes.map(n=>(positions[n.id]?.x||0)+layout.nodeWidth+10)),height=Math.max(layout.height,...snapshot.nodes.map(n=>(positions[n.id]?.y||0)+layout.nodeHeight+20));
-  v.canvas={width,height};const selected=v.selection,edge=selected?.kind==='edge'?snapshot.edges.find(e=>e.id===selected.id):null;
+  const positions=v.positions;
+  v.basePositions=layout.positions;updateRoutes(snapshot,v);
+  const {x,y,width,height}=v.canvas,selected=v.selection,edge=selected?.kind==='edge'?snapshot.edges.find(e=>e.id===selected.id):null;
   const related=new Set(edge?[edge.from,edge.to]:selected?.kind==='node'?snapshot.edges.filter(e=>e.from===selected.id||e.to===selected.id).flatMap(e=>[e.from,e.to]):[]);
   const paths=snapshot.edges.filter(e=>positions[e.from]&&positions[e.to]).map((e,index)=>{
-   const route=edgeGeometry(e,positions,layout.nodeWidth,layout.nodeHeight,index),path=route.path;
+   const route=v.routes.get(e.id),path=route.path;
    const selectedEdge=edge?.id===e.id||selected?.kind==='node'&&(e.from===selected.id||e.to===selected.id);
-   return `<g class="rg-edge ${planned(e)?'is-planned':''} ${selectedEdge?'is-selected':''}" data-rg-edge-id="${esc(e.id)}"><path class="rg-edge-line" d="${path}" marker-end="url(#rg-arrow)"/><path class="rg-edge-hit" d="${path}" id="rg-edge-${esc(e.id)}" data-rg-edge="${esc(e.id)}" tabindex="0" role="button" aria-label="${esc(`${snapshot.nodes.find(n=>n.id===e.from)?.name}에서 ${snapshot.nodes.find(n=>n.id===e.to)?.name} · ${relationLabels[e.kind]||e.kind} · ${planned(e)?'예정':'기록'}`)}"/><text x="${route.x}" y="${route.y}" aria-hidden="true">${esc(relationLabels[e.kind]||e.kind)}</text></g>`;
+   return `<g class="rg-edge ${planned(e)?'is-planned':''} ${selectedEdge?'is-selected':''}" data-rg-edge-id="${esc(e.id)}" data-rg-route-kind="${route.type}"><path class="rg-edge-line" d="${path}" marker-end="url(#rg-arrow)"/><path class="rg-edge-hit" d="${path}" id="rg-edge-${esc(e.id)}" data-rg-edge="${esc(e.id)}" tabindex="0" role="button" aria-label="${esc(`${snapshot.nodes.find(n=>n.id===e.from)?.name}에서 ${snapshot.nodes.find(n=>n.id===e.to)?.name} · ${relationLabels[e.kind]||e.kind} · ${planned(e)?'예정':'기록'}`)}"/>${routeLabel(e.id,route.label)}</g>`;
   }).join('');
-  return `<div class="rg-viewport ${v.panMode?'is-moving':''}" tabindex="0" role="group" aria-label="역할 그래프 · 방향키로 이동"><div class="rg-scene"><svg class="rg-lines" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" aria-label="역할 관계"><defs><marker id="rg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z"/></marker></defs>${paths}</svg>${snapshot.nodes.map(node=>{const p=positions[node.id];return `<button type="button" class="rg-node ${selected?.kind==='node'&&selected.id===node.id?'is-selected':''} ${related.has(node.id)?'is-related':''} ${planned(node)?'is-planned':''}" id="rg-node-${esc(node.id)}" data-rg-node="${esc(node.id)}" aria-pressed="${selected?.kind==='node'&&selected.id===node.id}"><span class="rg-node-kind">${esc(kindLabels[node.kind]||node.kind)}${planned(node)?' · 예정':''}</span><strong>${esc(node.name)}</strong><span class="rg-node-state">${esc(status(node.status))}</span><span class="rg-node-model">${esc(summaryNode(node))}</span></button>`;}).join('')}</div></div>`;
+  return `<div class="rg-viewport ${v.panMode?'is-moving':''}" tabindex="0" role="group" aria-label="역할 그래프 · 방향키로 이동"><div class="rg-scene"><svg class="rg-lines" width="${width}" height="${height}" viewBox="${x} ${y} ${width} ${height}" aria-label="역할 관계"><defs><marker id="rg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z"/></marker></defs>${paths}</svg>${snapshot.nodes.map(node=>{const p=positions[node.id];return `<button type="button" class="rg-node ${selected?.kind==='node'&&selected.id===node.id?'is-selected':''} ${related.has(node.id)?'is-related':''} ${planned(node)?'is-planned':''}" id="rg-node-${esc(node.id)}" data-rg-node="${esc(node.id)}" aria-pressed="${selected?.kind==='node'&&selected.id===node.id}"><span class="rg-node-kind">${esc(kindLabels[node.kind]||node.kind)}${planned(node)?' · 예정':''}</span><strong>${esc(node.name)}</strong><span class="rg-node-state">${esc(status(node.status))}</span><span class="rg-node-model">${esc(summaryNode(node))}</span></button>`;}).join('')}</div></div>`;
+ }
+ function routeLabel(id,label){return `<g class="rg-edge-label" data-rg-label="${esc(id)}" aria-hidden="true" ${label?'':'visibility="hidden"'}><line x1="${label?.anchor.x||0}" y1="${label?.anchor.y||0}" x2="${label?.x||0}" y2="${label?.y||0}"/><rect x="${label?.left||0}" y="${label?.top||0}" width="${label?.width||0}" height="28" rx="6"/><text x="${label?.x||0}" y="${label?.y||0}" text-anchor="middle" dominant-baseline="central">${esc(label?.text||'')}</text></g>`;}
+ function updateRoutes(snapshot,v){
+  const {routes,bounds}=routeGraphEdges(snapshot.edges,Object.fromEntries(snapshot.nodes.map(n=>[n.id,v.positions[n.id]])),v.nodeWidth,v.nodeHeight,{basePositions:v.basePositions});
+  v.routes=routes;v.canvas={x:bounds.left,y:bounds.top,width:bounds.right-bounds.left,height:bounds.bottom-bounds.top};
  }
  function list(snapshot,v){return `<div class="rg-list"><h3>역할</h3>${snapshot.nodes.map(n=>`<button type="button" id="rg-list-node-${esc(n.id)}" data-rg-node="${esc(n.id)}" aria-pressed="${v.selection?.kind==='node'&&v.selection.id===n.id}"><strong>${esc(n.name)}</strong><span>${esc(status(n.status))} · ${planned(n)?'예정':'기록'}</span><span>${esc(summaryNode(n))}</span></button>`).join('')}<h3>관계</h3>${snapshot.edges.map(e=>`<button type="button" id="rg-list-edge-${esc(e.id)}" data-rg-edge="${esc(e.id)}" aria-pressed="${v.selection?.kind==='edge'&&v.selection.id===e.id}"><strong>${esc(snapshot.nodes.find(n=>n.id===e.from)?.name||e.from)} → ${esc(snapshot.nodes.find(n=>n.id===e.to)?.name||e.to)}</strong><span>${esc(e.title||relationLabels[e.kind]||e.kind)} · ${planned(e)?'예정':'기록'}</span></button>`).join('')||'<p>이 응답에 연결된 관계가 없습니다.</p>'}</div>`;}
  function body(project){const record=projects.get(project),snapshot=scope(project);if(!record||!snapshot)return '<p class="rg-empty">그래프 기록이 없습니다. PM과 계획을 정하면 예정된 역할부터 확인할 수 있습니다.</p>';
   const v=view(snapshot),history=snapshot.history||{};
   const newCount=[...record.fresh].filter(id=>snapshot.edges.some(e=>e.id===id)&&!v.seen.has(id)).length;
   for(const id of record.fresh)v.seen.add(id);
-  return `<header class="rg-header"><div><h2>진행</h2><p>${snapshot.source==='fixture'?'예시 기록 · 실제 실행 아님':snapshot.mode==='planned'||!snapshot.run_id?'계획 · 실제 실행 전':'저장된 실행 기록'}</p></div><label>대상<select id="rg-snapshot" data-rg-snapshot aria-label="그래프 대상">${record.data.snapshots.map(s=>`<option value="${esc(s.id)}" ${s.id===snapshot.id?'selected':''}>${esc(s.run_id?`실행 ${record.data.snapshots.filter(x=>x.run_id).findIndex(x=>x.id===s.id)+1}`:s.plan_id?`계획 ${record.data.snapshots.filter(x=>!x.run_id).findIndex(x=>x.id===s.id)+1}`:'준비')}${s.id===record.data.default_snapshot_id?' · 최근':''}</option>`).join('')}</select></label></header>${record.missingSelection?'<p class="rg-alert">선택한 실행이 이번 조회에 없어 최근 대상을 표시합니다. 실행 식별자를 확인하세요.</p>':''}${(snapshot.warnings||[]).map(w=>`<p class="rg-alert">${esc(w)}</p>`).join('')}${record.disconnected?'<p class="rg-alert" role="status">연결이 끊겼습니다. 마지막 조회 자료를 표시합니다.</p>':''}<div class="rg-tools">${diagramLinks&&snapshot.plan_id?`<a class="rg-export" href="/diagram-view.html?project=${encodeURIComponent(project)}&snapshot=${encodeURIComponent(snapshot.id)}&fingerprint=${encodeURIComponent(snapshot.fingerprint)}" target="_blank" rel="noopener">그림</a>`:''}<div role="group" aria-label="진행 보기">${button('그래프','graph',`aria-pressed="${v.mode==='graph'}"`)}${button('목록','list',`aria-pressed="${v.mode==='list'}"`)}</div>${v.mode==='graph'?`<div role="group" aria-label="그래프 탐색">${button('−','zoom-out','aria-label="축소"')}${button('+','zoom-in','aria-label="확대"')}${button('맞춤','fit')}${button('이동','pan',`aria-pressed="${v.panMode}"`)}</div><output class="rg-zoom" aria-label="확대 비율">${Math.round(v.zoom*100)}%</output>`:''}</div><div class="rg-layout"><section class="rg-map" aria-label="관계 보기">${snapshot.nodes.length?v.mode==='graph'?graph(snapshot,v):list(snapshot,v):`<p class="rg-empty">${esc(snapshot.empty_reason||'저장된 역할이 없습니다. PM의 역할 제안을 확인하세요.')}</p>`}<p class="rg-small">실선: 저장된 관계 · 점선: 예정 관계<br>표시 ${snapshot.edges.length}건${Number.isInteger(history.total)?` / 조회 대상 ${history.total}건`:''}${history.complete===false?' · 과거 이력 일부만 포함':''}. 위치는 실행 순서를 뜻하지 않습니다.</p><details class="rg-help"><summary>조작</summary><p>노드·선을 눌러 상세를 엽니다. 이동 모드를 켜면 화면과 노드를 끌 수 있습니다. 키보드는 방향키로 화면 이동, 노드에서 Alt+방향키로 배치 이동합니다. 목록에서도 같은 기록을 선택할 수 있습니다.</p></details><p class="rg-update" role="status">${newCount?`새 전달 ${newCount}건`:`조회 순서 ${record.data.cursor}`}</p></section>${detail(snapshot,v)}</div>`;
+  return `<header class="rg-header"><div><h2>진행</h2><p>${snapshot.source==='fixture'?'예시 기록 · 실제 실행 아님':snapshot.mode==='planned'||!snapshot.run_id?'계획 · 실제 실행 전':'저장된 실행 기록'}</p></div><label>대상<select id="rg-snapshot" data-rg-snapshot aria-label="그래프 대상">${record.data.snapshots.map(s=>`<option value="${esc(s.id)}" ${s.id===snapshot.id?'selected':''}>${esc(s.run_id?`실행 ${record.data.snapshots.filter(x=>x.run_id).findIndex(x=>x.id===s.id)+1}`:s.plan_id?`계획 ${record.data.snapshots.filter(x=>!x.run_id).findIndex(x=>x.id===s.id)+1}`:'준비')}${s.id===record.data.default_snapshot_id?' · 최근':''}</option>`).join('')}</select></label></header>${record.missingSelection?'<p class="rg-alert">선택한 실행이 이번 조회에 없어 최근 대상을 표시합니다. 실행 식별자를 확인하세요.</p>':''}${(snapshot.warnings||[]).map(w=>`<p class="rg-alert">${esc(w)}</p>`).join('')}${record.disconnected?'<p class="rg-alert" role="status">연결이 끊겼습니다. 마지막 조회 자료를 표시합니다.</p>':''}<div class="rg-tools">${diagramLinks&&snapshot.plan_id?`<a class="rg-export" href="/diagram-view.html?project=${encodeURIComponent(project)}&snapshot=${encodeURIComponent(snapshot.id)}&fingerprint=${encodeURIComponent(snapshot.fingerprint)}" target="_blank" rel="noopener">그림</a>`:''}<div role="group" aria-label="진행 보기">${button('그래프','graph',`aria-pressed="${v.mode==='graph'}"`)}${button('목록','list',`aria-pressed="${v.mode==='list'}"`)}</div>${v.mode==='graph'?`<div role="group" aria-label="그래프 탐색">${button('−','zoom-out','aria-label="축소"')}${button('+','zoom-in','aria-label="확대"')}${button('맞춤','fit')}${button('이동','pan',`aria-pressed="${v.panMode}"`)}</div><output class="rg-zoom" aria-label="확대 비율">${Math.round(v.zoom*100)}%</output>`:''}</div><div class="rg-layout"><section class="rg-map" aria-label="관계 보기">${snapshot.nodes.length?v.mode==='graph'?graph(snapshot,v):list(snapshot,v):`<p class="rg-empty">${esc(snapshot.empty_reason||'저장된 역할이 없습니다. PM의 역할 제안을 확인하세요.')}</p>`}${v.mode==='graph'&&[...(v.routes?.values()||[])].some(r=>r.issue||!r.label)?'<p class="rg-alert">배치가 좁아 일부 선이나 이름표가 겹칠 수 있습니다. 노드를 벌리거나 목록에서 관계를 선택하세요.</p>':''}<p class="rg-small">실선: 저장된 관계 · 점선: 예정 관계<br>표시 ${snapshot.edges.length}건${Number.isInteger(history.total)?` / 조회 대상 ${history.total}건`:''}${history.complete===false?' · 과거 이력 일부만 포함':''}. 위치는 실행 순서를 뜻하지 않습니다.</p><details class="rg-help"><summary>조작</summary><p>노드·선을 눌러 상세를 엽니다. 이동 모드를 켜면 화면과 노드를 끌 수 있습니다. 키보드는 방향키로 화면 이동, 노드에서 Alt+방향키로 배치 이동합니다. 목록에서도 같은 기록을 선택할 수 있습니다.</p></details><p class="rg-update" role="status">${newCount?`새 전달 ${newCount}건`:`조회 순서 ${record.data.cursor}`}</p></section>${detail(snapshot,v)}</div>`;
  }
  function render(overview,project){
   // A forced replacement (offline, navigation) must settle queued data before
@@ -147,7 +225,7 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
    const panel=root.querySelector('.rg-detail');
    if(panel){panel.querySelectorAll('details').forEach(d=>{d.open=v.detailOpen.includes(d.querySelector('summary')?.dataset.rgDetailKey);});panel.scrollTop=v.detailScroll;}
    if(!scene)return;
-   scene.style.width=v.canvas.width+'px';scene.style.height=v.canvas.height+'px';
+   canvasGeometry(v,scene);
    for(const el of root.querySelectorAll('.rg-node')){
     const p=v.positions[el.dataset.rgNode];el.style.left=p.x+'px';el.style.top=p.y+'px';el.style.width=v.nodeWidth+'px';el.style.height=v.nodeHeight+'px';
    }
@@ -161,16 +239,22 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
    }
    transform();
   }
+  function canvasGeometry(v,scene=root.querySelector('.rg-scene')){
+   if(!scene)return;scene.style.width=v.canvas.width+'px';scene.style.height=v.canvas.height+'px';
+   const svg=scene.querySelector('.rg-lines');if(svg){svg.style.left=v.canvas.x+'px';svg.style.top=v.canvas.y+'px';svg.setAttribute('width',v.canvas.width);svg.setAttribute('height',v.canvas.height);svg.setAttribute('viewBox',`${v.canvas.x} ${v.canvas.y} ${v.canvas.width} ${v.canvas.height}`);}
+  }
   function transform(){const s=scope(project),v=s&&view(s),scene=root.querySelector('.rg-scene');if(scene&&v){scene.style.transform=`translate(${v.pan.x}px,${v.pan.y}px) scale(${v.zoom})`;const o=root.querySelector('.rg-zoom');if(o)o.textContent=`${Math.round(v.zoom*100)}%`;}}
   root.addEventListener('change',event=>{capture(root,project);if(event.target.matches('[data-rg-snapshot]')){projects.get(project).selected=event.target.value;redraw();root.querySelector('[data-rg-snapshot]')?.focus();}},{signal});
-  root.addEventListener('click',event=>{capture(root,project);if(suppressClick&&event.detail!==0){suppressClick=false;event.preventDefault();event.stopPropagation();return;}const n=event.target.closest('[data-rg-node]'),e=event.target.closest('[data-rg-edge]'),action=event.target.closest('[data-rg-action]')?.dataset.rgAction,s=scope(project);if(!s)return;const v=view(s);
-   if(n||e){const next={kind:n?'node':'edge',id:n?n.dataset.rgNode:e.dataset.rgEdge};if(v.selection?.id!==next.id||v.selection?.kind!==next.kind){v.detailScroll=0;v.detailOpen=[];}v.selection=next;redraw(v.selection);if(innerWidth<=700)root.querySelector('#rg-detail-heading')?.focus({preventScroll:true});return;}
+  root.addEventListener('click',event=>{capture(root,project);if(suppressClick&&event.detail!==0){suppressClick=false;event.preventDefault();event.stopPropagation();return;}const n=event.target.closest('[data-rg-node]'),e=event.target.closest('[data-rg-edge],[data-rg-label]'),action=event.target.closest('[data-rg-action]')?.dataset.rgAction,s=scope(project);if(!s)return;const v=view(s);
+   if(n||e){let edgeId=e?.dataset.rgLabel||e?.dataset.rgEdge;
+    if(e?.matches('.rg-edge-hit')&&event.detail>0){const scene=root.querySelector('.rg-scene').getBoundingClientRect(),nearest=nearestGraphEdge(v.routes,{x:(event.clientX-scene.left)/v.zoom,y:(event.clientY-scene.top)/v.zoom});if(nearest.id&&nearest.distance<=22/v.zoom)edgeId=nearest.id;}
+    const next={kind:n?'node':'edge',id:n?n.dataset.rgNode:edgeId};if(v.selection?.id!==next.id||v.selection?.kind!==next.kind){v.detailScroll=0;v.detailOpen=[];}v.selection=next;redraw(v.selection);if(innerWidth<=700)root.querySelector('#rg-detail-heading')?.focus({preventScroll:true});return;}
    if(!action)return;
    if(['graph','list'].includes(action)){v.mode=action;redraw();root.querySelector(`[data-rg-action=${action}]`)?.focus();return;}
    if(action==='clear'){const prior=v.selection;v.selection=null;v.detailScroll=0;v.detailOpen=[];redraw(prior);return;}
    if(action==='pan'){v.panMode=!v.panMode;redraw();root.querySelector('[data-rg-action=pan]')?.focus();return;}
    const viewport=root.querySelector('.rg-viewport');if(!viewport)return;
-   if(action==='fit'){v.zoom=clamp(Math.min(viewport.clientWidth/v.canvas.width,viewport.clientHeight/v.canvas.height),.25,1);v.pan={x:(viewport.clientWidth-v.canvas.width*v.zoom)/2,y:8};}
+   if(action==='fit'){v.zoom=clamp(Math.min(viewport.clientWidth/v.canvas.width,viewport.clientHeight/v.canvas.height),.25,1);v.pan={x:(viewport.clientWidth-v.canvas.width*v.zoom)/2-v.canvas.x*v.zoom,y:8-v.canvas.y*v.zoom};}
    else {const old=v.zoom;v.zoom=clamp(old*(action==='zoom-in'?1.25:.8),.25,2.5);v.pan={x:viewport.clientWidth/2-(viewport.clientWidth/2-v.pan.x)*v.zoom/old,y:viewport.clientHeight/2-(viewport.clientHeight/2-v.pan.y)*v.zoom/old};}
    transform();
   },{signal});
@@ -214,10 +298,13 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
     v.positions[dragging.id]={x:Math.max(0,dragging.position.x+dx/v.zoom),y:Math.max(0,dragging.position.y+dy/v.zoom)};
     const el=[...root.querySelectorAll('[data-rg-node]')].find(n=>n.dataset.rgNode===dragging.id);
     if(el){el.style.left=v.positions[dragging.id].x+'px';el.style.top=v.positions[dragging.id].y+'px';}
-    for(const [index,g] of [...root.querySelectorAll('[data-rg-edge-id]')].entries()){
-     const edge=s.edges.find(e=>e.id===g.dataset.rgEdgeId),route=edgeGeometry(edge,v.positions,v.nodeWidth,v.nodeHeight,index);
+    updateRoutes(s,v);canvasGeometry(v);
+    for(const g of root.querySelectorAll('[data-rg-edge-id]')){
+     const route=v.routes.get(g.dataset.rgEdgeId);if(!route)continue;
      g.querySelectorAll('path').forEach(path=>path.setAttribute('d',route.path));
-     const text=g.querySelector('text');text.setAttribute('x',route.x);text.setAttribute('y',route.y);
+     const label=g.querySelector('.rg-edge-label'),rect=label.querySelector('rect'),text=label.querySelector('text'),value=route.label;
+     label.setAttribute('visibility',value?'visible':'hidden');
+     if(value){const leader=label.querySelector('line');for(const [key,val] of Object.entries({x1:value.anchor.x,y1:value.anchor.y,x2:value.x,y2:value.y}))leader.setAttribute(key,val);for(const [key,val] of Object.entries({x:value.left,y:value.top,width:value.width}))rect.setAttribute(key,val);text.setAttribute('x',value.x);text.setAttribute('y',value.y);text.textContent=value.text;}
     }
    }else {v.pan={x:dragging.pan.x+dx,y:dragging.pan.y+dy};transform();}
   },{signal});

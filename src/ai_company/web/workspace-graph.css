@@ -10,3 +10,7 @@ html[data-theme=black] .integrated-workspace{--bg:#111413;--surface:#1a1e1c;--si
 @media(max-width:700px){.workspace-graph .rg-detail.is-open{position:fixed;z-index:40;bottom:82px;left:12px;right:12px;max-height:58dvh;overflow:auto;background:var(--surface);padding:20px;border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 32px #0003}.workspace-graph .rg-detail.is-open .rg-detail-top{position:sticky;top:-20px;background:var(--surface);padding:12px 0;z-index:1}}
 
 .integrated-graph-refresh{display:flex;justify-content:flex-end;margin-bottom:12px}.integrated-graph-refresh button{min-height:44px}
+/* Labels remain legible at crossings; keyboard uses the corresponding path. */
+.rg-edge-label{pointer-events:all;cursor:pointer}.rg-edge-label rect{fill:var(--surface);stroke:var(--line);stroke-width:1}.rg-edge .rg-edge-label text{stroke:none;font-size:14px;fill:var(--muted)}.rg-edge.is-selected .rg-edge-label rect{stroke:var(--accent)}.rg-edge.is-selected .rg-edge-label text{fill:var(--ink)}.rg-edge:focus-within .rg-edge-line,.rg-edge:hover .rg-edge-line{stroke:var(--accent);stroke-width:3}
+.rg-edge-label line{stroke:var(--muted);stroke-width:1;pointer-events:none}
+.rg-edge-hit{vector-effect:non-scaling-stroke}
