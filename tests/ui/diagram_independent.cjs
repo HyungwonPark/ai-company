@@ -12,7 +12,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
  const endpoint=`/api/projects/${project}/diagrams`,storageKey=`diagram-request:${project}:${snapshot}:${fingerprint}`;
  const url=base+'/diagram-view.html?'+new URLSearchParams({project,snapshot,fingerprint,resume:key});
  const item={project_id:project,snapshot_id:snapshot,snapshot_fingerprint:fingerprint,request_key:key,status:'prepared',created_at:1700000000};
- const posts=[],unexpected=[],errors=[];let postMode='forbidden',release=null,firstPost;
+ const posts=[],unexpected=[],errors=[];let postMode='forbidden',release=null,firstPost,listItems=[item];
  const firstPosted=new Promise(resolve=>{firstPost=resolve;});
  page.on('pageerror',e=>errors.push(e.message));
  await context.route('**/*',async route=>{
@@ -21,7 +21,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
   if(!u.pathname.startsWith('/api/'))return route.continue();
   const json=(value,status=200)=>route.fulfill({status,contentType:'application/json',body:JSON.stringify(value)});
   if(u.pathname==='/api/session'&&request.method()==='GET')return json({authenticated:true,password_change_required:false,csrf_token:'synthetic-csrf'});
-  if(u.pathname===endpoint&&request.method()==='GET')return json({project_id:project,items:[item]});
+  if(u.pathname===endpoint&&request.method()==='GET')return json({project_id:project,items:listItems});
   if(u.pathname===endpoint&&request.method()==='POST'){
    posts.push(request.postDataJSON());assert.equal(request.headers()['x-csrf-token'],'synthetic-csrf');
    if(postMode==='held')await new Promise(resolve=>{release=resolve;firstPost();});
@@ -54,8 +54,28 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
   assert.equal(await page.locator('#history-list a').getAttribute('href'),'/diagram-view.html?'+new URLSearchParams({project,snapshot,fingerprint,resume:key}).toString());
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
   await page.screenshot({path:path.join(out,'diagram-independent-prepared-recovery-390.png'),fullPage:true});
+  // There never was a completed artifact. Failure history must not invent one,
+  // and a newer error must not erase the readable cause of an older failure.
+  listItems=[{...item,request_key:'failed-new',status:'failed',created_at:1700000100,error:{code:'compiler_unavailable',message:'그림 실행기를 찾을 수 없습니다.'}},
+             {...item,request_key:'failed-old',status:'failed',error:{code:'invalid_svg',message:'그림의 외부 연결을 허용하지 않습니다.'}}];
+  await page.reload();
+  await page.waitForFunction(()=>document.querySelector('#notice')?.textContent.includes('저장된 그림이 없습니다.'));
+  assert.equal(await page.locator('iframe').count(),0);
+  assert.ok(!(await page.locator('#notice').textContent()).includes('보이는 저장본'));
+  assert.ok((await page.locator('#notice').textContent()).includes('그림 실행기를 찾을 수 없습니다.'));
+  await page.locator('#history > summary').click();
+  const previousFailure=page.locator('#history-list details').filter({hasText:'invalid_svg'});
+  assert.equal(await previousFailure.getAttribute('open'),null);
+  await previousFailure.locator('summary').click();
+  await previousFailure.getByText('그림의 외부 연결을 허용하지 않습니다.',{exact:true}).waitFor();
+  assert.ok((await previousFailure.textContent()).includes(snapshot));
+  await previousFailure.locator('summary').click();await previousFailure.locator('summary').focus();await page.keyboard.press('Enter');
+  await previousFailure.getByText('그림의 외부 연결을 허용하지 않습니다.',{exact:true}).waitFor();
+  assert.equal(posts.length,3,'reading failure history must not retry or start work');
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.screenshot({path:path.join(out,'diagram-independent-failed-history-390.png'),fullPage:true});
   assert.deepEqual(unexpected,[]);assert.deepEqual(errors,[]);
-  await fs.writeFile(path.join(out,'diagram-independent-validation.json'),JSON.stringify({fixture:true,api:'synthetic intercept; all unlisted API and external requests blocked',browser:await browser.version(),sandbox:true,checks:['explicit prepared history wins over a different session key','opening history does not generate; in-flight generation disabled','authorization and network failure preserve exact request through reload','mobile Korean recovery actions; no execution/approval API']},null,2));
+  await fs.writeFile(path.join(out,'diagram-independent-validation.json'),JSON.stringify({fixture:true,api:'synthetic intercept; all unlisted API and external requests blocked',browser:await browser.version(),sandbox:true,checks:['explicit prepared history wins over a different session key','opening history does not generate; in-flight generation disabled','authorization and network failure preserve exact request through reload','failed-only history never claims an existing artifact; original causes remain keyboard-readable','mobile Korean recovery actions; no execution/approval API']},null,2));
   console.log('PASS: independent prepared history, ambiguity recovery, request isolation');
  }finally{if(release)release();await context.close();await browser.close();}
 })().catch(error=>{console.error(error);process.exit(1);});
