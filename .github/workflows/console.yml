@@ -142,5 +142,7 @@ jobs:
             ${{ runner.temp }}/ui-artifacts/graph-edges-independent-validation.json
             ${{ runner.temp }}/ui-artifacts/graph-edge-records-validation.json
             ${{ runner.temp }}/ui-artifacts/graph-edge-touch-validation.json
+            ${{ runner.temp }}/ui-artifacts/graph-edge-records-failure.json
+            ${{ runner.temp }}/ui-artifacts/graph-edge-records-failure.svg
           if-no-files-found: ignore
           retention-days: 7

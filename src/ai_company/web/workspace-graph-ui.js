@@ -86,6 +86,14 @@ export function routeGraphEdges(edges,positions,width,height,{basePositions=posi
   else middle=search(start,end);
   const issue=middle?null:'space-limited',path=simplify([a,...(middle||[start,{x:start.x,y:end.y},end]),b]);
   for(let i=1;i<path.length;i++)used.push([path[i-1],path[i]]);
+  routes.set(e.id,{...plan,points:path,path:rounded(path),label:null,issue,source:a,target:b});
+ }
+ // Short, constrained connections (especially a mobile same-row gutter)
+ // choose a name position before long routes that have more free segments.
+ const length=route=>route.points.slice(1).reduce((sum,p,i)=>sum+Math.abs(p.x-route.points[i].x)+Math.abs(p.y-route.points[i].y),0);
+ const labelOrder=ordered.slice().sort((a,b)=>length(routes.get(a.id))-length(routes.get(b.id))||a.id.localeCompare(b.id));
+ for(const [index,e] of labelOrder.entries()){
+  const path=routes.get(e.id).points;
   const full=labels[e.id]||relationLabels[e.kind]||e.kind||'관계',segments=path.slice(1).map((p,i)=>({a:path[i],b:p,length:Math.abs(p.x-path[i].x)+Math.abs(p.y-path[i].y)})).sort((a,b)=>b.length-a.length);
   let label=null;
   // Prefer labels on the line. In a narrow mobile gutter, move the label into
@@ -102,7 +110,7 @@ export function routeGraphEdges(edges,positions,width,height,{basePositions=posi
    }if(label)break;
   }
   if(label)labelBoxes.push(label);
-  routes.set(e.id,{...plan,points:path,path:rounded(path),label,issue,source:a,target:b});
+  routes.get(e.id).label=label;
  }
  const all=[...routes.values()].flatMap(r=>r.points),bounds={left:Math.min(0,...all.map(p=>p.x),...labelBoxes.map(b=>b.left))-12,top:Math.min(0,...all.map(p=>p.y),...labelBoxes.map(b=>b.top))-12,right:Math.max(0,...boxes.map(b=>b.right),...all.map(p=>p.x),...labelBoxes.map(b=>b.right))+20,bottom:Math.max(0,...boxes.map(b=>b.bottom),...all.map(p=>p.y),...labelBoxes.map(b=>b.bottom))+20};
  return {routes,bounds};

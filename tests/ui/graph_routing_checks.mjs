@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 const src=await readFile(new URL('../../src/ai_company/web/workspace-graph-ui.js',import.meta.url),'utf8');
 const {routeGraphEdges,graphLayout,nearestGraphEdge}=await import('data:text/javascript;base64,'+Buffer.from(src).toString('base64'));
 const fixture=JSON.parse(await readFile(new URL('../../src/ai_company/web/graph-preview/fixture.json',import.meta.url),'utf8'));
@@ -55,3 +56,20 @@ for(const small of [true,false]){
  }
 }
 console.log('PASS: duplicate same-row labels avoid each other, roles and arrowheads at both widths');
+
+// Persisted IDs are generated afresh. Their ordering must not starve the short
+// same-row label after flexible report/return labels consume the free space.
+let varied=0;
+for(let seed=0;seed<80;seed++)for(const small of [true,false])for(const snapshot of fixture.workspace_graph.snapshots){
+ const id=value=>createHash('sha256').update(seed+':'+value).digest('hex');
+ const nodes=snapshot.nodes.map(n=>({...n,id:id(n.id)})),edges=snapshot.edges.map(e=>({...e,id:id(e.id),from:id(e.from),to:id(e.to)})),layout=graphLayout(nodes,small);
+ const result=routeGraphEdges(edges,layout.positions,layout.nodeWidth,layout.nodeHeight),labels=[];
+ for(const [key,r]of result.routes){
+  assert.equal(r.issue,null,`seed ${seed}: ${key}`);assert.ok(r.label,`seed ${seed}: ${key} label cannot disappear`);
+  assert.ok(!labels.some(b=>overlaps(r.label,b)),`seed ${seed}: label overlap`);labels.push(r.label);
+  for(const p of Object.values(layout.positions))assert.ok(!overlaps(r.label,{left:p.x,top:p.y,right:p.x+layout.nodeWidth,bottom:p.y+layout.nodeHeight}));
+  for(const other of result.routes.values()){const b=other.target,side=other.toSide;assert.ok(!overlaps(r.label,{left:b.x-(side==='left'?24:side==='right'?4:10),right:b.x+(side==='right'?24:side==='left'?4:10),top:b.y-(side==='top'?24:side==='bottom'?4:10),bottom:b.y+(side==='bottom'?24:side==='top'?4:10)}));}
+ }
+ varied++;
+}
+console.log(`PASS: ${varied} placements with regenerated IDs retain every label without covering labels, roles or arrowheads`);

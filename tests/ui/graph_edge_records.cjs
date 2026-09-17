@@ -6,7 +6,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
  assert.match(base,/^http:\/\/127\.0\.0\.1:\d+$/);await fs.mkdir(out,{recursive:true});
  const browser=await chromium.launch({headless:true,chromiumSandbox:true,...(process.env.CHROME_CHANNEL?{channel:process.env.CHROME_CHANNEL}:{}),...(process.env.CHROMIUM_EXECUTABLE?{executablePath:process.env.CHROMIUM_EXECUTABLE}:{})});
  const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce',serviceWorkers:'block'}),page=await context.newPage();page.setDefaultTimeout(15000);
- const violations=[],writes=[],errors=[],checks=[],captures=[];let latest=null;
+ const violations=[],writes=[],errors=[],checks=[],captures=[];let latest=null,currentCase=null;
  const endpoint=`/api/projects/${fixtures.project_id}/overview`;
  page.on('pageerror',error=>errors.push(error.message));
  await context.route('**/*',async route=>{
@@ -77,21 +77,24 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
   assert.equal(snapshots[1].edges.filter(e=>e.kind==='handoff'&&e.from===e.to).length,2);
   assert.equal(snapshots[0].edges.filter(e=>snapshotNodeKind(snapshots[0],e.from)==='role'&&snapshotNodeKind(snapshots[0],e.to)==='pm').length,2);
   for(const width of [1440,390,320])for(const theme of ['light','black'])for(const [runIndex,snapshot] of snapshots.entries()){
+   currentCase={width,theme,stage:'snapshot setup',snapshot:{id:snapshot.id,project_id:snapshot.project_id,plan_id:snapshot.plan_id,plan_digest:snapshot.plan_digest,run_id:snapshot.run_id,source:snapshot.source,nodes:snapshot.nodes.map(n=>({id:n.id,name:n.name,kind:n.kind,phase:n.phase,status:n.status})),edges:snapshot.edges.map(e=>({id:e.id,from:e.from,to:e.to,kind:e.kind,phase:e.phase,status:e.status}))}};
    await close();await page.setViewportSize({width,height:width>700?1000:844});await page.locator(`[data-theme-choice="${theme}"]`).click();await page.locator('#rg-snapshot').selectOption(snapshot.id);if(await action('graph').getAttribute('aria-pressed')!=='true')await action('graph').click();await settle();await fitContainsAll(snapshot);
    const selectedIds=[];
    for(const [index,edge] of snapshot.edges.entries()){
+    currentCase={...currentCase,stage:'physical relation selection',edge:{id:edge.id,from:edge.from,to:edge.to,kind:edge.kind,index}};
     await close();await action('fit').click();await settle();const baseline=await styleState(edge.id);
     await clickLabel(edge.id);await detail(edge,snapshot);await selectedStyle(edge,baseline);selectedIds.push(edge.id);
     // The same edge is reachable by real keyboard activation and the list,
     // with its original source object and run binding intact in all three views.
-    await close();await restoredStyle(edge.id,baseline);await wire(edge.id).evaluate(el=>el.focus({preventScroll:true}));await page.keyboard.press('Enter');await detail(edge,snapshot);await selectedStyle(edge,baseline);
+    currentCase.stage='keyboard selection and emphasis';await close();await restoredStyle(edge.id,baseline);await wire(edge.id).evaluate(el=>el.focus({preventScroll:true}));await page.keyboard.press('Enter');await detail(edge,snapshot);await selectedStyle(edge,baseline);
     const to=snapshot.nodes.find(n=>n.id===edge.to),capture=edge.kind==='handoff'||edge.kind==='revision_return'||edge.kind==='result_report'&&(to.kind==='pm'||to.kind==='check');
     if(capture){
+     currentCase.stage='enlarged selection capture';
      for(let n=0;n<7&&Number.parseInt(await page.locator('.rg-zoom').textContent(),10)<90;n++)await action('zoom-in').click();
      await centerLabel(edge.id,true);await detail(edge,snapshot);await selectedStyle(edge,baseline);await page.evaluate(()=>document.fonts.ready);
      const filename=`graph-record-${runIndex?'recent':'previous'}-${theme}-${width}-${edge.kind}-${index}.png`;await page.screenshot({path:path.join(out,filename),fullPage:false});captures.push({filename,edge_id:edge.id,run_id:snapshot.run_id,from:edge.from,to:edge.to,kind:edge.kind,zoom:await page.locator('.rg-zoom').textContent(),framing:width>700?'selected endpoints, path and label bounds':'enlarged relationship segment and readable detail; use fit for full overview'});
     }
-    await close();await action('list').click();await page.locator(`.rg-list [data-rg-edge="${edge.id}"]`).click();await detail(edge,snapshot,false);
+    currentCase.stage='list record comparison';await close();await action('list').click();await page.locator(`.rg-list [data-rg-edge="${edge.id}"]`).click();await detail(edge,snapshot,false);
     assert.equal(await page.locator('.rg-list [data-rg-edge]').count(),snapshot.edges.length);await close();await action('graph').click();await restoredStyle(edge.id,baseline);
    }
    assert.deepEqual(selectedIds,snapshot.edges.map(e=>e.id));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));checks.push({width,theme,run_id:snapshot.run_id,edge_ids:selectedIds,physical:'label centers',keyboard:'SVG Enter',list:'same original reference',selection:'path/arrow/label/endpoints and dim restore'});
@@ -99,16 +102,28 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
   // Browser-native touch delivery through CDP, never DOM-dispatched pointer events.
   await close();await page.setViewportSize({width:390,height:844});await page.locator('#rg-snapshot').selectOption(snapshots[1].id);await action('fit').click();await action('pan').click();await page.locator('.rg-viewport').evaluate(el=>el.scrollIntoView({block:'start'}));await settle();
   const touchNode=snapshots[1].nodes.find(n=>n.kind==='role'),touchEdge=snapshots[1].edges.find(e=>e.from===touchNode.id&&e.kind==='handoff');assert.ok(touchEdge);
+  currentCase={...currentCase,width:390,stage:'native touch synchronization',edge:{id:touchEdge.id,from:touchEdge.from,to:touchEdge.to,kind:touchEdge.kind}};
   const geometry=()=>page.evaluate(({nodeId,edgeId})=>{const node=[...document.querySelectorAll('.rg-node')].find(n=>n.dataset.rgNode===nodeId),line=[...document.querySelectorAll('.rg-edge')].find(n=>n.dataset.rgEdgeId===edgeId).querySelector('.rg-edge-line'),label=[...document.querySelectorAll('.rg-edge-label')].find(n=>n.dataset.rgLabel===edgeId);return {left:node.style.left,top:node.style.top,path:line.getAttribute('d'),hit:line.nextElementSibling.getAttribute('d'),label:label.querySelector('rect').outerHTML,leader:label.querySelector('line').outerHTML};},{nodeId:touchNode.id,edgeId:touchEdge.id});
   const beforeTouch=await geometry(),nodeRect=await page.locator(`[data-rg-node="${touchNode.id}"]`).boundingBox();assert.ok(nodeRect);const x=nodeRect.x+nodeRect.width/2,y=nodeRect.y+nodeRect.height/2;assert.ok(x>0&&x<390&&y>0&&y<844);
   const cdp=await context.newCDPSession(page);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:true,maxTouchPoints:1});
   await page.evaluate(()=>{window.__recordTouchTypes=[];document.addEventListener('pointerdown',event=>window.__recordTouchTypes.push(event.pointerType),{once:true});});
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y,id:1}]});
-  for(let step=1;step<=5;step++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+step*5,y:y+step*5,id:1}]});
+  for(let step=1;step<=5;step++)await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:y+step*4,id:1}]});
   const duringTouch=await geometry();assert.notEqual(duringTouch.path,beforeTouch.path);assert.equal(duringTouch.path,duringTouch.hit);assert.notEqual(duringTouch.label+ duringTouch.leader,beforeTouch.label+beforeTouch.leader);
   await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await settle();assert.deepEqual(await page.evaluate(()=>window.__recordTouchTypes),['touch']);const afterTouch=await geometry();assert.deepEqual(afterTouch,duringTouch);await cdp.send('Emulation.setTouchEmulationEnabled',{enabled:false});await cdp.detach();
   await action('pan').click();await clickLabel(touchEdge.id);await detail(touchEdge,snapshots[1]);await fs.writeFile(path.join(out,'graph-edge-touch-validation.json'),JSON.stringify({browser:'CDP Input.dispatchTouchEvent',pointerType:'touch',node_id:touchNode.id,edge_id:touchEdge.id,before:beforeTouch,during:duringTouch,after:afterTouch},null,2));
   const after=await page.evaluate(async endpoint=>(await fetch(endpoint)).json(),endpoint);assert.deepEqual(after.runs,before.runs);assert.deepEqual(after.approvals,before.approvals);assert.deepEqual(after.plans,before.plans);assert.deepEqual(violations,[]);assert.deepEqual(errors,[]);assert.ok(writes.every(p=>['/api/login','/api/password'].includes(p)));
   await fs.writeFile(path.join(out,'graph-edge-records-validation.json'),JSON.stringify({source:'real ephemeral fixture API; no graph injection/model/production work',browser:await browser.version(),sandbox:true,checks,captures,writes},null,2));console.log('PASS: all 17 real fixture relationships across six viewports, exact record selection and emphasis restoration');
+ }catch(error){
+  // Only this temporary fixture's public graph facts are retained. Never persist
+  // cookies, request headers, environment variables, credentials or auth forms.
+  const diagnostic={source:'ephemeral fixture API only',case:currentCase,error:{name:error.name,message:error.message},completedCases:checks};
+  if(currentCase?.snapshot){
+   try{diagnostic.render=await page.evaluate(()=>({viewport:{width:innerWidth,height:innerHeight},theme:document.documentElement.dataset.theme,graph:document.querySelector('[data-rg-root]')?.dataset.snapshot,zoom:document.querySelector('.rg-zoom')?.textContent,nodes:[...document.querySelectorAll('.rg-node')].map(el=>({id:el.dataset.rgNode,left:el.style.left,top:el.style.top,width:el.style.width,height:el.style.height})),routes:[...document.querySelectorAll('.rg-edge')].map(el=>({id:el.dataset.rgEdgeId,kind:el.dataset.rgRouteKind,path:el.querySelector('.rg-edge-line')?.getAttribute('d')})),labels:[...document.querySelectorAll('.rg-edge-label')].map(el=>({id:el.dataset.rgLabel,visibility:el.getAttribute('visibility'),rect:el.querySelector('rect')?.outerHTML,text:el.querySelector('text')?.textContent}))}));
+    const svg=await page.locator('.rg-lines').first().evaluate(el=>el.outerHTML).catch(()=>null);if(svg)await fs.writeFile(path.join(out,'graph-edge-records-failure.svg'),svg);
+    await page.screenshot({path:path.join(out,'graph-edge-records-failure.png'),fullPage:true});
+   }catch(captureError){diagnostic.captureError=captureError.message;}
+  }
+  await fs.writeFile(path.join(out,'graph-edge-records-failure.json'),JSON.stringify(diagnostic,null,2));throw error;
  }finally{await context.close();await browser.close();}
 })().catch(error=>{console.error(error);process.exit(1);});
