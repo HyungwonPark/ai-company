@@ -86,7 +86,7 @@ async function decide(page,choice,reason=''){
    const screen='example-new-run-01-task-screen';assert.equal(await page.locator(`[data-task="${screen}"]`).count(),1);
    assert.deepEqual(await page.locator('.task-flow .status').allTextContents(),['진행','진행','선행 대기']);
    if(width===390)await shot(page,`task-workspace-cycle-${layout}-${theme}-${width}.png`);
-   await click(page,'play-wait');await page.locator(`[data-task="${screen}"]`).click();assert.match(await page.locator('#detail').innerText(),/한도/);await click(page,'handoff');assert.match(await page.locator('#detail').innerText(),/Astra → Claude/);assert.match(await page.locator('#detail').innerText(),new RegExp(screen));await page.keyboard.press('Escape');
+   await click(page,'play-wait');await page.locator(`[data-task="${screen}"]`).click();assert.match(await page.locator('#detail').innerText(),/한도/);await page.locator('#detail [data-action="handoff"]').click();assert.match(await page.locator('#detail').innerText(),/Astra → Claude/);assert.match(await page.locator('#detail').innerText(),new RegExp(screen));await page.keyboard.press('Escape');
    await click(page,'play-checks');await page.locator('[data-task="example-new-run-01-task-integration"]').click();assert.match(await page.locator('#detail').innerText(),/원격 CI/);assert.match(await page.locator('#detail').innerText(),/Astra Ultra/);await page.keyboard.press('Escape');
    await click(page,'play-review');await click(page,'dependency');await click(page,'artifact');assert.match(await page.locator('#detail').innerText(),/example-new-run-01/);assert.doesNotMatch(await page.locator('#detail').innerText(),/example-run-01\b/);await page.keyboard.press('Escape');
    for(const scenario of ['quota','failure']){
