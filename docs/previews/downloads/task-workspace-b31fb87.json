@@ -1,0 +1,8 @@
+{
+  "source_commit": "b31fb876a79b2548de908e295fc376bb5e451554",
+  "ci_run": "https://github.com/HyungwonPark/ai-company/actions/runs/35862598798",
+  "html_sha256": "ff947ffc4c6c60022910f8f204f9f56e7897415183200f14cbbe46251349bb75",
+  "zip_sha256": "de505afd8fcacbc99963a2c8e8283be2a6757a1ceafb3daf0533e7749e506c22",
+  "zip_bytes": 13130,
+  "scope": "기존 검증 예시 HTML의 다운로드 배포본. 제품·운영 변경 없음."
+}
