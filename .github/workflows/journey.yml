@@ -42,6 +42,12 @@ jobs:
           node tests/ui/journey_scope_checks.mjs
           node tests/ui/journey_navigation_checks.mjs
           uv run --frozen python tests/ui/run_journey_workspace.py --scenario journey_workspace.cjs
+      - name: Verify exact execution status contracts
+        if: always()
+        run: node tests/ui/journey_status_checks.mjs
+      - name: Verify status projection through isolated API
+        if: always()
+        run: uv run --frozen python tests/ui/run_journey_workspace.py --scenario journey_status.cjs
       - name: Verify graph camera, scope and interaction retention
         if: always()
         run: uv run --frozen python tests/ui/run_journey_workspace.py --scenario journey_graph.cjs
