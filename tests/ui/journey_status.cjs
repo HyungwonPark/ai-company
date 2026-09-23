@@ -27,6 +27,13 @@ const path=require('node:path');
     for(const status of item.statuses)assert.ok((await result.innerText()).includes(status)||await result.locator('details').evaluateAll((items,value)=>items.some(el=>el.textContent.includes(value)),status),'raw '+status+' available in original-state detail');
     assert.ok(await result.getByText('원문 상태',{exact:true}).count());
     if(overview.project_report?.run_id!==item.run_id)assert.equal(await page.locator('.project-summary').count(),0,'current-plan report not borrowed');
+    else {
+     const aggregate=page.locator('.project-summary');await aggregate.waitFor();
+     const summaryGroups=await aggregate.locator('.summary-grid > section').evaluateAll(items=>Object.fromEntries(items.filter(item=>item.querySelector('h3 span')&&['완료','진행','대기','확인 필요','미확인'].includes(item.querySelector('h3').childNodes[0].textContent.trim())).map(item=>[item.querySelector('h3').childNodes[0].textContent.trim(),Number(item.querySelector('h3 span').textContent)])));
+     assert.deepEqual(summaryGroups,groups,'same-run current-plan and execution status groups agree');
+     const next=aggregate.locator('.summary-grid > section').filter({has:page.getByRole('heading',{name:'다음',exact:true})});
+     if(item.groups['확인 필요']||item.groups['미확인'])assert.ok(!(await next.innerText()).includes('산출물과 같은 후보의 검사를 이어갑니다'),'no contradictory next action beneath the same-run result');
+    }
     assert.equal(await result.locator('a').filter({hasText:'승인 요청 확인'}).count(),0,'no unrelated approval borrowed');
     if(['completed-operator','operator-handoff','unknown','rejected'].includes(item.name)){
      await result.locator('details').filter({has:page.getByText('원문 상태',{exact:true})}).first().locator('summary').click();

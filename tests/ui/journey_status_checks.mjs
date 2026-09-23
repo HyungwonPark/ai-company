@@ -41,4 +41,17 @@ assert.equal(rendered(['WAITING_QUOTA']).title,'대기');
 assert.equal(rendered(['RUNNING'],'running').title,'작업 중');
 const foreign={...snapshot,nodes:[...nodes(['RUNNING']),{...nodes(['NEEDS_RECONCILIATION'])[0],run_id:'other-run'},{...nodes(['NEW_UNREGISTERED_STATE'])[0],plan_digest:'other-digest'}]};
 assert.equal(journeyStatus({...overview,runs:[{...run,state:'running'}]},foreign).title,'작업 중','foreign role records do not change selected-run guidance');
+// The original backend current_plan aggregate calls every unfinished role
+// in_progress. Its display must use the same semantics as the selected run.
+for(const roleState of ['NEEDS_RECONCILIATION','NO_ELIGIBLE_AGENT','SUPERSEDED','NEW_UNREGISTERED_STATE']){
+ const current={project_id:'project',plan_id:'plan',plan_digest:'digest',run_id:'run',goal:'예시 목표',digest:'report-digest',candidate_verified:false,completed:[],in_progress:[{title:'담당 역할',status:roleState,role_key:'dev',role_index:0}],blockers:[],decisions:[],completion_criteria:[],pm_report_ids:[],next_actions:[{view:'progress',text:'역할별 산출물과 같은 후보의 검사를 이어갑니다.'}]};
+ const input={...overview,project_report:current};const before=JSON.stringify(input),html=ui.render(input);
+ const group=roleState==='NEW_UNREGISTERED_STATE'?'미확인':'확인 필요';
+ assert.match(html,new RegExp('<h3>'+group+' <span>1</span>'),'current-plan uses the same explicit role classification');
+ assert.match(html,/<h3>진행 <span>0<\/span>/);
+ const next=html.match(/<h3>다음<\/h3>([\s\S]*?)<\/section>/)?.[1];assert.ok(next,'next action section present');
+ assert.doesNotMatch(next,/산출물과 같은 후보의 검사를 이어갑니다/,'operator/unknown is not told to keep executing');
+ assert.match(html,/역할별 산출물과 같은 후보의 검사를 이어갑니다/,'system original next action retained as evidence');
+ assert.match(html,/원문 상태/);assert.equal(JSON.stringify(input),before,'current-plan projection cannot rewrite original report/digest');
+}
 console.log(JSON.stringify({status:'PASS',cases,checks:['four original states and rejection','backend completion/operator contracts','known running/reserved wait and unknown including WAITING prefix','same-run operator/unknown priority','foreign-run/digest exclusion','raw values and immutable inputs'],scope:'real JS with synthetic facts; no browser, worker, DB or production calls'}));
