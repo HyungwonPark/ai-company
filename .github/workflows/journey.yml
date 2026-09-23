@@ -45,6 +45,9 @@ jobs:
       - name: Verify graph camera, scope and interaction retention
         if: always()
         run: uv run --frozen python tests/ui/run_journey_workspace.py --scenario journey_graph.cjs
+      - name: Compare graph with the fixed journey baseline
+        if: always()
+        run: GRAPH_COMPARE_BASELINE=75227480d27d3eb1cd57fa43a07a0ab986be3eb5 UI_OUTPUT="$UI_OUTPUT/graph-baseline" node tests/ui/graph_edge_comparison.cjs
       - name: Verify journey writes against isolated API
         if: always()
         run: uv run --frozen python tests/ui/run_journey_writes.py
