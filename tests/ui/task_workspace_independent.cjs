@@ -71,22 +71,27 @@ async function shot(page,name){
  try{
   browser=await chromium.launch({headless:true,chromiumSandbox:true,channel:process.env.CHROME_CHANNEL||'chrome'});
   const {context,page}=await session({viewport:{width:1440,height:1000}});
+  const pendingShortcut=page.locator('[data-approval="example-approval-01"]').first();
+  assert.equal(await pendingShortcut.isVisible(),true,'The default project list exposes the previous run pending candidate');
+  assert.match(await pendingShortcut.innerText(),/확인할 일\s*1건/);
   await scenario(page,'empty');await page.getByRole('heading',{name:'아직 없어요'}).waitFor();
   await keyActivate(page,action(page,'new'));
+  await keyActivate(page,action(page,'use-example'));
   await page.locator('#name').fill('독립 검수용 로그인');
-  await page.locator('#goal').fill('휴대폰에서 오류 안내를 읽고 다음 행동을 찾습니다.');
+  assert.ok((await page.locator('#goal').inputValue()).trim(),'The selected fixed example goal is explicit before creation');
   await keyActivate(page,page.locator('#new-form button'));
   await focused(page,'#main');await page.keyboard.press('Tab');await focused(page,'#pm-reply');
   await page.locator('#pm-reply').fill('작은 화면에서도 안내를 보존해 주세요.');
   await keyActivate(page,page.locator('#pm-form button'));
   assert.equal(await page.evaluate(()=>document.activeElement.isConnected&&document.activeElement!==document.body),true);
-  await keyActivate(page,action(page,'save-spec'));
-  await focused(page,'[data-action="request-plan"]');
+  await keyActivate(page,action(page,'organize'));
+  await focused(page,'[data-action="plan-ready"]');
   assert.equal((await stored(page)).confirmed,false);
   assert.match(await page.locator('#main .binding').textContent(),/없음 · 아직 시작하지 않음/);
-  await page.keyboard.press('Enter');await focused(page,'[data-action="confirm"]');
+  await keyActivate(page,action(page,'plan-ready'));
+  await focused(page,'[data-action="confirm"]');
   assert.equal((await stored(page)).confirmed,false);
-  const nextDecision=page.locator('.rail').getByRole('button',{name:'계획 검토',exact:true});
+  const nextDecision=page.locator('.rail').getByRole('button',{name:'계획 확인',exact:true});
   assert.equal(await nextDecision.getAttribute('data-stage'),'plan');
   await keyActivate(page,nextDecision);await focused(page,'#main');
   await keyActivate(page,action(page,'confirm'));
@@ -95,7 +100,7 @@ async function shot(page,name){
   await tabTo(page,'#reviewed');await page.keyboard.press('Space');
   await page.keyboard.press('Tab');await focused(page,'[data-action="confirm-submit"]');
   await page.keyboard.press('Enter');await focused(page,'#main');
-  await page.getByRole('heading',{name:'시작 대기'}).waitFor();
+  await page.locator('[data-tab="work"]').waitFor();
   const confirmed=await stored(page);
   assert.equal(confirmed.confirmed,true);
   await stage(page,'projects');await page.locator('[data-project="new"]').waitFor();
@@ -105,7 +110,7 @@ async function shot(page,name){
   const repeated=await stored(page);
   for(const field of ['created','draft','spec','plan','confirmed'])assert.deepEqual(repeated[field],confirmed[field],`Repeat creation preserves ${field}`);
   assert.match(await page.locator('#main .binding').textContent(),/example-new-run-01/);
-  checks.push('Empty list → creation → keyboard spec save (no run) → new plan (no run) → correct plan CTA → explicit confirmation; repeat creation/reload preserves one project and confirmation');
+  checks.push('Default project list exposes old pending candidate; empty list → fixed example → keyboard content organization (no run) → prepared plan (no run) → correct plan CTA → explicit confirmation; repeat creation/reload preserves one project and confirmation');
 
   await scenario(page,'normal');
   for(let i=0;i<2;i++){
@@ -138,7 +143,14 @@ async function shot(page,name){
    const page=mobile.page;
    if(theme==='black')await pressAt(page,page.locator('#theme'),input);
    await pressAt(page,page.locator(`[data-layout="${layout}"]`),input);
-   await pressAt(page,page.locator('[data-project="sample"]'),input);
+   const shortcut=page.locator('[data-approval="example-approval-01"]').first();
+   assert.match(await shortcut.innerText(),/확인할 일\s*1건/);
+   await pressAt(page,shortcut,input);
+   assert.match(await page.locator('#main .meta').innerText(),/example-approval-01.*pending/);
+   const discovered=await stored(page);
+   assert.equal(discovered.project,'sample');assert.equal(discovered.run,'previous');assert.equal(discovered.stage,'approval');
+   await pressAt(page,page.locator('.stage-nav [data-stage="progress"]'),input);
+   await chooseRun(page,'current');
    const task='example-run-02-task-screen';
    await pressAt(page,page.locator(`[data-task="${task}"]`),input);
    assert.match(await page.locator('#detail').innerText(),new RegExp(task));
@@ -168,15 +180,47 @@ async function shot(page,name){
    await pressAt(page,action(page,'decision'),input);
    assert.equal(await action(page,'decision-submit').isDisabled(),true);
    const binding=await page.locator('#detail').innerText();
-   for(const expected of ['example-run-01','example-approval-01','example-candidate-01','d'.repeat(64)])assert.ok(binding.includes(expected));
+   const bindingValues=['example-project-login','example-plan-01','a'.repeat(64),'example-run-01','example-approval-01','example-candidate-01','d'.repeat(64)];
+   for(const expected of bindingValues)assert.ok(binding.includes(expected),`Decision shows ${expected}`);
    assert.ok(!binding.includes('example-run-02'));
    await shot(page,`task-workspace-independent-${theme}-${width}.png`);
-   await page.locator('#decision-reviewed').check();await pressAt(page,action(page,'decision-submit'),input);
-   const choice=(await stored(page)).decision;
-   assert.deepEqual(choice,{run:'example-run-01',approval:'example-approval-01',digest:'d'.repeat(64),scope:'preview_only'});
+   for(const decision of ['approve','request_changes','hold']){
+    // Separate sessions keep each choice independent and never reinterpret an earlier decision.
+    const review=decision==='approve'?mobile:await session({viewport:{width,height:844},isMobile:true,hasTouch:true});
+    const vote=review.page;
+    if(decision!=='approve'){
+     if(theme==='black')await pressAt(vote,vote.locator('#theme'),input);
+     await pressAt(vote,vote.locator(`[data-layout="${layout}"]`),input);
+     await pressAt(vote,vote.locator('[data-approval="example-approval-01"]').first(),input);
+     await pressAt(vote,action(vote,'decision'),input);
+    }
+    await vote.locator('#decision-choice').selectOption(decision);
+    await vote.locator('#decision-reviewed').check();
+    if(decision==='request_changes'){
+     assert.equal(await action(vote,'decision-submit').isDisabled(),true,'A revision needs an actionable comment');
+     await vote.locator('#decision-reason').fill('   ');
+     assert.equal(await action(vote,'decision-submit').isDisabled(),true,'Whitespace is not a revision reason');
+     await vote.locator('#decision-reason').fill('모바일 오류 안내를 더 명확하게 바꿔 주세요.');
+    }
+    await pressAt(vote,action(vote,'decision-submit'),input);
+    const decisions=(await stored(vote)).decisions;
+    assert.deepEqual(Object.keys(decisions),['example-approval-01'],'The isolated choice belongs to exactly one request');
+    assert.deepEqual(decisions['example-approval-01'],{
+     project:'example-project-login',projectName:'모바일 로그인 정리',plan:'example-plan-01',planDigest:'a'.repeat(64),
+     run:'example-run-01',candidate:'example-candidate-01',approval:'example-approval-01',digest:'d'.repeat(64),
+     status:'pending',choice:decision,reason:decision==='request_changes'?'모바일 오류 안내를 더 명확하게 바꿔 주세요.':'',
+     scope:'preview_only',decisionKind:decision==='hold'?'local_defer':'candidate_review'
+    });
+    assert.match(await vote.locator('#main').innerText(),/pending/);
+    const notice=await vote.locator('#main').innerText();
+    if(decision==='approve')assert.match(notice,/결과를 확인하세요.*배포·병합은 시작하지 않습니다/s);
+    if(decision==='request_changes')assert.match(notice,/새 범위·계획을 검토하기 전에는 다시 실행하지 않습니다/);
+    if(decision==='hold')assert.match(notice,/나중에 보기.*원래 요청은 계속 pending/s);
+    if(decision!=='approve')await review.context.close();
+   }
    assert.match(await page.locator('#main .meta').innerText(),/pending/);
    await chooseRun(page,'current');assert.equal(await action(page,'decision').count(),0);
-   await fit(page);checks.push(`${width}px ${theme}/${layout}: real ${input} task, stable handoff ID, history, planned/recorded dependency and candidate choice; previous owner isolated, original pending preserved`);
+   await fit(page);checks.push(`${width}px ${theme}/${layout}: real ${input} old approval discovery, task, stable handoff ID, history, planned/recorded dependency and independent accept/revise/hold submissions; exact project/plan/run/candidate/digest bindings, revision comment and original pending preserved`);
    await mobile.context.close();
   }
   assert.deepEqual(errors,[]);assert.deepEqual(violations,[]);assert.equal(screenshots.length,2);
