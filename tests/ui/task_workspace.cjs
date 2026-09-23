@@ -29,7 +29,9 @@ const origin='http://127.0.0.1:47994';
    await page.locator('[data-task$="-task-screen"]').click();await page.getByRole('heading',{name:'로그인 화면 정리',exact:true}).waitFor();assert.match(await page.locator('#detail').innerText(),/example-run-02-task-screen/);await fit('dialog');await page.keyboard.press('Escape');assert.match(await page.evaluate(()=>document.activeElement.dataset.task),/-task-screen$/);
    await click('dependency');assert.match(await page.locator('#detail').innerText(),/예정된 의존관계/);await page.keyboard.press('Escape');
    await page.locator('[data-tab=team]').click();await page.getByText('요청 설정 · High / 실제 적용 미확인').waitFor();await fit('team');
-   await page.locator('[data-tab=history]').click();await click('plan-record');assert.match(await page.locator('#detail').innerText(),/example-run-02/);await page.keyboard.press('Escape');
+   await page.locator('[data-tab=history]').click();await click('plan-record');await page.locator('#detail .binding summary').click();assert.match(await page.locator('#detail').innerText(),/example-run-02/);await page.keyboard.press('Escape');
+   for(const view of ['plan','approval','result']){await stage(view);await fit(`${layout}/${theme}/${width}/${view}`);assert.ok(await page.locator('#main h2').count());}
+   await stage('projects');await fit('projects');await page.locator('[data-project=sample]').click();
   }
   checks.push('2 layouts × 2 themes × 320/390/1440: render, node/condition/team/history selection, dialog Escape/focus, no overflow');
   const cdp=await context.newCDPSession(page);await cdp.send('DOM.enable');await cdp.send('CSS.enable');const dom=await cdp.send('DOM.getDocument');const node=await cdp.send('DOM.querySelector',{nodeId:dom.root.nodeId,selector:'.project-head h1'});fonts.push(...(await cdp.send('CSS.getPlatformFontsForNode',{nodeId:node.nodeId})).fonts);assert.ok(fonts.some(f=>/Noto.*CJK/.test(f.familyName)&&f.glyphCount>0));

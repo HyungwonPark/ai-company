@@ -57,9 +57,14 @@ jobs:
           CHROME_CHANNEL: chrome
           NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
           UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
-        run: |
-          node tests/ui/task_workspace.cjs
-          node tests/ui/task_workspace_independent.cjs
+        run: node tests/ui/task_workspace.cjs
+      - name: Independently review task-first design
+        if: always()
+        env:
+          CHROME_CHANNEL: chrome
+          NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
+          UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
+        run: node tests/ui/task_workspace_independent.cjs
       - name: Compare and independently inspect integrated edge routing
         if: always()
         env:
