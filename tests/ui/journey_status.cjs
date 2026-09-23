@@ -22,6 +22,8 @@ const path=require('node:path');
     await page.evaluate(hash=>{location.hash=hash;},'#reports?project='+fixtures.project_id+'&run='+item.run_id);
     const result=page.locator('.journey-result[data-result-run="'+item.run_id+'"]');await result.waitFor();
     assert.equal(await result.locator('header h2').innerText(),item.title);
+    const selectorText=await page.locator('#journey-run option:checked').innerText();
+    if(item.state==='waiting'&&item.name!=='scheduled')assert.doesNotMatch(selectorText,/예약/,'a waiting run without a scheduled retry cannot promise a reservation in the selector');
     const groups=await result.locator('.summary-grid > section').evaluateAll(items=>Object.fromEntries(items.map(item=>[item.querySelector('h3').childNodes[0].textContent.trim(),Number(item.querySelector('h3 span').textContent)])));
     assert.deepEqual(groups,Object.fromEntries(['완료','진행','대기','확인 필요','미확인'].map(title=>[title,item.groups[title]||0])));
     for(const status of item.statuses)assert.ok((await result.innerText()).includes(status)||await result.locator('details').evaluateAll((items,value)=>items.some(el=>el.textContent.includes(value)),status),'raw '+status+' available in original-state detail');
@@ -35,7 +37,7 @@ const path=require('node:path');
      if(item.groups['확인 필요']||item.groups['미확인'])assert.ok(!(await next.innerText()).includes('산출물과 같은 후보의 검사를 이어갑니다'),'no contradictory next action beneath the same-run result');
     }
     assert.equal(await result.locator('a').filter({hasText:'승인 요청 확인'}).count(),0,'no unrelated approval borrowed');
-    if(['completed-operator','operator-handoff','unknown','rejected'].includes(item.name)){
+    if(['completed-operator','operator-handoff','unknown','rejected','superseded'].includes(item.name)){
      await result.locator('details').filter({has:page.getByText('원문 상태',{exact:true})}).first().locator('summary').click();
      await page.evaluate(()=>document.fonts.ready);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
      const name=`journey-status-${theme}-${width}-${item.name}.png`;await page.screenshot({path:path.join(out,name),fullPage:true});screens.push(name);
@@ -44,7 +46,7 @@ const path=require('node:path');
     assert.equal(await graph.getAttribute('data-snapshot'),item.snapshot_id);assert.equal(await page.locator('.journey-next strong').innerText(),item.title);
     const snapshot=overview.workspace_graph.snapshots.find(s=>s.id===item.snapshot_id);assert.deepEqual(snapshot.nodes.filter(n=>n.kind==='role').map(n=>n.status).sort(),[...item.statuses].sort());
     assert.equal(new URLSearchParams(new URL(page.url()).hash.split('?')[1]).get('run'),item.run_id);
-    checks.push({...active,groups,title:item.title,run_id:item.run_id});
+    checks.push({...active,groups,title:item.title,selector_text:selectorText,run_id:item.run_id});
    }
   }
   assert.deepEqual(errors,[]);assert.deepEqual(violations,[]);
