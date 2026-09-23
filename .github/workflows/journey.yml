@@ -13,8 +13,6 @@ jobs:
     timeout-minutes: 10
     env:
       CHROME_CHANNEL: chrome
-      NODE_PATH: ${{ runner.temp }}/journey-tooling/node_modules
-      UI_OUTPUT: ${{ runner.temp }}/journey-evidence
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -27,7 +25,9 @@ jobs:
           python -m pip install uv==0.12.11
           uv sync --frozen
           npm install --prefix "$RUNNER_TEMP/journey-tooling" --no-audit --no-fund @playwright/test@1.63.0
-          mkdir -p "$UI_OUTPUT" "$RUNNER_TEMP/journey-fonts" "$HOME/.local/share/fonts"
+          echo "NODE_PATH=$RUNNER_TEMP/journey-tooling/node_modules" >> "$GITHUB_ENV"
+          echo "UI_OUTPUT=$RUNNER_TEMP/journey-evidence" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/journey-evidence" "$RUNNER_TEMP/journey-fonts" "$HOME/.local/share/fonts"
           cd "$RUNNER_TEMP/journey-fonts"
           apt-get download fonts-noto-cjk
           for font_package in ./*.deb; do
