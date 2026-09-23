@@ -133,3 +133,16 @@
 
 .journey-workspace.integrated-workspace .project-list-status{display:grid}
 .journey-workspace.integrated-workspace .projects-home .recent-project{display:flex}
+
+/* The current plan keeps its preparation and consent steps together. */
+.journey-workspace.integrated-workspace .manager-heading{order:0}
+.journey-workspace.integrated-workspace .manager-focus{order:1;margin:0;padding:20px 0;border-top:0;border-bottom:1px solid var(--line)}
+.journey-workspace.integrated-workspace .manager-execution{order:2;min-width:0}
+.journey-workspace.integrated-workspace .manager-execution .execution-panel{padding:0 0 18px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent}
+.journey-workspace.integrated-workspace .manager-execution .execution-panel>summary{font-size:18px;min-height:48px}
+.journey-workspace.integrated-workspace .manager-execution .execution-facts dt,.journey-workspace.integrated-workspace .manager-execution .execution-facts dd{font-size:14px}
+.journey-workspace.integrated-workspace .planning-switch{order:3}
+.journey-workspace.integrated-workspace .planning-workspace{order:4}
+.journey-workspace.integrated-workspace .manager-inbox{order:5}
+.journey-workspace.integrated-workspace .manager-history{order:6}
+.journey-workspace.integrated-workspace .manager-focus .manager-next p{font-size:16px}

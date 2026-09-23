@@ -165,7 +165,8 @@ const {createHash}=require('node:crypto');
   const updated=structuredClone(original),updatedNode=updated.workspace_graph.snapshots.find(s=>s.id===current.id).nodes[0];
   updatedNode.name='갱신된 역할';
   updated.workspace_graph.fingerprint=createHash('sha256').update(JSON.stringify(updated.workspace_graph.snapshots)).digest('hex');
-  await page.route('**'+overviewPath,route=>route.fulfill({status:200,contentType:'application/json',json:updated}));
+  let disconnectedFixture=false;
+  await page.route('**'+overviewPath,route=>disconnectedFixture?route.abort('internetdisconnected'):route.fulfill({status:200,contentType:'application/json',json:updated}));
   await action('fit');point=await pointerCenter(node);
   await page.mouse.move(point.x,point.y);await page.mouse.down();await page.mouse.move(point.x+15,point.y+15);
   const held=await node.elementHandle(),positionDuringDrag=await node.getAttribute('style');
@@ -185,7 +186,8 @@ const {createHash}=require('node:crypto');
   await page.mouse.up();await page.locator('#rg-detail-heading').filter({hasText:updatedNode.name}).waitFor();
   assert.equal(await page.evaluate(()=>document.activeElement.id),'rg-detail-heading','queued mobile tap update retains detail focus');
   await action('clear');
-  // Offline must settle a queued replacement snapshot before rendering its geometry.
+  // Offline settles queued reads immediately but must not substitute a different
+  // snapshot for the exact URL target, even if it belongs to the same run.
   const replacement=structuredClone(updated.workspace_graph.snapshots.find(s=>s.id===current.id));
   replacement.id='gesture-replacement-snapshot';replacement.nodes[0].name='연결 전 마지막 역할';
   updated.workspace_graph.snapshots=[replacement];updated.workspace_graph.default_snapshot_id=replacement.id;
@@ -193,18 +195,31 @@ const {createHash}=require('node:crypto');
   point=await pointerCenter(node);await page.mouse.move(point.x,point.y);await page.mouse.down();await page.mouse.move(point.x+10,point.y+10);
   const beforeDisconnect=await node.elementHandle();
   await (await page.waitForResponse(response=>new URL(response.url()).pathname===overviewPath,{timeout:12000})).finished();
-  await page.waitForTimeout(150);await context.setOffline(true);await page.evaluate(()=>window.dispatchEvent(new Event('offline')));
-  await page.getByText('연결이 끊겼습니다. 마지막 조회 자료를 표시합니다.',{exact:true}).waitFor();
-  assert.equal(await page.locator('[data-rg-root]').getAttribute('data-snapshot'),replacement.id,'offline render uses the queued replacement snapshot');
-  assert.ok(await page.locator('.rg-node').count(),'replacement snapshot has mounted geometry');
+  await page.waitForTimeout(150);disconnectedFixture=true;await context.setOffline(true);await page.evaluate(()=>window.dispatchEvent(new Event('offline')));
+  await page.locator('.journey-missing,[data-rg-missing-scope]').first().waitFor();
+  assert.equal(await page.locator('.rg-node').count(),0,'a missing explicit snapshot never displays another snapshot automatically');
+  const unavailableScope=new URLSearchParams(new URL(page.url()).hash.split('?')[1]);
+  assert.equal(unavailableScope.get('run'),current.run_id,'the requested run remains identifiable while offline');
+  assert.equal(unavailableScope.get('snapshot'),current.id,'the missing explicit snapshot remains the URL target');
   assert.equal(await beforeDisconnect.evaluate(el=>el.isConnected),false,'offline is not deferred behind the held pointer');
-  await page.mouse.up();await action('list');
+  await page.mouse.up();
+  // Only an explicit user selection can open the replacement. Abort routed
+  // refetches while offline rather than having the test route fake connectivity.
+  await page.locator('#journey-run').selectOption(replacement.id);
+  await page.locator(`[data-rg-root][data-snapshot="${replacement.id}"]`).waitFor();
+  assert.ok(await page.locator('.rg-node').count(),'explicit replacement selection mounts its geometry');
+  assert.equal(new URLSearchParams(new URL(page.url()).hash.split('?')[1]).get('run'),current.run_id);
+  await action('list');
   await page.getByText('연결이 끊겼습니다. 마지막 조회 자료를 표시합니다.',{exact:true}).waitFor();
-  await context.setOffline(false);await page.evaluate(()=>window.dispatchEvent(new Event('online')));
+  disconnectedFixture=false;await context.setOffline(false);await page.evaluate(()=>window.dispatchEvent(new Event('online')));
   await page.getByText('연결이 끊겼습니다. 마지막 조회 자료를 표시합니다.',{exact:true}).waitFor({state:'hidden'});
   await action('graph');
   await page.unroute('**'+overviewPath);
-  checks.push('queued response retains drag and mobile tap focus; offline switches to a replacement snapshot without geometry error and preserves disconnected state');
+  await page.getByRole('button',{name:'새로고침',exact:true}).click();
+  await page.locator('.journey-missing,[data-rg-missing-scope]').first().waitFor();
+  assert.equal(await page.locator('.rg-node').count(),0,'returning to the actual fixture also preserves explicit snapshot identity');
+  await page.locator('#journey-run').selectOption(current.id);await page.locator('.rg-node').first().waitFor();
+  checks.push('queued response retains drag and mobile tap focus; offline immediately removes held DOM, preserves missing exact scope and requires explicit replacement selection; disconnected state and mounted geometry survive');
   if(await page.locator('[data-rg-action=pan]').getAttribute('aria-pressed')==='true')await action('pan');
   assert.equal(await page.locator('.rg-viewport').evaluate(el=>getComputedStyle(el).touchAction),'pan-y');
   const cdp=await context.newCDPSession(page);
