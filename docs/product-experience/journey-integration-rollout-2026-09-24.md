@@ -4,6 +4,22 @@
 
 기준은 PR #23 `1d3b25e`의 야간 명세와 PR #24 `7522748`의 연결 계획이다. 후보와 이미지·검증 근거는 [통합 검증 기록](journey-integration-validation-2026-09-24.md)에 고정한다. 아래 절차는 승인을 받은 이후의 적용안이다. 이번 개발에서는 운영 상태·인증 세션·DB를 변경하지 않는다.
 
+## 고정 후보
+
+| 항목 | 값 |
+| --- | --- |
+| 제품 | `d46136da9108608e7bdce6bdbfb0da35e825126a` |
+| 같은 제품의 최종 검사 | `6a366e69909b204881cc1d0a547a7b5cd06173ee`, Python·Console·Journey CI 및 독립 코드·화면 검수 통과 |
+| 로컬 이미지 ID | `sha256:8ec249bbf7a457f2d6187c3e1ce8add91c0d44fe669a2ce61cc28ffa4e74159b` |
+| 로컬 태그·플랫폼 | `ai-company-preview:journey-d46136d`, `linux/arm64` |
+| revision label | `d46136da9108608e7bdce6bdbfb0da35e825126a` |
+| 설치 소스 manifest | [114개 파일](../evidence/journey-integration/image-source-manifest.json), SHA-256 `6096acefa7817281d63345b58a52a8b9ff4cb1753cbb18d4bda934938444fb43` |
+| 격리 이미지 확인 | [이미지 검사](../evidence/journey-integration/image-validation.json): 114개 설치 파일과 HTTP 자원·no-store·익명 401·Host 403 일치 |
+
+이미지 ID는 빌드한 서버의 Docker 콘텐츠 식별자이며 공개 registry에서 pull할 수 있는 주소가 아니다. 적용 시 가변 태그만 신뢰하지 않고 inspect의 ID와 revision을 대조한다. 이미지가 없다면 재빌드 결과를 새 후보로 검증해야 하며 해시가 달라도 같은 승인이라고 가정하지 않는다. 이 문서와 ZIP 게시만으로 컨테이너는 교체되지 않는다.
+
+빌드 파일은 기존 `deploy/console/Dockerfile.diagrams`다. Python base `python@sha256:ed86c82274b3c69b52fb5820f358f0bd7df0b603332063cb5c6e32bd220c3e6e`, Node base `node@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436`으로 고정했다. build context는 allowlist의 제품 소스·lock 파일이고 운영 DB/인증 파일을 포함하지 않았다. 실행 시험은 네트워크 없음·읽기 전용 root·UID 65532·capability 제거·no-new-privileges·임시 상태·CPU/메모리/PID 제한에서 수행했다. 운영 mount·worker·모델을 사용하지 않았다.
+
 ## 변경 범위
 
 | 대상 | 필요한 적용 | 근거 |

@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "kind": "offline read-only product preview",
+  "source_commit": "b3d155c1100b5b1386e399e5becaab1b331fb6d9",
+  "source_dirty": false,
+  "sources_sha256": {
+    "docs/previews/journey/fixture.json": "e84cad2748e99067635252184e8e04b3615b5f5eec175de87ad00bde95810d8c",
+    "scripts/package_journey_preview.py": "db96f430c2cb4b5e45e329bfa2b3b7ff6044136cca2c56ec9b4cadb9f059d1d2",
+    "src/ai_company/web/app.js": "fbb6b9524aa304f910209cd198fdd8841bd753b3d6bd2c428e2c9add9eef4935",
+    "src/ai_company/web/collaboration-ui.js": "ac90dd73cc810c94c353e949e052a64f6df02b24944892722290841ae7816fe2",
+    "src/ai_company/web/documents-ui.js": "139d9b5133835e35e533a3e6c8fc478beffd24b6b0f6aa410b1590eaf70a36f1",
+    "src/ai_company/web/execution-ui.js": "1994cbaa6b5700471e0fd1894c421ce3a7269b000194bafc19118e5819ca8588",
+    "src/ai_company/web/fonts/archivo-400.woff2": "8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967",
+    "src/ai_company/web/fonts/archivo-500.woff2": "8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967",
+    "src/ai_company/web/fonts/archivo-600.woff2": "8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967",
+    "src/ai_company/web/fonts/fonts.css": "11bd4857cbd25dcae5cd6226e05029f70fbad67e471ffbc47330e14dafe67d50",
+    "src/ai_company/web/fonts/ibmplexsans-400.woff2": "e2291e842cf5af167122a22881a740c7f2dda7716f1e8cd76680264f4a859470",
+    "src/ai_company/web/fonts/ibmplexsans-500.woff2": "e2291e842cf5af167122a22881a740c7f2dda7716f1e8cd76680264f4a859470",
+    "src/ai_company/web/fonts/ibmplexsans-600.woff2": "e2291e842cf5af167122a22881a740c7f2dda7716f1e8cd76680264f4a859470",
+    "src/ai_company/web/fonts/licenses.html": "1351f2bc21277dd8236501fdc858bcf1632f31d3cf68dc40a0465f03921aad1c",
+    "src/ai_company/web/fonts/manrope-400.woff2": "a30ddcd349703aff7464c34bef3fffdff405ee50c113440d7c8693c02d210972",
+    "src/ai_company/web/fonts/manrope-500.woff2": "a30ddcd349703aff7464c34bef3fffdff405ee50c113440d7c8693c02d210972",
+    "src/ai_company/web/fonts/manrope-600.woff2": "a30ddcd349703aff7464c34bef3fffdff405ee50c113440d7c8693c02d210972",
+    "src/ai_company/web/graph-preview/fixture.json": "ac970aba4ccf4abe47bd862da581cdb2b412a0cd7ca6fb98b5d9e13b798b25ba",
+    "src/ai_company/web/icon.svg": "fb1099a8c5a1a97d191cb5ba3a3d97f6bfc44ac24d29419485008640464bd666",
+    "src/ai_company/web/index.html": "54a3627b50e9ddebfada6033961787a0dc57ef264320b991f2ef3a9b28c8dc6e",
+    "src/ai_company/web/journey-ui.js": "5e88603d085531d3bb81752ae2092bce2fb84bf33f68c406aa78c23aaad0955d",
+    "src/ai_company/web/manager-ui.js": "4e04c56ed1f95110180b4408becfe5cebc9b9b082266574e00d0af32d24debd3",
+    "src/ai_company/web/manager.css": "85b78d7965456e2472726ebef22ad874d5b6fb59141bff0a91458475ff97cd73",
+    "src/ai_company/web/plan-ui.js": "06db39bb279e4728b546de423b435f6bb29165b71d76417516dab70eecc4ee4f",
+    "src/ai_company/web/report-ui.js": "9dd06c8e3c8d1831bfb173f5e439a3c8b4667ece690e74a9c3f04afc2daf4e6d",
+    "src/ai_company/web/styles.css": "a997f46bbe5c87a595ac8daefc8068145bc8366f3306f0028922e1a220670cdb",
+    "src/ai_company/web/theme.js": "7e8f504a1f57ca34fa1599f3d5dc9b7740937b3c5b3e5ce8058b912d28333b30",
+    "src/ai_company/web/workspace-graph-ui.js": "387768683b81b60ce6e784b73a1673f0205581e741a9379ce1111d1f594cf15c",
+    "src/ai_company/web/workspace-graph.css": "f7b42f26ee80a873def4cebfd3ce8320ded224c32207331ad06157650de7953e"
+  },
+  "original_graph_fixture_sha256": "ac970aba4ccf4abe47bd862da581cdb2b412a0cd7ca6fb98b5d9e13b798b25ba",
+  "fixture_sha256": "e84cad2748e99067635252184e8e04b3615b5f5eec175de87ad00bde95810d8c",
+  "transformations": [
+    "stylesheet/font/icon embedding",
+    "static relative module URL embedding",
+    "read-only synthetic fetch boundary",
+    "preview banner and network/worker CSP"
+  ],
+  "limitations": [
+    "no real login/API/model/approval operation",
+    "no writes",
+    "separate diagram/external pages excluded",
+    "no APK/service-worker/production verification",
+    "frozen synthetic timestamps; original product expiry rules apply"
+  ],
+  "html_sha256": "f00fd8a37e30f9c90221e0b0b327b2c6e024ff2c544670f4f9dfcffdb98141ff"
+}

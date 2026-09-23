@@ -4,6 +4,55 @@
 
 기준 명세는 PR #23 `1d3b25ec41f9558a19a8d8a55fdb1f6682cc960a`의 [야간 지시](https://github.com/HyungwonPark/ai-company/blob/1d3b25ec41f9558a19a8d8a55fdb1f6682cc960a/docs/work-reviews/overnight-journey-integration-2026-09-24.md), 연결 계획은 PR #24 `75227480d27d3eb1cd57fa43a07a0ab986be3eb5`다. PR #25는 PR #24 위에 쌓은 별도 브랜치 `feat/journey-product-integration`이다. 기존 PR #21/22/24와 별도 작업 공간을 보존했다.
 
+## 최종 판정과 후보
+
+**A·B → C → D → E 비운영 구현·검수·수정·패키징 완료.** 조건을 통과한 뒤 다음 단계로 진행했고, 발견한 결함의 실패 기록을 보존했다. 아래 고정 제품에 Python·기존 Console·새 Journey CI와 독립 코드·화면 검수를 연결했다. 운영 적용과 실제 마스터/모델/APK 전체 실행 완료를 뜻하지 않는다.
+
+| 대상 | 고정 값 |
+| --- | --- |
+| 제품 코드 | `d46136da9108608e7bdce6bdbfb0da35e825126a` |
+| 최종 검사 코드 | `6a366e69909b204881cc1d0a547a7b5cd06173ee` — 제품 변경 없이 기준 `7522748`의 JS/CSS 전후 비교 추가 |
+| 제품 tree | `293cc96e1776c23c8514c92e5959ba4bda918d81` — 두 커밋의 `src/ai_company` 일치 |
+| 웹 이미지 | `sha256:8ec249bbf7a457f2d6187c3e1ce8add91c0d44fe669a2ce61cc28ffa4e74159b` — arm64, 로컬 Docker image ID이며 공개 registry pull 주소 아님 |
+| 서비스워커 | `ai-company-shell-v9`; API/POST 비캐시·비재생 |
+| ZIP SHA-256 | `10467c136710cdbc135bf0c465b0b7467798af97de186a30d41f2a608d238b44` |
+| HTML SHA-256 | `f00fd8a37e30f9c90221e0b0b327b2c6e024ff2c544670f4f9dfcffdb98141ff` |
+
+[미리보기 ZIP](../previews/journey/AI-Company-journey-preview.zip) · [열기 안내·확인법](../previews/journey/README.md) · [파일 해시](../previews/journey/SHA256SUMS) · [기계 판독 후보 기록](../evidence/journey-integration/candidate.json).
+
+제품 `d46136d` 이후 이 문서·선별 증거·ZIP을 게시하는 커밋은 기록 전용이다. 마지막 운영 기록 `2087ecc` 대비 제품 변경은 웹의 10개 JS/CSS 파일뿐이며, 웹 밖 `src`·`android`·`deploy`·`pyproject.toml`·`uv.lock` 차이는 없다. worker·DB·카탈로그 교체가 필요 없는 후보임을 코드 대조로 확인했다. 현재 운영 상태를 재조회한 주장은 아니다.
+
+## 최종 CI·독립 검수
+
+모두 검사 커밋 `6a366e6`, attempt **1**의 결과다. 앞선 실패 run을 새 성공으로 덮지 않았다.
+
+| 검사 | 결과·범위 |
+| --- | --- |
+| [Python CI](https://github.com/HyungwonPark/ai-company/actions/runs/35905379824) | PASS. Python 3.11/3.12 각각 467개 실행·3개 skipped, Android 준비 4개 및 demo 통과. 준비 검사는 APK 전달·실기기 성공이 아님 |
+| [Console CI](https://github.com/HyungwonPark/ai-company/actions/runs/35905379779) | PASS. PR22 R1~R5/F1~F2, 기존 UI/관리 API·독립 그래프·실제 1px 왕복·터치·고정 그림/긴 이름·독립 그림 검수 |
+| [Journey CI](https://github.com/HyungwonPark/ai-company/actions/runs/35905379886) | PASS. 실제 임시 API 읽기/C·쓰기/D·G1~G3·752 기준 전후 비교·패키지·SW 갱신/복구 |
+| [조건부 Automation evidence](https://github.com/HyungwonPark/ai-company/actions/runs/35905379766) | skipped. 실제 모델 개발 루프나 그 CI 출처 검증 완료로 세지 않음 |
+| [독립 코드 검수](../evidence/journey-integration/independent-code-review.md) | PASS. 도구 설정으로 요청한 Astra/Ultra 검수. 작성자와 별도 담당자가 P2 두 건 재현→수정 확인, 동일 제품·실제 API 기록·미리보기 29개와 이미지 114개 소스 해시 대조. 운영 제품의 Astra 최종 루프와 구별 |
+| [독립 화면·조작 근거 검수](../evidence/journey-integration/independent-visual-review.md) | PASS. 최종 PNG 11장 직접 열람과 실제 Chrome 검사 코드/JSON 대조. 검수자 직접 브라우저/APK 조작은 아니며 초보 사용자 관찰도 아님 |
+
+Journey workflow는 `.github/workflows/journey.yml`, workflow ID `365380671`, suite `97227355318`에서 실행됐다. artifact `journey-evidence` ID `10770523110`, GitHub archive digest `sha256:3aa830d4a803d6b6da948fa53bc42e0598f65dcd49e36b0c37d933304d1779d3`다. Console artifact `console-screenshots` ID `10771117656`, digest `sha256:a7ee025cbc41ed43ff2fbd50e2cfbb63b0ce2e9d7600fe2438e100a9f233dcb3`다. artifact 전체는 GitHub 보존기간·로그인 조건이 있으며 대표 근거와 ZIP은 저장소에도 보존했다.
+
+미리보기 HTML은 **이 Journey artifact의 실제 검사 파일 그대로**다. manifest의 checkout `b3d155c1100b5b1386e399e5becaab1b331fb6d9`는 PR 합성 merge 커밋이며 제품·PR head로 바꿔 적지 않는다. 29개 원본 파일을 최종 제품 Git blob과 대조해 전부 일치했다. 이미지에는 같은 제품 114개 파일이 설치됐고, 네트워크 없음·UID 65532·읽기 전용 root·capability 제거·임시 tmpfs 상태에서 HTTP 자원/no-store·익명 API 401·다른 Host 403을 확인했다. [이미지 검사](../evidence/journey-integration/image-validation.json)와 [원본 manifest](../evidence/journey-integration/image-source-manifest.json)는 운영 health 검사가 아니다.
+
+## 대표 화면과 조작 기록
+
+| 화면 | 실제 캡처 |
+| --- | --- |
+| 계획 검토 | [390 Light](../evidence/journey-integration/screens/journey-write-plan-review-light-390.png) · [320 Black](../evidence/journey-integration/screens/journey-write-plan-review-black-320.png) · [1440 Light](../evidence/journey-integration/screens/journey-write-plan-review-light-1440.png) |
+| 후보 결정 | [320 Light](../evidence/journey-integration/screens/journey-write-candidate-review-light-320.png) · [390 Black](../evidence/journey-integration/screens/journey-write-candidate-review-black-390.png) |
+| 그래프 | [390 Light](../evidence/journey-integration/screens/journey-graph-light-390-initial.png) · [1440 Light](../evidence/journey-integration/screens/journey-graph-light-1440-initial.png) |
+| 같은 조건 전후 | [7522748 이전](../evidence/journey-integration/screens/workspace-edges-before-recent-light-390.png) · [최종 후보](../evidence/journey-integration/screens/workspace-edges-after-recent-light-390.png) |
+| 실제 1px 왕복 | [+8px](../evidence/journey-integration/screens/workspace-drag-after-light-1440-plus8.png) · [+9px](../evidence/journey-integration/screens/workspace-drag-after-light-1440-plus9.png) · [측정값](../evidence/journey-integration/workspace-drag-stability-validation.json) |
+
+최종 Chrome `152.0.7977.82`, sandbox `true`. Light·Black × 320/390/1440px에서 명세·계획·후보 18개 화면을 검사했다. 계획 본문 16px 이상, 모달 닫기 44×44px 이상을 실제 DOM에서 확인했다. 200% 항목은 CSS viewport 재배치 상당 시험이며 물리 기기의 확대 조작이 아니다. 기존 드래그 검사는 실제 포인터 제스처의 문턱을 넘긴 뒤 +8/+9px 왕복의 경로·이름표 변화가 1.02px 이하임을 확인한다. 장애물이 바뀔 때의 재탐색은 별도 검사다.
+
+[증거 목록](../evidence/journey-integration/README.md)에 실제 API·쓰기/권한·DB 불변·그래프·패키지·서비스워커·기존 그림 검증을 나눴다. 서비스워커 v8→v9 대기/활성화→v8 복구는 격리 localhost 출처에서만 시행했다. 운영 도메인·APK 캐시를 비우거나 갱신하지 않았다.
+
 ## 구현과 책임
 
 | 묶음 | 구현 | 보존한 계약 |
@@ -51,6 +100,14 @@ C 후보 `9954518`의 [Journey UI](https://github.com/HyungwonPark/ai-company/ac
 | `9954518` | legacy 탐색에 순서 번호가 섞임, 즉시 화면+프로젝트 변경 시 이전 view 사용 | legacy 번호 제외, hash에서 요청된 view를 즉시 읽어 전환 |
 | `9954518` | 기존 offline 시험이 삭제된 명시 snapshot을 새 snapshot으로 자동 대체하길 기대 | 없는 대상 안내와 원래 run 보존, 사용자의 새 대상 선택 후 복구 검사로 연결 |
 
+`a31c8cf`에서는 읽기·그래프·미리보기·SW가 통과했지만, 인라인으로 옮긴 PM 요청 시험이 이미 있는 폼의 존재만 기다려 저장 직전 건수를 읽었다. 실제 POST 완료·저장 메시지 ID까지 기다리도록 보정했다. 기존 smoke도 URL 변경 후 hashchange의 DOM 반영을 기다리도록 보정했다.
+
+독립 Astra Ultra 검수는 같은 화면에서 다른 실행을 고른 뒤 도착한 쓰기 응답의 자동 이동, hashchange 전에 render가 대기 URL을 덮는 P2 두 건을 발견했다. `812469b`는 정확한 제출 URL과 탐색 순번을 함께 고정하고 render의 원래 대상 일치 조건을 복원한다. 다른 곳으로 이동했다가 같은 URL로 돌아온 경우도 사용자의 선택을 보존한다. 독립 재현의 네 경계와 실제 보류 API 두 경로를 회귀로 연결했다.
+
+`812469b`의 실제 보류 PM 요청은 선택을 보존했지만 다음 계획 검토의 16px 본문 기준에서 실패했다. `6f10570`은 요약·역할 설명·완료 조건을 16px로 표시하며 권한 데이터에는 영향을 주지 않는다.
+
+`6f10570`의 다음 D 검사에서 후보 버튼 선택자가 숨겨진 form도 함께 골랐다. `d46136d`는 버튼을 명시한 검사로 수정하고, 별도 시각 검수가 발견한 닫기 버튼 36px 덮어쓰기를 44px로 복원했다. 최종 D에서 원문/한국어 전환·직접 확정·후보 결정·응답 유실·두 지연 성공 응답·권한 거부까지 모두 통과했다. 이미지 초기 시험의 404는 harness가 실제 CLI의 web root를 전달하지 않아 발생했고, 설치된 웹 경로로 시험을 보정한 뒤 파일·HTTP 검사를 통과했다.
+
 동일 코드의 무근거 재실행으로 실패를 지우지 않는다. 각 원인·수정과 최종 후보의 CI를 연결한다. Automation evidence의 조건부 skipped는 실제 개발 루프·원격 CI 출처 통과로 세지 않는다.
 
 ## 적용한 지침
@@ -69,3 +126,11 @@ C 후보 `9954518`의 [Journey UI](https://github.com/HyungwonPark/ai-company/ac
 [전체 목표 대응표](journey-overall-goal-map-2026-09-24.md)에서 과거 실제 모델·도메인·APK·복구 근거를 보존하고 현재 미확인을 구분한다. [적용·복구안](journey-integration-rollout-2026-09-24.md)의 후속 범위는 웹 1개다. worker/DB 새 계약, 새 모델·ECC·서명키는 이번 후보에 없다.
 
 서버 Codex 세션의 자동 재개는 확인되지 않았다. 제품 내부 큐의 예약 재개와 혼동하지 않는다. 운영 타이머를 바꾸지 않고 단계·후보·실패 근거를 체크포인트로 기록한다. 사용자 직접 APK 확정·서명키 외부 복원은 별도 미실시이며 이번 비운영 개발의 대기 조건이 아니다.
+
+최종 검수의 비차단 UX 한계는 모바일의 중복 진행 제목/대상 선택기, 초기 100% 그래프의 외곽 관계 일부가 첫 화면 밖인 점, 긴 결과 보고다. 전체 보기·이동·목록으로 접근할 수 있으며 새 차단 결함은 남아 있지 않다. 초보 사용자의 이해 속도·실수율은 실제 사용자 확인 전 미측정이다.
+
+## 종료와 정확한 후속 기준
+
+이번 명세의 비운영 완료 기준을 충족해 종료한다. 자동 운영 적용이나 추가 개발을 예약하지 않았다. 후속 검토 시 `feat/journey-product-integration`/PR #25의 제품 `d46136d`, 검사 `6a366e6`, 이 문서를 묶은 기록 커밋을 사용한다. `git diff d46136d 6a366e6 -- src android deploy pyproject.toml uv.lock`는 비어 있어야 하며, 후속 기록 커밋도 같은 제품 tree를 가져야 한다. ZIP은 위 해시 그대로 사용한다.
+
+새 코드 수정이 없으면 통과한 CI를 이유 없이 다시 실행하지 않는다. 후속 운영 적용은 [웹 1개 적용·복구안](journey-integration-rollout-2026-09-24.md)의 고정 후보에 대한 별도 승인 후, 당시 실제 가동 버전과의 차이를 확인한 뒤 진행할 항목이다. APK 직접 목표 입력·확정과 서명키 외부 복원은 사용자 확인으로 남겨 둔다.
