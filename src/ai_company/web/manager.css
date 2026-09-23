@@ -174,3 +174,4 @@
 
 /* Read the confirmation's Korean source/translation at body size in both themes. */
 .plan-reading>.report-summary,.plan-reading .role-config>p,.plan-reading .detail-grid dd,.plan-reading .plan-criteria{font-size:16px;line-height:1.75}
+.dialog-head button{min-width:44px;min-height:44px}
