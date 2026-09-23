@@ -65,7 +65,7 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
           UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
         run: node tests/ui/task_workspace_independent.cjs
-      - name: Verify PR23 R1–R5 preview flow
+      - name: Verify PR23 R1–R5 and F1–F2 preview flow
         if: always()
         env:
           CHROME_CHANNEL: chrome

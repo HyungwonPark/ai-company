@@ -51,7 +51,7 @@ const tasks = () => {
  return [
  {id:runId()+'-task-screen',title:state.scenario==='long'?'긴 한국어와 오류 안내가 잘리는 문제를 고치고 로그인 화면을 읽기 편하게 정리하기':'로그인 화면 정리',role:'화면 개발',model:handoff?'Claude':'Astra',status:done||checks?'완료':failure?'판단 필요':(handoff||parallel)&&!quota?'진행':'한도 대기',kind:done||checks?'done':failure?'blocked':(handoff||parallel)&&!quota?'active':'waiting',reason:done||checks?'예시 후보에 반영됨':parallel?'같은 계획의 화면 개발을 시작했습니다.':failure?'예시 실패 상한 3회에 도달했습니다.':handoff&&!quota?'승인된 대체 후보로 같은 일을 이어갑니다.':'개발 계정의 사용 가능 시각을 기다립니다.'},
  {id:runId()+'-task-tests',title:'오류 상황 검사 작성',role:'독립 검사',model:'Claude',status:done||checks?'완료':quota?'한도 대기':'진행',kind:done||checks?'done':quota?'waiting':'active',reason:done||checks?'검사 결과 전달됨':quota?'모든 적격 후보가 대기 중입니다.':'개발과 독립적으로 검사 코드를 작성합니다.'},
- {id:runId()+'-task-integration',title:'같은 후보 검수',role:'검사 · 독립 검수 · 최종 검수',model:'단계별 담당',status:done?'완료':checks?'검수 중':'선행 대기',kind:done?'done':checks?'active':'waiting',reason:done?'검사와 두 검수의 예시 기록이 있습니다.':checks?'같은 예시 후보의 검사·독립 검수·최종 검수를 재생합니다.':'화면 변경과 검사 코드가 모두 필요합니다.'}
+ {id:runId()+'-task-integration',title:'같은 후보 검수',role:'검사 · 독립 검수 · 최종 검수',model:'단계별 담당',status:done?'완료':checks?(failure?'판단 필요':quota?'한도 대기':'검수 중'):'선행 대기',kind:done?'done':checks?(failure?'blocked':quota?'waiting':'active'):'waiting',reason:done?'검사와 두 검수의 예시 기록이 있습니다.':checks?(failure?'검수의 예시 실패 상한 3회에 도달했습니다.':quota?'검수의 모든 적격 후보가 대기 중입니다.':'같은 예시 후보의 검사·독립 검수·최종 검수를 재생합니다.'):'화면 변경과 검사 코드가 모두 필요합니다.'}
  ];
 };
 function save(){try{sessionStorage.setItem(key,JSON.stringify(state));}catch{}}
@@ -68,6 +68,10 @@ function nav(){return `<nav class="stage-nav" aria-label="작업 단계">${steps
 function next(){
  const selected=currentRequest(),decision=selected&&state.decisions[selected.approval];
  if(decision)return [`예시 ${decisionLabels[decision.choice]}`,decisionNext[decision.choice],'result','결과 보기'];
+ if((!isNew()||state.confirmed)&&!complete()){
+  if(state.scenario==='failure')return ['실패 원인 검토','추가 개발 범위와 재시도는 별도 결정이 필요합니다.','progress','업무 보기'];
+  if(state.scenario==='quota')return ['예약 재개 대기','모든 적격 후보가 대기 중입니다. 보고와 승인은 계속 읽을 수 있습니다.','progress','대기 보기'];
+ }
  if(isNew()){
   if(!state.created?.example)return ['체험 목표 선택','현재는 고정된 로그인 예시 한 가지를 체험할 수 있습니다.','plan','예시 보기'];
   const f=state.flow;
@@ -78,8 +82,6 @@ function next(){
   return [f.playback==='waiting'?'개발 재개 대기':f.playback==='checks'?'같은 후보 검수':'병렬 진행','검수용 단계 재생이며 실제 작업은 실행하지 않습니다.','progress','진행 보기'];
  }
  if(oldRun())return ['후보를 검토해 주세요','같은 실행의 검사 근거와 변경 범위를 읽어 보세요.','approval','후보 보기'];
- if(state.scenario==='failure')return ['실패 원인 검토','추가 개발 범위와 재시도는 별도 결정이 필요합니다.','progress','업무 보기'];
- if(state.scenario==='quota')return ['예약 재개 대기','모든 적격 후보가 대기 중입니다. 보고와 승인은 계속 읽을 수 있습니다.','progress','대기 보기'];
  return [state.handoff?'개발과 검사 진행 중':'개발 재개 대기',state.handoff?'같은 업무를 대체 담당자가 이어갑니다.':'독립 검사는 계속 진행 중입니다.','progress','업무 보기'];
 }
 function rail(){const n=next(),pending=projectRequests(),planning=isNew()&&state.plan&&!state.confirmed;return `<aside class="rail" aria-label="요약"><section><div class="next-label">다음</div><div class="next">${n[0]}</div><p>${n[1]}</p><button data-stage="${n[2]}">${n[3]}</button></section><section><h3>내 결정</h3><p>${planning?'계획 확인 1건':pending.length?`확인할 일 ${pending.length}건`:'현재 실행의 요청 없음'}</p>${pending.map(requestLink).join('')}${!pending.length?`<button data-stage="${planning?'plan':'approval'}">${planning?'계획 확인':'승인 보기'}</button>`:''}</section><section><h3>기록</h3><p>PM의 설명과 시스템 사실을 나눠 읽습니다.</p><button data-stage="result">결과 보기</button></section></aside>`;}
@@ -120,7 +122,8 @@ function approval(){
 }
 function result(){
  const done=complete(),started=!isNew()||state.confirmed,r=currentRequest(),decision=r&&state.decisions[r.approval];
- return `<h2>결과</h2><p class="meta">시스템 집계 · 예시 저장 기록</p><p class="summary-line">${!started?'아직 결과가 없어요.':decision?`예시 ${decisionLabels[decision.choice]}을 기록했습니다.`:done?'검수는 끝났고,<br>후보 결정을 기다립니다.':'진행 중입니다.<br>완료로 보고하지 않습니다.'}</p><div class="report-grid"><section><h3>완료</h3><p>${!started?'없음':done?'두 업무의 결과와 검사·독립 검수·최종 검수 예시 기록':'계획 확정 · 역할별 업무 배정'}</p>${done?'<button data-action="artifact">전달물 보기</button>':''}</section><section><h3>남은 일</h3><p>${decision?decisionNext[decision.choice]:!started?'계획 확인 후 직접 시작':done?'마스터의 후보 검토. 배포·병합은 포함하지 않습니다.':'개발·검사 결과 수집과 같은 후보 검수'}</p></section><section><h3>차단</h3><p>${!started?'아직 실행하지 않음':done?'자동 진행 없음':state.scenario==='failure'?'자동 재시도 상한에 도달':state.scenario==='quota'?'모든 적격 후보 한도 대기':transferred()?'개발 이관 후 진행 중':isNew()&&state.flow.playback==='parallel'?'없음 · 두 역할 진행':'개발 계정 한도 대기'}</p></section><section><h3>내 결정</h3><p>${r?decision?`예시 ${decisionLabels[decision.choice]} · 원래 요청 pending`:'후보 검토 1건':'이 실행의 후보 요청 없음'}</p><button data-stage="approval">승인 보기</button></section></div><hr class="divider"><p class="meta">PM 작성 · 예시 설명</p><p>${done?'목표를 충족했는지 근거를 확인해 주세요. 검수 통과가 배포 승인을 대신하지 않습니다.':'독립적으로 할 수 있는 일은 계속합니다. 기다리는 업무는 범위와 예산을 유지합니다.'}</p><details><summary>원문</summary><p>처음부터 한국어로 작성한 고정 예시입니다. 번역이나 실제 PM의 결과가 아닙니다.</p></details>${binding()}`;
+ const checks=isNew()&&state.flow.playback==='checks',delivered=done||checks;
+ return `<h2>결과</h2><p class="meta">시스템 집계 · 예시 저장 기록</p><p class="summary-line">${!started?'아직 결과가 없어요.':decision?`예시 ${decisionLabels[decision.choice]}을 기록했습니다.`:done?'검수는 끝났고,<br>후보 결정을 기다립니다.':checks?`두 결과를 전달했고,<br>${state.scenario==='failure'?'검수 실패의 판단이 필요합니다.':state.scenario==='quota'?'검수 계정의 한도 해제를 기다립니다.':'같은 후보를 검수 중입니다.'}`:'진행 중입니다.<br>완료로 보고하지 않습니다.'}</p><div class="report-grid"><section><h3>완료</h3><p>${!started?'없음':done?'두 업무의 결과와 검사·독립 검수·최종 검수 예시 기록':checks?'화면 개발·검사 작성 완료 · 같은 후보로 두 결과 전달':'계획 확정 · 역할별 업무 배정'}</p>${delivered?'<button data-action="artifact">전달물 보기</button>':''}</section><section><h3>남은 일</h3><p>${decision?decisionNext[decision.choice]:!started?'계획 확인 후 직접 시작':done?'마스터의 후보 검토. 배포·병합은 포함하지 않습니다.':checks?'같은 후보의 격리 검사·원격 CI·독립 검수·Astra Ultra 최종 검수':'개발·검사 결과 수집과 같은 후보 검수'}</p></section><section><h3>차단</h3><p>${!started?'아직 실행하지 않음':done?'자동 진행 없음':state.scenario==='failure'?'자동 재시도 상한에 도달':state.scenario==='quota'?'모든 적격 후보 한도 대기':checks?'없음 · 통합 검수 중':transferred()?'없음 · 이관 후 두 역할 진행':isNew()&&state.flow.playback==='parallel'?'없음 · 두 역할 진행':'개발 계정 한도 대기'}</p></section><section><h3>내 결정</h3><p>${r?decision?`예시 ${decisionLabels[decision.choice]} · 원래 요청 pending`:'후보 검토 1건':'이 실행의 후보 요청 없음'}</p><button data-stage="approval">승인 보기</button></section></div><hr class="divider"><p class="meta">PM 작성 · 예시 설명</p><p>${done?'목표를 충족했는지 근거를 확인해 주세요. 검수 통과가 배포 승인을 대신하지 않습니다.':checks?'두 역할의 결과를 같은 후보로 모았습니다. 검사와 검수를 마친 뒤 후보 검토를 요청합니다.':'독립적으로 할 수 있는 일은 계속합니다. 기다리는 업무는 범위와 예산을 유지합니다.'}</p><details><summary>원문</summary><p>처음부터 한국어로 작성한 고정 예시입니다. 번역이나 실제 PM의 결과가 아닙니다.</p></details>${binding()}`;
 }
 function render(){
  const before=document.activeElement;
@@ -142,7 +145,7 @@ function draw(){
  $('#app').innerHTML=banner()+(state.layout==='journey'?`${head()}${nav()}<div class="journey-body"><main id="main" class="content" tabindex="-1">${runPicker()}${body}</main>${rail()}</div>`:`<div class="overview-shell"><aside>${head()}${nav()}</aside><div><section class="overview-next"><div><div class="next-label">지금</div><div class="next">${n[0]}</div><p>${n[1]}</p></div><button data-stage="${n[2]}">${n[3]}</button></section><div class="overview-board"><main id="main" class="content" tabindex="-1">${runPicker()}${body}</main>${rail()}</div></div></div>`);
 }
 function showTask(id){const t=tasks().find(t=>t.id===id);if(!t)return;
-let extra=id===runId()+'-task-integration'?`<h3>검수 단계</h3><ol class="plain-list"><li>격리 검사 · ${complete()?'예시 통과':isNew()&&state.flow.playback==='checks'?'예시 검수 중':'아직 시작 전'}</li><li>원격 CI · ${complete()?'예시 통과':isNew()&&state.flow.playback==='checks'?'예시 검수 중':'아직 시작 전'}</li><li>독립 검수 · ${complete()?'예시 통과':isNew()&&state.flow.playback==='checks'?'예시 검수 중':'아직 시작 전'}</li><li>Astra Ultra 최종 검수 · ${complete()?'예시 통과':isNew()&&state.flow.playback==='checks'?'예시 검수 중':'아직 시작 전'}</li></ol><p>위 단계는 같은 통합 업무에 속합니다. 예시 성공은 실제 모델·CI 증거가 아닙니다.</p>`:`<dl><dt>역할</dt><dd>${esc(t.role)}</dd><dt>요청 모델</dt><dd>${esc(t.model)} · ${t.model==='Astra'?'High':'후보 기본값'}</dd><dt>관측 설정</dt><dd>미확인 · 모델의 자기 설명으로 확인하지 않음</dd></dl>`;
+let extra=id===runId()+'-task-integration'?`<h3>검수 단계</h3><ol class="plain-list"><li>격리 검사 · ${complete()?'예시 통과':isNew()&&state.flow.playback==='checks'?`예시 ${t.status}`:'아직 시작 전'}</li><li>원격 CI · ${complete()?'예시 통과':isNew()&&state.flow.playback==='checks'?`예시 ${t.status}`:'아직 시작 전'}</li><li>독립 검수 · ${complete()?'예시 통과':isNew()&&state.flow.playback==='checks'?`예시 ${t.status}`:'아직 시작 전'}</li><li>Astra Ultra 최종 검수 · ${complete()?'예시 통과':isNew()&&state.flow.playback==='checks'?`예시 ${t.status}`:'아직 시작 전'}</li></ol><p>위 단계는 같은 통합 업무에 속합니다. 예시 성공은 실제 모델·CI 증거가 아닙니다.</p>`:`<dl><dt>역할</dt><dd>${esc(t.role)}</dd><dt>요청 모델</dt><dd>${esc(t.model)} · ${t.model==='Astra'?'High':'후보 기본값'}</dd><dt>관측 설정</dt><dd>미확인 · 모델의 자기 설명으로 확인하지 않음</dd></dl>`;
 open(t.title,`<span class="status ${t.kind}">${t.status}</span><p>${t.reason}</p><p class="subtle">업무 ${t.id} · ${runId()}</p>${extra}${id===runId()+'-task-screen'?`<details ${transferred()?'open':''}><summary>담당 이력</summary><p>${transferred()?'Astra → Claude · 예시 10:20 · 계정 한도 대기 후 이관. 같은 업무 ID, 새 담당 실행.':'Astra 배정 · 이관 기록 없음'}</p><p>구체적 이관 이유는 기록으로 확인해야 합니다. 공유 한도·누적 사용량을 초기화하지 않습니다.</p></details>${!oldRun()&&!transferred()&&(!isNew()||state.flow.playback==='waiting')&&!['quota','failure'].includes(state.scenario)?`<button data-action="handoff" ${offline()}>이관 예시 보기</button>`:''}`:''}${complete()||isNew()&&state.flow.playback==='checks'?`<h3>전달물</h3><p>예시 후보 <code>${candidateId()}</code>에 연결된 결과입니다.</p><button data-action="artifact">전달 근거</button>`:'<p class="subtle">아직 결과 전달 기록이 없습니다. 예정 관계를 실제 전달로 표시하지 않습니다.</p>'}`);
 }
 function organize(retry=false){
@@ -159,7 +162,7 @@ function action(name){
  if(name==='use-example'){
   if(state.confirmed)return;
   state.draft.example=true;state.draft.goal=exampleGoal;
-  if($('#new-form')){$('#goal').value=exampleGoal;if(!$('#name').value){state.draft.name='나의 로그인 체험';$('#name').value=state.draft.name;}save();notify('고정 로그인 예시 목표를 선택했습니다.');return;}
+  if($('#detail').open&&$('#detail #new-form')){$('#goal').value=exampleGoal;if(!$('#name').value){state.draft.name='나의 로그인 체험';$('#name').value=state.draft.name;}save();notify('고정 로그인 예시 목표를 선택했습니다.');return;}
   if(!isNew()||!state.created)return;
   state.created={...state.created,originalGoal:state.created.originalGoal||state.created.goal,goal:exampleGoal,example:true};
  }
