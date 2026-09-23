@@ -1,5 +1,8 @@
 # 순서형 작업실 통합 검증
 
+> 후속 검수 안내: 아래는 `dbd868b` 제출 당시 기록이다. PR #23의 `eb2e6a8`에서 R25-1·R25-2가 발견되어 당시 ‘차단 없음/E 완료’ 판정은 보완 대상으로 전환됐다. 최신 수정·재검수·새 후보는 [R25 후속 검증](journey-r25-validation-2026-09-24.md)을 따른다. 이전 실패/성공과 패키지는 이력으로 보존한다.
+
+
 2026-09-24 KST. [초안 PR #25](https://github.com/HyungwonPark/ai-company/pull/25). **비운영 제품 연결·검수·패키징 작업이다.** 운영 배포·병합·PR #10 결정·서명키 작업은 수행하지 않는다.
 
 기준 명세는 PR #23 `1d3b25ec41f9558a19a8d8a55fdb1f6682cc960a`의 [야간 지시](https://github.com/HyungwonPark/ai-company/blob/1d3b25ec41f9558a19a8d8a55fdb1f6682cc960a/docs/work-reviews/overnight-journey-integration-2026-09-24.md), 연결 계획은 PR #24 `75227480d27d3eb1cd57fa43a07a0ab986be3eb5`다. PR #25는 PR #24 위에 쌓은 별도 브랜치 `feat/journey-product-integration`이다. 기존 PR #21/22/24와 별도 작업 공간을 보존했다.
@@ -18,7 +21,7 @@
 | ZIP SHA-256 | `10467c136710cdbc135bf0c465b0b7467798af97de186a30d41f2a608d238b44` |
 | HTML SHA-256 | `f00fd8a37e30f9c90221e0b0b327b2c6e024ff2c544670f4f9dfcffdb98141ff` |
 
-[미리보기 ZIP](../previews/journey/AI-Company-journey-preview.zip) · [열기 안내·확인법](../previews/journey/README.md) · [파일 해시](../previews/journey/SHA256SUMS) · [기계 판독 후보 기록](../evidence/journey-integration/candidate.json).
+[미리보기 ZIP](https://raw.githubusercontent.com/HyungwonPark/ai-company/dbd868b1611ef374e9169c2254590d69d745b2dd/docs/previews/journey/AI-Company-journey-preview.zip) · [열기 안내·확인법](https://github.com/HyungwonPark/ai-company/blob/dbd868b1611ef374e9169c2254590d69d745b2dd/docs/previews/journey/README.md) · [파일 해시](https://github.com/HyungwonPark/ai-company/blob/dbd868b1611ef374e9169c2254590d69d745b2dd/docs/previews/journey/SHA256SUMS) · [기계 판독 후보 기록](../evidence/journey-integration/candidate.json).
 
 제품 `d46136d` 이후 이 문서·선별 증거·ZIP을 게시하는 커밋은 기록 전용이다. 마지막 운영 기록 `2087ecc` 대비 제품 변경은 웹의 10개 JS/CSS 파일뿐이며, 웹 밖 `src`·`android`·`deploy`·`pyproject.toml`·`uv.lock` 차이는 없다. worker·DB·카탈로그 교체가 필요 없는 후보임을 코드 대조로 확인했다. 현재 운영 상태를 재조회한 주장은 아니다.
 

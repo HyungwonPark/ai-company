@@ -1,0 +1,146 @@
+{
+  "status": "PASS; nonproduction only",
+  "product_commit": "14114a71584c65c6dbbd0b33a1a26c7246d1e1ad",
+  "validation_commit": "14114a71584c65c6dbbd0b33a1a26c7246d1e1ad",
+  "product_tree": "c24314249fa3d2bc2625620bd9454ecb4ecb5cbd",
+  "ci_checkout_commit": "82c794cd2d511950377a3caef71670e55877dc56",
+  "pull_request": "https://github.com/HyungwonPark/ai-company/pull/25",
+  "image": {
+    "anonymous_api": 401,
+    "api_and_worker_code": "verified by source manifest; no worker/model invocation",
+    "assets": {
+      "/": "54a3627b50e9ddebfada6033961787a0dc57ef264320b991f2ef3a9b28c8dc6e",
+      "/app.js": "f048a9d5f5826ccb8c40868e81256c3a652c0f3e62c3ac41196f1c7e563a0450",
+      "/report-ui.js": "1a7667777b931d2f30900bdb4ae8821ceaebdaa9da10f983083ac4bb0d5bdaaa",
+      "/sw.js": "5037b773be28b001c87d3bafc85d60c42edfc6684d4fbe1cb1cefb14a1dda615",
+      "/workspace-graph-ui.js": "2706d60422eb9b1de99239762f9004afd2cd70ec80603f3ec225ee8f91a762eb"
+    },
+    "foreign_host": 403,
+    "installed_source_files": 113,
+    "isolation": {
+      "network": "none; loopback HTTP only",
+      "production_mounts": false,
+      "root_read_only": true,
+      "state": "temporary tmpfs",
+      "uid": 65532
+    },
+    "limitations": [
+      "not production health",
+      "not physical APK",
+      "not actual model execution"
+    ],
+    "source_manifest_sha256": "be595339189b847266015696461c933ca4ca23dbbcf162e12aeff603024bf26b",
+    "status": "PASS",
+    "product_commit": "14114a71584c65c6dbbd0b33a1a26c7246d1e1ad",
+    "image_id": "sha256:8005ce1fa85a458d17bdf159a0af2774801a9a19b4c14adecff147b1f059ae01",
+    "architecture": "arm64",
+    "image_id_scope": "local Docker image ID; not a registry pull reference"
+  },
+  "preview": {
+    "zip_sha256": "4d3916a4564b99a7dd9d1fe40f9664501cc1e058a72c4d2abd22ac1bd9e52812",
+    "html_sha256": "606e68539fead877274cd16173f62311614dde87bcfb5413664fb9f7141a4417",
+    "fixture_sha256": "e84cad2748e99067635252184e8e04b3615b5f5eec175de87ad00bde95810d8c",
+    "source_files_matched": 28
+  },
+  "ci": [
+    {
+      "conclusion": "skipped",
+      "databaseId": 35933619125,
+      "headSha": "14114a71584c65c6dbbd0b33a1a26c7246d1e1ad",
+      "name": "Automation evidence",
+      "status": "completed",
+      "url": "https://github.com/HyungwonPark/ai-company/actions/runs/35933619125"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 35933619222,
+      "headSha": "14114a71584c65c6dbbd0b33a1a26c7246d1e1ad",
+      "name": "CI",
+      "status": "completed",
+      "url": "https://github.com/HyungwonPark/ai-company/actions/runs/35933619222"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 35933619143,
+      "headSha": "14114a71584c65c6dbbd0b33a1a26c7246d1e1ad",
+      "name": "Journey UI",
+      "status": "completed",
+      "url": "https://github.com/HyungwonPark/ai-company/actions/runs/35933619143"
+    },
+    {
+      "conclusion": "success",
+      "databaseId": 35933619242,
+      "headSha": "14114a71584c65c6dbbd0b33a1a26c7246d1e1ad",
+      "name": "Console UI",
+      "status": "completed",
+      "url": "https://github.com/HyungwonPark/ai-company/actions/runs/35933619242"
+    }
+  ],
+  "journey_provenance": {
+    "id": 35933619143,
+    "head_sha": "14114a71584c65c6dbbd0b33a1a26c7246d1e1ad",
+    "run_attempt": 1,
+    "workflow_id": 365380671,
+    "path": ".github/workflows/journey.yml",
+    "event": "pull_request",
+    "check_suite_id": 97304937274,
+    "conclusion": "success",
+    "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/35933619143"
+  },
+  "artifact": {
+    "id": 10782426365,
+    "name": "journey-evidence",
+    "digest": "sha256:5ee2e56ea0035dca04e3310dca1345b5420f8f61ad62ea63a14431dabc67b736",
+    "size_in_bytes": 15282260,
+    "expired": false,
+    "workflow_run": {
+      "id": 35933619143,
+      "repository_id": 1367833163,
+      "head_repository_id": 1367833163,
+      "head_branch": "feat/journey-product-integration",
+      "head_sha": "14114a71584c65c6dbbd0b33a1a26c7246d1e1ad"
+    }
+  },
+  "limitations": [
+    "No operational deployment or merge; PR10 and signing keys untouched",
+    "No physical APK or actual model execution",
+    "Old v8 unauthenticated login password resets on offline render; separately recorded, not a work-draft preservation claim"
+  ],
+  "console_artifacts": [
+    {
+      "id": 10782710259,
+      "name": "workspace-preview",
+      "digest": "sha256:0b4750f204069514e39d1f1372ff5aafa50fadb7fa13ddfe01253a2a5e21e7fc",
+      "size_in_bytes": 66166,
+      "workflow_run": {
+        "id": 35933619242,
+        "repository_id": 1367833163,
+        "head_repository_id": 1367833163,
+        "head_branch": "feat/journey-product-integration",
+        "head_sha": "14114a71584c65c6dbbd0b33a1a26c7246d1e1ad"
+      }
+    },
+    {
+      "id": 10781774505,
+      "name": "console-screenshots",
+      "digest": "sha256:9777e7f2f688a1f715c4ec6d751c4d8ea601bb19748d225d0b8e9f86961d97b6",
+      "size_in_bytes": 38477123,
+      "workflow_run": {
+        "id": 35933619242,
+        "repository_id": 1367833163,
+        "head_repository_id": 1367833163,
+        "head_branch": "feat/journey-product-integration",
+        "head_sha": "14114a71584c65c6dbbd0b33a1a26c7246d1e1ad"
+      }
+    }
+  ],
+  "python": {
+    "versions": [
+      "3.11",
+      "3.12"
+    ],
+    "tests_each": 467,
+    "skipped_each": 3,
+    "android_preparation_tests_each": 4
+  }
+}

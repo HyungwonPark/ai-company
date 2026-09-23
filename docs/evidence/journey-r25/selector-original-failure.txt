@@ -1,0 +1,15 @@
+실행 1 · 예약 대기
+node:internal/modules/run_main:122
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: no resume_at is not evidence of scheduled retry
+    at [private temp]/r25-selector-projection.mjs:11:69 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: '실행 1 · 예약 대기',
+  expected: /예약/,
+  operator: 'doesNotMatch'
+}
+
+Node.js v22.13.0

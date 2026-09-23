@@ -1,0 +1,138 @@
+{
+  "status": "PASS",
+  "browser": "152.0.7977.82",
+  "sandbox": true,
+  "source": "actual temporary API and SQLite; PM/translation/candidate facts injected locally; no model, operational master, operational approval or worker execution",
+  "project_id": "d8c1ecfbdfeb45bda5b3ab43a32afab0",
+  "run_id": "350ccce24dd84153b086ab9baaf8eb5a",
+  "plan_id": "347bce8ca5094910a20e4f16af7fdcc6",
+  "plan_digest": "695ae6e0ec7710617c5f68985e6f6200156b4feb5ef1bcbfeac29f0f2eee8d96",
+  "execution_spec_digest": "475ab4e7d20339b38b136de76b5e01ab30075a41ca5727d7746409b54024f34d",
+  "checks": [
+    "natural name/goal creates one project and one pending PM request; concurrent same-intent creation creates no duplicates or execution",
+    "real catalog registration stays separate from a fresh PM request and confirmation; held successful PM request preserves a same-project manager snapshot chosen with browser Back; duplicate saves keep one immutable version; obsolete proposal rejected",
+    "specification and plan review: Light/Black × 320/390/1440, keyboard opening/focus/acknowledgment, Korean 16px body, 200% equivalent CSS viewport reflow (not physical-device zoom)",
+    "real translated/original review toggle resets acknowledgment; direct click confirms exact original digest/spec/translation; concurrent identical confirmations retain one run",
+    "conversation revision while a real review is open rejects stale confirmation without another run",
+    "candidate review: same subject/candidate through Light/Black × 320/390/1440 and modal keyboard focus; merely opening never decides",
+    "actual candidate decision preserves original digest and idempotent replay; expired candidate is disabled and refused by server",
+    "injected 503 leaves draft and DB unchanged; a real message with lost response remains one delivery, retains original draft through polling/reload and is not automatically resent",
+    "held real project creation response after same-project browser back starts the new current PM, with no inherited run or snapshot",
+    "foreign project plan/approval, missing CSRF, foreign Origin and absent login fail; foreign run is not displayed; rejected requests add no PM work",
+    "a second actual confirmation is saved exactly once while its held response preserves the previous run/snapshot chosen by browser Back on the same project and manager view"
+  ],
+  "write_paths": [
+    {
+      "path": "/api/login",
+      "method": "POST"
+    },
+    {
+      "path": "/api/password",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/execution-specs",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/execution-specs",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/execution-specs",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/plans/60266507a98d4173aa608fae0bfb7dcf/confirm",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/messages",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/plans/347bce8ca5094910a20e4f16af7fdcc6/confirm",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/plans/347bce8ca5094910a20e4f16af7fdcc6/confirm",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/plans/347bce8ca5094910a20e4f16af7fdcc6/confirm",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/messages",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/messages",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/plans/5e865f19ce24421c96060fbf96fec162/confirm",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/approvals/ebe4348bcfe94f0799c2a6ae59e7dc34/decisions",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/approvals/ebe4348bcfe94f0799c2a6ae59e7dc34/decisions",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/approvals/91aafeaacad24a44a89f9306461a6bd6/decisions",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/approvals/91aafeaacad24a44a89f9306461a6bd6/decisions",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/messages",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/messages",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/562c02196f1c4d43bc718f72e8d8838c/plans/347bce8ca5094910a20e4f16af7fdcc6/confirm",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/562c02196f1c4d43bc718f72e8d8838c/approvals/ebe4348bcfe94f0799c2a6ae59e7dc34/decisions",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/562c02196f1c4d43bc718f72e8d8838c/messages",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/messages",
+      "method": "POST"
+    },
+    {
+      "path": "/api/projects/d8c1ecfbdfeb45bda5b3ab43a32afab0/plans/6c309644256e40fb9a1668ae9db76976/confirm",
+      "method": "POST"
+    }
+  ]
+}

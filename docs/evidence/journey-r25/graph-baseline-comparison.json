@@ -1,0 +1,404 @@
+{
+  "status": "PASS",
+  "baseline": "75227480d27d3eb1cd57fa43a07a0ab986be3eb5",
+  "css_baseline": "75227480d27d3eb1cd57fa43a07a0ab986be3eb5",
+  "source": "sanitized offline fixture; no model or production calls",
+  "records": [
+    {
+      "version": "before",
+      "run": "recent",
+      "theme": "light",
+      "width": 320,
+      "ids": [
+        "graph:ba9a2d14041cdcc6a0fd5e93:05c0903d2df751c5bb81dd0f125169264c233ec49fa40a2dcca1eb8955d00747",
+        "graph:ba9a2d14041cdcc6a0fd5e93:11873323ce8d6c67e8e1d5edab5441de38937fadd37ea13b751b877dcfc66f93",
+        "graph:ba9a2d14041cdcc6a0fd5e93:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0",
+        "graph:ba9a2d14041cdcc6a0fd5e93:81ef0d53e427640bd31bee9cec1d80f284966113555cc3ebfc17a1231b02d2be",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a1c788a0e3511190410951882b51430b9aafd67ca0efdae006220ed9536a2573",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a45dddbff89556e09f87445484e191fcae68c89fd1ac172e39f198ab61629395",
+        "graph:ba9a2d14041cdcc6a0fd5e93:aa0895df263c86fdf6b36339b2519320990bc2f41024558fdd604f64b3d95f84",
+        "graph:ba9a2d14041cdcc6a0fd5e93:b843a49068f60653fff67069a87996b60fc534207d74fd762649896c247b9180",
+        "graph:ba9a2d14041cdcc6a0fd5e93:e1e14ccc119e167b2b3e293f1576ec8724dd8b79a9c1e228e0170c1729395e6a"
+      ]
+    },
+    {
+      "version": "after",
+      "run": "recent",
+      "theme": "light",
+      "width": 320,
+      "ids": [
+        "graph:ba9a2d14041cdcc6a0fd5e93:05c0903d2df751c5bb81dd0f125169264c233ec49fa40a2dcca1eb8955d00747",
+        "graph:ba9a2d14041cdcc6a0fd5e93:11873323ce8d6c67e8e1d5edab5441de38937fadd37ea13b751b877dcfc66f93",
+        "graph:ba9a2d14041cdcc6a0fd5e93:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0",
+        "graph:ba9a2d14041cdcc6a0fd5e93:81ef0d53e427640bd31bee9cec1d80f284966113555cc3ebfc17a1231b02d2be",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a1c788a0e3511190410951882b51430b9aafd67ca0efdae006220ed9536a2573",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a45dddbff89556e09f87445484e191fcae68c89fd1ac172e39f198ab61629395",
+        "graph:ba9a2d14041cdcc6a0fd5e93:aa0895df263c86fdf6b36339b2519320990bc2f41024558fdd604f64b3d95f84",
+        "graph:ba9a2d14041cdcc6a0fd5e93:b843a49068f60653fff67069a87996b60fc534207d74fd762649896c247b9180",
+        "graph:ba9a2d14041cdcc6a0fd5e93:e1e14ccc119e167b2b3e293f1576ec8724dd8b79a9c1e228e0170c1729395e6a"
+      ]
+    },
+    {
+      "version": "before",
+      "run": "previous",
+      "theme": "light",
+      "width": 320,
+      "ids": [
+        "graph:1e935550de693db453f32950:3a36a2d77bcca56f38a58405de228ff9af7f4ae2ae955a0b5b92c0329e0dc100",
+        "graph:1e935550de693db453f32950:7dedb212a2f3e739775e1e1e8fc26199ffb5f7ac1b7786cea336ce1bd412d884",
+        "graph:1e935550de693db453f32950:9622f1423f5a78de4c0827c20d8877accde6d1cc1d01eb1275e0a9eeeb6b8ad2",
+        "graph:1e935550de693db453f32950:a45f3e7fab292469a6dce1ff22e575bfa4c9c99af3e3babe9cd95b048e4e38f9",
+        "graph:1e935550de693db453f32950:ad5fe99055f530ba3168a8bd8e8ab2a32a62531fc5169d8b6d8ea7d6b6c66110",
+        "graph:1e935550de693db453f32950:c6b3c55f2a61e762387b4888e3a4f0a668f7353d5e7b3c7f1774473d57625435",
+        "graph:1e935550de693db453f32950:df6ba58c90cb0a270562685813610a0d513da57385e0d7e8c70b9bec2a4e4aa7",
+        "graph:1e935550de693db453f32950:f649e31777a11158171b51b3671a82a730df119ab1d29501137bb0469d9e9492"
+      ]
+    },
+    {
+      "version": "after",
+      "run": "previous",
+      "theme": "light",
+      "width": 320,
+      "ids": [
+        "graph:1e935550de693db453f32950:3a36a2d77bcca56f38a58405de228ff9af7f4ae2ae955a0b5b92c0329e0dc100",
+        "graph:1e935550de693db453f32950:7dedb212a2f3e739775e1e1e8fc26199ffb5f7ac1b7786cea336ce1bd412d884",
+        "graph:1e935550de693db453f32950:9622f1423f5a78de4c0827c20d8877accde6d1cc1d01eb1275e0a9eeeb6b8ad2",
+        "graph:1e935550de693db453f32950:a45f3e7fab292469a6dce1ff22e575bfa4c9c99af3e3babe9cd95b048e4e38f9",
+        "graph:1e935550de693db453f32950:ad5fe99055f530ba3168a8bd8e8ab2a32a62531fc5169d8b6d8ea7d6b6c66110",
+        "graph:1e935550de693db453f32950:c6b3c55f2a61e762387b4888e3a4f0a668f7353d5e7b3c7f1774473d57625435",
+        "graph:1e935550de693db453f32950:df6ba58c90cb0a270562685813610a0d513da57385e0d7e8c70b9bec2a4e4aa7",
+        "graph:1e935550de693db453f32950:f649e31777a11158171b51b3671a82a730df119ab1d29501137bb0469d9e9492"
+      ]
+    },
+    {
+      "version": "before",
+      "run": "recent",
+      "theme": "light",
+      "width": 390,
+      "ids": [
+        "graph:ba9a2d14041cdcc6a0fd5e93:05c0903d2df751c5bb81dd0f125169264c233ec49fa40a2dcca1eb8955d00747",
+        "graph:ba9a2d14041cdcc6a0fd5e93:11873323ce8d6c67e8e1d5edab5441de38937fadd37ea13b751b877dcfc66f93",
+        "graph:ba9a2d14041cdcc6a0fd5e93:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0",
+        "graph:ba9a2d14041cdcc6a0fd5e93:81ef0d53e427640bd31bee9cec1d80f284966113555cc3ebfc17a1231b02d2be",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a1c788a0e3511190410951882b51430b9aafd67ca0efdae006220ed9536a2573",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a45dddbff89556e09f87445484e191fcae68c89fd1ac172e39f198ab61629395",
+        "graph:ba9a2d14041cdcc6a0fd5e93:aa0895df263c86fdf6b36339b2519320990bc2f41024558fdd604f64b3d95f84",
+        "graph:ba9a2d14041cdcc6a0fd5e93:b843a49068f60653fff67069a87996b60fc534207d74fd762649896c247b9180",
+        "graph:ba9a2d14041cdcc6a0fd5e93:e1e14ccc119e167b2b3e293f1576ec8724dd8b79a9c1e228e0170c1729395e6a"
+      ]
+    },
+    {
+      "version": "after",
+      "run": "recent",
+      "theme": "light",
+      "width": 390,
+      "ids": [
+        "graph:ba9a2d14041cdcc6a0fd5e93:05c0903d2df751c5bb81dd0f125169264c233ec49fa40a2dcca1eb8955d00747",
+        "graph:ba9a2d14041cdcc6a0fd5e93:11873323ce8d6c67e8e1d5edab5441de38937fadd37ea13b751b877dcfc66f93",
+        "graph:ba9a2d14041cdcc6a0fd5e93:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0",
+        "graph:ba9a2d14041cdcc6a0fd5e93:81ef0d53e427640bd31bee9cec1d80f284966113555cc3ebfc17a1231b02d2be",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a1c788a0e3511190410951882b51430b9aafd67ca0efdae006220ed9536a2573",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a45dddbff89556e09f87445484e191fcae68c89fd1ac172e39f198ab61629395",
+        "graph:ba9a2d14041cdcc6a0fd5e93:aa0895df263c86fdf6b36339b2519320990bc2f41024558fdd604f64b3d95f84",
+        "graph:ba9a2d14041cdcc6a0fd5e93:b843a49068f60653fff67069a87996b60fc534207d74fd762649896c247b9180",
+        "graph:ba9a2d14041cdcc6a0fd5e93:e1e14ccc119e167b2b3e293f1576ec8724dd8b79a9c1e228e0170c1729395e6a"
+      ]
+    },
+    {
+      "version": "before",
+      "run": "previous",
+      "theme": "light",
+      "width": 390,
+      "ids": [
+        "graph:1e935550de693db453f32950:3a36a2d77bcca56f38a58405de228ff9af7f4ae2ae955a0b5b92c0329e0dc100",
+        "graph:1e935550de693db453f32950:7dedb212a2f3e739775e1e1e8fc26199ffb5f7ac1b7786cea336ce1bd412d884",
+        "graph:1e935550de693db453f32950:9622f1423f5a78de4c0827c20d8877accde6d1cc1d01eb1275e0a9eeeb6b8ad2",
+        "graph:1e935550de693db453f32950:a45f3e7fab292469a6dce1ff22e575bfa4c9c99af3e3babe9cd95b048e4e38f9",
+        "graph:1e935550de693db453f32950:ad5fe99055f530ba3168a8bd8e8ab2a32a62531fc5169d8b6d8ea7d6b6c66110",
+        "graph:1e935550de693db453f32950:c6b3c55f2a61e762387b4888e3a4f0a668f7353d5e7b3c7f1774473d57625435",
+        "graph:1e935550de693db453f32950:df6ba58c90cb0a270562685813610a0d513da57385e0d7e8c70b9bec2a4e4aa7",
+        "graph:1e935550de693db453f32950:f649e31777a11158171b51b3671a82a730df119ab1d29501137bb0469d9e9492"
+      ]
+    },
+    {
+      "version": "after",
+      "run": "previous",
+      "theme": "light",
+      "width": 390,
+      "ids": [
+        "graph:1e935550de693db453f32950:3a36a2d77bcca56f38a58405de228ff9af7f4ae2ae955a0b5b92c0329e0dc100",
+        "graph:1e935550de693db453f32950:7dedb212a2f3e739775e1e1e8fc26199ffb5f7ac1b7786cea336ce1bd412d884",
+        "graph:1e935550de693db453f32950:9622f1423f5a78de4c0827c20d8877accde6d1cc1d01eb1275e0a9eeeb6b8ad2",
+        "graph:1e935550de693db453f32950:a45f3e7fab292469a6dce1ff22e575bfa4c9c99af3e3babe9cd95b048e4e38f9",
+        "graph:1e935550de693db453f32950:ad5fe99055f530ba3168a8bd8e8ab2a32a62531fc5169d8b6d8ea7d6b6c66110",
+        "graph:1e935550de693db453f32950:c6b3c55f2a61e762387b4888e3a4f0a668f7353d5e7b3c7f1774473d57625435",
+        "graph:1e935550de693db453f32950:df6ba58c90cb0a270562685813610a0d513da57385e0d7e8c70b9bec2a4e4aa7",
+        "graph:1e935550de693db453f32950:f649e31777a11158171b51b3671a82a730df119ab1d29501137bb0469d9e9492"
+      ]
+    },
+    {
+      "version": "before",
+      "run": "recent",
+      "theme": "light",
+      "width": 1440,
+      "ids": [
+        "graph:ba9a2d14041cdcc6a0fd5e93:05c0903d2df751c5bb81dd0f125169264c233ec49fa40a2dcca1eb8955d00747",
+        "graph:ba9a2d14041cdcc6a0fd5e93:11873323ce8d6c67e8e1d5edab5441de38937fadd37ea13b751b877dcfc66f93",
+        "graph:ba9a2d14041cdcc6a0fd5e93:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0",
+        "graph:ba9a2d14041cdcc6a0fd5e93:81ef0d53e427640bd31bee9cec1d80f284966113555cc3ebfc17a1231b02d2be",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a1c788a0e3511190410951882b51430b9aafd67ca0efdae006220ed9536a2573",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a45dddbff89556e09f87445484e191fcae68c89fd1ac172e39f198ab61629395",
+        "graph:ba9a2d14041cdcc6a0fd5e93:aa0895df263c86fdf6b36339b2519320990bc2f41024558fdd604f64b3d95f84",
+        "graph:ba9a2d14041cdcc6a0fd5e93:b843a49068f60653fff67069a87996b60fc534207d74fd762649896c247b9180",
+        "graph:ba9a2d14041cdcc6a0fd5e93:e1e14ccc119e167b2b3e293f1576ec8724dd8b79a9c1e228e0170c1729395e6a"
+      ]
+    },
+    {
+      "version": "after",
+      "run": "recent",
+      "theme": "light",
+      "width": 1440,
+      "ids": [
+        "graph:ba9a2d14041cdcc6a0fd5e93:05c0903d2df751c5bb81dd0f125169264c233ec49fa40a2dcca1eb8955d00747",
+        "graph:ba9a2d14041cdcc6a0fd5e93:11873323ce8d6c67e8e1d5edab5441de38937fadd37ea13b751b877dcfc66f93",
+        "graph:ba9a2d14041cdcc6a0fd5e93:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0",
+        "graph:ba9a2d14041cdcc6a0fd5e93:81ef0d53e427640bd31bee9cec1d80f284966113555cc3ebfc17a1231b02d2be",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a1c788a0e3511190410951882b51430b9aafd67ca0efdae006220ed9536a2573",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a45dddbff89556e09f87445484e191fcae68c89fd1ac172e39f198ab61629395",
+        "graph:ba9a2d14041cdcc6a0fd5e93:aa0895df263c86fdf6b36339b2519320990bc2f41024558fdd604f64b3d95f84",
+        "graph:ba9a2d14041cdcc6a0fd5e93:b843a49068f60653fff67069a87996b60fc534207d74fd762649896c247b9180",
+        "graph:ba9a2d14041cdcc6a0fd5e93:e1e14ccc119e167b2b3e293f1576ec8724dd8b79a9c1e228e0170c1729395e6a"
+      ]
+    },
+    {
+      "version": "before",
+      "run": "previous",
+      "theme": "light",
+      "width": 1440,
+      "ids": [
+        "graph:1e935550de693db453f32950:3a36a2d77bcca56f38a58405de228ff9af7f4ae2ae955a0b5b92c0329e0dc100",
+        "graph:1e935550de693db453f32950:7dedb212a2f3e739775e1e1e8fc26199ffb5f7ac1b7786cea336ce1bd412d884",
+        "graph:1e935550de693db453f32950:9622f1423f5a78de4c0827c20d8877accde6d1cc1d01eb1275e0a9eeeb6b8ad2",
+        "graph:1e935550de693db453f32950:a45f3e7fab292469a6dce1ff22e575bfa4c9c99af3e3babe9cd95b048e4e38f9",
+        "graph:1e935550de693db453f32950:ad5fe99055f530ba3168a8bd8e8ab2a32a62531fc5169d8b6d8ea7d6b6c66110",
+        "graph:1e935550de693db453f32950:c6b3c55f2a61e762387b4888e3a4f0a668f7353d5e7b3c7f1774473d57625435",
+        "graph:1e935550de693db453f32950:df6ba58c90cb0a270562685813610a0d513da57385e0d7e8c70b9bec2a4e4aa7",
+        "graph:1e935550de693db453f32950:f649e31777a11158171b51b3671a82a730df119ab1d29501137bb0469d9e9492"
+      ]
+    },
+    {
+      "version": "after",
+      "run": "previous",
+      "theme": "light",
+      "width": 1440,
+      "ids": [
+        "graph:1e935550de693db453f32950:3a36a2d77bcca56f38a58405de228ff9af7f4ae2ae955a0b5b92c0329e0dc100",
+        "graph:1e935550de693db453f32950:7dedb212a2f3e739775e1e1e8fc26199ffb5f7ac1b7786cea336ce1bd412d884",
+        "graph:1e935550de693db453f32950:9622f1423f5a78de4c0827c20d8877accde6d1cc1d01eb1275e0a9eeeb6b8ad2",
+        "graph:1e935550de693db453f32950:a45f3e7fab292469a6dce1ff22e575bfa4c9c99af3e3babe9cd95b048e4e38f9",
+        "graph:1e935550de693db453f32950:ad5fe99055f530ba3168a8bd8e8ab2a32a62531fc5169d8b6d8ea7d6b6c66110",
+        "graph:1e935550de693db453f32950:c6b3c55f2a61e762387b4888e3a4f0a668f7353d5e7b3c7f1774473d57625435",
+        "graph:1e935550de693db453f32950:df6ba58c90cb0a270562685813610a0d513da57385e0d7e8c70b9bec2a4e4aa7",
+        "graph:1e935550de693db453f32950:f649e31777a11158171b51b3671a82a730df119ab1d29501137bb0469d9e9492"
+      ]
+    },
+    {
+      "version": "before",
+      "run": "recent",
+      "theme": "black",
+      "width": 320,
+      "ids": [
+        "graph:ba9a2d14041cdcc6a0fd5e93:05c0903d2df751c5bb81dd0f125169264c233ec49fa40a2dcca1eb8955d00747",
+        "graph:ba9a2d14041cdcc6a0fd5e93:11873323ce8d6c67e8e1d5edab5441de38937fadd37ea13b751b877dcfc66f93",
+        "graph:ba9a2d14041cdcc6a0fd5e93:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0",
+        "graph:ba9a2d14041cdcc6a0fd5e93:81ef0d53e427640bd31bee9cec1d80f284966113555cc3ebfc17a1231b02d2be",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a1c788a0e3511190410951882b51430b9aafd67ca0efdae006220ed9536a2573",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a45dddbff89556e09f87445484e191fcae68c89fd1ac172e39f198ab61629395",
+        "graph:ba9a2d14041cdcc6a0fd5e93:aa0895df263c86fdf6b36339b2519320990bc2f41024558fdd604f64b3d95f84",
+        "graph:ba9a2d14041cdcc6a0fd5e93:b843a49068f60653fff67069a87996b60fc534207d74fd762649896c247b9180",
+        "graph:ba9a2d14041cdcc6a0fd5e93:e1e14ccc119e167b2b3e293f1576ec8724dd8b79a9c1e228e0170c1729395e6a"
+      ]
+    },
+    {
+      "version": "after",
+      "run": "recent",
+      "theme": "black",
+      "width": 320,
+      "ids": [
+        "graph:ba9a2d14041cdcc6a0fd5e93:05c0903d2df751c5bb81dd0f125169264c233ec49fa40a2dcca1eb8955d00747",
+        "graph:ba9a2d14041cdcc6a0fd5e93:11873323ce8d6c67e8e1d5edab5441de38937fadd37ea13b751b877dcfc66f93",
+        "graph:ba9a2d14041cdcc6a0fd5e93:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0",
+        "graph:ba9a2d14041cdcc6a0fd5e93:81ef0d53e427640bd31bee9cec1d80f284966113555cc3ebfc17a1231b02d2be",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a1c788a0e3511190410951882b51430b9aafd67ca0efdae006220ed9536a2573",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a45dddbff89556e09f87445484e191fcae68c89fd1ac172e39f198ab61629395",
+        "graph:ba9a2d14041cdcc6a0fd5e93:aa0895df263c86fdf6b36339b2519320990bc2f41024558fdd604f64b3d95f84",
+        "graph:ba9a2d14041cdcc6a0fd5e93:b843a49068f60653fff67069a87996b60fc534207d74fd762649896c247b9180",
+        "graph:ba9a2d14041cdcc6a0fd5e93:e1e14ccc119e167b2b3e293f1576ec8724dd8b79a9c1e228e0170c1729395e6a"
+      ]
+    },
+    {
+      "version": "before",
+      "run": "previous",
+      "theme": "black",
+      "width": 320,
+      "ids": [
+        "graph:1e935550de693db453f32950:3a36a2d77bcca56f38a58405de228ff9af7f4ae2ae955a0b5b92c0329e0dc100",
+        "graph:1e935550de693db453f32950:7dedb212a2f3e739775e1e1e8fc26199ffb5f7ac1b7786cea336ce1bd412d884",
+        "graph:1e935550de693db453f32950:9622f1423f5a78de4c0827c20d8877accde6d1cc1d01eb1275e0a9eeeb6b8ad2",
+        "graph:1e935550de693db453f32950:a45f3e7fab292469a6dce1ff22e575bfa4c9c99af3e3babe9cd95b048e4e38f9",
+        "graph:1e935550de693db453f32950:ad5fe99055f530ba3168a8bd8e8ab2a32a62531fc5169d8b6d8ea7d6b6c66110",
+        "graph:1e935550de693db453f32950:c6b3c55f2a61e762387b4888e3a4f0a668f7353d5e7b3c7f1774473d57625435",
+        "graph:1e935550de693db453f32950:df6ba58c90cb0a270562685813610a0d513da57385e0d7e8c70b9bec2a4e4aa7",
+        "graph:1e935550de693db453f32950:f649e31777a11158171b51b3671a82a730df119ab1d29501137bb0469d9e9492"
+      ]
+    },
+    {
+      "version": "after",
+      "run": "previous",
+      "theme": "black",
+      "width": 320,
+      "ids": [
+        "graph:1e935550de693db453f32950:3a36a2d77bcca56f38a58405de228ff9af7f4ae2ae955a0b5b92c0329e0dc100",
+        "graph:1e935550de693db453f32950:7dedb212a2f3e739775e1e1e8fc26199ffb5f7ac1b7786cea336ce1bd412d884",
+        "graph:1e935550de693db453f32950:9622f1423f5a78de4c0827c20d8877accde6d1cc1d01eb1275e0a9eeeb6b8ad2",
+        "graph:1e935550de693db453f32950:a45f3e7fab292469a6dce1ff22e575bfa4c9c99af3e3babe9cd95b048e4e38f9",
+        "graph:1e935550de693db453f32950:ad5fe99055f530ba3168a8bd8e8ab2a32a62531fc5169d8b6d8ea7d6b6c66110",
+        "graph:1e935550de693db453f32950:c6b3c55f2a61e762387b4888e3a4f0a668f7353d5e7b3c7f1774473d57625435",
+        "graph:1e935550de693db453f32950:df6ba58c90cb0a270562685813610a0d513da57385e0d7e8c70b9bec2a4e4aa7",
+        "graph:1e935550de693db453f32950:f649e31777a11158171b51b3671a82a730df119ab1d29501137bb0469d9e9492"
+      ]
+    },
+    {
+      "version": "before",
+      "run": "recent",
+      "theme": "black",
+      "width": 390,
+      "ids": [
+        "graph:ba9a2d14041cdcc6a0fd5e93:05c0903d2df751c5bb81dd0f125169264c233ec49fa40a2dcca1eb8955d00747",
+        "graph:ba9a2d14041cdcc6a0fd5e93:11873323ce8d6c67e8e1d5edab5441de38937fadd37ea13b751b877dcfc66f93",
+        "graph:ba9a2d14041cdcc6a0fd5e93:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0",
+        "graph:ba9a2d14041cdcc6a0fd5e93:81ef0d53e427640bd31bee9cec1d80f284966113555cc3ebfc17a1231b02d2be",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a1c788a0e3511190410951882b51430b9aafd67ca0efdae006220ed9536a2573",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a45dddbff89556e09f87445484e191fcae68c89fd1ac172e39f198ab61629395",
+        "graph:ba9a2d14041cdcc6a0fd5e93:aa0895df263c86fdf6b36339b2519320990bc2f41024558fdd604f64b3d95f84",
+        "graph:ba9a2d14041cdcc6a0fd5e93:b843a49068f60653fff67069a87996b60fc534207d74fd762649896c247b9180",
+        "graph:ba9a2d14041cdcc6a0fd5e93:e1e14ccc119e167b2b3e293f1576ec8724dd8b79a9c1e228e0170c1729395e6a"
+      ]
+    },
+    {
+      "version": "after",
+      "run": "recent",
+      "theme": "black",
+      "width": 390,
+      "ids": [
+        "graph:ba9a2d14041cdcc6a0fd5e93:05c0903d2df751c5bb81dd0f125169264c233ec49fa40a2dcca1eb8955d00747",
+        "graph:ba9a2d14041cdcc6a0fd5e93:11873323ce8d6c67e8e1d5edab5441de38937fadd37ea13b751b877dcfc66f93",
+        "graph:ba9a2d14041cdcc6a0fd5e93:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0",
+        "graph:ba9a2d14041cdcc6a0fd5e93:81ef0d53e427640bd31bee9cec1d80f284966113555cc3ebfc17a1231b02d2be",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a1c788a0e3511190410951882b51430b9aafd67ca0efdae006220ed9536a2573",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a45dddbff89556e09f87445484e191fcae68c89fd1ac172e39f198ab61629395",
+        "graph:ba9a2d14041cdcc6a0fd5e93:aa0895df263c86fdf6b36339b2519320990bc2f41024558fdd604f64b3d95f84",
+        "graph:ba9a2d14041cdcc6a0fd5e93:b843a49068f60653fff67069a87996b60fc534207d74fd762649896c247b9180",
+        "graph:ba9a2d14041cdcc6a0fd5e93:e1e14ccc119e167b2b3e293f1576ec8724dd8b79a9c1e228e0170c1729395e6a"
+      ]
+    },
+    {
+      "version": "before",
+      "run": "previous",
+      "theme": "black",
+      "width": 390,
+      "ids": [
+        "graph:1e935550de693db453f32950:3a36a2d77bcca56f38a58405de228ff9af7f4ae2ae955a0b5b92c0329e0dc100",
+        "graph:1e935550de693db453f32950:7dedb212a2f3e739775e1e1e8fc26199ffb5f7ac1b7786cea336ce1bd412d884",
+        "graph:1e935550de693db453f32950:9622f1423f5a78de4c0827c20d8877accde6d1cc1d01eb1275e0a9eeeb6b8ad2",
+        "graph:1e935550de693db453f32950:a45f3e7fab292469a6dce1ff22e575bfa4c9c99af3e3babe9cd95b048e4e38f9",
+        "graph:1e935550de693db453f32950:ad5fe99055f530ba3168a8bd8e8ab2a32a62531fc5169d8b6d8ea7d6b6c66110",
+        "graph:1e935550de693db453f32950:c6b3c55f2a61e762387b4888e3a4f0a668f7353d5e7b3c7f1774473d57625435",
+        "graph:1e935550de693db453f32950:df6ba58c90cb0a270562685813610a0d513da57385e0d7e8c70b9bec2a4e4aa7",
+        "graph:1e935550de693db453f32950:f649e31777a11158171b51b3671a82a730df119ab1d29501137bb0469d9e9492"
+      ]
+    },
+    {
+      "version": "after",
+      "run": "previous",
+      "theme": "black",
+      "width": 390,
+      "ids": [
+        "graph:1e935550de693db453f32950:3a36a2d77bcca56f38a58405de228ff9af7f4ae2ae955a0b5b92c0329e0dc100",
+        "graph:1e935550de693db453f32950:7dedb212a2f3e739775e1e1e8fc26199ffb5f7ac1b7786cea336ce1bd412d884",
+        "graph:1e935550de693db453f32950:9622f1423f5a78de4c0827c20d8877accde6d1cc1d01eb1275e0a9eeeb6b8ad2",
+        "graph:1e935550de693db453f32950:a45f3e7fab292469a6dce1ff22e575bfa4c9c99af3e3babe9cd95b048e4e38f9",
+        "graph:1e935550de693db453f32950:ad5fe99055f530ba3168a8bd8e8ab2a32a62531fc5169d8b6d8ea7d6b6c66110",
+        "graph:1e935550de693db453f32950:c6b3c55f2a61e762387b4888e3a4f0a668f7353d5e7b3c7f1774473d57625435",
+        "graph:1e935550de693db453f32950:df6ba58c90cb0a270562685813610a0d513da57385e0d7e8c70b9bec2a4e4aa7",
+        "graph:1e935550de693db453f32950:f649e31777a11158171b51b3671a82a730df119ab1d29501137bb0469d9e9492"
+      ]
+    },
+    {
+      "version": "before",
+      "run": "recent",
+      "theme": "black",
+      "width": 1440,
+      "ids": [
+        "graph:ba9a2d14041cdcc6a0fd5e93:05c0903d2df751c5bb81dd0f125169264c233ec49fa40a2dcca1eb8955d00747",
+        "graph:ba9a2d14041cdcc6a0fd5e93:11873323ce8d6c67e8e1d5edab5441de38937fadd37ea13b751b877dcfc66f93",
+        "graph:ba9a2d14041cdcc6a0fd5e93:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0",
+        "graph:ba9a2d14041cdcc6a0fd5e93:81ef0d53e427640bd31bee9cec1d80f284966113555cc3ebfc17a1231b02d2be",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a1c788a0e3511190410951882b51430b9aafd67ca0efdae006220ed9536a2573",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a45dddbff89556e09f87445484e191fcae68c89fd1ac172e39f198ab61629395",
+        "graph:ba9a2d14041cdcc6a0fd5e93:aa0895df263c86fdf6b36339b2519320990bc2f41024558fdd604f64b3d95f84",
+        "graph:ba9a2d14041cdcc6a0fd5e93:b843a49068f60653fff67069a87996b60fc534207d74fd762649896c247b9180",
+        "graph:ba9a2d14041cdcc6a0fd5e93:e1e14ccc119e167b2b3e293f1576ec8724dd8b79a9c1e228e0170c1729395e6a"
+      ]
+    },
+    {
+      "version": "after",
+      "run": "recent",
+      "theme": "black",
+      "width": 1440,
+      "ids": [
+        "graph:ba9a2d14041cdcc6a0fd5e93:05c0903d2df751c5bb81dd0f125169264c233ec49fa40a2dcca1eb8955d00747",
+        "graph:ba9a2d14041cdcc6a0fd5e93:11873323ce8d6c67e8e1d5edab5441de38937fadd37ea13b751b877dcfc66f93",
+        "graph:ba9a2d14041cdcc6a0fd5e93:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0",
+        "graph:ba9a2d14041cdcc6a0fd5e93:81ef0d53e427640bd31bee9cec1d80f284966113555cc3ebfc17a1231b02d2be",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a1c788a0e3511190410951882b51430b9aafd67ca0efdae006220ed9536a2573",
+        "graph:ba9a2d14041cdcc6a0fd5e93:a45dddbff89556e09f87445484e191fcae68c89fd1ac172e39f198ab61629395",
+        "graph:ba9a2d14041cdcc6a0fd5e93:aa0895df263c86fdf6b36339b2519320990bc2f41024558fdd604f64b3d95f84",
+        "graph:ba9a2d14041cdcc6a0fd5e93:b843a49068f60653fff67069a87996b60fc534207d74fd762649896c247b9180",
+        "graph:ba9a2d14041cdcc6a0fd5e93:e1e14ccc119e167b2b3e293f1576ec8724dd8b79a9c1e228e0170c1729395e6a"
+      ]
+    },
+    {
+      "version": "before",
+      "run": "previous",
+      "theme": "black",
+      "width": 1440,
+      "ids": [
+        "graph:1e935550de693db453f32950:3a36a2d77bcca56f38a58405de228ff9af7f4ae2ae955a0b5b92c0329e0dc100",
+        "graph:1e935550de693db453f32950:7dedb212a2f3e739775e1e1e8fc26199ffb5f7ac1b7786cea336ce1bd412d884",
+        "graph:1e935550de693db453f32950:9622f1423f5a78de4c0827c20d8877accde6d1cc1d01eb1275e0a9eeeb6b8ad2",
+        "graph:1e935550de693db453f32950:a45f3e7fab292469a6dce1ff22e575bfa4c9c99af3e3babe9cd95b048e4e38f9",
+        "graph:1e935550de693db453f32950:ad5fe99055f530ba3168a8bd8e8ab2a32a62531fc5169d8b6d8ea7d6b6c66110",
+        "graph:1e935550de693db453f32950:c6b3c55f2a61e762387b4888e3a4f0a668f7353d5e7b3c7f1774473d57625435",
+        "graph:1e935550de693db453f32950:df6ba58c90cb0a270562685813610a0d513da57385e0d7e8c70b9bec2a4e4aa7",
+        "graph:1e935550de693db453f32950:f649e31777a11158171b51b3671a82a730df119ab1d29501137bb0469d9e9492"
+      ]
+    },
+    {
+      "version": "after",
+      "run": "previous",
+      "theme": "black",
+      "width": 1440,
+      "ids": [
+        "graph:1e935550de693db453f32950:3a36a2d77bcca56f38a58405de228ff9af7f4ae2ae955a0b5b92c0329e0dc100",
+        "graph:1e935550de693db453f32950:7dedb212a2f3e739775e1e1e8fc26199ffb5f7ac1b7786cea336ce1bd412d884",
+        "graph:1e935550de693db453f32950:9622f1423f5a78de4c0827c20d8877accde6d1cc1d01eb1275e0a9eeeb6b8ad2",
+        "graph:1e935550de693db453f32950:a45f3e7fab292469a6dce1ff22e575bfa4c9c99af3e3babe9cd95b048e4e38f9",
+        "graph:1e935550de693db453f32950:ad5fe99055f530ba3168a8bd8e8ab2a32a62531fc5169d8b6d8ea7d6b6c66110",
+        "graph:1e935550de693db453f32950:c6b3c55f2a61e762387b4888e3a4f0a668f7353d5e7b3c7f1774473d57625435",
+        "graph:1e935550de693db453f32950:df6ba58c90cb0a270562685813610a0d513da57385e0d7e8c70b9bec2a4e4aa7",
+        "graph:1e935550de693db453f32950:f649e31777a11158171b51b3671a82a730df119ab1d29501137bb0469d9e9492"
+      ]
+    }
+  ]
+}
