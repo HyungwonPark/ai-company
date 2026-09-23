@@ -67,16 +67,22 @@ const server=http.createServer(async(req,res)=>{
   }
   page=await open();await cacheIs(page,'ai-company-shell-v8');
   const oldTab=await open();checks.push('baseline v8 controls two old tabs');
+  await oldTab.locator('[data-theme-choice="black"]').click();assert.equal(await oldTab.locator('html').getAttribute('data-theme'),'black');
   await oldTab.getByLabel('비밀번호',{exact:true}).fill('isolated-unsent-input');
   version='new';await waitUpdate(page);
   assert.equal(await page.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();return Boolean(r.active&&r.waiting);}),true);
-  await oldTab.locator('[data-theme-choice="black"]').click();assert.equal(await oldTab.locator('html').getAttribute('data-theme'),'black');
+  assert.equal(await oldTab.getByLabel('비밀번호',{exact:true}).inputValue(),'isolated-unsent-input');assert.equal(writeCount,0,'waiting installation neither discards nor submits the existing tab input');
+  checks.push('waiting installation preserves old tab unsent login input; no forced activation or submission');
   checks.push('new worker waits while old tabs remain usable');
   // First reload deliberately leaves the baseline report module in the old
   // cache. A new named export dependency would break this partial update too.
   failReport=true;await waitingOffline('ai-company-shell-v8',currentCache,currentApp,'upgrade-partial');failReport=false;
   await waitingOffline('ai-company-shell-v8',currentCache,currentApp,'upgrade-complete');
-  assert.equal(await oldTab.getByLabel('비밀번호',{exact:true}).inputValue(),'isolated-unsent-input');assert.equal(writeCount,0,'old tab input is preserved and never submitted');
+  // Baseline v8 recreates the unauthenticated login form on offline events.
+  // Password fields are not its persisted work drafts; report this boundary
+  // separately instead of claiming the new worker can change running v8 code.
+  assert.equal(await oldTab.getByLabel('비밀번호',{exact:true}).inputValue(),'');assert.equal(writeCount,0);
+  checks.push('baseline offline login rerender clears its password field without submitting it; not a work-draft preservation claim');
   checks.push('v8 controls two tabs during partial and complete online reload, then offline reload boots candidate public shell without new-module/import failure');
   await oldTab.close();await page.close();page=await open();await cacheIs(page,currentCache);
   const loaded=await page.evaluate(async()=>await(await fetch('/app.js')).text());assert.equal(hash(loaded),hash(currentApp));
