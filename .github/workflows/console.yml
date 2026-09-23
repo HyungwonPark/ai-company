@@ -114,10 +114,18 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
           UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
         run: uv run --frozen python tests/ui/run_workspace_graph.py --scenario workspace_graph_independent.cjs
+      - name: Review task-first design preview
+        if: always()
+        env:
+          CHROME_CHANNEL: chrome
+          NODE_PATH: ${{ runner.temp }}/ui-tooling/node_modules
+          UI_OUTPUT: ${{ runner.temp }}/ui-artifacts
+        run: node tests/ui/task_workspace.cjs
       - name: Package offline working preview
         if: always()
         run: |
           python scripts/package_workspace_preview.py "$RUNNER_TEMP/workspace-preview/AI-Company-preview.html"
+          python scripts/package_task_workspace.py "$RUNNER_TEMP/workspace-preview/AI-Company-task-workspace.html"
           python scripts/package_graph_preview.py "$RUNNER_TEMP/workspace-preview/AI-Company-graph.html"
       - name: Test frozen diagrams through authenticated API
         if: always()
@@ -147,6 +155,8 @@ jobs:
             ${{ runner.temp }}/ui-artifacts/workspace-diagram.svg
             ${{ runner.temp }}/ui-artifacts/workspace-diagram-receipt.json
             ${{ runner.temp }}/ui-artifacts/diagram-independent-validation.json
+            ${{ runner.temp }}/ui-artifacts/task-workspace-validation.json
+            ${{ runner.temp }}/ui-artifacts/task-workspace-failure.json
             ${{ runner.temp }}/ui-artifacts/mobile-entry-validation.json
             ${{ runner.temp }}/ui-artifacts/mobile-entry-failure.json
             ${{ runner.temp }}/ui-artifacts/graph-edges-independent-validation.json
