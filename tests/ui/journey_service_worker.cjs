@@ -52,18 +52,22 @@ const server=http.createServer(async(req,res)=>{
   async function waitingOffline(active,waiting,expectedApp,name){
    // Keep another tab alive: neither forward nor rollback worker may activate.
    const responsePromise=page.waitForResponse(r=>new URL(r.url()).pathname==='/app.js');
+   const reportPromise=page.waitForResponse(r=>new URL(r.url()).pathname==='/report-ui.js');
    await page.reload();const received=await responsePromise;assert.equal(hash(await received.body()),hash(expectedApp));await page.locator('#login-form').waitFor();
+   const reportBytes=await(await reportPromise).body(),expectedReport=failReport||version==='old'?oldFile('report-ui.js'):await fs.readFile(path.join(root,'report-ui.js'));
+   assert.equal(hash(reportBytes),hash(expectedReport),'partial/full module bytes match the intended cached/server version');
    const before=await controllers();assert.ok(before.some(w=>w.cache===active&&w.clients>=2),JSON.stringify(before));assert.ok(before.some(w=>w.cache===waiting&&w.clients===0),JSON.stringify(before));
    assert.ok(await page.evaluate(async()=>Boolean(navigator.serviceWorker.controller&&(await navigator.serviceWorker.getRegistration()).waiting)));
    await context.setOffline(true);await page.reload();await page.locator('#login-form').waitFor();assert.equal(await page.locator('.nav').count(),0);
    const after=await controllers();assert.ok(after.some(w=>w.cache===active&&w.clients>=2));
    assert.equal(await page.evaluate(async({cache})=>(await(await caches.open(cache)).match('/app.js')).text(),{cache:active}),expectedApp.toString());
    await page.screenshot({path:path.join(out,'journey-sw-'+name+'-offline.png'),fullPage:true});
-   boundaries.push({name,active,waiting,controllers:after,app_sha256:hash(expectedApp),public_login:true,private_navigation:0,http_cache_disabled:true});
+   boundaries.push({name,active,waiting,controllers:after,app_sha256:hash(expectedApp),report_sha256:hash(reportBytes),public_login:true,private_navigation:0,http_cache_disabled:true});
    await context.setOffline(false);await page.reload();await page.locator('#login-form').waitFor();
   }
   page=await open();await cacheIs(page,'ai-company-shell-v8');
   const oldTab=await open();checks.push('baseline v8 controls two old tabs');
+  await oldTab.getByLabel('비밀번호',{exact:true}).fill('isolated-unsent-input');
   version='new';await waitUpdate(page);
   assert.equal(await page.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();return Boolean(r.active&&r.waiting);}),true);
   await oldTab.locator('[data-theme-choice="black"]').click();assert.equal(await oldTab.locator('html').getAttribute('data-theme'),'black');
@@ -72,6 +76,7 @@ const server=http.createServer(async(req,res)=>{
   // cache. A new named export dependency would break this partial update too.
   failReport=true;await waitingOffline('ai-company-shell-v8',currentCache,currentApp,'upgrade-partial');failReport=false;
   await waitingOffline('ai-company-shell-v8',currentCache,currentApp,'upgrade-complete');
+  assert.equal(await oldTab.getByLabel('비밀번호',{exact:true}).inputValue(),'isolated-unsent-input');assert.equal(writeCount,0,'old tab input is preserved and never submitted');
   checks.push('v8 controls two tabs during partial and complete online reload, then offline reload boots candidate public shell without new-module/import failure');
   await oldTab.close();await page.close();page=await open();await cacheIs(page,currentCache);
   const loaded=await page.evaluate(async()=>await(await fetch('/app.js')).text());assert.equal(hash(loaded),hash(currentApp));
