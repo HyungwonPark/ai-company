@@ -12,4 +12,5 @@
 [data-approval]{max-width:100%;white-space:normal;overflow-wrap:anywhere;text-align:left}[data-approval] span,[data-approval] small{display:block}.rail [data-approval]{width:100%}.pending-requests{border-top:1px solid var(--line);padding-top:22px;margin-top:26px}
 .project-list [data-approval]{width:auto;padding:10px 14px;margin:0 0 20px;border:1px solid var(--line);border-radius:7px;display:block}.project-list [data-approval] small{color:var(--accent)}
 .stage-nav .approval-count{display:inline-block;margin:0 0 0 3px;font-size:12px;min-width:16px;text-align:center;border-radius:3px;background:var(--tint);color:var(--ink)}
+.stage-nav [aria-current=page] .approval-count{background:var(--bg);color:var(--ink)}
 dialog{overscroll-behavior:contain}dialog #decision-choice{width:100%}#plan-edit-form,#new-form{display:block}#plan-edit-form>div,#new-form>div{min-width:0;width:100%}
