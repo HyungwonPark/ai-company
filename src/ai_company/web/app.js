@@ -1,4 +1,3 @@
-import {journeyHref,journeyRecords,journeyRun,journeyStatus} from './journey-ui.js';
 import {createWorkspaceGraph} from './workspace-graph-ui.js';
 import {createReportUI} from './report-ui.js';
 import {createPlanUI} from './plan-ui.js';
@@ -6,6 +5,62 @@ import {createExecutionUI,currentExecutionProposal,executionMessage} from './exe
 import {createDocumentUI} from './documents-ui.js';
 import {createCollaborationUI} from './collaboration-ui.js';
 import {createManagerUI,managerSnapshot,workspaceIcon,pmRequestDisplay,executionReferenceMatches} from './manager-ui.js';
+/* Journey projections */
+// Keep bootstrap projections in this v8-cached entry: no new module/export dependency.
+function roleStatus(value) {
+  const status=String(value??'').toUpperCase();
+  const operator={BLOCK:'차단 원인과 재개 조건을 확인하세요.',BLOCKED:'차단 원인과 재개 조건을 확인하세요.',FAILED:'실패 근거를 확인하고 수정 또는 재개 여부를 결정하세요.',STOPPED:'중단 원인과 종료 기록을 확인하세요.',RECONCILIATION_REQUIRED:'운영자가 실행 사실과 저장 기록을 대조해야 합니다.',NEEDS_RECONCILIATION:'운영자가 프로세스 종료와 실행 결과를 대조해야 합니다.',NEEDS_CONTEXT_HANDOFF:'운영자가 체크포인트와 담당자를 확인하고 새 세션 인수인계를 준비해야 합니다.',NO_ELIGIBLE_AGENT:'운영자가 허용된 역할·모델·권한 설정과 적격 후보를 확인해야 합니다.',SUPERSEDED:'운영자가 이관된 후속 담당과 현재 작업 연결을 대조해야 합니다.',REJECTED:'반려 근거를 확인하고 수정 범위를 검토하세요.'};
+  const labels={MERGE_READY:'검수 통과',CONTRIBUTION_READY:'산출물 준비',RECONCILIATION_REQUIRED:'상태 대조 필요',NEEDS_RECONCILIATION:'종료·결과 대조 필요',NEEDS_CONTEXT_HANDOFF:'인수인계 필요',NO_ELIGIBLE_AGENT:'적격 담당자 없음',SUPERSEDED:'후속 담당 대조 필요',HANDOFF_PENDING:'담당 이관 중',CHECK_RUNNING:'검사 중',WAITING_CHECKS:'원격 검사 대기',REJECTED:'반려됨',DEMO_READY:'모의 검증 완료'};
+  if(operator[status])return {group:'operator',label:labels[status]||'확인 필요',next:operator[status]};
+  if(['CONTRIBUTION_READY','MERGE_READY','COMPLETE','COMPLETED','DONE','DEMO_READY'].includes(status))return {group:'done',label:labels[status]||'완료',next:'역할 기록의 완료입니다. 통합 검수·마스터 수용·배포는 별도입니다.'};
+  if(['READY','RUNNING','ACTIVE','CHECK_RUNNING','HANDOFF_PENDING','PREPARING','PLANNING','INTEGRATING','REVIEWING'].includes(status))return {group:'active',label:labels[status]||'진행',next:'담당 작업과 산출물을 확인하세요.'};
+  if(['IDLE','PENDING','PLANNED','PLAN_PENDING','PLAN_READY','WAITING','QUEUED','COOLDOWN','WAITING_PM','WAITING_FINAL_REVIEW','WAITING_APPROVAL','WAITING_QUOTA','WAITING_RETRY','WAITING_CAPACITY','WAITING_ROLE_REPAIR','WAITING_DEPENDENCIES','WAITING_DEPENDENCY','WAITING_CHECKS','WAITING_PROJECT_BUDGET'].includes(status))return {group:'waiting',label:labels[status]||'대기',next:'대기 이유와 예약 시각을 확인하세요. 예약이 없다면 자동 재개를 단정하지 않습니다.'};
+  return {group:'unknown',label:'상태 미확인',next:'원문 상태와 실행 근거를 운영자가 확인해야 합니다. 자동 진행·재개를 단정하지 않습니다.'};
+}
+function journeyRoles(snapshot) {
+  return (snapshot?.nodes||[]).filter(node=>node.kind==='role'&&['project_id','plan_id','plan_digest','run_id'].every(key=>node[key]===snapshot[key]));
+}
+/* Read-only navigation and projections. A URL selects records; it never authorizes work. */
+function journeyHref(view,projectId,{runId,snapshotId,approvalId,reportId,all=false}={}) {
+  if(view==='projects')return '#projects';
+  const params=new URLSearchParams({project:projectId});
+  if(runId)params.set('run',runId);
+  if(snapshotId)params.set('snapshot',snapshotId);
+  if(approvalId)params.set('approval',approvalId);
+  if(reportId)params.set('report',reportId);
+  if(all)params.set('all','1');
+  return '#'+view+'?'+params;
+}
+function journeyRecords(overview,snapshot,kind,{all=false}={}) {
+  const records=overview?.[kind+'s']||[];
+  if(all)return records;
+  if(!snapshot||snapshot.project_id!==overview?.project?.id)return [];
+  const refs=(snapshot[kind+'_refs']||[]).filter(ref=>ref.project_id===snapshot.project_id&&ref.plan_id===snapshot.plan_id&&ref.plan_digest===snapshot.plan_digest&&ref.run_id===snapshot.run_id);
+  return records.filter(item=>refs.some(ref=>ref.id===item.id&&(!item.project_id||item.project_id===snapshot.project_id)&&(!item.run_id||item.run_id===snapshot.run_id)&&(!item.plan_digest||item.plan_digest===snapshot.plan_digest)&&(kind!=='approval'||ref.subject_digest===item.subject_digest&&ref.artifact_sha===item.artifact_sha)));
+}
+function journeyRun(overview,snapshot) {
+  if(!snapshot||snapshot.project_id!==overview?.project?.id||!snapshot.run_id)return null;
+  return (overview.runs||[]).find(run=>run.id===snapshot.run_id&&run.plan_id===snapshot.plan_id&&run.plan_digest===snapshot.plan_digest)||null;
+}
+function journeyStatus(overview,snapshot) {
+  const run=journeyRun(overview,snapshot);
+  if(!snapshot)return {title:'대상 미확인',next:'실행 목록에서 대상을 선택하세요.'};
+  if(!snapshot.run_id)return {title:'계획',next:'아직 실행되지 않은 계획입니다. 현재 계획에서 제안과 확정 상태를 확인하세요.'};
+  if(!run)return {title:'실행 기록',next:'선택한 실행의 역할과 연결된 기록을 확인하세요. 실행 요약은 미확인입니다.'};
+  const status=String(run.state||'').toLowerCase(),own=roleStatus(status),roles=journeyRoles(snapshot).map(node=>roleStatus(node.status));
+  if(status==='rejected')return {title:'반려됨',next:'이 실행의 반려 근거를 승인에서 확인하고 수정 범위를 검토하세요. 새 계획 확정은 별도입니다.'};
+  const intervention=own.group==='operator'?own:roles.find(item=>item.group==='operator');
+  if(intervention)return {title:'확인 필요',next:intervention.next};
+  if(roles.some(item=>item.group==='unknown'))return {title:'상태 미확인',next:roleStatus(null).next};
+  if(status==='awaiting_approval')return {title:'승인 대기',next:'이 실행의 후보와 검수 근거를 읽고 승인 요청을 확인하세요.'};
+  if(own.group==='waiting'&&status!=='pending')return {title:'대기',next:'대기 이유와 예약 시각을 진행에서 확인하세요. 다른 독립 작업은 계속할 수 있습니다.'};
+  if(run.integration?.task_id&&['running','integrating','reviewing'].includes(status))return {title:'통합 검수',next:'같은 후보의 검사·CI·독립 검수·최종 검수 기록을 기다립니다.'};
+  if(['complete','completed','done','merge_ready','fixture_complete'].includes(status))return {title:run.mode==='fixture'?'모의 흐름 종료':'실행 종료',next:'보고와 검수 근거를 확인하세요. 실행 종료는 후보 수용·배포를 뜻하지 않습니다.'};
+  if(status==='pending')return {title:'실행 준비',next:'확정된 계획의 작업 배정을 기다립니다.'};
+  if(['running','preparing'].includes(status))return {title:'작업 중',next:'역할별 작업과 기다리는 이유를 진행에서 확인하세요.'};
+  return {title:'상태 미확인',next:'저장된 실행 상태와 근거를 진행에서 확인하세요.'};
+}
+/* End journey projections */
 const $ = (selector, parent = document) => parent.querySelector(selector);
 const app = $('#app');
 const dialog = $('#dialog');
@@ -14,7 +69,7 @@ const esc = escapeHTML;
 const integrated=new URLSearchParams(location.search).get('workspace')!=='legacy';
 const paths = integrated?{projects:['01','프로젝트'],manager:['02','계획'],progress:['03','진행'],approvals:['04','승인'],reports:['05','결과']}:{manager:['01','매니저'],progress:['02','진행'],approvals:['03','승인'],reports:['04','기록']};
 const views = {...paths,project:['06','설정'],projects:['01','프로젝트']};
-const labels = {WAITING_PROJECT_BUDGET:'프로젝트 예산 대기',waiting_project_budget:'프로젝트 예산 대기',PASS:'통과 의견',REVISE:'수정 의견',PLAN_READY:'계획 제안 완료',CONTRIBUTION_READY:'역할 산출물 준비',WAITING_ROLE_REPAIR:'담당 역할 수정 대기',WAITING_DEPENDENCIES:'선행 산출물 대기',fixture_complete:'모의 자동 흐름 완료',PLAN_CONFIRMED:'계획 확정',plan_proposed:'계획 제안 완료',preparing:'작업 준비',waiting:'예약 대기',awaiting_approval:'승인 대기',proposed:'계획 제안',confirmed:'계획 확정',stale:'이전 요청',completed:'처리 완료',running:'처리 중',blocked:'차단',waiting_quota:'사용량 대기',waiting_retry:'재시도 대기',waiting_capacity:'후보 복귀 대기',IDLE:'배정 대기',MERGE_READY:'검수 통과',expired:'만료',developer:'개발',reviewer:'독립 검수',final_reviewer:'최종 검수',PLANNING:'계획 중',active:'활성',draft:'초안',superseded:'이전 버전',awaiting_worker:'실행기 연결 대기',READY:'준비',RUNNING:'진행 중',ACTIVE:'진행 중',PENDING:'검토 대기',pending:'검토 대기',DRAFT:'초안',WAITING_QUOTA:'사용량 대기',WAITING_CAPACITY:'후보 복귀 대기',WAITING_RETRY:'재시도 대기',WAITING_DEPENDENCY:'산출물 대기',WAITING_APPROVAL:'승인 대기',WAITING_PM:'PM 대기',RECONCILIATION_REQUIRED:'상태 대조 필요',BLOCK:'차단',BLOCKED:'차단',COMPLETE:'완료',COMPLETED:'완료',DONE:'완료',DEMO_READY:'모의 검증 완료',approved:'승인 기록됨',rejected:'반려됨',changes_requested:'수정 요청됨',request_changes:'수정 요청됨',EXPIRED:'만료',awaiting_pm:'PM 응답 대기',queued:'예약됨',unverified:'미검증',fixture:'모의 예시',live:'실제 연결'};
+const labels = {WAITING_PROJECT_BUDGET:'프로젝트 예산 대기',waiting_project_budget:'프로젝트 예산 대기',PASS:'통과 의견',REVISE:'수정 의견',PLAN_READY:'계획 제안 완료',CONTRIBUTION_READY:'역할 산출물 준비',WAITING_ROLE_REPAIR:'담당 역할 수정 대기',WAITING_DEPENDENCIES:'선행 산출물 대기',fixture_complete:'모의 자동 흐름 완료',PLAN_CONFIRMED:'계획 확정',plan_proposed:'계획 제안 완료',preparing:'작업 준비',waiting:'예약 대기',awaiting_approval:'승인 대기',proposed:'계획 제안',confirmed:'계획 확정',stale:'이전 요청',completed:'처리 완료',running:'처리 중',blocked:'차단',waiting_quota:'사용량 대기',waiting_retry:'재시도 대기',waiting_capacity:'후보 복귀 대기',IDLE:'배정 대기',MERGE_READY:'검수 통과',expired:'만료',developer:'개발',reviewer:'독립 검수',final_reviewer:'최종 검수',PLANNING:'계획 중',active:'활성',draft:'초안',superseded:'이전 버전',awaiting_worker:'실행기 연결 대기',READY:'준비',RUNNING:'진행 중',ACTIVE:'진행 중',PENDING:'검토 대기',pending:'검토 대기',DRAFT:'초안',WAITING_QUOTA:'사용량 대기',WAITING_CAPACITY:'후보 복귀 대기',WAITING_RETRY:'재시도 대기',WAITING_DEPENDENCY:'산출물 대기',WAITING_APPROVAL:'승인 대기',WAITING_PM:'PM 대기',RECONCILIATION_REQUIRED:'상태 대조 필요',NEEDS_RECONCILIATION:'종료·결과 대조 필요',NEEDS_CONTEXT_HANDOFF:'인수인계 필요',NO_ELIGIBLE_AGENT:'적격 담당자 없음',SUPERSEDED:'후속 담당 대조 필요',HANDOFF_PENDING:'담당 이관 중',CHECK_RUNNING:'검사 중',WAITING_CHECKS:'원격 검사 대기',BLOCK:'차단',BLOCKED:'차단',COMPLETE:'완료',COMPLETED:'완료',DONE:'완료',DEMO_READY:'모의 검증 완료',approved:'승인 기록됨',rejected:'반려됨',changes_requested:'수정 요청됨',request_changes:'수정 요청됨',EXPIRED:'만료',awaiting_pm:'PM 응답 대기',queued:'예약됨',unverified:'미검증',fixture:'모의 예시',live:'실제 연결'};
 const state = {authenticated:false,loginMethod:'password',passwordChangeRequired:false,changingPassword:false,username:'',csrf:'',projects:[],projectId:new URLSearchParams(location.hash.split('?')[1]||'').get('project')||'',overview:null,view:readView(),projectMissing:false,projectSearch:'',createdProjectId:'',connected:navigator.onLine,updatedAt:null,error:'',loading:true,refreshing:false,navigationGeneration:0,drafts:{},messageErrors:{},planningTabs:{},demo:false};
 let recordParams=new URLSearchParams(location.hash.split('?')[1]||'');
 let pendingGraphRender=false;
@@ -26,7 +81,7 @@ const busyForms = new Set();
 const draftBases = {};
 const documentUI=createDocumentUI({esc,readable,stamp,getOverview:()=>state.overview});
 const collaborationUI=createCollaborationUI({esc,badge,stamp,readable,evidenceLinks,label,documents:documentUI});
-const reportUI=createReportUI({esc,badge,stamp,documents:documentUI});
+const reportUI=createReportUI({esc,badge,stamp,documents:documentUI,roleStatus});
 const openDetails=new Map();
 let planReview=null;
 const executionUI=createExecutionUI({esc,stamp});
@@ -37,8 +92,8 @@ function executionPanel(planning=false){return executionUI.render(state.overview
 const managerUI=createManagerUI({esc,badge,label,stamp,documents:documentUI,planContent});
 
 function readView(){const name = location.hash.slice(1).split('?')[0];return Object.hasOwn(views,name) ? name : 'projects';}
-function label(status){return labels[status] || status || '미배정';}
-function badge(status){const s=String(status||'');const kind=/WAIT|waiting|PENDING|pending|awaiting|EXPIRED/.test(s)?'waiting':/BLOCK|blocked|RECONCIL|rejected/.test(s)?'blocked':/RUNNING|running|ACTIVE/.test(s)?'running':/COMPLETE|completed|confirmed|DONE|approved/.test(s)?'complete':'';return `<span class="badge ${kind}">${esc(label(status))}</span>`;}
+function label(status){return labels[status] || labels[String(status).toUpperCase()] || status || '미배정';}
+function badge(status){const s=String(status||'');const kind=/WAIT|waiting|PENDING|pending|awaiting|EXPIRED/.test(s)?'waiting':/BLOCK|blocked|RECONCIL|NEEDS_CONTEXT|NO_ELIGIBLE|SUPERSEDED|rejected/.test(s)?'blocked':/RUNNING|running|ACTIVE/.test(s)?'running':/COMPLETE|completed|confirmed|DONE|MERGE_READY|CONTRIBUTION_READY|approved/.test(s)?'complete':'';return `<span class="badge ${kind}">${esc(label(status))}</span>`;}
 function stamp(value){if(!value)return '미정';const date=new Date(typeof value==='number'?value*1000:value);return Number.isNaN(date.getTime())?'미정':date.toLocaleString('ko-KR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});}
 function readable(value){if(value===null||value===undefined||value==='')return '미확인';if(typeof value==='object')return JSON.stringify(value,null,2);return String(value);}
 function safeURL(value){if(typeof value!=='string'||!value.trim())return null;try{const url=new URL(value,location.origin);return ['https:','http:'].includes(url.protocol)?esc(url.href):null;}catch{return null;}}
@@ -210,7 +265,7 @@ function reviewDetails(reviews,reportId){
   if(!entries.length)return '';
   return `<details class="review-reports mt-20"><summary>검수 ${entries.length}건</summary><p class="small muted mt-8">각 모델이 기록한 판단입니다. 시스템 집계와 실행 승인은 별도로 확인하세요.</p>${entries.map(([role,review])=>`<section class="role-config"><div class="section-line"><h3>${esc({reviewer:'독립 검수',final:'최종 검수',developer:'개발'}[role]||label(role))}</h3>${badge(review.verdict)}</div>${documentUI.meta(`review:${reportId}:${role}`)}<p class="report-summary">${esc(documentUI.text(`review:${reportId}:${role}`,'summary',review.summary||'검수 요약 미등록'))}</p><dl class="detail-grid mt-8"><div><dt>검수 대상 커밋</dt><dd class="mono">${esc(review.candidate_sha||'미확인')}</dd></div><div><dt>실행 식별값</dt><dd class="mono">${esc(review.execution_id||'미확인')}</dd></div></dl>${review.findings?.length?`<div class="review-findings">${review.findings.map((finding,index)=>`<div class="role-note"><strong>${esc(finding.finding_id||'검수 지적')}</strong><p>${esc(documentUI.text(`review:${reportId}:${role}`,`finding:${index}:detail`,finding.detail))}</p><p>근거 · ${esc(documentUI.text(`review:${reportId}:${role}`,`finding:${index}:evidence`,finding.evidence))}</p></div>`).join('')}</div>`:'<p class="small muted">기록된 지적 사항 없음</p>'}${review.resolved_findings?.length?`<p class="small">해결했다고 보고한 항목 · ${esc(listText(review.resolved_findings))}</p>`:''}</section>`).join('')}</details>`;
 }
-function reports(){const requested=recordParams.get('report'),allItems=recordItems('report'),items=requested?allItems.filter(item=>item.id===requested):allItems;const snapshot=selectedScope();return pageHeading(integrated?'결과':'보고서')+progressTabs()+(integrated?scopePanel()+reportUI.execution(state.overview,{snapshot,run:journeyRun(state.overview,snapshot),status:journeyStatus(state.overview,snapshot),href:view=>projectHref(view,state.projectId),approvals:recordItems('approval')}):reportUI.render(state.overview))+(items.length?`<div class="report-list">${items.map(report=>`<article class="panel" data-report-id="${esc(report.id)}"><div class="report-heading"><div><h2>보고서</h2><p class="document-title">${esc(documentUI.text(`report:${report.id}`,'title',report.title))}</p><span class="badge">${esc(report.source==='system'?'시스템 집계':report.source==='fixture'?'모의 예시':report.source==='pm'?'PM 작성':`출처: ${report.source||'미확인'}`)}</span></div><time>${stamp(report.created_at)}</time></div>${documentUI.meta(`report:${report.id}`)}<p class="report-summary">${esc(documentUI.text(`report:${report.id}`,'summary',report.summary))}</p>${report.evidence?.length?`<div class="evidence-links">${evidenceLinks(report.evidence)}</div>`:'<p class="small muted">연결된 검사·CI 증거가 없습니다.</p>'}${reviewDetails(report.review_reports,report.id)}</article>`).join('')}</div>`:empty(requested?'이 보고서를 확인할 수 없습니다':'보고서 없음',requested?'다른 보고서로 대신 표시하지 않습니다. 선택한 실행의 결과 목록으로 돌아가세요.':'선택한 실행의 보고가 기록되면 표시합니다. 보고가 없다는 뜻이며 검수 통과를 뜻하지 않습니다.',requested?`<a href="${projectHref('reports',state.projectId)}">결과 목록</a>`:''));}
+function reports(){const requested=recordParams.get('report'),allItems=recordItems('report'),items=requested?allItems.filter(item=>item.id===requested):allItems;const snapshot=selectedScope();return pageHeading(integrated?'결과':'보고서')+progressTabs()+(integrated?scopePanel()+(reportUI.execution?reportUI.execution(state.overview,{snapshot,run:journeyRun(state.overview,snapshot),status:journeyStatus(state.overview,snapshot),href:view=>projectHref(view,state.projectId),approvals:recordItems('approval')}):empty('화면 갱신 필요','연결 후 새로고침하면 선택한 실행의 결과를 확인할 수 있습니다. 다른 실행의 집계로 대신 표시하지 않습니다.')):reportUI.render(state.overview))+(items.length?`<div class="report-list">${items.map(report=>`<article class="panel" data-report-id="${esc(report.id)}"><div class="report-heading"><div><h2>보고서</h2><p class="document-title">${esc(documentUI.text(`report:${report.id}`,'title',report.title))}</p><span class="badge">${esc(report.source==='system'?'시스템 집계':report.source==='fixture'?'모의 예시':report.source==='pm'?'PM 작성':`출처: ${report.source||'미확인'}`)}</span></div><time>${stamp(report.created_at)}</time></div>${documentUI.meta(`report:${report.id}`)}<p class="report-summary">${esc(documentUI.text(`report:${report.id}`,'summary',report.summary))}</p>${report.evidence?.length?`<div class="evidence-links">${evidenceLinks(report.evidence)}</div>`:'<p class="small muted">연결된 검사·CI 증거가 없습니다.</p>'}${reviewDetails(report.review_reports,report.id)}</article>`).join('')}</div>`:empty(requested?'이 보고서를 확인할 수 없습니다':'보고서 없음',requested?'다른 보고서로 대신 표시하지 않습니다. 선택한 실행의 결과 목록으로 돌아가세요.':'선택한 실행의 보고가 기록되면 표시합니다. 보고가 없다는 뜻이며 검수 통과를 뜻하지 않습니다.',requested?`<a href="${projectHref('reports',state.projectId)}">결과 목록</a>`:''));}
 function isActionableApproval(approval){return isPending(approval)&&(!approval.expires_at||new Date(typeof approval.expires_at==='number'?approval.expires_at*1000:approval.expires_at).getTime()>Date.now());}
 function isPending(approval){return ['pending','PENDING','WAITING_APPROVAL'].includes(approval.status);}
 function recordItems(kind){

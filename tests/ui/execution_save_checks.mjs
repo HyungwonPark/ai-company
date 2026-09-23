@@ -7,8 +7,8 @@ import vm from 'node:vm';
 const source=await readFile(new URL('../../src/ai_company/web/app.js',import.meta.url),'utf8');
 const executionSource=await readFile(new URL('../../src/ai_company/web/execution-ui.js',import.meta.url),'utf8');
 const {currentExecutionProposal,executionMessage}=await import('data:text/javascript;base64,'+Buffer.from(executionSource).toString('base64'));
-const journeySource=await readFile(new URL('../../src/ai_company/web/journey-ui.js',import.meta.url),'utf8');
-const {journeyHref}=await import('data:text/javascript;base64,'+Buffer.from(journeySource).toString('base64'));
+const journeySource=await readFile(new URL('../../src/ai_company/web/app.js',import.meta.url),'utf8');
+const {journeyHref}=await import('data:text/javascript;base64,'+Buffer.from(journeySource.split('/* Journey projections */')[1].split('/* End journey projections */')[0].replaceAll('function ','export function ')).toString('base64'));
 function extract(start,end){
   const first=source.indexOf(start),last=source.indexOf(end,first);
   assert.ok(first>=0&&last>first,`실제 함수 추출 경계를 찾을 수 없습니다: ${start}`);

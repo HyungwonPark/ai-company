@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-const source=await readFile(new URL('../../src/ai_company/web/journey-ui.js',import.meta.url),'utf8');
+const source=await readFile(new URL('../../src/ai_company/web/app.js',import.meta.url),'utf8').then(text=>text.split('/* Journey projections */')[1].split('/* End journey projections */')[0].replaceAll('function ','export function '));
 const {journeyHref,journeyRecords,journeyRun,journeyStatus}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 for(let seed=0;seed<60;seed++){
  const id=part=>part+' 한글 /?#&='+createHash('sha256').update(seed+':'+part).digest('hex');

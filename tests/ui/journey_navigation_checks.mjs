@@ -4,7 +4,7 @@ import vm from 'node:vm';
 
 const root=new URL('../../',import.meta.url).pathname.replace(/\/$/,'');
 const app=await readFile(root+'/src/ai_company/web/app.js','utf8');
-const journey=await import('data:text/javascript;base64,'+Buffer.from(await readFile(root+'/src/ai_company/web/journey-ui.js','utf8')).toString('base64'));
+const journey=await import('data:text/javascript;base64,'+Buffer.from((await readFile(root+'/src/ai_company/web/app.js','utf8')).split('/* Journey projections */')[1].split('/* End journey projections */')[0].replaceAll('function ','export function ')).toString('base64'));
 const manager=await import('data:text/javascript;base64,'+Buffer.from(await readFile(root+'/src/ai_company/web/manager-ui.js','utf8')).toString('base64'));
 const extract=(start,end)=>{const a=app.indexOf(start),b=app.indexOf(end,a);assert.ok(a>=0&&b>a);return app.slice(a,b);};
 
