@@ -66,7 +66,7 @@ async function decide(page,choice,reason=''){
    const {context,page}=await session(width);await page.locator(`[data-layout="${layout}"]`).click();if(theme==='black')await page.locator('#theme').click();
    // R3 starts at the project list: no knowledge of the run selector is required.
    const pending=page.locator('[data-approval="example-approval-01"]').first();await pending.waitFor();assert.match(await page.locator('.projects').innerText(),/확인할 일.*1/);
-   await pending.click();assert.equal((await stored(page)).run,'previous');await click(page,'decision');
+   await pending.click();assert.equal((await stored(page)).run,'previous');await click(page,'decision');await page.locator('#detail .binding summary').click();
    const prior=await page.locator('#detail').innerText();for(const id of ['example-project-login','example-plan-01','example-run-01','example-approval-01','example-candidate-01','d'.repeat(64)])assert.ok(prior.includes(id),id);
    await page.keyboard.press('Escape');await page.locator('#run').selectOption('current');assert.equal(await action(page,'decision').count(),0);await page.locator('[data-approval="example-approval-01"]').first().click();assert.equal((await stored(page)).run,'previous');
    await decide(page,'hold');const priorDecision=(await stored(page)).decisions['example-approval-01'];assert.equal(priorDecision.choice,'hold');
@@ -78,17 +78,24 @@ async function decide(page,choice,reason=''){
    await click(page,'edit-plan');await page.locator('#scope').fill('로그인 안내와 오류 뒤의 행동을 정리합니다. 배포와 병합은 제외합니다.');await page.locator('#criteria').fill('한국어 320px에서 다음 행동을 찾고, 같은 후보의 검사·검수 근거를 확인합니다.');await page.locator('#plan-edit-form button[type=submit]').click();
    const edited=await stored(page);assert.equal(edited.flow.status,'invalidated');assert.equal(edited.confirmed,false);assert.equal(edited.flow.run,null);assert.equal(await action(page,'confirm').count(),0);
    await click(page,'organize');await click(page,'plan-ready');await noRun(page);assert.ok((await stored(page)).flow.version>first.flow.version);
+   if(width===390)await shot(page,`task-workspace-plan-${layout}-${theme}-${width}.png`);
    await click(page,'confirm');assert.equal(await action(page,'confirm-submit').isDisabled(),true);assert.match(await page.locator('#detail').innerText(),/범위/);assert.match(await page.locator('#detail').innerText(),/한도|예산/);
    await page.locator('#reviewed').check();await click(page,'confirm-submit');
    const confirmed=await stored(page);assert.equal(confirmed.confirmed,true);assert.ok(confirmed.flow.run);assert.equal(confirmed.events.filter(e=>e.type==='plan_confirmed').length,1);assert.equal(confirmed.events.filter(e=>e.type==='run_created').length,1);assert.equal(confirmed.events.filter(e=>e.type==='spec_saved').length,2);assert.equal(confirmed.events.filter(e=>e.type==='plan_requested').length,3);assert.equal(confirmed.flow.run.specVersion,confirmed.flow.version);assert.equal(confirmed.flow.run.scope,confirmed.flow.scope);await page.reload();assert.deepEqual((await stored(page)).flow.run,confirmed.flow.run);assert.equal((await stored(page)).events.filter(e=>e.type==='run_created').length,1);
    // R4 uses this very project/run for every later stage and artifact.
    const screen='example-new-run-01-task-screen';assert.equal(await page.locator(`[data-task="${screen}"]`).count(),1);
    assert.deepEqual(await page.locator('.task-flow .status').allTextContents(),['진행','진행','선행 대기']);
+   if(width===390)await shot(page,`task-workspace-cycle-${layout}-${theme}-${width}.png`);
    await click(page,'play-wait');await page.locator(`[data-task="${screen}"]`).click();assert.match(await page.locator('#detail').innerText(),/한도/);await click(page,'handoff');assert.match(await page.locator('#detail').innerText(),/Astra → Claude/);assert.match(await page.locator('#detail').innerText(),new RegExp(screen));await page.keyboard.press('Escape');
    await click(page,'play-checks');await page.locator('[data-task="example-new-run-01-task-integration"]').click();assert.match(await page.locator('#detail').innerText(),/원격 CI/);assert.match(await page.locator('#detail').innerText(),/Astra Ultra/);await page.keyboard.press('Escape');
    await click(page,'play-review');await click(page,'dependency');await click(page,'artifact');assert.match(await page.locator('#detail').innerText(),/example-new-run-01/);assert.doesNotMatch(await page.locator('#detail').innerText(),/example-run-01\b/);await page.keyboard.press('Escape');
-   await stage(page,'result');assert.match(await page.locator('#main').innerText(),/예시/);await stage(page,'approval');await click(page,'decision');
-   const binding=await page.locator('#detail').innerText();for(const expected of ['example-project-new','example-new-run-01','example-approval-new-01'])assert.ok(binding.includes(expected));assert.doesNotMatch(binding,/example-run-01\b/);
+   for(const scenario of ['quota','failure']){
+    await page.locator('.preview-tools details summary').click();await page.locator('#scenario').selectOption(scenario);await page.locator('.preview-tools details summary').click();
+    assert.deepEqual(await page.locator('.task-flow .status').allTextContents(),['완료','완료','완료']);assert.equal(await page.getByText('모든 후보 대기',{exact:true}).count(),0);assert.equal(await page.getByText('자동 재시도 중단',{exact:true}).count(),0);
+   }
+   await page.locator('.preview-tools details summary').click();await page.locator('#scenario').selectOption('normal');await page.locator('.preview-tools details summary').click();
+   await stage(page,'result');assert.match(await page.locator('#main').innerText(),/예시/);await stage(page,'approval');await click(page,'decision');await page.locator('#detail .binding summary').click();
+   const binding=await page.locator('#detail').innerText();for(const expected of ['example-project-new','example-new-run-01','example-approval-new-01'])assert.ok(binding.includes(expected));assert.doesNotMatch(binding,/example-run-01\b/);await page.locator('#detail .binding summary').click();
    await page.locator('#decision-choice').selectOption('request_changes');await page.locator('#decision-reviewed').check();assert.equal(await action(page,'decision-submit').isDisabled(),true,'Revision requires an opinion');assert.equal(await page.locator('#detail').isVisible(),true);assert.equal((await stored(page)).decisions['example-approval-new-01'],undefined);
    await page.locator('#decision-reason').fill('오류 다음 행동을 더 짧게 보여 주세요.');await click(page,'decision-submit');
    const selected=await stored(page);assert.equal(selected.decisions['example-approval-new-01'].choice,'request_changes');assert.deepEqual(selected.decisions['example-approval-01'],priorDecision);assert.deepEqual(selected.flow.run,confirmed.flow.run);

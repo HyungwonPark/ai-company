@@ -65,6 +65,17 @@ async function shot(page,name){
  await page.evaluate(()=>document.fonts.ready);await fit(page);
  await page.screenshot({path:path.join(out,name),fullPage:true});screenshots.push(name);
 }
+async function candidateEvidence(page,input,expected){
+ const detail=page.locator('#detail details.binding'),summary=detail.locator('summary');
+ assert.equal(await detail.evaluate(element=>element.open),false,'Technical candidate evidence starts folded');
+ await pressAt(page,summary,input);
+ assert.equal(await detail.evaluate(element=>element.open),true);
+ const binding=await detail.innerText();
+ for(const value of expected)assert.ok(binding.includes(value),`Decision shows ${value}`);
+ assert.ok(!binding.includes('example-run-02'));
+ await pressAt(page,summary,input);
+ assert.equal(await detail.evaluate(element=>element.open),false,'Choices remain readable after evidence inspection');
+}
 
 (async()=>{
  await fs.mkdir(out,{recursive:true});
@@ -179,10 +190,9 @@ async function shot(page,name){
    await pressAt(page,page.locator('.stage-nav [data-stage="approval"]'),input);
    await pressAt(page,action(page,'decision'),input);
    assert.equal(await action(page,'decision-submit').isDisabled(),true);
-   const binding=await page.locator('#detail').innerText();
    const bindingValues=['example-project-login','example-plan-01','a'.repeat(64),'example-run-01','example-approval-01','example-candidate-01','d'.repeat(64)];
-   for(const expected of bindingValues)assert.ok(binding.includes(expected),`Decision shows ${expected}`);
-   assert.ok(!binding.includes('example-run-02'));
+   await candidateEvidence(page,input,bindingValues);
+   await page.locator('#detail-title').scrollIntoViewIfNeeded();
    await shot(page,`task-workspace-independent-${theme}-${width}.png`);
    for(const decision of ['approve','request_changes','hold']){
     // Separate sessions keep each choice independent and never reinterpret an earlier decision.
@@ -193,6 +203,7 @@ async function shot(page,name){
      await pressAt(vote,vote.locator(`[data-layout="${layout}"]`),input);
      await pressAt(vote,vote.locator('[data-approval="example-approval-01"]').first(),input);
      await pressAt(vote,action(vote,'decision'),input);
+     await candidateEvidence(vote,input,bindingValues);
     }
     await vote.locator('#decision-choice').selectOption(decision);
     await vote.locator('#decision-reviewed').check();
@@ -208,7 +219,7 @@ async function shot(page,name){
     assert.deepEqual(decisions['example-approval-01'],{
      project:'example-project-login',projectName:'모바일 로그인 정리',plan:'example-plan-01',planDigest:'a'.repeat(64),
      run:'example-run-01',candidate:'example-candidate-01',approval:'example-approval-01',digest:'d'.repeat(64),
-     status:'pending',choice:decision,reason:decision==='request_changes'?'모바일 오류 안내를 더 명확하게 바꿔 주세요.':'',
+     status:'pending',specVersion:1,choice:decision,reason:decision==='request_changes'?'모바일 오류 안내를 더 명확하게 바꿔 주세요.':'',
      scope:'preview_only',decisionKind:decision==='hold'?'local_defer':'candidate_review'
     });
     assert.match(await vote.locator('#main').innerText(),/pending/);
