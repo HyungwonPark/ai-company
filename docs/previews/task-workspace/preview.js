@@ -29,7 +29,11 @@ function save(){try{sessionStorage.setItem(key,JSON.stringify(state));}catch{}}
 function notify(message){$('#notice').textContent=message;}
 function setStage(stage){state.stage=stage;save();render();$('#main')?.focus();}
 function open(title,body){if(!$('#detail').open)opener=document.activeElement;$('#detail-body').innerHTML=`<h2 id="detail-title">${esc(title)}</h2>${body}`;$('#detail').showModal();}
-$('#detail').addEventListener('close',()=>{if(opener?.isConnected)opener.focus();});
+$('#detail').addEventListener('close',()=>{
+ const active=document.activeElement;
+ // Native close restores focus. A deferred close event must not steal a newer choice.
+ if(!$('#detail').open&&(active===document.body||$('#detail').contains(active))&&opener?.isConnected)opener.focus();
+});
 function binding(){return `<details class="binding"><summary>근거</summary><dl><dt>프로젝트</dt><dd>${isNew()?'example-project-new':'example-project-login'}</dd><dt>실행</dt><dd>${runId()||'없음 · 아직 시작하지 않음'}</dd><dt>계획</dt><dd>${planId()}</dd><dt>계획 digest</dt><dd><code>${digest()}</code></dd></dl><p>식별자와 기록은 모두 예시입니다. 요약·번역·과거 기록은 현재의 실행 승인으로 쓰지 않습니다.</p></details>`;}
 function nav(){return `<nav class="stage-nav" aria-label="작업 단계">${steps.map(([id,label],i)=>`<button data-stage="${id}" ${state.stage===id?'aria-current="page"':''}><span>0${i+1}</span>${label}</button>`).join('')}</nav>`;}
 function next(){

@@ -6,3 +6,4 @@
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 
 .primary:hover{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+@media(max-width:720px){.stage-nav,.overview-shell .stage-nav{grid-template-columns:1.35fr repeat(4,1fr)}.stage-nav button{white-space:nowrap}}
