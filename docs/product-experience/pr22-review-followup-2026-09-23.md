@@ -54,16 +54,16 @@
 
 위 PASS는 **예시 브라우저 조작**이다. 실제 운영 PM·모델·원격 후보 검수 성공이 아니다. 기존 시안 회귀는 두 배치 × 두 테마 × 320/390/1440px, 키보드·포커스·200% 텍스트·빈 화면·오프라인·긴 한국어를 확인한다. 독립 모바일 검사는 320px Light/mouse와 390px Black/touch에서 실제 좌표 조작 71회를 수행했다. 외부 요청·페이지 오류는 0건이었다.
 
-독립 검수자는 320px Light·390px Black 후보 창과 390px Light·1440px Black 진행 캡처를 직접 읽었다. 업무명과 역할·모델이 구분되고 긴 기술 근거는 펼칠 때 읽을 수 있다. 320px 후보 창은 세로 스크롤이 필요하다. 선택한 승인 숫자의 대비 문제는 발견 후 `06d7872ab869e904da214ae6cde5653c11fefe32`에서 CSS 한 줄로 보완했다. 그 커밋은 시안 소스의 최종 버전이며 JS·검사 로직은 위 행동 검사 후보와 같다. 최종 게시 커밋의 재검사와 대비 보완 캡처 판정은 [PR #22의 검사·검증 안내](https://github.com/HyungwonPark/ai-company/pull/22)에 연결한다.
+독립 검수자는 320px Light·390px Black 후보 창과 390px Light·1440px Black 진행 캡처를 직접 읽었다. 업무명과 역할·모델이 구분되고 긴 기술 근거는 펼칠 때 읽을 수 있다. 320px 후보 창은 세로 스크롤이 필요하다. 선택한 승인 숫자의 대비 문제는 발견 후 `06d7872ab869e904da214ae6cde5653c11fefe32`에서 CSS 한 줄로 보완했다. 후속 캡처에서 준비 완료 뒤에도 이전 준비 알림이 남는 문제를 추가로 발견했다. `cb4cca353efd46cd6f4f56b01816c27a884c4e95`에서 준비 완료·실패·내용 수정 시 알림을 함께 갱신하고 R5의 브라우저 문구 검사를 추가했다. 이 커밋이 최종 시안 소스다. 최종 게시 커밋의 재검사와 대비 보완 캡처 판정은 [PR #22의 검사·검증 안내](https://github.com/HyungwonPark/ai-company/pull/22)에 연결한다.
 
 ## 내려받기와 보존
 
-[로그인 없이 미리보기 ZIP 다운로드](https://raw.githubusercontent.com/HyungwonPark/ai-company/design/task-first-workspace/docs/previews/downloads/AI-Company-task-workspace-06d7872.zip) → 압축 해제 → `AI-Company-task-workspace.html`을 브라우저로 연다. 외부 파일·서버·로그인이 필요 없는 예시다. 조작 순서는 [미리보기 안내](../previews/task-workspace/README.md)에 있다.
+[로그인 없이 미리보기 ZIP 다운로드](https://raw.githubusercontent.com/HyungwonPark/ai-company/design/task-first-workspace/docs/previews/downloads/AI-Company-task-workspace-cb4cca3.zip) → 압축 해제 → `AI-Company-task-workspace.html`을 브라우저로 연다. 외부 파일·서버·로그인이 필요 없는 예시다. 조작 순서는 [미리보기 안내](../previews/task-workspace/README.md)에 있다.
 
-- 원본 시안 커밋: `06d7872ab869e904da214ae6cde5653c11fefe32`.
-- ZIP SHA-256: `fc98094bd9d9aae86eea7d514323be83fa780b4f505a0e41734c8bc48f79b7ac`.
-- HTML SHA-256: `8bc4f17c5d77ed38a872210a36ffbf290f120a3d40cd43ed8c023d4b25f6ba0a`.
-- [파일별 원본 해시와 생성 기록](../previews/downloads/task-workspace-06d7872.json). ZIP은 HTML 1개만 포함한다. 이전 `b31fb87` 묶음은 보존한다.
+- 원본 시안 커밋: `cb4cca353efd46cd6f4f56b01816c27a884c4e95`.
+- ZIP SHA-256: `a8afd5eb52878b0aea99621645f9fc5bce0b6d37d7f1a83f8f26024d10425d53`.
+- HTML SHA-256: `f29b71bf7692de1e364c1b71489874c05638ff8f20bfbf65c39c71ef9d5f7f49`.
+- [파일별 원본 해시와 생성 기록](../previews/downloads/task-workspace-cb4cca3.json). ZIP은 HTML 1개만 포함한다. 이전 `b31fb87` 묶음은 보존한다.
 
 운영 적용 대상·DB 변경·worker 교체는 없다. 이번 시안을 비교에서 제외하려면 이전 ZIP을 열거나 이전 시안 소스를 사용하면 되며 운영 데이터를 복구할 필요는 없다. GitHub 게시물에는 예시 코드·입력·검사 결과만 포함하고 비공개 운영 파일은 넣지 않았다.
 
