@@ -37,3 +37,33 @@ for(const kind of ['dependency','handoff','revision_return']){
 }
 assert.equal(graph.isInteracting('p'),false);
 console.log('PASS: edge ports and geometry remain continuous when connected roles cross vertically');
+
+// URL restoration is read-only and exact; an unavailable requested run never
+// falls through to whichever run happened to arrive first in the response.
+let selectedCalls=0;
+const scopes=createWorkspaceGraph({esc:String,onScopeChange:()=>selectedCalls++});
+const other={...s,id:'other-snap',run_id:'other-run',nodes:[],edges:[]};
+const proposal={...s,id:'proposal',run_id:null,mode:'planned',nodes:[],edges:[]};
+const multi={...envelope,snapshots:[s,other,proposal]};
+const source=JSON.stringify(multi);
+assert.ok(scopes.ingest({workspace_graph:multi},'p'));
+assert.equal(scopes.getScope('p').id,'snap');
+assert.equal(scopes.selectScope('p',{runId:'other-run'}).id,'other-snap');
+assert.equal(scopes.selectScope('p',{}).id,'other-snap');
+assert.equal(scopes.selectScope('p',{runId:'other-run',snapshotId:'snap'}),null);
+assert.equal(scopes.getScope('p'),null,'conflicting URL identifiers cannot choose either run');
+assert.equal(scopes.selectScope('p',{snapshotId:'proposal'}).run_id,null,'planned scope restores without inventing an execution');
+assert.equal(scopes.selectScope('p',{runId:'missing'}),null);
+assert.equal(scopes.selectScope('p',{runId:'missing'}),null,'the explicit invalid URL never falls back');
+assert.equal(scopes.selectScope('p',{}).id,'proposal','returning to an unscoped URL restores the last valid selection');
+assert.equal(scopes.selectScope('p',{snapshotId:'missing-plan'}),null);
+assert.equal(scopes.selectScope('p',{}).id,'proposal','an invalid planned snapshot is cleared only when its URL scope is removed');
+assert.equal(scopes.selectScope('missing-project',{runId:'run'}),null);
+scopes.selectScope('p',{runId:'other-run'});
+assert.ok(scopes.ingest({workspace_graph:{...multi,cursor:2,snapshots:[s,proposal]}},'p'));
+assert.equal(scopes.getScope('p'),null,'polling cannot replace a missing selected execution');
+assert.equal(scopes.selectScope('p',{}).id,'snap','unscoped recovery uses the default only when the remembered scope is unavailable');
+assert.equal(scopes.selectScope('p',{snapshotId:'proposal'}).id,'proposal');
+assert.equal(selectedCalls,0,'ingest and URL restoration never emit a user selection callback');
+assert.equal(JSON.stringify(multi),source,'selection never mutates server records');
+console.log('PASS: exact run/planned snapshot URL scope, unavailable/conflicting scope, polling removal and no synthetic selection callbacks');

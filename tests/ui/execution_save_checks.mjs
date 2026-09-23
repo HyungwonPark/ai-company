@@ -7,12 +7,14 @@ import vm from 'node:vm';
 const source=await readFile(new URL('../../src/ai_company/web/app.js',import.meta.url),'utf8');
 const executionSource=await readFile(new URL('../../src/ai_company/web/execution-ui.js',import.meta.url),'utf8');
 const {currentExecutionProposal,executionMessage}=await import('data:text/javascript;base64,'+Buffer.from(executionSource).toString('base64'));
+const journeySource=await readFile(new URL('../../src/ai_company/web/journey-ui.js',import.meta.url),'utf8');
+const {journeyHref}=await import('data:text/javascript;base64,'+Buffer.from(journeySource).toString('base64'));
 function extract(start,end){
   const first=source.indexOf(start),last=source.indexOf(end,first);
   assert.ok(first>=0&&last>first,`실제 함수 추출 경계를 찾을 수 없습니다: ${start}`);
   return source.slice(first,last);
 }
-const functions=extract('function projectHref(','async function api(')
+const functions=extract('function scopeParams(','async function api(')
   +extract('async function api(','function themeControls(')
   +extract('async function saveExecutionSpec(){','function closeButton(');
 const selection={catalog_id:'catalog',catalog_digest:'a'.repeat(64),allowed_paths:['src/original.py']};
@@ -25,9 +27,9 @@ function harness(initialSelection=selection){
   const state={connected:true,authenticated:true,csrf:'fixture-csrf',username:'fixture-master',projectId:'fixture-project',view:'project',
     overview:{project:{request_revision:0},plans:[]},
     executionEntries:[{catalog_id:selection.catalog_id,catalog_digest:selection.catalog_digest,repository:'fixture/repo'}]};
-  const context={state,busyForms:new Set(),currentExecutionProposal,executionMessage,structuredClone,crypto:webcrypto,
+  const context={state,busyForms:new Set(),currentExecutionProposal,executionMessage,journeyHref,recordParams:new URLSearchParams('project=fixture-project'),structuredClone,crypto:webcrypto,
     location:{hash:'#project?project=fixture-project'},navigator:{onLine:true},
-    TextEncoder,AbortController,Error,TypeError,setTimeout,clearTimeout,
+    TextEncoder,AbortController,Error,TypeError,URLSearchParams,setTimeout,clearTimeout,
     executionIntent:()=>intent,
     storeExecutionIntent(value,project){
       assert.equal(project,state.projectId);

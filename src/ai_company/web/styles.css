@@ -93,3 +93,43 @@
 .execution-panel{grid-column:1/-1;min-width:0}.execution-panel>summary{font-size:18px;font-weight:600;min-height:44px}.execution-panel>section,.execution-next{margin-top:24px;padding-top:20px;border-top:1px solid var(--line)}.execution-facts{margin:18px 0 24px}.execution-facts>div,.execution-facts dd{min-width:0;overflow-wrap:anywhere}.execution-facts ul{margin:0;padding-left:18px}.execution-facts li{margin-bottom:6px;overflow-wrap:anywhere}.execution-panel pre,.execution-confirmation pre{white-space:pre-wrap;overflow-wrap:anywhere}.execution-confirmation{margin:24px 0}.execution-panel button{max-width:100%}
 
 .workspace-graph .rg-export{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:8px 16px;border:1px solid currentColor;border-radius:6px;text-decoration:none;font-size:16px;color:inherit}
+
+/* Journey navigation: one project, one selected run, five predictable destinations. */
+.journey-workspace.integrated-workspace .shell{display:block;max-width:1440px;margin:0 auto;padding-bottom:0}
+.journey-workspace.integrated-workspace .sidebar{position:static;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:40px;height:auto;padding:24px 40px;border-right:0;border-bottom:1px solid var(--line);background:var(--bg)}
+.journey-workspace.integrated-workspace .workspace-brand{margin:0}.journey-workspace.integrated-workspace .sidebar .brand{padding:0;white-space:nowrap;font-size:22px}
+.journey-workspace.integrated-workspace .workspace-caption{padding:4px 0 0}.journey-workspace.integrated-workspace .sidebar-bottom,.journey-workspace.integrated-workspace .mobile-logout{display:none!important}
+.journey-workspace.integrated-workspace .nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin:0}
+.journey-workspace.integrated-workspace .nav a{min-height:52px;padding:10px 12px;font-size:15px;gap:9px;border-radius:6px;justify-content:center}
+.journey-workspace.integrated-workspace .nav a[aria-current=page]{background:var(--ink);color:var(--bg)}
+.journey-workspace.integrated-workspace .nav-icon{display:none}.journey-step-number{font-size:12px;opacity:.7;font-variant-numeric:tabular-nums}
+.journey-workspace.integrated-workspace .topbar{padding:18px 40px;background:var(--bg)}
+.journey-workspace.integrated-workspace .main{padding:28px 40px 60px}.journey-workspace.integrated-workspace .page-heading h1{font-size:32px;letter-spacing:-.045em}
+.journey-workspace.integrated-workspace .main p{overflow-wrap:anywhere}.journey-workspace.integrated-workspace .manager-home{max-width:none}
+.journey-context{display:flex;align-items:flex-start;flex-wrap:wrap;gap:16px 24px;border-bottom:1px solid var(--line);padding:0 0 22px;margin-bottom:24px}
+.journey-context>div{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:8px 14px;max-width:100%;min-width:0;flex:1}
+.journey-project-name{grid-column:1/-1;font-size:18px;font-weight:650;overflow-wrap:anywhere}
+.journey-context label{font-size:14px;color:var(--muted)}
+.journey-context select{font-size:16px;min-height:44px;width:100%;min-width:0;max-width:440px;background:var(--surface);border:1px solid var(--input-line);padding:8px 12px;color:var(--ink)}
+.journey-context a,.journey-result-links a,.journey-next>a,.journey-approval-origin a{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-size:14px;text-underline-offset:4px}
+.journey-context>details{width:100%;font-size:14px}.journey-context>details .detail-grid{margin:16px 0 0}
+.journey-missing{flex-basis:100%;padding:16px;background:var(--warning-bg);color:var(--ink);border-left:3px solid var(--warning);margin:0;font-size:16px}
+.journey-next{display:flex;justify-content:space-between;gap:24px;align-items:center;margin-bottom:24px;padding:20px 0;border-bottom:1px solid var(--line)}
+.journey-next>div{min-width:0;max-width:740px}.journey-next strong{font-size:22px;letter-spacing:-.025em}.journey-next p{margin:8px 0 0;font-size:16px;color:var(--muted)}.journey-next>a{flex-shrink:0}
+.journey-result{margin-bottom:24px}.journey-result p,.journey-result li{font-size:16px}.journey-result .badge{font-size:14px}.journey-result .summary-grid{gap:24px;margin-block:24px}.journey-result-links{display:flex;gap:20px;flex-wrap:wrap}
+.journey-report-note{font-size:14px;color:var(--muted);margin:24px 0}.journey-approval-origin{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:20px;font-size:14px}
+.journey-workspace.integrated-workspace .project-list-card footer>a{min-height:44px;display:inline-flex;align-items:center}.journey-workspace.integrated-workspace .project-list-card h2{font-size:22px}
+.journey-workspace.integrated-workspace .project-list-card p{font-size:16px}.journey-workspace.integrated-workspace .project-list-status dt,.journey-workspace.integrated-workspace .project-list-status dd,.journey-workspace.integrated-workspace .project-list-card footer{font-size:14px}
+@media(max-width:900px){.journey-workspace.integrated-workspace .sidebar{gap:20px;padding:20px 24px}.journey-workspace.integrated-workspace .nav a{padding:9px 5px}.journey-workspace.integrated-workspace .topbar{padding-inline:24px}.journey-workspace.integrated-workspace .main{padding:24px 24px 40px}}
+@media(max-width:760px){
+ .journey-workspace.integrated-workspace .shell{padding-bottom:calc(80px + env(safe-area-inset-bottom))}.journey-workspace.integrated-workspace .sidebar{display:block;padding:18px;border-bottom:0}
+ .journey-workspace.integrated-workspace .nav{position:fixed;inset:auto 0 0;z-index:20;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));padding:7px 6px max(8px,env(safe-area-inset-bottom));gap:2px;background:var(--surface)}
+ .journey-workspace.integrated-workspace .nav a{display:flex;flex-direction:column;justify-content:center;gap:1px;min-height:56px;padding:5px 1px;font-size:14px;letter-spacing:-.05em}.journey-workspace.integrated-workspace .journey-step-number{font-size:12px}
+ .journey-workspace.integrated-workspace .topbar{padding:0 18px 16px}.journey-workspace.integrated-workspace .main{padding:24px 18px 30px}.journey-workspace.integrated-workspace .page-heading h1{font-size:28px}
+ .journey-context{gap:12px;margin-bottom:18px;padding-bottom:18px}.journey-context>div{flex-basis:100%}.journey-project-name{font-size:18px}.journey-context>details{margin-top:-6px}
+ .journey-next{display:block;padding:4px 0 20px;margin-bottom:20px}.journey-next strong{font-size:22px}.journey-next>a{margin-top:8px}
+ .journey-result .summary-grid{grid-template-columns:1fr}.journey-result{padding:18px}.journey-workspace.integrated-workspace .approval-reading{grid-template-columns:1fr}
+}
+
+.journey-workspace.integrated-workspace .project-list-status{display:grid}
+.journey-workspace.integrated-workspace .projects-home .recent-project{display:flex}

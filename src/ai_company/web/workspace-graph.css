@@ -21,3 +21,10 @@ html[data-theme=black] .integrated-workspace{--bg:#111413;--surface:#1a1e1c;--si
 .workspace-graph .rg-edge-label.is-selected text{fill:var(--ink);font-weight:600}
 
 .workspace-graph .rg-edge-label.is-selected line{stroke:var(--accent);stroke-width:1.5}
+
+/* Keep every relationship selectable; local history paths have distinct strokes. */
+.workspace-graph .rg-edge[data-rg-route-kind=self] .rg-edge-line{stroke-dasharray:2 4}
+.workspace-graph .rg-edge[data-rg-route-kind=return] .rg-edge-line,.workspace-graph .rg-edge[data-rg-route-kind=backward] .rg-edge-line{stroke-dasharray:9 4}
+.workspace-graph .rg-detail-top h3{overflow-wrap:anywhere;min-width:0}
+.workspace-graph .rg-detail-top button{flex-shrink:0}
+.workspace-graph .rg-help[open]{border-block:1px solid var(--line);padding-bottom:12px}

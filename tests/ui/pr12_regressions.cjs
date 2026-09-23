@@ -95,7 +95,7 @@ function overview(project) {
     await page.getByRole('heading',{name:'프로젝트',exact:true}).waitFor();
     assert.equal(new URL(page.url()).hash,'#projects');
     assert.equal(await page.locator('#project-select').inputValue(),'');
-    assert.deepEqual(await page.locator('.nav a').allTextContents(),['매니저','진행','승인','기록']);
+    assert.deepEqual(await page.locator('.nav a').evaluateAll(items=>items.map(item=>item.getAttribute('aria-label'))),['프로젝트','계획','진행','승인','결과']);
     assert.equal(await page.locator('.project-list-card').count(),2);
     await page.getByLabel('찾기',{exact:true}).fill('독서');
     assert.equal(await page.locator('.project-list-card').count(),1);
@@ -103,10 +103,10 @@ function overview(project) {
     await page.getByRole('heading',{name:'검색 결과 없음'}).waitFor();
     await page.getByRole('button',{name:'검색 지우기'}).click();
     await page.getByRole('link',{name:'가족 일정 모의 프로젝트 매니저 열기'}).click();
-    await page.getByRole('heading',{name:'매니저',exact:true}).waitFor();
+    await page.getByRole('heading',{name:'계획',exact:true}).waitFor();
     assert.equal(await page.locator('#project-select').inputValue(),A);
     await page.locator('.nav').getByRole('link',{name:'승인',exact:true}).click();
-    await page.getByText('이 프로젝트만의 승인 A',{exact:true}).waitFor();
+    await page.locator('.journey-all-approvals').click();await page.getByText('이 프로젝트만의 승인 A',{exact:true}).waitFor();
     await page.evaluate(()=>{location.hash='#approvals?project=missing-project';});
     await page.getByRole('heading',{name:'프로젝트를 열 수 없습니다'}).waitFor();
     assert.equal(new URL(page.url()).hash,'#approvals?project=missing-project');
@@ -129,7 +129,7 @@ function overview(project) {
     assert.equal(await page.getByLabel('이름',{exact:true}).inputValue(),writes[0].name);
     assert.equal(await page.getByLabel('목표',{exact:true}).inputValue(),writes[0].goal);
     await page.locator('#create-form button[type=submit]').click();
-    await page.getByRole('heading',{name:'매니저',exact:true}).waitFor();
+    await page.getByRole('heading',{name:'계획',exact:true}).waitFor();
     assert.deepEqual(writes[0],writes[1],'reload retries the identical intent and payload');
     assert.equal(creationReceipts.size,1);
     assert.equal(creationReceipts.values().next().value.first_pm_requests,1);
@@ -157,7 +157,7 @@ function overview(project) {
         await page.setViewportSize({width,height:width===1440?1000:844});
         for(const screen of ['projects','manager']){
           await navigate('#'+screen+(screen==='manager'?'?project='+A:''));
-          await page.getByRole('heading',{name:screen==='projects'?'프로젝트':'매니저',exact:true}).waitFor();
+          await page.getByRole('heading',{name:screen==='projects'?'프로젝트':'계획',exact:true}).waitFor();
           await noOverflow(theme+' '+screen+' '+width);
           await settledScreenshot(page,{path:path.join(output,`${theme}-${width}-${screen}-fixture.png`),fullPage:true});
         }

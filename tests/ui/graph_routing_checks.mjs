@@ -39,8 +39,8 @@ assert.equal(new Set(edges.slice(0,3).map(e=>JSON.stringify(routes.get(e.id).sou
 assert.equal(new Set(edges.slice(0,3).map(e=>JSON.stringify(routes.get(e.id).target))).size,3,'parallel target ports separated');
 assert.equal(routes.get('same').type,'same-row');
 assert.equal(routes.get('self').type,'self');assert.notDeepEqual(routes.get('self').source,routes.get('self').target);
-assert.ok(routes.get('self').points.some(p=>p.x>476));
-assert.equal(routes.get('return').type,'return');assert.notEqual(routes.get('return').outerX,routes.get('self').outerX);
+assert.ok(routes.get('self').points.every(p=>p.x>=-54&&p.x<=244&&p.y>=100&&p.y<=256),'self handoff stays beside its own role');
+assert.equal(routes.get('return').type,'return');assert.equal(routes.get('return').outerX,null,'return uses the nearest clear route, without a whole-graph detour');
 const moved=routeGraphEdges(edges,{...positions,b:{x:270,y:800}},206,156,{basePositions:positions});
 assert.equal(moved.routes.get('same').fromSide,routes.get('same').fromSide);
 const near=new Map([['one',{points:[{x:0,y:0},{x:100,y:0}]}],['two',{points:[{x:0,y:10},{x:100,y:10}]}]]);
