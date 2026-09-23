@@ -221,7 +221,7 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
   if(selected)p.lastSelected=selected.id;
   return selected||null;
  }
- function view(snapshot){const k=graphKey(snapshot);if(!views.has(k))views.set(k,{mode:'graph',selection:null,zoom:1,pan:{x:0,y:0},positions:{},positionsBySize:new Map(),camerasBySize:new Map(),adjustCamera:true,revealSelection:false,small:null,panMode:false,seen:new Set(),focus:null,detailScroll:0,detailOpen:[]});return views.get(k);}
+ function view(snapshot){const k=graphKey(snapshot);if(!views.has(k))views.set(k,{mode:'graph',selection:null,zoom:1,pan:{x:0,y:0},positions:{},positionsBySize:new Map(),camerasBySize:new Map(),adjustCamera:true,revealSelection:false,cameraWidth:0,cameraTouched:false,small:null,panMode:false,seen:new Set(),focus:null,detailScroll:0,detailOpen:[]});return views.get(k);}
  function refs(snapshot){return `<details class="rg-provenance"><summary>기록 기준</summary><dl><dt>프로젝트</dt><dd><code>${esc(snapshot.project_id)}</code></dd><dt>계획</dt><dd><code>${esc(snapshot.plan_id||'없음')}</code><code>${esc(snapshot.plan_digest||'없음')}</code></dd><dt>실행</dt><dd><code>${esc(snapshot.run_id||'확정 전 · 실행 없음')}</code></dd><dt>조회 시각 · 순서</dt><dd>${esc(stamp(snapshot.observed_at))} · ${esc(snapshot.cursor)}</dd></dl></details>`;}
  function nodeInfo(node){if(node.kind==='document')return `<p>${node.document_kind==='approval'?'후보 수용을 결정하는 승인 문서입니다.':'이 실행의 시스템 보고 문서입니다.'}</p><p>아래 실행별 링크에서 원문과 대상 식별자를 확인할 수 있습니다.</p><details><summary>문서 참조</summary><pre>${esc(JSON.stringify({reference:node.reference||{},configuration:node.assignment||{}},null,2))}</pre></details>`;const a=node.assignment||{},r=a.requested||{},o=a.observed||{};return `<dl class="rg-facts"><div><dt>종류</dt><dd>${esc(kindLabels[node.kind]||node.kind)} · ${planned(node)?'예정':'저장된 기록'}</dd></div><div><dt>담당 업무</dt><dd>${esc(node.current_task_title||node.task_title||node.current_work||node.responsibility||'연결된 작업 없음')}</dd></div><div><dt>요청</dt><dd>${esc(r.model||'미배정')} · ${esc(r.reasoning_effort||'추론 미설정')}<br>Ultracode ${r.ultracode_enabled===true?'요청함':r.ultracode_enabled===false?'요청 안 함':'미확인'}</dd></div><div><dt>실행에서 확인된 설정</dt><dd>${o.status==='observed'?`${esc(o.model||'모델 미확인')} · ${esc(o.reasoning_effort||'추론 미확인')}`:'미확인'}</dd></div><div><dt>확인 근거</dt><dd>${esc(o.source||'없음')} · ${esc(o.scope||'미확인')}<br>모델의 자기 설명을 근거로 사용하지 않습니다.</dd></div>${node.wait_reason?`<div><dt>대기 이유</dt><dd>${esc(node.wait_reason)}${node.resume_at?`<br>재개 예약 ${esc(stamp(node.resume_at))}`:''}</dd></div>`:''}${a.quota?.status?`<div><dt>공유 한도</dt><dd>${esc(status(a.quota.status))}${a.quota.reset_at?` · ${esc(stamp(a.quota.reset_at))}`:''}</dd></div>`:''}</dl>${node.handoffs?.length?`<details><summary>담당 이관 ${node.handoffs.length}건</summary><p>역할과 작업은 유지하고 담당 세션만 바뀝니다.</p><pre>${esc(JSON.stringify(node.handoffs,null,2))}</pre></details>`:''}<details><summary>원본 참조</summary><pre>${esc(JSON.stringify({reference:node.reference||{},configuration:node.assignment||{}},null,2))}</pre></details>`;}
  function edgeInfo(edge,snapshot){const name=id=>snapshot.nodes.find(n=>n.id===id)?.name||id;return `<p class="rg-direction">${esc(name(edge.from))} → ${esc(name(edge.to))}</p><p>${esc(edge.reason||edge.title||'관계의 상세 이유는 기록되지 않았습니다.')}</p><dl class="rg-facts"><div><dt>구분</dt><dd>${planned(edge)?'계획의 예정 관계 · 실제 전달 아님':'저장된 전달 사실'}</dd></div><div><dt>상태</dt><dd>${esc(status(edge.status))}</dd></div><div><dt>기록 시각</dt><dd>${esc(stamp(edge.created_at))}</dd></div></dl><h4>산출물</h4>${edge.artifact_refs?.length?edge.artifact_refs.map(a=>`<div class="rg-artifact"><strong>${esc(a.kind||'근거')}</strong><code>${esc(a.sha||a.path||a.uri||a.id||'식별자 미기록')}</code></div>`).join(''):'<p>연결된 산출물 근거가 없습니다.</p>'}<details><summary>원본 참조</summary><pre>${esc(JSON.stringify(edge.reference||edge.source_ref||{},null,2))}</pre></details>`;}
@@ -231,13 +231,13 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
   if(v.small!==small){
    if(v.small!==null){
     v.positionsBySize.set(v.small,v.positions);
-    v.camerasBySize.set(v.small,{pan:{...v.pan},zoom:v.zoom});
+    v.camerasBySize.set(v.small,{pan:{...v.pan},zoom:v.zoom,width:v.cameraWidth,touched:v.cameraTouched});
    }
    // Restore each width's camera. A newly visited width keeps the zoom but
    // recentres horizontally, so a wide-screen offset cannot hide the graph.
    const camera=v.camerasBySize.get(small);
    v.adjustCamera=!camera;v.revealSelection=v.small!==null;
-   if(camera){v.pan={...camera.pan};v.zoom=camera.zoom;}
+   if(camera){v.pan={...camera.pan};v.zoom=camera.zoom;v.cameraWidth=camera.width;v.cameraTouched=camera.touched;}else v.cameraWidth=0;
    v.positions=v.positionsBySize.get(small)||{};v.small=small;v.routes=null;
   }
   v.positions=placeGraphNodes(snapshot.nodes,layout,v.positions);
@@ -334,6 +334,14 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
     const p=v.positions[el.dataset.rgNode];el.style.left=p.x+'px';el.style.top=p.y+'px';el.style.width=v.nodeWidth+'px';el.style.height=v.nodeHeight+'px';
    }
    const viewport=root.querySelector('.rg-viewport');
+   // A new DOM or media layout may settle after the first measurement. Keep
+   // the untouched reading camera centred at the actual width, while preserving
+   // deliberate pan/zoom. This width belongs to the run, not a particular mount.
+   if(viewport?.clientWidth>0&&viewport.clientWidth!==v.cameraWidth){
+    if(!v.cameraTouched)v.adjustCamera=true;
+    if(v.cameraWidth)v.revealSelection=true;
+    v.cameraWidth=viewport.clientWidth;
+   }
    if(v.adjustCamera&&viewport?.clientWidth>0){
     // Default reading view uses the role group, not distant routes or labels.
     const main=s.nodes.filter(n=>!['document','artifact'].includes(n.kind));
@@ -372,6 +380,7 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
    if(action==='clear'){const prior=v.selection;v.selection=null;v.detailScroll=0;v.detailOpen=[];v.focus=null;redraw(prior);return;}
    if(action==='pan'){v.panMode=!v.panMode;redraw();root.querySelector('[data-rg-action=pan]')?.focus();return;}
    const viewport=root.querySelector('.rg-viewport');if(!viewport)return;
+   v.cameraTouched=true;
    if(action==='fit'){v.zoom=clamp(Math.min((viewport.clientWidth-16)/v.canvas.width,(viewport.clientHeight-16)/v.canvas.height),.25,1);v.pan={x:(viewport.clientWidth-v.canvas.width*v.zoom)/2-v.canvas.x*v.zoom,y:8-v.canvas.y*v.zoom};}
    else {const old=v.zoom;v.zoom=clamp(old*(action==='zoom-in'?1.25:.8),.25,2.5);v.pan={x:viewport.clientWidth/2-(viewport.clientWidth/2-v.pan.x)*v.zoom/old,y:viewport.clientHeight/2-(viewport.clientHeight/2-v.pan.y)*v.zoom/old};}
    transform();
@@ -391,12 +400,12 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
    if(bounds.left>=frame.left+1&&bounds.right<=frame.right-1&&bounds.top>=frame.top+1&&bounds.bottom<=frame.bottom-1)return;
    // Only an actual Tab move reveals clipped targets. Polling focus restoration
    // leaves the camera untouched, and graph navigation never uses native scroll.
-   const v=view(s);
+   const v=view(s);v.cameraTouched=true;
    v.pan.x+=(frame.left+frame.right-bounds.left-bounds.right)/2;
    v.pan.y+=(frame.top+frame.bottom-bounds.top-bounds.bottom)/2;
    transform();
   },{signal});
-  root.addEventListener('keydown',event=>{capture(root,project);const n=event.target.closest('[data-rg-node]'),e=event.target.closest('[data-rg-edge]'),s=scope(project);if(!s)return;const v=view(s);if(event.key==='Escape'&&v.selection){event.preventDefault();const prior=v.selection;v.selection=null;v.detailScroll=0;v.detailOpen=[];v.focus=null;redraw(prior);return;}if(e&&['Enter',' '].includes(event.key)){event.preventDefault();e.dispatchEvent(new MouseEvent('click',{bubbles:true}));return;}if(!event.key.startsWith('Arrow')||!event.target.closest('.rg-viewport'))return;event.preventDefault();const delta={ArrowLeft:[-24,0],ArrowRight:[24,0],ArrowUp:[0,-24],ArrowDown:[0,24]}[event.key];if(n&&event.altKey){const p=v.positions[n.dataset.rgNode];p.x=Math.max(0,p.x+delta[0]);p.y=Math.max(0,p.y+delta[1]);redraw({id:n.dataset.rgNode,kind:'node'});}else {v.pan.x+=delta[0];v.pan.y+=delta[1];transform();}},{signal});
+  root.addEventListener('keydown',event=>{capture(root,project);const n=event.target.closest('[data-rg-node]'),e=event.target.closest('[data-rg-edge]'),s=scope(project);if(!s)return;const v=view(s);if(event.key==='Escape'&&v.selection){event.preventDefault();const prior=v.selection;v.selection=null;v.detailScroll=0;v.detailOpen=[];v.focus=null;redraw(prior);return;}if(e&&['Enter',' '].includes(event.key)){event.preventDefault();e.dispatchEvent(new MouseEvent('click',{bubbles:true}));return;}if(!event.key.startsWith('Arrow')||!event.target.closest('.rg-viewport'))return;event.preventDefault();const delta={ArrowLeft:[-24,0],ArrowRight:[24,0],ArrowUp:[0,-24],ArrowDown:[0,24]}[event.key];if(n&&event.altKey){const p=v.positions[n.dataset.rgNode];p.x=Math.max(0,p.x+delta[0]);p.y=Math.max(0,p.y+delta[1]);redraw({id:n.dataset.rgNode,kind:'node'});}else {v.cameraTouched=true;v.pan.x+=delta[0];v.pan.y+=delta[1];transform();}},{signal});
   root.addEventListener('pointerdown',event=>{
    // A new physical gesture must never inherit the previous drag's click suppression.
    suppressClick=false;
@@ -425,7 +434,7 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
      label.setAttribute('visibility',value?'visible':'hidden');
      if(value){const leader=label.querySelector('line');for(const [key,val] of Object.entries({x1:value.anchor.x,y1:value.anchor.y,x2:value.x,y2:value.y}))leader.setAttribute(key,val);for(const [key,val] of Object.entries({x:value.left,y:value.top,width:value.width}))rect.setAttribute(key,val);text.setAttribute('x',value.x);text.setAttribute('y',value.y);text.textContent=value.text;}
     }
-   }else {v.pan={x:dragging.pan.x+dx,y:dragging.pan.y+dy};transform();}
+   }else {v.cameraTouched=true;v.pan={x:dragging.pan.x+dx,y:dragging.pan.y+dy};transform();}
   },{signal});
   function end(event){
    if(!dragging||event.pointerId!==dragging.pointer)return;

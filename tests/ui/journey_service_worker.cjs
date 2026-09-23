@@ -40,8 +40,11 @@ const server=http.createServer(async(req,res)=>{
   browser=await chromium.launch({headless:true,chromiumSandbox:true,...(process.env.CHROME_CHANNEL?{channel:process.env.CHROME_CHANNEL}:{}),...(process.env.CHROMIUM_EXECUTABLE?{executablePath:process.env.CHROMIUM_EXECUTABLE}:{})});
   context=await browser.newContext({viewport:{width:390,height:844}});
   async function open(){const p=await context.newPage();p.setDefaultTimeout(12000);p.on('pageerror',e=>errors.push(e.message));await p.goto(base);await p.locator('#login-form').waitFor();await p.evaluate(()=>navigator.serviceWorker.ready);await p.waitForFunction(()=>navigator.serviceWorker.controller);return p;}
-  async function cacheIs(p,name){await p.waitForFunction(async expected=>{const keys=(await caches.keys()).filter(k=>k.startsWith('ai-company-shell-'));return keys.length===1&&keys[0]===expected;},name);}
-  async function waitUpdate(p){await p.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();await r.update();});await p.waitForFunction(async()=>{const r=await navigator.serviceWorker.getRegistration();return r?.waiting?.state==='installed';});}
+  // waitForFunction treats the returned Promise as truthy before it resolves.
+  // Poll the awaited value on the test side, with the same bounded timeout.
+  async function waitAsync(p,predicate,arg){const deadline=Date.now()+12000;do{if(await p.evaluate(predicate,arg))return;await p.waitForTimeout(100);}while(Date.now()<deadline);throw new Error('Timed out awaiting actual asynchronous browser state');}
+  async function cacheIs(p,name){await waitAsync(p,async expected=>{const keys=(await caches.keys()).filter(k=>k.startsWith('ai-company-shell-'));return keys.length===1&&keys[0]===expected;},name);}
+  async function waitUpdate(p){await p.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();await r.update();});await waitAsync(p,async()=>{const r=await navigator.serviceWorker.getRegistration();return r?.waiting?.state==='installed';});}
   let page=await open();await cacheIs(page,'ai-company-shell-v8');
   const oldTab=await open();checks.push('baseline v8 controls two old tabs');
   version='new';await waitUpdate(page);

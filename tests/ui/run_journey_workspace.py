@@ -14,7 +14,7 @@ import tempfile
 import threading
 import time
 
-from ai_company import password_auth
+from ai_company import management_diagrams, password_auth
 from ai_company.management import ManagementStore
 from ai_company.management_server import ManagementHTTPServer
 from run_workspace_graph import seed_graph
@@ -39,6 +39,9 @@ def main():
         store = ManagementStore(state)
         try:
             password_auth.initialize(store.db)
+            # Match the HTTP server's startup schema before capturing invariants.
+            # Keep this table in the comparison: navigation must create no diagrams.
+            management_diagrams.initialize(store.db)
             with store.db:
                 password_auth.create_user(store.db, "edward", password, time.time())
             fixtures = seed_graph(store, state)
