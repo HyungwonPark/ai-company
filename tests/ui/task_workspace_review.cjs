@@ -72,11 +72,11 @@ async function decide(page,choice,reason=''){
    await decide(page,'hold');const priorDecision=(await stored(page)).decisions['example-approval-01'];assert.equal(priorDecision.choice,'hold');
    await stage(page,'projects');await createExample(page);await noRun(page);await click(page,'organize');await noRun(page);
    assert.equal((await stored(page)).flow.status,'preparing');assert.equal(await action(page,'confirm').count(),0);
-   await click(page,'plan-fail');assert.equal((await stored(page)).flow.status,'failed');await noRun(page);
+   await click(page,'plan-fail');assert.equal((await stored(page)).flow.status,'failed');assert.match(await page.locator('#notice').innerText(),/다시 시도/);await noRun(page);
    await click(page,'retry-plan');await click(page,'plan-ready');await noRun(page);
-   const first=await stored(page);assert.equal(first.flow.status,'ready');
+   const first=await stored(page);assert.equal(first.flow.status,'ready');assert.match(await page.locator('#notice').innerText(),/계획이 준비됐습니다/);assert.doesNotMatch(await page.locator('#notice').innerText(),/응답을 재생/);
    await click(page,'edit-plan');await page.locator('#scope').fill('로그인 안내와 오류 뒤의 행동을 정리합니다. 배포와 병합은 제외합니다.');await page.locator('#criteria').fill('한국어 320px에서 다음 행동을 찾고, 같은 후보의 검사·검수 근거를 확인합니다.');await page.locator('#plan-edit-form button[type=submit]').click();
-   const edited=await stored(page);assert.equal(edited.flow.status,'invalidated');assert.equal(edited.confirmed,false);assert.equal(edited.flow.run,null);assert.equal(await action(page,'confirm').count(),0);
+   const edited=await stored(page);assert.equal(edited.flow.status,'invalidated');assert.match(await page.locator('#notice').innerText(),/다시 정리한 계획/);assert.equal(edited.confirmed,false);assert.equal(edited.flow.run,null);assert.equal(await action(page,'confirm').count(),0);
    await click(page,'organize');await click(page,'plan-ready');await noRun(page);assert.ok((await stored(page)).flow.version>first.flow.version);
    if(width===390)await shot(page,`task-workspace-plan-${layout}-${theme}-${width}.png`);
    await click(page,'confirm');assert.equal(await action(page,'confirm-submit').isDisabled(),true);assert.match(await page.locator('#detail').innerText(),/범위/);assert.match(await page.locator('#detail').innerText(),/한도|예산/);

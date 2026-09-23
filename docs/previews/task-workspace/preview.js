@@ -167,6 +167,7 @@ function action(name){
  if(name==='retry-plan'&&state.flow.status==='failed')organize(true);
  if(['plan-ready','plan-fail'].includes(name)&&isNew()&&state.flow.status==='preparing'){
   state.plan=name==='plan-ready';state.flow.status=state.plan?'ready':'failed';record(state.plan?'plan_ready':'plan_failed');
+  notify(state.plan?'계획이 준비됐습니다. 범위와 한도를 확인해 주세요. 실행 0건':'계획을 준비하지 못했습니다. 다시 시도해 주세요. 실행 0건');
  }
  if(name==='edit-plan'){
   if(!isNew()||!state.created.example||state.confirmed)return;
@@ -240,7 +241,7 @@ document.addEventListener('submit',e=>{
  if(e.target.id==='plan-edit-form'){
   e.preventDefault();if(state.scenario==='offline'||state.confirmed||!e.target.reportValidity())return;
   const scope=$('#scope').value.trim(),criteria=$('#criteria').value.trim();if(!scope||!criteria)return;
-  if(scope!==state.flow.scope||criteria!==state.flow.criteria){state.flow.scope=scope;state.flow.criteria=criteria;state.flow.status='invalidated';state.plan=false;record('plan_review_invalidated');}
+  if(scope!==state.flow.scope||criteria!==state.flow.criteria){state.flow.scope=scope;state.flow.criteria=criteria;state.flow.status='invalidated';state.plan=false;record('plan_review_invalidated');notify('내용이 바뀌었습니다. 다시 정리한 계획을 확인해 주세요. 실행 0건');}
   $('#detail').close();save();render();
  }
 });
