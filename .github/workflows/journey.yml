@@ -40,6 +40,7 @@ jobs:
       - name: Verify journey read flow against isolated API
         run: |
           node tests/ui/journey_scope_checks.mjs
+          node tests/ui/journey_navigation_checks.mjs
           uv run --frozen python tests/ui/run_journey_workspace.py --scenario journey_workspace.cjs
       - name: Verify graph camera, scope and interaction retention
         if: always()

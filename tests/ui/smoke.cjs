@@ -318,7 +318,7 @@ if (!base || !password || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(
       if(view==='project')await page.locator('.project-picker-links').getByRole('link',{name:'현재 프로젝트 설정',exact:true}).click();
       else await page.locator('.nav').getByRole('link',{name:view==='reports'?'기록':title,exact:true}).click();
       await page.waitForFunction(expected => location.hash.startsWith(`#${expected}?`), view);
-      if(view!=='project')assert.equal(await page.locator('.nav a[aria-current=page]').getAttribute('href'),`#${view}?project=${fixtureId}`,'main navigation marks the active screen');
+      if(view!=='project'){await page.locator(`.nav a[aria-current=page][href="#${view}?project=${fixtureId}"]`).waitFor();assert.equal(await page.locator('.nav a[aria-current=page]').getAttribute('href'),`#${view}?project=${fixtureId}`,'main navigation marks the active screen');}
       assert.equal(await page.locator('#project-select').inputValue(),fixtureId,`${view} keeps selected fixture`);
       await page.getByText('모의 예시 데이터',{exact:true}).waitFor();
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`${view} fits 360px`);
