@@ -6,9 +6,9 @@
 
 ## 열기
 
-[로그인 없이 미리보기 ZIP 다운로드](https://raw.githubusercontent.com/HyungwonPark/ai-company/design/task-first-workspace/docs/previews/downloads/AI-Company-task-workspace-cb4cca3.zip)
+[로그인 없이 미리보기 ZIP 다운로드](https://raw.githubusercontent.com/HyungwonPark/ai-company/design/task-first-workspace/docs/previews/downloads/AI-Company-task-workspace-c8f10ba.zip)
 
-ZIP을 풀고 `AI-Company-task-workspace.html`을 Chrome 등 브라우저로 엽니다. GitHub Actions 산출물은 공개 저장소여도 다운로드에 로그인이 필요하므로, 일반 검토에는 위 공개 파일을 사용합니다. 코드 `cb4cca3`의 HTML·JS·CSS를 합친 파일이며 [파일 해시](../downloads/task-workspace-cb4cca3.json)를 함께 보관합니다. 이전 `b31fb87` 다운로드는 과거 검수 자료로 그대로 보존합니다.
+ZIP을 풀고 `AI-Company-task-workspace.html`을 Chrome 등 브라우저로 엽니다. GitHub Actions 산출물은 공개 저장소여도 다운로드에 로그인이 필요하므로, 일반 검토에는 위 공개 파일을 사용합니다. 코드 `c8f10ba`의 HTML·JS·CSS를 합친 파일이며 [파일 해시](../downloads/task-workspace-c8f10ba.json)를 함께 보관합니다. 이전 `b31fb87`·`cb4cca3` 다운로드와 당시 검증 기록은 그대로 보존합니다.
 
 소스에서 다시 만들려면:
 
@@ -21,12 +21,12 @@ python3 scripts/package_task_workspace.py /tmp/AI-Company-task-workspace.html
 ## 비교할 조작
 
 1. 첫 목록의 **확인할 일 1건**을 누르면 이전 실행의 후보로 바로 이동합니다. **후보 검토**에서 수용·수정 요청·보류를 고르고, 수정 요청에는 의견을 남깁니다. 원래 요청은 `pending`이며 선택은 이 탭의 예시 기록입니다.
-2. **새 프로젝트 → 로그인 예시 목표 사용 → PM과 시작**을 누릅니다. 자유 목표도 입력·보관할 수 있지만, 전체 체험은 고정된 로그인 예시만 지원합니다.
+2. **새 프로젝트 → 로그인 예시 목표 사용 → PM과 시작**을 누릅니다. 자유 목표도 입력·보관할 수 있습니다. 이때 **PM과 시작 → 로그인 예시로 체험**을 누르면 새로고침 없이 같은 프로젝트에서 전환되며 자유 목표 원문은 별도로 보존됩니다. 전체 체험은 고정된 로그인 예시만 지원합니다.
 3. PM 질문에 답하고 **내용 정리 → 제안 도착 → 계획 확인 → 이 계획으로 시작**을 누릅니다. `제안 도착`은 검수용 모의 응답입니다. **내용 수정**을 하면 이전 계획으로 시작할 수 없으며 다시 정리하고 확인해야 합니다. 준비 중 **실패 재생 → 다시 시도**도 확인할 수 있습니다.
-4. 같은 프로젝트의 **진행**에서 두 역할을 확인하고, **단계 재생**의 한도 대기 → 담당 이관 → 결과 전달 → 검수 완료를 누릅니다. 업무·팀·기록의 실행 ID와 담당 변경을 대조합니다.
+4. 같은 프로젝트의 **진행**에서 두 역할을 확인하고, **단계 재생**의 한도 대기 → 담당 이관 → 결과 전달 → 검수 완료를 누릅니다. 결과 전달 직후 **결과**를 열면 두 업무의 완료와 남은 통합 검수가 구분됩니다. 업무·팀·기록의 실행 ID와 담당 변경을 대조합니다.
 5. 같은 실행의 **결과 → 승인 → 후보 검토**에서 전달물과 대상 근거를 읽고 결정합니다. 수용은 배포 승인이 아니며 수정 요청만으로 새 개발을 시작하지 않습니다.
 6. **순서형 / 한눈형**, Light / Black을 바꿔 같은 내용을 비교합니다. **비교 → 예시 초기화**는 이 탭의 입력·확정·진행·예시 결정을 지웁니다. 일반 새로고침은 보존합니다.
 
-구버전 미리보기의 저장 상태가 있으면 기존 확정 표시를 ‘이전 기록’으로 보존합니다. 그 기록을 새 실행 승인으로 바꾸지 않습니다. [R1~R5 대조와 검증](../../product-experience/pr22-review-followup-2026-09-23.md)을 함께 확인할 수 있습니다.
+구버전 미리보기의 저장 상태가 있으면 기존 확정 표시를 ‘이전 기록’으로 보존합니다. 그 기록을 새 실행 승인으로 바꾸지 않습니다. [R1~R5 대조와 검증](../../product-experience/pr22-review-followup-2026-09-23.md), [F1·F2 후속 검증](../../product-experience/pr22-f1-f2-validation-2026-09-24.md)을 함께 확인할 수 있습니다.
 
 브라우저 조작 검사는 초보 사용자 사용성 시험이나 실기기 APK 검증이 아닙니다. 현재 운영 pilot 범위·예산·공유 한도·승인·PR #10 상태를 바꾸지 않습니다.
