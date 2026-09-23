@@ -6,9 +6,9 @@
 
 ## 열기
 
-[로그인 없이 미리보기 ZIP 다운로드](https://raw.githubusercontent.com/HyungwonPark/ai-company/design/task-first-workspace/docs/previews/downloads/AI-Company-task-workspace-b31fb87.zip)
+[로그인 없이 미리보기 ZIP 다운로드](https://raw.githubusercontent.com/HyungwonPark/ai-company/design/task-first-workspace/docs/previews/downloads/AI-Company-task-workspace-06d7872.zip)
 
-ZIP을 풀고 `AI-Company-task-workspace.html`을 Chrome 등 브라우저로 엽니다. GitHub Actions 산출물은 공개 저장소여도 다운로드에 로그인이 필요하므로, 일반 검토에는 위 공개 파일을 사용합니다. 코드 `b31fb87`의 검증된 HTML과 바이트가 같으며 [파일 해시](../downloads/task-workspace-b31fb87.json)를 함께 보관합니다.
+ZIP을 풀고 `AI-Company-task-workspace.html`을 Chrome 등 브라우저로 엽니다. GitHub Actions 산출물은 공개 저장소여도 다운로드에 로그인이 필요하므로, 일반 검토에는 위 공개 파일을 사용합니다. 코드 `06d7872`의 HTML·JS·CSS를 합친 파일이며 [파일 해시](../downloads/task-workspace-06d7872.json)를 함께 보관합니다. 이전 `b31fb87` 다운로드는 과거 검수 자료로 그대로 보존합니다.
 
 소스에서 다시 만들려면:
 
