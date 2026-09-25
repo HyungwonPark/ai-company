@@ -489,6 +489,40 @@ class PMRequirementsTests(unittest.TestCase):
         self.assertEqual(store.get_pm_request(request['request_id'])['state'], 'running')
         self.assertEqual(store.overview(self.h.project['id'])['plans'], [])
 
+    def test_pm_cannot_resolve_a_new_question_without_a_later_master_answer(self):
+        store = self.h.worker.store
+        first = store.pm_requests(self.h.project['id'])[0]
+        store.save_pm_request({**first, 'state': 'running', 'configuration_digest': 'c' * 64,
+                               'mode': 'fixture'}, expected_state='pending')
+        feedback = {'version': 2, 'revision': first['request_revision'],
+            'goal_digest': first['goal_digest'], 'problem': 'Need a decision',
+            'users_and_flow': 'Master chooses the first release', 'scope': ['First release'],
+            'exclusions': [], 'assumptions': [], 'findings': [],
+            'questions': [{'id': 'Q1', 'prompt': 'Which release?', 'reason': 'Scope differs',
+                           'status': 'answered', 'resolution': 'First release',
+                           'answer_message_id': first['request_id']}],
+            'requirements': [{'id': 'R1', 'source': 'master goal', 'acceptance': 'Scope defined',
+                'verification': 'Check release behavior', 'role_keys': ['impl']}]}
+        report = {'execution_id': 'a' * 64, 'generation': 1, 'role': 'pm', 'task_digest': 'b' * 64,
+            'policy_digest': 'c' * 64, 'candidate_sha': self.h.base, 'verification_digest': None,
+            'verdict': 'BLOCK', 'findings': [], 'resolved_findings': [], 'summary': 'Need an answer',
+            'plan': None, 'requirements_feedback': feedback}
+        with self.assertRaises(ManagementError) as error:
+            store.save_pm_feedback(first['request_id'], report, reason='question')
+        self.assertEqual(error.exception.code, 'answer_required')
+        self.assertEqual(store.get_pm_request(first['request_id'])['state'], 'running')
+        feedback['questions'][0].update(status='open', resolution=None, answer_message_id=None)
+        store.save_pm_feedback(first['request_id'], report, reason='question')
+        answer = store.post_message(self.h.project['id'], {'content': '첫 버전만 합니다.'})
+        second = store.get_pm_request(answer['id'])
+        store.save_pm_request({**second, 'state': 'running', 'configuration_digest': 'd' * 64,
+                               'mode': 'fixture'}, expected_state='pending')
+        feedback.update(revision=second['request_revision'])
+        feedback['questions'][0].update(status='answered', resolution='첫 버전',
+            answer_message_id=answer['id'], source_request_id=first['request_id'], source_question_id='Q1')
+        store.save_pm_feedback(second['request_id'], report, reason='question')
+        self.assertEqual(store.get_pm_request(second['request_id'])['state'], 'blocked')
+
     def test_review_revision_requires_a_concrete_finding(self):
         self.h.worker.run_once()
         store = self.h.worker.store

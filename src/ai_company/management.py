@@ -969,6 +969,24 @@ class ManagementStore:
                              or feedback['revision'] != request['request_revision']
                              or feedback['goal_digest'] != request['goal_digest']):
                 raise ManagementError('requirements_mismatch', 'PM questions do not bind this goal and revision')
+            if feedback and request.get('pm_guidance_version') == self.PM_GUIDANCE_VERSION:
+                pending = self._pending_material_questions(request['project_id'], request['request_revision'])
+                for question in questions:
+                    if question['status'] == 'open':
+                        continue
+                    matches = [item for item in pending
+                               if item['question']['id'] == (question.get('source_question_id') or question['id'])
+                               and item['question']['prompt'] == question['prompt']
+                               and (not question.get('source_request_id')
+                                    or item['request_id'] == question['source_request_id'])]
+                    if (question['status'] != 'answered' or not question.get('answer_message_id')
+                            or len(matches) != 1):
+                        raise ManagementError('answer_required', 'A resolved PM question needs its earlier recorded question and answer')
+                    answer_row = self.db.execute('SELECT rowid,document FROM management_messages WHERE id=? AND project_id=?',
+                                                 (question['answer_message_id'], request['project_id'])).fetchone()
+                    if (answer_row is None or answer_row[0] <= matches[0]['feedback_rowid']
+                            or json.loads(answer_row[1]).get('role') != 'user'):
+                        raise ManagementError('answer_required', 'A resolved PM question needs a later project-local master answer')
             awaiting_answer = any(item.get('status') == 'open' for item in questions)
             request.update(state=('answer_needed' if awaiting_answer else 'blocked') if current else 'stale',
                            reason=reason, updated_at=self.clock())
