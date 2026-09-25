@@ -44,7 +44,7 @@ class Automation:
         return self.config
 
     def _coordinate(self, record, operation):
-        if operation == "_pm" and record["state"] in ("completed", "stale", "blocked"):
+        if operation == "_pm" and record["state"] in ("completed", "stale", "blocked", "answer_needed"):
             return
         if operation == "_run" and record["state"] in ("blocked", "fixture_complete", "completed", "rejected", "awaiting_approval"):
             return self._run(record)
@@ -118,7 +118,7 @@ class Automation:
             plan = {**plan, "guidance": self.config.guidance.model_dump(mode="json")}
         return FlowSpec(task=task, worktree=str(clone), agents=self.config.agents,
                         policy=policy, checks=self.config.checks,
-                        approved_plan=scope != "planning", plan={**plan, "automation_configuration": self.configuration_digest},
+                        approved_plan=scope not in ("planning", "plan_review"), plan={**plan, "automation_configuration": self.configuration_digest},
                         mode=self.config.mode, execution_scope=scope, **extra)
 
     def _existing(self, task_id):
@@ -157,7 +157,7 @@ class Automation:
         return plan
 
     def _pm(self, request):
-        if request["state"] in ("completed", "stale", "blocked"):
+        if request["state"] in ("completed", "stale", "blocked", "answer_needed"):
             return
         if request.get("configuration_digest") not in (None, self.configuration_digest):
             return  # Only the worker with the immutable configuration may resume it.
@@ -190,6 +190,7 @@ class Automation:
                        "authorized_paths": list(self.config.allowed_paths),
                        "required_checks": list(self.config.checks),
                        "request_revision": request["request_revision"],
+                       "goal_digest": request["goal_digest"],
                        "instruction": "Propose at least two independent roles with disjoint output paths. "
                        "Collaborate with the master using the saved conversation and previous proposal. "
                        "Apply the latest requested role/responsibility changes while preserving agreed constraints. "
@@ -223,7 +224,7 @@ class Automation:
             last = state["executions"][-1]
             job = self.dispatcher.queue.get(last["job_id"])
             evidence = {"source": "fixture" if state["specification"]["mode"] == "fixture" else "dispatcher",
-                        "task_id": task_id, "session_id": job["session_id"],
+                        "task_id": task_id, "session_id": job["session_id"], "provider": job["provider"],
                         "candidate_sha": state["snapshot"]["head_commit"],
                         "configuration": (job.get("result") or {}).get("configuration_evidence"),
                         "configuration_policy": self.config.policy.configuration_evidence}
@@ -234,6 +235,48 @@ class Automation:
                 self.store.save_pm_feedback(request['request_id'], response, reason=state['reason'])
             else:
                 self.store.save_pm_request({**request, "state": "blocked", "reason": state["reason"]})
+
+    def _review_plan(self, record):
+        if record["status"] != "reviewing" or record.get("contract_version") != 2:
+            return
+        if not self.store.request_is_current(record["request_id"]):
+            return
+        if record["configuration_digest"] != self.configuration_digest or record["mode"] != self.config.mode:
+            return
+        self.store._requirements_ready(record)
+        pm_session = (record.get("evidence") or {}).get("session_id")
+        pm_provider = (record.get("evidence") or {}).get("provider") or "codex"
+        if not pm_session:
+            raise ExecutionBlocked("plan review requires recorded PM session identity")
+        task_id = "plan-review-" + record["digest"][:48]
+        state = self._existing(task_id)
+        if state is None:
+            clone = self.git.clone(task_id, self.config.base_sha)
+            task = self._task(task_id, "Review the bound PM plan content without editing code",
+                              ["Check requirements, decisions, contradictions and verification methods"],
+                              self.config.base_sha, self.config.allowed_paths)
+            request = self.store.get_pm_request(record["request_id"])
+            context = {"project_id": record["project_id"], "plan_digest": record["digest"], "plan": record["content"],
+                       "goal": request["goal"], "master_message": request["content"],
+                       "conversation_context": request["conversation_context"],
+                       "requirements_revision": record["request_revision"],
+                       "review_version": record["plan_review_version"],
+                       "instruction": "Review this exact proposal before master confirmation. Do not edit or approve execution."}
+            state = self.dispatcher.submit(self._spec(task, clone, "plan_review", context,
+                inherited_pm_sessions=({"provider": pm_provider, "session_id": pm_session},)))
+        if state["status"] in ("PLAN_REVIEWED", "NEEDS_PLAN_REVISION"):
+            report = state["reviews"]["reviewer"]
+            job = self.dispatcher.queue.get(state["executions"][-1]["job_id"])
+            self.store.complete_plan_review(record["project_id"], record["id"], {
+                "plan_digest": record["digest"], "requirements_revision": record["request_revision"],
+                "requirements_digest": digest(record["content"]["requirements_review"]),
+                "review_version": record["plan_review_version"], "pm_session_id": pm_session,
+                "session_id": job["session_id"], "task_id": task_id,
+                "verdict": report["verdict"], "findings": report["findings"],
+                "summary": report["summary"], "mode": record["mode"]})
+        elif state["resume_at"] is None:
+            self.store.note_plan_review_problem(record["project_id"], record["id"],
+                                                state.get("reason") or state["status"])
 
     @staticmethod
     def _contribution(state):
@@ -390,6 +433,7 @@ class Automation:
         plan_record = self.store.get_plan(run["project_id"], run["plan_id"])
         if plan_record["digest"] != run["plan_digest"] or digest(self.store._plan_binding(plan_record)) != run["plan_digest"]:
             raise ExecutionBlocked("confirmed plan binding changed")
+        self.store.assert_plan_ready(plan_record)
         plan = self._validate_plan(plan_record["content"])
         self._delegation(run)
         run.setdefault("roles", {})
@@ -416,6 +460,13 @@ class Automation:
                     current = self.store.get_pm_request(request["request_id"])
                     if current["state"] not in ("completed", "stale"):
                         self.store.save_pm_request({**current, "state": "blocked", "reason": str(exc)})
+            for plan in self.store.db.execute("SELECT document FROM management_plans WHERE json_extract(document,'$.status')='reviewing'").fetchall():
+                record = json.loads(plan[0])
+                try:
+                    self._coordinate(record, "_review_plan")
+                except (ExecutionBlocked, ManagementError, ValueError, OSError) as exc:
+                    # A review failure is visible in the plan; unrelated runs continue.
+                    self.store.note_plan_review_problem(record["project_id"], record["id"], str(exc))
             for run in self.store.run_records():
                 try:
                     self._coordinate(run, "_run")
@@ -434,6 +485,15 @@ class Automation:
             if (request["state"] == "running" and request.get("configuration_digest") == digest(config)
                     and request.get("mode") == config.mode and request.get("execution")):
                 allowed_tasks.add(request["execution"]["task_id"])
+        for row in self.store.db.execute("SELECT document FROM management_plans WHERE json_extract(document,'$.status')='reviewing'"):
+            plan = json.loads(row[0])
+            try:
+                config = self._context_config(plan)
+            except (ValueError, ManagementError):
+                continue
+            if (self.store.request_is_current(plan["request_id"])
+                    and plan["configuration_digest"] == digest(config) and plan["mode"] == config.mode):
+                allowed_tasks.add("plan-review-" + plan["digest"][:48])
         for run in current["runs"]:
             try:
                 config = self._context_config(run)

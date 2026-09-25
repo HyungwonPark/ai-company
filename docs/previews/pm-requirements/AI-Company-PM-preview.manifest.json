@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "kind": "offline read-only product preview",
+  "source_commit": "a4aa00c0a05000f0ad467e0fc3f9292233ad81f3",
+  "source_dirty": false,
+  "sources_sha256": {
+    "docs/previews/pm-requirements/fixture.json": "db91466b23b5570266991805825fe1466d065c34217bbc4b1abd8d2582f95c64",
+    "scripts/package_journey_preview.py": "16dd914a4ce33614b5248247ec11cd0def393442ff0e8df367dec433dd2acc64",
+    "src/ai_company/web/app.js": "3937d5bf96ad0465057fb80941e51c31d066646a08f7c19a215415895ab2d206",
+    "src/ai_company/web/collaboration-ui.js": "ac90dd73cc810c94c353e949e052a64f6df02b24944892722290841ae7816fe2",
+    "src/ai_company/web/documents-ui.js": "139d9b5133835e35e533a3e6c8fc478beffd24b6b0f6aa410b1590eaf70a36f1",
+    "src/ai_company/web/execution-ui.js": "1994cbaa6b5700471e0fd1894c421ce3a7269b000194bafc19118e5819ca8588",
+    "src/ai_company/web/fonts/archivo-400.woff2": "8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967",
+    "src/ai_company/web/fonts/archivo-500.woff2": "8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967",
+    "src/ai_company/web/fonts/archivo-600.woff2": "8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967",
+    "src/ai_company/web/fonts/fonts.css": "11bd4857cbd25dcae5cd6226e05029f70fbad67e471ffbc47330e14dafe67d50",
+    "src/ai_company/web/fonts/ibmplexsans-400.woff2": "e2291e842cf5af167122a22881a740c7f2dda7716f1e8cd76680264f4a859470",
+    "src/ai_company/web/fonts/ibmplexsans-500.woff2": "e2291e842cf5af167122a22881a740c7f2dda7716f1e8cd76680264f4a859470",
+    "src/ai_company/web/fonts/ibmplexsans-600.woff2": "e2291e842cf5af167122a22881a740c7f2dda7716f1e8cd76680264f4a859470",
+    "src/ai_company/web/fonts/licenses.html": "1351f2bc21277dd8236501fdc858bcf1632f31d3cf68dc40a0465f03921aad1c",
+    "src/ai_company/web/fonts/manrope-400.woff2": "a30ddcd349703aff7464c34bef3fffdff405ee50c113440d7c8693c02d210972",
+    "src/ai_company/web/fonts/manrope-500.woff2": "a30ddcd349703aff7464c34bef3fffdff405ee50c113440d7c8693c02d210972",
+    "src/ai_company/web/fonts/manrope-600.woff2": "a30ddcd349703aff7464c34bef3fffdff405ee50c113440d7c8693c02d210972",
+    "src/ai_company/web/graph-preview/fixture.json": "ac970aba4ccf4abe47bd862da581cdb2b412a0cd7ca6fb98b5d9e13b798b25ba",
+    "src/ai_company/web/icon.svg": "fb1099a8c5a1a97d191cb5ba3a3d97f6bfc44ac24d29419485008640464bd666",
+    "src/ai_company/web/index.html": "54a3627b50e9ddebfada6033961787a0dc57ef264320b991f2ef3a9b28c8dc6e",
+    "src/ai_company/web/manager-ui.js": "fdb2fa810133ba9d02364ad62953e7d470a6e7788f9de285e29983d7f788c6b8",
+    "src/ai_company/web/manager.css": "d3eed8dac693a555ed0bcf41d5ef6eb14e0ac8a318e087cfd844fde9a468daa8",
+    "src/ai_company/web/plan-ui.js": "0563a0aa49c9ee2e3b8e02981f8acb7d03da06cae2dbd0a65a14d7a9ddfddba1",
+    "src/ai_company/web/report-ui.js": "4699c3a265a2e92a1a994d47fc5f2789e7cac914d6052f6e61daa393af172a20",
+    "src/ai_company/web/styles.css": "a997f46bbe5c87a595ac8daefc8068145bc8366f3306f0028922e1a220670cdb",
+    "src/ai_company/web/theme.js": "7e8f504a1f57ca34fa1599f3d5dc9b7740937b3c5b3e5ce8058b912d28333b30",
+    "src/ai_company/web/workspace-graph-ui.js": "79f7e7708513b128de6401d98826874dd9f5651b200ccb569b251dc431e46692",
+    "src/ai_company/web/workspace-graph.css": "f7b42f26ee80a873def4cebfd3ce8320ded224c32207331ad06157650de7953e"
+  },
+  "original_graph_fixture_sha256": "ac970aba4ccf4abe47bd862da581cdb2b412a0cd7ca6fb98b5d9e13b798b25ba",
+  "fixture_sha256": "db91466b23b5570266991805825fe1466d065c34217bbc4b1abd8d2582f95c64",
+  "transformations": [
+    "stylesheet/font/icon embedding",
+    "static relative module URL embedding",
+    "read-only synthetic fetch boundary",
+    "preview banner and network/worker CSP"
+  ],
+  "limitations": [
+    "no real login/API/model/approval operation",
+    "no writes",
+    "separate diagram/external pages excluded",
+    "no APK/service-worker/production verification",
+    "frozen synthetic timestamps; original product expiry rules apply"
+  ],
+  "html_sha256": "c971ef236f21173884f029077843cfe02cefb872747298a45628f74524e1b8b9"
+}

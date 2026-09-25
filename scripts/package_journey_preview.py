@@ -137,7 +137,8 @@ ADAPTER = r"""
 """
 
 
-def package(output):
+def package(output, fixture_path=FIXTURE):
+    fixture_path = fixture_path.resolve()
     sources = {}
 
     def read(path):
@@ -148,7 +149,7 @@ def package(output):
         sources[str(path.relative_to(ROOT))] = digest(raw)
         return raw
 
-    fixture_bytes = read(FIXTURE)
+    fixture_bytes = read(fixture_path)
     fixture = json.loads(fixture_bytes)
     if fixture.get('fixture') is not True or fixture.get('read_only') is not True:
         raise ValueError('Only the fixed synthetic read-only fixture is permitted')
@@ -210,7 +211,7 @@ def package(output):
         'schema_version': 1,
         'kind': 'offline read-only product preview',
         'source_commit': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-        'source_dirty': bool(subprocess.check_output(['git', 'status', '--porcelain', '--', 'src/ai_company/web', str(FIXTURE.relative_to(ROOT)), str(Path(__file__).relative_to(ROOT))], cwd=ROOT, text=True).strip()),
+        'source_dirty': bool(subprocess.check_output(['git', 'status', '--porcelain', '--', 'src/ai_company/web', str(fixture_path.relative_to(ROOT)), str(Path(__file__).relative_to(ROOT))], cwd=ROOT, text=True).strip()),
         'sources_sha256': dict(sorted(sources.items())),
         'original_graph_fixture_sha256': digest(original_graph_fixture),
         'fixture_sha256': digest(fixture_bytes),
@@ -229,8 +230,9 @@ def package(output):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output', type=Path)
+    parser.add_argument('--fixture', type=Path, default=FIXTURE, help='repository-local synthetic read-only fixture')
     parser.add_argument('--refresh-fixture', action='store_true', help='replace only the public synthetic fixture from a fresh temporary DB')
     args = parser.parse_args()
     if args.refresh_fixture:
         refresh_fixture()
-    package(args.output)
+    package(args.output, args.fixture)

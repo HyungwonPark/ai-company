@@ -11,10 +11,12 @@ from pydantic import ValidationError
 
 from ai_company.contracts import digest
 from ai_company.management import ManagementError, ManagementStore
+from tests.legacy_pm import use_legacy_requests
 
 
 class ValidationDelegationTests(unittest.TestCase):
     def setUp(self):
+        use_legacy_requests(self)
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         self.now = 1000.0

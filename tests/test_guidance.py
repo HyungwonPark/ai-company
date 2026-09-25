@@ -227,13 +227,15 @@ class GuidanceTests(FlowFixture):
         rows = fixture.worker.dispatcher.db.execute(
             "SELECT document FROM guidance_deliveries WHERE phase='executor_returned'").fetchall()
         records = [json.loads(row[0]) for row in rows]
-        self.assertEqual(len(records), 5)
+        self.assertEqual(len(records), 6)
         pm = next(r for r in records if r['role'] == 'pm')
         self.assertIsNone(pm['run_id']); self.assertIsNotNone(pm['pm_request_id'])
+        plan_review = next(r for r in records if r['role'] == 'reviewer' and r['run_id'] is None)
+        self.assertEqual(plan_review['plan_digest'], run['plan_digest'])
         self.assertEqual({r['role_key'] for r in records if r['role'] == 'developer'}, {'impl', 'test'})
         for record in records:
             self.assertEqual(record['project_id'], fixture.project['id'])
-            if record['role'] == 'pm': continue
+            if record['role'] == 'pm' or record is plan_review: continue
             self.assertEqual(record['run_id'], run['id'])
             self.assertEqual(record['plan_id'], run['plan_id'])
             self.assertEqual(record['plan_digest'], run['plan_digest'])

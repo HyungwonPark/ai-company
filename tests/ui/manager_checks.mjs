@@ -36,7 +36,28 @@ assert.match(reconciliationHTML,/PM이 계획을 준비하지 못했습니다|�
 assert.doesNotMatch(reconciliationHTML,/답변이 도착하면 팀과 계획|PM이 답변을 작성/,'PM reconciliation is not normal response waiting');
 assert.match(reconciliationHTML,/종료·결과 대조를 먼저 수행해야 합니다/);
 assert.equal(JSON.stringify(reconciliationRequest),reconciliationBefore);
+const questionRequest={...quotaRequest,pm_requests:[{request_revision:2,state:'answer_needed',requirements_feedback:{questions:[{
+  id:'Q1',status:'open',prompt:'첫 업무를 정할까요? <script>unsafe</script>',recommendation:'웹사이트 제작부터 시작하는 안을 권합니다.'}]}}]};
+const questionHTML=ui.render(questionRequest,options);
+assert.match(questionHTML,/답변 필요/);assert.match(questionHTML,/첫 업무를 정할까요/);
+assert.match(questionHTML,/웹사이트 제작부터 시작/);assert.doesNotMatch(questionHTML,/<script>unsafe<\/script>/);
+assert.doesNotMatch(questionHTML,/계획 검토·확정/,'an unanswered question cannot expose confirmation');
+assert.match(ui.render({...overview,plans:[{...plan,status:'reviewing'}],runs:[]},options),/계획 검토 중/);
+assert.doesNotMatch(ui.render({...overview,plans:[{...plan,status:'reviewing'}],runs:[]},options),/data-action="review-plan"/);
+assert.match(ui.render({...overview,plans:[{...plan,status:'reviewing',review_problem:'계정 인증 실패'}],runs:[]},options),/계획 검토 확인 필요/);
+assert.match(ui.render({...overview,plans:[{...plan,status:'reviewing',review_problem:'계정 인증 실패'}],runs:[]},options),/계정 인증 실패/);
+assert.match(ui.render({...overview,plans:[{...plan,status:'needs_revision'}],runs:[]},options),/계획 수정 필요/);
 console.log('PASS: current revision/digest, dependency counts, read-only projection, original access, disconnected confirmation and candidate-bound next action');
+const planSource=await readFile(new URL('../../src/ai_company/web/plan-ui.js',import.meta.url),'utf8');
+const {createPlanUI}=await import('data:text/javascript;base64,'+Buffer.from(planSource).toString('base64'));
+const planUI=createPlanUI({esc,documents:{text:(id,field,fallback)=>fallback,meta:()=>''}});
+const requirements={version:2,problem:'첫 화면 준비',users_and_flow:'초보자가 목표를 입력합니다',scope:['목표 입력'],exclusions:[],assumptions:[],
+  requirements:[{id:'R1',source:'마스터 목표',acceptance:'목표를 저장합니다',verification:'저장 후 새로고침으로 확인합니다',role_keys:['implementation']}],
+  questions:[{id:'Q1',prompt:'대표 업무는 무엇인가요?',status:'answered',resolution:'웹사이트 제작'}],findings:[]};
+const planHTML=planUI.render({...plan,content:{...plan.content,requirements_review:requirements},review:{verdict:'PASS',mode:'fixture',summary:'계획을 확인했습니다',findings:[]}});
+assert.match(planHTML,/요구사항 · 검증/);assert.match(planHTML,/대표 업무는 무엇인가요/);
+assert.match(planHTML,/출처: 마스터 목표/);
+assert.match(planHTML,/계획 검수 · 통과 · 모의/);
 const executionSource=await readFile(new URL('../../src/ai_company/web/execution-ui.js',import.meta.url),'utf8');
 const {createExecutionUI,currentExecutionProposal}=await import('data:text/javascript;base64,'+Buffer.from(executionSource).toString('base64'));
 const executionUI=createExecutionUI({esc,stamp:String});

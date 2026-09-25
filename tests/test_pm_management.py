@@ -12,10 +12,12 @@ from unittest.mock import patch
 from ai_company.contracts import digest
 from ai_company.management import ManagementError, ManagementStore
 from ai_company.management_server import ManagementHTTPServer
+from tests.legacy_pm import use_legacy_requests
 
 
 class PMManagementTests(unittest.TestCase):
     def setUp(self):
+        use_legacy_requests(self)
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         self.now = 1000

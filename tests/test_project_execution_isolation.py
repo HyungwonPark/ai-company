@@ -9,6 +9,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from tests.legacy_pm import use_legacy_requests
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from unittest.mock import patch
@@ -28,6 +29,7 @@ from ai_company.runtime import ExecutionBlocked
 
 class ProjectExecutionIsolationTests(unittest.TestCase):
     def setUp(self):
+        use_legacy_requests(self)
         temporary = tempfile.TemporaryDirectory(prefix="project-execution-isolation-")
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
