@@ -1,0 +1,15 @@
+{"status":"PASS","cases":31,"scope":"actual product projection; synthetic clocks; original approval status, digest and decisions unchanged","checks":[{"raw":"pending","expiry":null,"actionable":false},{"raw":"pending","expiry":1999999999,"actionable":false},{"raw":"pending","expiry":2000000000,"actionable":false},{"raw":"pending","expiry":2000000001,"actionable":true},{"raw":"pending","expiry":"2033-05-18T03:33:19.999Z","actionable":false},{"raw":"pending","expiry":"2033-05-18T03:33:20.000Z","actionable":false},{"raw":"pending","expiry":"2033-05-18T03:33:20.001Z","actionable":true},{"raw":"PENDING","expiry":null,"actionable":false},{"raw":"PENDING","expiry":1999999999,"actionable":false},{"raw":"PENDING","expiry":2000000000,"actionable":false},{"raw":"PENDING","expiry":2000000001,"actionable":true},{"raw":"PENDING","expiry":"2033-05-18T03:33:19.999Z","actionable":false},{"raw":"PENDING","expiry":"2033-05-18T03:33:20.000Z","actionable":false},{"raw":"PENDING","expiry":"2033-05-18T03:33:20.001Z","actionable":true},{"raw":"WAITING_APPROVAL","expiry":null,"actionable":false},{"raw":"WAITING_APPROVAL","expiry":1999999999,"actionable":false},{"raw":"WAITING_APPROVAL","expiry":2000000000,"actionable":false},{"raw":"WAITING_APPROVAL","expiry":2000000001,"actionable":true},{"raw":"WAITING_APPROVAL","expiry":"2033-05-18T03:33:19.999Z","actionable":false},{"raw":"WAITING_APPROVAL","expiry":"2033-05-18T03:33:20.000Z","actionable":false},{"raw":"WAITING_APPROVAL","expiry":"2033-05-18T03:33:20.001Z","actionable":true},{"raw":"approved","expires_at":1999999999,"actionable":false},{"raw":"approved","expires_at":2000000001,"actionable":false},{"raw":"rejected","expires_at":1999999999,"actionable":false},{"raw":"rejected","expires_at":2000000001,"actionable":false},{"raw":"changes_requested","expires_at":1999999999,"actionable":false},{"raw":"changes_requested","expires_at":2000000001,"actionable":false},{"raw":"expired","expires_at":1999999999,"actionable":false},{"raw":"expired","expires_at":2000000001,"actionable":false},{"raw":"NEW_UNKNOWN_STATE","expires_at":1999999999,"actionable":false},{"raw":"NEW_UNKNOWN_STATE","expires_at":2000000001,"actionable":false}]}
+node:internal/modules/run_main:122
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: unknown code does not inherit a known visual state
+    at file://[checkout]/tests/ui/journey_usability_checks.mjs:30:85 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: '<span class="badge running" title="NEW_RUNNING_STATE">상태 미확인</span>',
+  expected: /class="badge (running|complete|waiting)/,
+  operator: 'doesNotMatch'
+}
+
+Node.js v22.13.0

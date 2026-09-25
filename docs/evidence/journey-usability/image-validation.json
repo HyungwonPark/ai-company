@@ -1,0 +1,32 @@
+{
+  "anonymous_api": 401,
+  "api_and_worker_code": "verified by source manifest; no worker/model invocation",
+  "assets": {
+    "/": "54a3627b50e9ddebfada6033961787a0dc57ef264320b991f2ef3a9b28c8dc6e",
+    "/app.js": "af8a886563abe69ca6c8b01c2941e0bfc1542eb8c4a6affbfb6b20b98ca1815a",
+    "/report-ui.js": "4699c3a265a2e92a1a994d47fc5f2789e7cac914d6052f6e61daa393af172a20",
+    "/sw.js": "5037b773be28b001c87d3bafc85d60c42edfc6684d4fbe1cb1cefb14a1dda615",
+    "/workspace-graph-ui.js": "79f7e7708513b128de6401d98826874dd9f5651b200ccb569b251dc431e46692"
+  },
+  "foreign_host": 403,
+  "installed_source_files": 113,
+  "isolation": {
+    "network": "none; loopback HTTP only",
+    "production_mounts": false,
+    "root_read_only": true,
+    "state": "temporary tmpfs",
+    "uid": 65532
+  },
+  "limitations": [
+    "not production health",
+    "not physical APK",
+    "not actual model execution"
+  ],
+  "source_manifest_sha256": "160963c81a5eb26ac94e06345ae61d793ff1a5ff50213d3ade630e5fbc45f510",
+  "status": "PASS",
+  "product_commit": "6e39dfc0b8ede91c235f681a9b18c2708138ec48",
+  "image_id": "sha256:a580921eb1b5b3cf2ee8639d454f3ace8835dc478c24618a38be1fd82b78400c",
+  "revision": "6e39dfc0b8ede91c235f681a9b18c2708138ec48",
+  "tag": "ai-company-preview:journey-usability-6e39dfc",
+  "architecture": "arm64"
+}
