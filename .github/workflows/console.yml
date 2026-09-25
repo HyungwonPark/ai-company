@@ -35,6 +35,7 @@ jobs:
           node --check src/ai_company/web/diagram-view.js
           node tests/ui/state_checks.mjs
           node tests/ui/manager_checks.mjs
+          node tests/ui/pm_skills_ui_checks.mjs
           node tests/ui/workspace_model.cjs
           node tests/ui/workspace_graph_checks.mjs
           node tests/ui/graph_routing_checks.mjs

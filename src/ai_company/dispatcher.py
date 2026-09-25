@@ -13,7 +13,7 @@ from langsmith.run_helpers import tracing_context
 
 from ai_company.adapters.session_cli import run_session
 from ai_company.contracts import Finding, digest
-from ai_company.flow_contracts import AgentProfile, ContributionStageReport, FlowSpec, PMPlanStageReport, StageReport, budget_available
+from ai_company.flow_contracts import AgentProfile, ContributionStageReport, FlowSpec, PMPlanStageReport, PlanReviewStageReport, StageReport, budget_available
 from ai_company.flow_evidence import Verifier, allowed, handoff
 from ai_company.flow_graph import build_graph
 from ai_company.harness.prompts import stage_prompt
@@ -242,15 +242,47 @@ class Dispatcher:
                     raise ExecutionBlocked("guidance delivery requires a claimed queue attempt")
                 guidance = receipt(spec, state, job, prompt, document_hash, self.clock())
                 self._guidance_event(guidance, "prepared")
-                original_spawn = kwargs.get("on_spawn")
+                prior_guidance_spawn = kwargs.get("on_spawn")
                 def observed_spawn(identity):
-                    if original_spawn:
-                        original_spawn(identity)
+                    if prior_guidance_spawn:
+                        prior_guidance_spawn(identity)
                     self._guidance_event(guidance, "process_started")
                 kwargs["on_spawn"] = observed_spawn
-            report_type = {"planning": PMPlanStageReport, "contribution": ContributionStageReport}.get(scope, StageReport)
+            skill = spec.plan.get("skill_delivery")
+            skill_record = None
+            if skill is not None:
+                job = self.queue.get(state["active"]["job_id"])
+                if (scope != "contribution" or state["stage"] != "developer"
+                        or job["status"] != "RUNNING" or job["attempt_count"] < 1
+                        or skill.get("task_id") != state["task_id"]):
+                    raise ExecutionBlocked("role skill delivery needs its claimed developer attempt")
+                skill_record = {"execution_id": state["active"]["execution_id"],
+                    "attempt": job["attempt_count"], "delivery_id": skill["delivery_id"],
+                    "selection_digest": skill["selection_digest"], "role_key": skill["role_key"],
+                    "documents": skill["documents"], "model_compliance": "unverified"}
+                self._guidance_event(skill_record, "skill_prompt_prepared", prompt_digest=digest(prompt))
+                prior_skill_spawn = kwargs.get("on_spawn")
+                def skill_spawn(identity):
+                    if prior_skill_spawn:
+                        prior_skill_spawn(identity)
+                    self._guidance_event(skill_record, "skill_process_started")
+                kwargs["on_spawn"] = skill_spawn
+            def invoke(function, *args, **options):
+                if skill_record is not None:
+                    self._guidance_event(skill_record, "skill_executor_invocation_started")
+                try:
+                    result = self._guided_external(guidance, function, *args, **options)
+                except Exception as error:
+                    if skill_record is not None:
+                        self._guidance_event(skill_record, "skill_executor_failed", error_type=type(error).__name__)
+                    raise
+                if skill_record is not None:
+                    self._guidance_event(skill_record, "skill_executor_returned", outcome_category=result.category)
+                return result
+            report_type = {"planning": PMPlanStageReport, "plan_review": PlanReviewStageReport,
+                           "contribution": ContributionStageReport}.get(scope, StageReport)
             if self.executor:
-                outcome = self._guided_external(guidance, self.executor, agent, state, provider, worktree, prompt, session_id, **kwargs)
+                outcome = invoke(self.executor, agent, state, provider, worktree, prompt, session_id, **kwargs)
             else:
                 if spec.mode != "live":
                     raise ExecutionBlocked("fixture mode requires an explicit fixture executor")
@@ -267,7 +299,7 @@ class Dispatcher:
                     job = self.queue.get(state["active"]["job_id"])
                     binding, _ = persisted_attempt(self.db, job)
                     options = {"binding": binding, "writable_paths": spec.task.allowed_paths if state["stage"] == "developer" else ()}
-                outcome = self._guided_external(guidance, runner, provider, worktree, prompt, session_id, **kwargs, **options, model=agent.model,
+                outcome = invoke(runner, provider, worktree, prompt, session_id, **kwargs, **options, model=agent.model,
                                    reasoning_effort=agent.reasoning_effort, ultracode_enabled=agent.ultracode_enabled, output_schema=report_type.model_json_schema(),
                                    max_cost_usd=min(cost_limits) if cost_limits else None)
             if scope == "contribution" and state["stage"] == "developer":
@@ -278,7 +310,7 @@ class Dispatcher:
 
     def _consume(self, state, spec, job):
         active = state["active"]
-        if "guidance" in spec.plan:
+        if "guidance" in spec.plan or "skill_delivery" in spec.plan:
             active["guidance_receipts"] = [json.loads(row[0]) for row in self.db.execute(
                 "SELECT document FROM guidance_deliveries WHERE execution_id=? ORDER BY attempt, rowid",
                 (active["execution_id"],))]
@@ -345,7 +377,8 @@ class Dispatcher:
         if current["generation"] != active["generation"] or (current["active"] or {}).get("execution_id") != active["execution_id"]:
             raise ExecutionBlocked("late result belongs to a superseded generation")
         result = job["result"] or {}
-        report_type = {"planning": PMPlanStageReport, "contribution": ContributionStageReport}.get(spec.execution_scope, StageReport)
+        report_type = {"planning": PMPlanStageReport, "plan_review": PlanReviewStageReport,
+                       "contribution": ContributionStageReport}.get(spec.execution_scope, StageReport)
         report = report_type.model_validate(result.get("structured_output"))
         agent = next(a for a in spec.agents if a.agent_id == active["agent_id"])
         if spec.policy.configuration_evidence == "cli_configuration_v2" and agent.provider == "claude":

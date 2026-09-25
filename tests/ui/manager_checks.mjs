@@ -8,9 +8,19 @@ assert.equal(managerSnapshot(overview).run,undefined,'a success for a different 
 assert.equal(managerSnapshot(overview).independent,2,'dependency-bound review is not counted as an independent role');
 assert.equal(managerSnapshot({...overview,project:{id:'project',request_revision:3},pm_requests:[{request_revision:3,state:'waiting_quota'}]}).plan,undefined,'a new request cannot offer the old plan for confirmation');
 assert.equal(managerSnapshot({...overview,plans:[{...plan,status:'stale'}]}).plan,undefined);
+assert.equal(managerSnapshot({...overview,plans:[{...plan,id:'older',status:'needs_revision'},
+  {...plan,status:'stale'}]}).plan,undefined,'latest stale policy cannot reveal an older plan');
+const stalePolicy={...overview,plans:[{...plan,status:'stale',stale_reason:'검수 기준이 변경되어 새 계획이 필요합니다.'}],runs:[]};
 const esc=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const ui=createManagerUI({esc,badge:esc,label:esc,stamp:String,documents:{text:(id,field,fallback)=>fallback,meta:()=>''},planContent:()=>'<p>Full original constraints</p>'});
 const options={connected:true,composer:'',history:'',technical:'',archive:''};
+assert.match(ui.render(stalePolicy,options),/검수 기준이 변경되어 새 계획이 필요합니다/);
+assert.match(ui.render(stalePolicy,options),/새 계획 요청/);
+assert.doesNotMatch(ui.render(stalePolicy,options),/data-action="review-plan"/);
+const newerRequest={...stalePolicy,project:{...stalePolicy.project,request_revision:3},
+  pm_requests:[{request_revision:3,state:'running'}]};
+assert.match(ui.render(newerRequest,options),/PM 답변 작성 중/);
+assert.doesNotMatch(ui.render(newerRequest,options),/검수 기준이 변경되어 새 계획이 필요합니다/);
 const before=JSON.stringify(overview),html=ui.render(overview,options);
 assert.equal(JSON.stringify(overview),before,'overview rendering cannot mutate persisted data');
 assert.ok(!html.includes('Long original English specification'),'untranslated prose is not the headline');
@@ -41,6 +51,7 @@ const questionRequest={...quotaRequest,pm_requests:[{request_revision:2,state:'a
 const questionHTML=ui.render(questionRequest,options);
 assert.match(questionHTML,/답변 필요/);assert.match(questionHTML,/첫 업무를 정할까요/);
 assert.match(questionHTML,/웹사이트 제작부터 시작/);assert.doesNotMatch(questionHTML,/<script>unsafe<\/script>/);
+assert.doesNotMatch(ui.render({...questionRequest,pm_requests:[{...questionRequest.pm_requests[0],reason:'PM decision needed'}]},options),/PM decision needed/);
 assert.doesNotMatch(questionHTML,/계획 검토·확정/,'an unanswered question cannot expose confirmation');
 assert.match(ui.render({...overview,plans:[{...plan,status:'reviewing'}],runs:[]},options),/계획 검토 중/);
 assert.doesNotMatch(ui.render({...overview,plans:[{...plan,status:'reviewing'}],runs:[]},options),/data-action="review-plan"/);

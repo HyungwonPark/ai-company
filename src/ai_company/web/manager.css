@@ -118,6 +118,7 @@
 .discussion-source{font-size:13px;line-height:1.8;white-space:pre-wrap;overflow-wrap:anywhere}
 .discussion-welcome{padding:20px 0 28px}.discussion-welcome h3,.team-placeholder h3{font-size:18px;font-weight:500;margin:16px 0 8px}.discussion-welcome p,.team-placeholder p{font-size:14px;line-height:1.8;color:var(--muted);margin:0}
 .discussion-status{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:14px 0;font-size:12px;color:var(--muted)}
+.discussion-status ol{flex-basis:100%;margin:0;padding-left:20px}.discussion-status li strong,.discussion-status li span{display:block}.discussion-status li strong{color:var(--ink)}.discussion-status li span{margin-top:4px}
 .conversation-suggestions{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
 .conversation-suggestions button{min-height:44px;padding:7px 12px;font-size:12px;border-radius:22px;background:transparent;white-space:nowrap}
 .manager-compose .form-actions{gap:12px}.manager-compose .form-actions .hint{flex:1}.manager-compose .form-actions button{min-height:46px;flex-shrink:0}
@@ -218,6 +219,20 @@
 .journey-result-summary dd{margin:0;font-size:16px;line-height:1.75;overflow-wrap:anywhere}
 .role-counts{display:flex;flex-wrap:wrap;gap:8px 20px;padding:14px 0;border-block:1px solid var(--line);font-size:14px;color:var(--muted)}
 .role-counts strong{color:var(--ink);font-weight:600}
+.role-skills,.manager-agent-skills{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);min-width:0}
+.role-skills h4,.manager-agent-skills>strong{display:block;margin:0 0 10px;font-size:14px;font-weight:600}
+.role-skill-list{list-style:none;margin:0;padding:0}
+.role-skill-list>li,.manager-skill-row{padding:10px 0;border-top:1px solid var(--line)}
+.role-skill-list>li:first-child,.manager-skill-row:first-of-type{border-top:0}
+.role-skill-heading,.manager-skill-row>div:first-child{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;justify-content:space-between}
+.role-skill-heading strong,.manager-skill-row strong{font-size:16px;overflow-wrap:anywhere}
+.role-skill-heading span,.manager-skill-row>div:first-child span{font-size:14px;color:var(--muted)}
+.role-skills p,.manager-agent-skills p{font-size:14px;line-height:1.7;margin:5px 0;overflow-wrap:anywhere}
+.role-skills .detail-grid,.manager-agent-skills .detail-grid{margin:4px 0 10px}
+.role-skills .detail-grid :is(dt,dd),.manager-agent-skills .detail-grid :is(dt,dd){font-size:14px;overflow-wrap:anywhere}
+.manager-agent-skills details>summary{display:flex;align-items:center;min-height:44px;font-size:14px;color:var(--ink);cursor:pointer}
+.manager-agent-skills details>summary::before{content:'+';margin-right:8px}
+.manager-agent-skills details[open]>summary::before{content:'−'}
 .result-role-details,.result-system-details{margin-top:20px}
 .result-role-details>summary,.result-system-details>summary{display:flex;align-items:center;gap:8px;cursor:pointer}
 .result-role-details>summary::before,.result-system-details>summary::before{content:"+"}

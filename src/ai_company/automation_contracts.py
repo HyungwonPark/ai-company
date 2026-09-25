@@ -18,9 +18,25 @@ class RolePlan(Contract):
     acceptance: list[Text] = Field(min_length=1, max_length=20)
     allowed_paths: list[Text] = Field(min_length=1, max_length=20)
     depends_on: list[str] = Field(max_length=16)
+    required_capabilities: list[str] = Field(default_factory=list, max_length=5)
+    skill_required: bool = False
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_role(self, handler):
+        value = handler(self)
+        if not self.required_capabilities:
+            value.pop("required_capabilities", None)
+        if not self.skill_required:
+            value.pop("skill_required", None)
+        return value
 
     @model_validator(mode="after")
     def confined_paths(self):
+        import re
+        if any(not re.fullmatch(r"[a-z][a-z0-9+#.-]{1,39}", value) for value in self.required_capabilities):
+            raise ValueError("role capabilities must be generic bounded technical terms")
+        if self.skill_required and not self.required_capabilities:
+            raise ValueError("mandatory role skill needs a named capability")
         for value in self.allowed_paths:
             path = PurePosixPath(value)
             parts = value.rstrip("/").split("/")
@@ -49,11 +65,41 @@ class MaterialQuestion(Contract):
     recommendation: Text | None = None
     status: Literal["open", "answered", "assumed", "excluded"]
     resolution: Text | None = None
+    answer_message_id: Key | None = None
+    source_request_id: Key | None = None
+    source_question_id: Key | None = None
+    source_plan_id: Key | None = None
+    source_repair_attempt: int | None = Field(default=None, ge=1, le=2)
+    evidence_kind: Literal["question_answer", "master_goal"] | None = None
+    goal_quote: Text | None = None
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_question(self, handler):
+        value = handler(self)
+        if self.answer_message_id is None:
+            value.pop("answer_message_id", None)
+        for optional in ("source_request_id", "source_question_id", "source_plan_id",
+                         "source_repair_attempt", "evidence_kind", "goal_quote"):
+            if getattr(self, optional) is None:
+                value.pop(optional, None)
+        return value
 
     @model_validator(mode="after")
     def resolved_has_basis(self):
         if self.status != "open" and not self.resolution:
             raise ValueError("resolved material questions need an answer, assumption or explicit exclusion")
+        if bool(self.source_request_id) != bool(self.source_question_id):
+            raise ValueError("question source needs both request and question IDs")
+        if bool(self.source_plan_id) != bool(self.source_repair_attempt):
+            raise ValueError("repaired question source needs plan and attempt")
+        if self.source_plan_id and not self.source_request_id:
+            raise ValueError("repaired question source needs its original request")
+        if self.evidence_kind == "master_goal" and self.source_question_id:
+            raise ValueError("a saved question answer is distinct from a decision in the original goal")
+        if self.evidence_kind == "master_goal" and (not self.goal_quote or self.resolution != self.goal_quote):
+            raise ValueError("a goal decision must quote the master's exact decision")
+        if self.evidence_kind != "master_goal" and self.goal_quote is not None:
+            raise ValueError("only an original-goal decision may use a goal quote")
         return self
 
 
@@ -104,6 +150,8 @@ class PMPlanContent(Contract):
     completion_criteria: list[Text] = Field(min_length=1, max_length=20)
     execution_spec_proposal: dict | None = None
     requirements_review: PMRequirements | None = None
+    skill_selection: dict | None = None
+    skill_recommendations: dict[str, list[str]] = Field(default_factory=dict, max_length=8)
 
     @model_serializer(mode="wrap")
     def preserve_legacy_content(self, handler):
@@ -112,6 +160,10 @@ class PMPlanContent(Contract):
             value.pop("execution_spec_proposal", None)
         if self.requirements_review is None:
             value.pop("requirements_review", None)
+        if self.skill_selection is None:
+            value.pop("skill_selection", None)
+        if not self.skill_recommendations:
+            value.pop("skill_recommendations", None)
         return value
 
     @model_validator(mode="after")
@@ -122,6 +174,9 @@ class PMPlanContent(Contract):
         by_key = {role.key: role for role in self.roles}
         if len(by_key) != len(self.roles):
             raise ValueError("role keys must be unique")
+        if any(key not in by_key or len(values) > 3 or len(values) != len(set(values))
+               for key, values in self.skill_recommendations.items()):
+            raise ValueError("skill recommendation must name a role and at most three distinct candidates")
         for role in self.roles:
             if role.key in role.depends_on or set(role.depends_on) - by_key.keys():
                 raise ValueError("role dependencies must name other proposed roles")
@@ -168,10 +223,19 @@ class AutomationConfig(Contract):
     pm_timeout_seconds: int = Field(default=180, ge=1, le=1800)
     max_parallel: int = Field(default=2, ge=1, le=2)
     guidance: GuidanceRef | None = None
+    skill_catalog: tuple[dict, ...] = Field(default=(), max_length=20)
+    skill_public_sources: tuple[str, ...] = Field(default=(), max_length=6)
+    skill_search_terms: tuple[str, ...] = Field(default=(), max_length=6)
 
     @model_serializer(mode="wrap")
     def preserve_legacy_configuration(self, handler):
         value = handler(self)
         if self.guidance is None:
             value.pop("guidance", None)
+        if not self.skill_catalog:
+            value.pop("skill_catalog", None)
+        if not self.skill_public_sources:
+            value.pop("skill_public_sources", None)
+        if not self.skill_search_terms:
+            value.pop("skill_search_terms", None)
         return value

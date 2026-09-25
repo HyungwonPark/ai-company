@@ -249,6 +249,25 @@ class PMPlanStageReport(StageReport):
         return schema
 
 
+class PlanReviewStageReport(StageReport):
+    # Absent on historical reviews. Only an explicit technical finding may
+    # trigger an automatic PM repair; uncertainty waits for the master.
+    revision_route: Literal["technical", "master_decision"] | None = None
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_review(self, handler):
+        value = handler(self)
+        if self.revision_route is None:
+            value.pop("revision_route", None)
+        return value
+
+    @model_validator(mode="after")
+    def route_only_revision(self):
+        if self.revision_route is not None and self.verdict != "REVISE":
+            raise ValueError("revision route belongs only to REVISE")
+        return self
+
+
 def budget_available(task: dict, policy: FlowPolicy) -> bool:
     usage = task["usage"]
     return (usage["executions"] < policy.max_executions

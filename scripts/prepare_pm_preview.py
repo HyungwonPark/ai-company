@@ -80,6 +80,24 @@ def main():
                         'acceptance': '사용자가 모바일에서 로그인할 수 있습니다.',
                         'verification': '격리 브라우저에서 성공·실패 입력과 새로고침을 확인합니다.',
                         'role_keys': ['ui', 'tests']}]}}
+            # Static example data only. This temporary document is never part of
+            # the trusted worker catalog and cannot authorize a real role run.
+            from ai_company import skill_catalog
+            from ai_company.skill_selection import build_selection
+            skill_root = Path(directory) / 'sample-skill'; skill_root.mkdir()
+            (skill_root / 'SKILL.md').write_text('---\nname: 화면 점검 · 예시\n---\n키보드와 모바일 버튼을 확인합니다.\n')
+            (skill_root / 'LICENSE').write_text('MIT License\n')
+            source = 'https://example.invalid/skill-preview'
+            hashes = {name: hashlib.sha256((skill_root / name).read_bytes()).hexdigest()
+                      for name in ('SKILL.md', 'LICENSE')}
+            entry = skill_catalog.inspect_installed_skill(skill_root, skill_id='ui-preview',
+                source_url=source, source_ref='synthetic-v1',
+                expected_sha256=skill_catalog._bundle_hash(source, 'synthetic-v1', hashes),
+                license_path='LICENSE', license_id='MIT', redistribution='internal_only',
+                providers=('codex',), runners=('session_cli',), capabilities=('accessibility',))
+            content['skill_selection'] = build_selection({'ui': [{'skill_id': 'ui-preview',
+                'reason': '키보드 이동과 모바일 버튼을 확인합니다.', 'requirements': ['R1'],
+                'selected': True}], 'tests': []}, {'ui-preview': {'entry': entry, 'root': skill_root}})
             store.complete_pm_request(message['id'], content, evidence={'source': 'fixture',
                 'session_id': 'fixture-pm-plan', 'provider': 'codex',
                 'verification_level': 'synthetic PM plan; independent review not run'})
