@@ -63,6 +63,12 @@ jobs:
       - name: Verify shell update and rollback with browser sandbox
         if: always()
         run: node tests/ui/journey_service_worker.cjs
+      - name: Verify mixed module application boundaries
+        if: always()
+        run: node tests/ui/journey_module_compatibility_checks.mjs
+      - name: Verify authenticated mixed modules with browser sandbox
+        if: always()
+        run: uv run --frozen python tests/ui/run_journey_mixed_modules.py
       - name: Preserve nonsecret validation evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
