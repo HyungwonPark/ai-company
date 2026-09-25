@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "offline read-only product preview",
-  "source_commit": "fd58c52b75dbe45eeb4290ff82d3bc6d7f804f13",
+  "source_commit": "0cb11871bf4d23b5a95aff5b187b9b8f06592a49",
   "source_dirty": false,
   "sources_sha256": {
     "docs/previews/pm-requirements/fixture.json": "479faedaf800b68f839c07ef231c61f5d1eb3a2203951070d756f6986397900d",
@@ -48,5 +48,5 @@
     "no APK/service-worker/production verification",
     "frozen synthetic timestamps; original product expiry rules apply"
   ],
-  "html_sha256": "b84182eaa26549c39af961207ab373165ea3641ce5d601d899d42447dfc159ab"
+  "html_sha256": "cf45f76757f6c2910ed0be852c1643ec4cf4667cf95293a14287843c5406a244"
 }
