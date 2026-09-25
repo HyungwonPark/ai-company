@@ -18,9 +18,25 @@ class RolePlan(Contract):
     acceptance: list[Text] = Field(min_length=1, max_length=20)
     allowed_paths: list[Text] = Field(min_length=1, max_length=20)
     depends_on: list[str] = Field(max_length=16)
+    required_capabilities: list[str] = Field(default_factory=list, max_length=5)
+    skill_required: bool = False
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_role(self, handler):
+        value = handler(self)
+        if not self.required_capabilities:
+            value.pop("required_capabilities", None)
+        if not self.skill_required:
+            value.pop("skill_required", None)
+        return value
 
     @model_validator(mode="after")
     def confined_paths(self):
+        import re
+        if any(not re.fullmatch(r"[a-z][a-z0-9+#.-]{1,39}", value) for value in self.required_capabilities):
+            raise ValueError("role capabilities must be generic bounded technical terms")
+        if self.skill_required and not self.required_capabilities:
+            raise ValueError("mandatory role skill needs a named capability")
         for value in self.allowed_paths:
             path = PurePosixPath(value)
             parts = value.rstrip("/").split("/")
@@ -49,6 +65,14 @@ class MaterialQuestion(Contract):
     recommendation: Text | None = None
     status: Literal["open", "answered", "assumed", "excluded"]
     resolution: Text | None = None
+    answer_message_id: Key | None = None
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_question(self, handler):
+        value = handler(self)
+        if self.answer_message_id is None:
+            value.pop("answer_message_id", None)
+        return value
 
     @model_validator(mode="after")
     def resolved_has_basis(self):
@@ -104,6 +128,7 @@ class PMPlanContent(Contract):
     completion_criteria: list[Text] = Field(min_length=1, max_length=20)
     execution_spec_proposal: dict | None = None
     requirements_review: PMRequirements | None = None
+    skill_selection: dict | None = None
 
     @model_serializer(mode="wrap")
     def preserve_legacy_content(self, handler):
@@ -112,6 +137,8 @@ class PMPlanContent(Contract):
             value.pop("execution_spec_proposal", None)
         if self.requirements_review is None:
             value.pop("requirements_review", None)
+        if self.skill_selection is None:
+            value.pop("skill_selection", None)
         return value
 
     @model_validator(mode="after")
@@ -168,10 +195,19 @@ class AutomationConfig(Contract):
     pm_timeout_seconds: int = Field(default=180, ge=1, le=1800)
     max_parallel: int = Field(default=2, ge=1, le=2)
     guidance: GuidanceRef | None = None
+    skill_catalog: tuple[dict, ...] = Field(default=(), max_length=20)
+    skill_public_sources: tuple[str, ...] = Field(default=(), max_length=6)
+    skill_search_terms: tuple[str, ...] = Field(default=(), max_length=6)
 
     @model_serializer(mode="wrap")
     def preserve_legacy_configuration(self, handler):
         value = handler(self)
         if self.guidance is None:
             value.pop("guidance", None)
+        if not self.skill_catalog:
+            value.pop("skill_catalog", None)
+        if not self.skill_public_sources:
+            value.pop("skill_public_sources", None)
+        if not self.skill_search_terms:
+            value.pop("skill_search_terms", None)
         return value

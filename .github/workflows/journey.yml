@@ -63,6 +63,9 @@ jobs:
       - name: Verify PM question and review preview with browser sandbox
         if: always()
         run: node tests/ui/pm_requirements_preview.cjs
+      - name: Verify v2 PM repair and role assignment through isolated API and browser
+        if: always()
+        run: uv run --frozen python tests/ui/run_pm_v2_flow.py
       - name: Verify shell update and rollback with browser sandbox
         if: always()
         run: node tests/ui/journey_service_worker.cjs

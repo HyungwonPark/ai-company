@@ -7,6 +7,7 @@ Execution capacity, quota recovery and review acceptance remain Dispatcher-owned
 from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
+import sqlite3
 import time
 
 from ai_company.automation_contracts import AutomationConfig, PMPlanContent
@@ -55,6 +56,8 @@ class Automation:
             dispatcher_factory=self.dispatcher_factory, execution_catalog=self.execution_catalog,
             project_context=(record["project_id"], record["execution_spec"]))
         try:
+            worker.store.register_skill_catalog(worker.configuration_digest, config.skill_catalog,
+                                                project_id=record["project_id"])
             return getattr(worker, operation)(record)
         finally:
             worker.close()
@@ -112,6 +115,10 @@ class Automation:
             pool = selection.get("role_candidates", {}).get(role_key)
             if pool:
                 policy = policy.model_copy(update={"candidates": {**policy.candidates, "developer": tuple(pool)}})
+        elif plan.get("pm_guidance_version") == "pm-requirements-v3":
+            extra["project_budget"] = ProjectBudget(scope_id=plan["project_id"], max_parallel=self.config.max_parallel,
+                **{key: getattr(self.config.policy, key) for key in
+                   ("max_cost_usd", "max_runtime_seconds", "max_executions", "max_repairs")})
         if self.config.guidance is not None:
             from ai_company.harness.guidance import load
             load(self.config.guidance)
@@ -156,6 +163,119 @@ class Automation:
             raise ExecutionBlocked("PM proposal exceeds server-authorized output paths")
         return plan
 
+    def _select_skills(self, plan):
+        """Server-owned advisory selection; a PM cannot approve external skill text."""
+        from ai_company.skill_catalog import SkillCatalogError, research_key
+        from ai_company.skill_selection import (SkillResearchStore, build_selection,
+                                                 catalog_version, load_trusted_catalog)
+        if plan.skill_selection is not None:
+            raise ExecutionBlocked("PM cannot set the server-owned skill selection")
+        trusted = load_trusted_catalog(self.config.skill_catalog)
+        assignments = {}
+        unmatched = []
+        candidates = [agent for agent in self.config.agents
+                      if agent.agent_id in self.config.policy.candidates["developer"]]
+        for role in plan.roles:
+            linked = [item.id for item in plan.requirements_review.requirements
+                      if role.key in item.role_keys] if plan.requirements_review else []
+            approved = []
+            for skill_id, item in trusted.items():
+                entry = item["entry"]
+                matches = sorted(set(role.required_capabilities) & set(entry["capabilities"]))
+                if not matches:
+                    continue
+                compatible = (entry["status"] == "approved_document" and all(
+                    agent.provider in entry["compatibility"]["providers"] and
+                    "session_cli" in entry["compatibility"]["runners"] for agent in candidates))
+                if compatible:
+                    approved.append({"skill_id": skill_id, "reason": "필요한 역량: " + ", ".join(matches),
+                                     "requirements": linked, "selected": True})
+            assignments[role.key] = approved[:3]
+            if role.required_capabilities and not approved:
+                unmatched.append(role.key)
+        external = []
+        lookup_status = "lookup_not_configured"
+        lookup_reason = ""
+        search_matches = 0
+        if unmatched and (self.config.skill_public_sources or self.config.skill_search_terms):
+            key = research_key(capabilities=[cap for role in plan.roles if role.key in unmatched
+                                              for cap in role.required_capabilities],
+                               environment="session_cli:" + (plan.requirements_review.goal_digest if plan.requirements_review else "unknown"),
+                               roles=unmatched,
+                               catalog_version=catalog_version(trusted))
+            research = None
+            try:
+                research = SkillResearchStore(self.root / "skill-research.sqlite", clock=self.clock)
+                existing = research.snapshot(key)
+                policy = existing["policy"] if existing else {
+                    "max_searches": 1, "max_fetches": 1, "max_bytes": 192 * 1024 + 128 * 1024,
+                    "max_elapsed_ms": 2_000, "max_model_calls": 0, "max_tokens": 0,
+                    "max_cost_microusd": 0, "expires_at": self.clock() + 86400}
+                for index, url in enumerate(self.config.skill_public_sources[:1]):
+                    try:
+                        result = research.run_fetch(key, "source-" + str(index), url, policy=policy, timeout=1)
+                    except (SkillCatalogError, OSError, sqlite3.Error) as error:
+                        lookup_status, lookup_reason = "lookup_failed", str(error)[:160]
+                        break
+                    if result["status"] == "review_pending":
+                        if (result.get("skill_id") not in trusted and
+                                not any(item["skill_id"] == result["skill_id"] for item in external)):
+                            external.append(result)
+                    elif result["status"] in ("lookup_failed", "lookup_pending"):
+                        lookup_status = result["status"]
+                        lookup_reason = result.get("reason", "")[:160]
+                if not external and self.config.skill_search_terms:
+                    terms = sorted({cap for role in plan.roles if role.key in unmatched
+                                    for cap in role.required_capabilities} & set(self.config.skill_search_terms))[:1]
+                    for term in terms:
+                        try:
+                            result = research.run_search(key, "search-" + term, term,
+                                allowed_terms=self.config.skill_search_terms, policy=policy,
+                                max_results=3, timeout=1)
+                        except (SkillCatalogError, OSError, sqlite3.Error) as error:
+                            lookup_status, lookup_reason = "lookup_failed", str(error)[:160]
+                            break
+                        if result["status"] == "found":
+                            search_matches += len(result["repositories"])
+                        elif result["status"] in ("lookup_failed", "lookup_pending"):
+                            lookup_status = result["status"]
+                            lookup_reason = result.get("reason", "")[:160]
+                        elif result["status"] == "no_results" and lookup_status == "lookup_not_configured":
+                            lookup_status = "no_results"
+            except (SkillCatalogError, OSError, sqlite3.Error) as error:
+                lookup_status, lookup_reason = "lookup_failed", str(error)[:160]
+            finally:
+                if research is not None:
+                    research.close()
+            for role_key in unmatched:
+                assignments[role_key] = [{"skill_id": item["skill_id"],
+                    "reason": "공개 자료 후보입니다. 내용과 권한 검토 전에는 전달하지 않습니다.",
+                    "requirements": [], "selected": False} for item in external[:3]]
+        outcome = ("existing_sufficient" if not unmatched else
+                   "review_pending" if external else "search_found_unpinned" if search_matches else lookup_status)
+        required_missing = any(role.skill_required and role.key in unmatched for role in plan.roles)
+        def selection_with(candidates, current_outcome):
+            return build_selection(assignments, trusted, external_candidates=candidates,
+                outcome=current_outcome, reason=("기존 지침으로 진행합니다." if current_outcome == "existing_sufficient" else
+                    "공개 후보는 검토 전이므로 작업 지침으로 전달하지 않습니다." if candidates else
+                    f"공개 저장소 {search_matches}개를 찾았습니다. 고정 커밋과 문서·라이선스 검토 전이라 아직 배정하지 않습니다." if current_outcome == "search_found_unpinned" else
+                    "자료 조회 실패: " + lookup_reason if current_outcome == "lookup_failed" else
+                    "이전 공개 조회 결과가 아직 확인되지 않았습니다. 중복 조회 없이 현재 지침으로 진행합니다." if current_outcome == "lookup_pending" else
+                    "공개 조사에 사용할 일반 기술어가 설정되지 않았습니다. 현재 지침으로 진행합니다." if current_outcome == "lookup_not_configured" else
+                    "허용된 일반 기술어로 조회했지만 결과가 없었습니다. 현재 지침으로 진행합니다." if current_outcome == "no_results" else
+                    "추가 지침을 찾지 못했으므로 현재 지침으로 진행합니다."),
+                can_continue=not required_missing)
+        try:
+            selection = selection_with(external, outcome)
+        except (SkillCatalogError, KeyError, TypeError, ValueError) as error:
+            if not external:
+                raise
+            for role_key in unmatched:
+                assignments[role_key] = []
+            lookup_reason = str(error)[:160]
+            selection = selection_with([], "lookup_failed")
+        return plan.model_copy(update={"skill_selection": selection})
+
     def _pm(self, request):
         if request["state"] in ("completed", "stale", "blocked", "answer_needed"):
             return
@@ -186,6 +306,7 @@ class Automation:
                               self.config.base_sha, self.config.allowed_paths)
             context = {"goal": request["goal"], "master_message": request["content"],
                        "project_id": request["project_id"],
+                       "pm_guidance_version": request.get("pm_guidance_version"),
                        "conversation_context": request.get("conversation_context", {}),
                        "authorized_paths": list(self.config.allowed_paths),
                        "required_checks": list(self.config.checks),
@@ -221,6 +342,7 @@ class Automation:
             "execution": self._execution(state)})
         if state["status"] == "PLAN_READY":
             plan = self._validate_plan(state["plan"])
+            plan = self._select_skills(plan)
             last = state["executions"][-1]
             job = self.dispatcher.queue.get(last["job_id"])
             evidence = {"source": "fixture" if state["specification"]["mode"] == "fixture" else "dispatcher",
@@ -257,6 +379,7 @@ class Automation:
                               self.config.base_sha, self.config.allowed_paths)
             request = self.store.get_pm_request(record["request_id"])
             context = {"project_id": record["project_id"], "plan_digest": record["digest"], "plan": record["content"],
+                       "pm_guidance_version": record.get("pm_guidance_version"),
                        "goal": request["goal"], "master_message": request["content"],
                        "conversation_context": request["conversation_context"],
                        "requirements_revision": record["request_revision"],
@@ -273,10 +396,67 @@ class Automation:
                 "review_version": record["plan_review_version"], "pm_session_id": pm_session,
                 "session_id": job["session_id"], "task_id": task_id,
                 "verdict": report["verdict"], "findings": report["findings"],
-                "summary": report["summary"], "mode": record["mode"]})
+                "summary": report["summary"], "mode": record["mode"],
+                **({"revision_route": report["revision_route"]} if report.get("revision_route") else {})})
         elif state["resume_at"] is None:
             self.store.note_plan_review_problem(record["project_id"], record["id"],
                                                 state.get("reason") or state["status"])
+
+    def _revise_plan(self, source):
+        if source.get("status") != "needs_revision" or source.get("revision_action") != "automatic":
+            return
+        if source.get("auto_revision_attempt", 0) >= 2:
+            self.store.note_pm_revision_problem(source["project_id"], source["id"], "자동 수정 2회 한도 도달")
+            return
+        if source["configuration_digest"] != self.configuration_digest or source["mode"] != self.config.mode:
+            return
+        if not self.store.request_is_current(source["request_id"]):
+            self.store.note_pm_revision_problem(source["project_id"], source["id"], "목표 또는 검수 기준이 바뀌어 새 계획이 필요합니다")
+            return
+        attempt = source.get("auto_revision_attempt", 0) + 1
+        task_id = "pm-revise-" + digest([source["id"], attempt])[:48]
+        state = self._existing(task_id)
+        if state is None:
+            request = self.store.get_pm_request(source["request_id"])
+            clone = self.git.clone(task_id, self.config.base_sha)
+            task = self._task(task_id, "Revise only the technical findings in the bound PM plan",
+                              ["Preserve master decisions, role paths, budget and skill selection"],
+                              self.config.base_sha, self.config.allowed_paths)
+            context = {"project_id": source["project_id"], "source_plan_id": source["id"],
+                       "auto_revision_attempt": attempt, "pm_guidance_version": source["pm_guidance_version"],
+                       "goal": request["goal"], "master_message": request["content"],
+                       "request_revision": source["request_revision"], "goal_digest": source["goal_digest"],
+                       "conversation_context": request["conversation_context"],
+                       "previous_plan": source["content"], "review": source["review"],
+                       "authorized_paths": list(self.config.allowed_paths), "required_checks": list(self.config.checks),
+                       "instruction": "Fix only the independent review's technical findings. Preserve the original "
+                       "goal, master decisions, scope, exclusions, assumptions, role goals, dependencies, file "
+                       "ownership, execution configuration and selected skill bundle. Improve acceptance and "
+                       "verification details as needed. Do not invent answers to material questions. If a master "
+                       "decision is needed, return BLOCK with open requirements_feedback questions. This is "
+                       "automatic plan repair attempt under the original request, not a new authorization."}
+            state = self.dispatcher.submit(self._spec(task, clone, "planning", context))
+        if state["status"] == "PLAN_READY":
+            plan = self._validate_plan(state["plan"])
+            old_selection = source["content"].get("skill_selection")
+            content = plan.model_dump(mode="json")
+            if old_selection is not None:
+                if content.get("skill_selection") not in (None, old_selection):
+                    raise ExecutionBlocked("PM repair changed the pinned skill selection")
+                content["skill_selection"] = old_selection
+            job = self.dispatcher.queue.get(state["executions"][-1]["job_id"])
+            evidence = {"source": "fixture" if state["specification"]["mode"] == "fixture" else "dispatcher",
+                        "task_id": task_id, "session_id": job["session_id"], "provider": job["provider"],
+                        "candidate_sha": state["snapshot"]["head_commit"],
+                        "configuration": (job.get("result") or {}).get("configuration_evidence"),
+                        "configuration_policy": self.config.policy.configuration_evidence}
+            self.store.complete_pm_revision(source["id"], content, evidence=evidence)
+        elif state["resume_at"] is None:
+            response = state.get("pm_response") or {}
+            feedback = response.get("requirements_feedback")
+            needs_answer = any(q.get("status") == "open" for q in (feedback or {}).get("questions", []))
+            self.store.note_pm_revision_problem(source["project_id"], source["id"],
+                state.get("reason") or state["status"], decision_required=needs_answer, feedback=feedback)
 
     @staticmethod
     def _contribution(state):
@@ -308,13 +488,27 @@ class Automation:
                        "project_id": run["project_id"],
                        "plan_digest": run["plan_digest"], "revision": revision,
                        "repair_findings": prior.get("repair_findings", []), "dependency_artifacts": dependencies}
+            context["pm_guidance_version"] = self.store.get_plan(run["project_id"], run["plan_id"]).get("pm_guidance_version")
+            if plan.skill_selection is not None:
+                from ai_company.skill_selection import load_trusted_catalog, materialize_role
+                trusted = load_trusted_catalog(self.config.skill_catalog)
+                providers = {agent.provider for agent in self.config.agents
+                             if agent.agent_id in self.config.policy.candidates["developer"]}
+                for provider in providers:
+                    guidance, receipt = materialize_role(plan.skill_selection, key, trusted,
+                                                          provider=provider, runner="session_cli")
+                    context["role_skill_guidance"] = guidance
+                    context["skill_delivery"] = {**receipt, "task_id": task_id,
+                        "delivery_id": digest([task_id, receipt]), "delivery": "included_in_submitted_task"}
             if self.config.guidance is not None:
                 context.update(plan_id=run["plan_id"], run_id=run["id"])
             if run.get("delegation_id"):
                 context["master_delegation"] = self._delegation(run)
             state = self.dispatcher.submit(self._spec(task, clone, "contribution", context))
         self.store.link_task(run["project_id"], run["role_ids"][key], task_id, title=role.name)
-        run["roles"][key] = {**prior, **self._execution(state), "revision": revision}
+        run["roles"][key] = {**prior, **self._execution(state), "revision": revision,
+                             **({"skill_delivery": state["specification"]["plan"]["skill_delivery"]}
+                                if state["specification"]["plan"].get("skill_delivery") else {})}
 
     def _integration(self, run, plan):
         revision = run.get("revision", 0)
@@ -357,13 +551,22 @@ class Automation:
             context = {"confirmed_plan": plan.model_dump(mode="json"), "plan_digest": run["plan_digest"],
                        "project_id": run["project_id"],
                        "contribution_artifacts": contributions}
+            current_plan = self.store.get_plan(run["project_id"], run["plan_id"])
+            context["pm_guidance_version"] = current_plan.get("pm_guidance_version")
+            pm_sessions = list(pm_state["pm_sessions"])
+            while current_plan.get("revision_of"):
+                receipt = current_plan.get("evidence") or {}
+                if receipt.get("session_id"):
+                    pm_sessions.append({"provider": receipt.get("provider") or "codex", "session_id": receipt["session_id"]})
+                current_plan = self.store.get_plan(run["project_id"], current_plan["revision_of"])
+            pm_sessions = list({(item["provider"], item["session_id"]): item for item in pm_sessions}.values())
             if self.config.guidance is not None:
                 context.update(plan_id=run["plan_id"], run_id=run["id"])
             if run.get("delegation_id"):
                 context["master_delegation"] = self._delegation(run)
             state = self.dispatcher.submit(self._spec(task, clone, "integration", context,
                 remote_ci=remote_ci, inherited_authors=tuple(authors),
-                inherited_pm_sessions=tuple(pm_state["pm_sessions"])))
+                inherited_pm_sessions=tuple(pm_sessions)))
         spec = FlowSpec.model_validate(state["specification"])
         number = spec.remote_ci.pr_number if spec.remote_ci else None
         run["integration"] = {**self._execution(state), "pr_number": number,
@@ -453,6 +656,8 @@ class Automation:
 
     def reconcile(self):
         with controller_lock(self.root / "automation-coordinator", blocking=True):
+            self.store.register_skill_catalog(self.configuration_digest, self.config.skill_catalog,
+                                              project_id=self.project_context[0] if self.project_context else None)
             for request in self.store.pm_requests():
                 try:
                     self._coordinate(request, "_pm")
@@ -467,6 +672,12 @@ class Automation:
                 except (ExecutionBlocked, ManagementError, ValueError, OSError) as exc:
                     # A review failure is visible in the plan; unrelated runs continue.
                     self.store.note_plan_review_problem(record["project_id"], record["id"], str(exc))
+            for row in self.store.db.execute("SELECT document FROM management_plans WHERE json_extract(document,'$.status')='needs_revision' AND json_extract(document,'$.revision_action')='automatic'").fetchall():
+                record = json.loads(row[0])
+                try:
+                    self._coordinate(record, "_revise_plan")
+                except (ExecutionBlocked, ManagementError, ValueError, OSError) as exc:
+                    self.store.note_pm_revision_problem(record["project_id"], record["id"], str(exc))
             for run in self.store.run_records():
                 try:
                     self._coordinate(run, "_run")
@@ -494,6 +705,16 @@ class Automation:
             if (self.store.request_is_current(plan["request_id"])
                     and plan["configuration_digest"] == digest(config) and plan["mode"] == config.mode):
                 allowed_tasks.add("plan-review-" + plan["digest"][:48])
+        for row in self.store.db.execute("SELECT document FROM management_plans WHERE json_extract(document,'$.status')='needs_revision' AND json_extract(document,'$.revision_action')='automatic'"):
+            plan = json.loads(row[0])
+            try:
+                config = self._context_config(plan)
+            except (ValueError, ManagementError):
+                continue
+            if (self.store.request_is_current(plan["request_id"])
+                    and plan["configuration_digest"] == digest(config) and plan["mode"] == config.mode):
+                attempt = plan.get("auto_revision_attempt", 0) + 1
+                allowed_tasks.add("pm-revise-" + digest([plan["id"], attempt])[:48])
         for run in current["runs"]:
             try:
                 config = self._context_config(run)

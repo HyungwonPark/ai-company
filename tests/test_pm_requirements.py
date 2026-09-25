@@ -2,6 +2,7 @@
 import copy
 import json
 import unittest
+from unittest.mock import patch
 
 from ai_company.adapters.session_cli import SessionOutcome
 from ai_company.contracts import digest
@@ -46,6 +47,26 @@ class PMRequirementsTests(unittest.TestCase):
         run = self.confirm(reviewed)['run']
         self.h.worker.run_once()
         self.assertEqual(set(self.h.worker.store.get_run(run['id'])['roles']), {'impl', 'test'})
+
+    def test_changed_server_review_policy_blocks_new_confirmation(self):
+        plan = self.plan()
+        store = self.h.worker.store
+        self.assertTrue(store.request_is_current(plan['request_id']))
+        with patch.object(type(store), 'PM_GUIDANCE_VERSION', 'pm-requirements-v4'), \
+             patch.object(type(store), 'PLAN_REVIEW_VERSION', 'plan-content-review-v3'):
+            self.assertFalse(store.request_is_current(plan['request_id']))
+            with self.assertRaises(ManagementError):
+                self.confirm(plan)
+            self.assertEqual(store.run_records(), [])
+
+    def test_confirmed_run_recovers_with_its_original_review_policy(self):
+        plan = self.plan()
+        run = self.confirm(plan)['run']
+        with patch.object(type(self.h.worker.store), 'PM_GUIDANCE_VERSION', 'pm-requirements-v4'), \
+             patch.object(type(self.h.worker.store), 'PLAN_REVIEW_VERSION', 'plan-content-review-v3'):
+            self.h.worker.close(); self.h.worker = self.h.open()
+            self.h.worker.run_once()
+            self.assertEqual(set(self.h.worker.store.get_run(run['id'])['roles']), {'impl', 'test'})
 
     def test_missing_question_and_verification_prevent_readiness(self):
         plan = self.plan()
@@ -190,6 +211,119 @@ class PMRequirementsTests(unittest.TestCase):
         next_message = store.post_message(self.h.project['id'], {'content': '검수 지적을 반영해 계획을 수정해 주세요.'})
         context = store.get_pm_request(next_message['id'])['conversation_context']
         self.assertEqual(context['previous_proposal']['review']['findings'][0]['finding_id'], 'F-VERIFY')
+
+    def test_technical_review_repairs_and_rechecks_once_without_new_master_request(self):
+        original = self.h.execute
+        reviews = {'count': 0}
+        def revise_once(agent, state, provider, worktree, prompt, session_id, **kwargs):
+            outcome = original(agent, state, provider, worktree, prompt, session_id, **kwargs)
+            scope = state['specification']['execution_scope']
+            report = outcome.result['structured_output']
+            if scope == 'plan_review':
+                reviews['count'] += 1
+                if reviews['count'] == 1:
+                    report.update(verdict='REVISE', revision_route='technical', findings=[{
+                        'finding_id': 'F-VERIFY', 'detail': '검증 방법을 구체화하세요.',
+                        'evidence': 'requirements_review.requirements[0].verification'}])
+            elif scope == 'planning' and state['specification']['plan'].get('source_plan_id'):
+                report['plan']['requirements_review']['requirements'][0]['verification'] = '빈 값과 모든 분류를 검사합니다.'
+            return outcome
+        self.h.execute = revise_once
+        for _ in range(10):
+            self.h.worker.run_once()
+            plans = self.h.worker.store.overview(self.h.project['id'])['plans']
+            if len(plans) == 2 and plans[-1]['status'] == 'proposed':
+                break
+        self.assertEqual(len(plans), 2, plans)
+        self.assertEqual(plans[0]['status'], 'superseded')
+        self.assertEqual(plans[1]['revision_of'], plans[0]['id'])
+        self.assertEqual(plans[1]['auto_revision_attempt'], 1)
+        self.assertEqual(plans[1]['review']['verdict'], 'PASS')
+        self.assertEqual(reviews['count'], 2)
+        self.assertEqual(len(self.h.worker.store.pm_requests(self.h.project['id'])), 1)
+        self.h.worker.close(); self.h.worker = self.h.open()
+        for _ in range(2):
+            self.h.worker.run_once()
+        self.assertEqual(len(self.h.worker.store.overview(self.h.project['id'])['plans']), 2)
+        self.assertEqual(len(self.h.worker.store.run_records()), 0)
+        run = self.confirm(plans[1])['run']
+        self.h.worker.run_once()
+        self.assertEqual(set(self.h.worker.store.get_run(run['id'])['roles']), {'impl', 'test'})
+
+    def test_automatic_repair_stops_at_two_and_master_decision_never_autoruns(self):
+        original = self.h.execute
+        def always_revise(agent, state, provider, worktree, prompt, session_id, **kwargs):
+            outcome = original(agent, state, provider, worktree, prompt, session_id, **kwargs)
+            scope = state['specification']['execution_scope']
+            report = outcome.result['structured_output']
+            if scope == 'plan_review':
+                report.update(verdict='REVISE', revision_route='technical', findings=[{
+                    'finding_id': 'F-VERIFY', 'detail': '검증 방법을 더 구체화하세요.',
+                    'evidence': 'requirements_review.requirements[0].verification'}])
+            elif scope == 'planning' and state['specification']['plan'].get('source_plan_id'):
+                attempt = state['specification']['plan']['auto_revision_attempt']
+                report['plan']['requirements_review']['requirements'][0]['verification'] = f'{attempt}차 빈 입력 검사'
+            return outcome
+        self.h.execute = always_revise
+        for _ in range(16):
+            self.h.worker.run_once()
+        plans = self.h.worker.store.overview(self.h.project['id'])['plans']
+        self.assertEqual(len(plans), 3, plans)
+        self.assertEqual([p.get('auto_revision_attempt', 0) for p in plans], [0, 1, 2])
+        self.assertEqual(plans[-1]['revision_action'], 'limit_reached')
+        self.assertEqual(self.h.worker.store.run_records(), [])
+        self.assertFalse(any(t['task_id'].startswith('pm-revise-') and t['task_id'] ==
+            'pm-revise-' + digest([plans[-1]['id'], 3])[:48] for t in self.h.worker.dispatcher.tasks()))
+
+    def test_master_decision_review_waits_without_pm_repair(self):
+        original = self.h.execute
+        def needs_decision(agent, state, provider, worktree, prompt, session_id, **kwargs):
+            outcome = original(agent, state, provider, worktree, prompt, session_id, **kwargs)
+            if state['specification']['execution_scope'] == 'plan_review':
+                outcome.result['structured_output'].update(verdict='REVISE', revision_route='master_decision', findings=[{
+                    'finding_id': 'F-DECISION', 'detail': '범위 결정이 필요합니다.', 'evidence': '목표의 범위가 모호합니다.'}])
+            return outcome
+        self.h.execute = needs_decision
+        for _ in range(7):
+            self.h.worker.run_once()
+        plans = self.h.worker.store.overview(self.h.project['id'])['plans']
+        self.assertEqual(len(plans), 1)
+        self.assertEqual(plans[0]['revision_action'], 'master_decision')
+        self.assertFalse(any(t['task_id'].startswith('pm-revise-') for t in self.h.worker.dispatcher.tasks()))
+
+    def test_revise_route_must_match_the_stored_independent_reviewer(self):
+        original = self.h.execute
+        def master_route(agent, state, provider, worktree, prompt, session_id, **kwargs):
+            outcome = original(agent, state, provider, worktree, prompt, session_id, **kwargs)
+            if state['specification']['execution_scope'] == 'plan_review':
+                outcome.result['structured_output'].update(verdict='REVISE', revision_route='master_decision', findings=[{
+                    'finding_id': 'F-SCOPE', 'detail': '범위를 마스터가 정해야 합니다.', 'evidence': '두 범위가 충돌합니다.'}])
+            return outcome
+        self.h.execute = master_route
+        self.h.worker.close(); self.h.worker = self.h.open()
+        self.h.worker.run_once()
+        store = self.h.worker.store
+        plan = store.overview(self.h.project['id'])['plans'][0]
+        task_id = 'plan-review-' + plan['digest'][:48]
+        for _ in range(5):
+            self.h.worker.dispatcher.run_once(task_ids={task_id})
+            state = self.h.worker.dispatcher.get(task_id)
+            if state['status'] == 'NEEDS_PLAN_REVISION':
+                break
+        self.assertEqual(state['status'], 'NEEDS_PLAN_REVISION')
+        report = state['reviews']['reviewer']
+        job = self.h.worker.dispatcher.queue.get(state['executions'][-1]['job_id'])
+        receipt = {'plan_digest': plan['digest'], 'requirements_revision': plan['request_revision'],
+            'requirements_digest': digest(plan['content']['requirements_review']),
+            'review_version': plan['plan_review_version'], 'pm_session_id': plan['evidence']['session_id'],
+            'session_id': job['session_id'], 'task_id': task_id, 'verdict': report['verdict'],
+            'findings': report['findings'], 'summary': report['summary'], 'mode': plan['mode'],
+            'revision_route': 'technical'}
+        with self.assertRaises(ManagementError) as error:
+            store.complete_plan_review(self.h.project['id'], plan['id'], receipt)
+        self.assertEqual(error.exception.code, 'plan_review_mismatch')
+        self.assertEqual(store.get_plan(self.h.project['id'], plan['id'])['status'], 'reviewing')
+        self.assertEqual(store.run_records(), [])
 
     def test_reviewer_receives_original_goal_request_and_conversation(self):
         self.h.worker.run_once()

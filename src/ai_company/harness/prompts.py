@@ -107,6 +107,13 @@ def stage_prompt(checkpoint_prompt: str, *, provider: str, role: str, planning: 
                 "Write requirements_review version 2 with the supplied request_revision and goal_digest. "
                 "Record the goal, problem, users and flow, scope, exclusions, assumptions, ID-linked requirements "
                 "with acceptance, verification and responsible role keys, material questions, and any findings. "
+                "When a material question was answered by a saved master message, include its exact answer_message_id; "
+                "do not mark a material decision assumed or invent an answer. "
+                "For each role list at most five generic required_capabilities when additional document guidance "
+                "would help; leave the list empty when the existing instructions suffice. Set skill_required=true "
+                "only if no existing provider can meet an acceptance condition without that approved guidance. "
+                "Never place private "
+                "project text or credentials in these capability tags. The server selects any skill documents. "
                 "Use evidence, impact, alternatives, recommendation and disposition for each finding. "
                 "Do not invent questions or objections to fill a quota. Read prior answers and do not ask them again. "
                 "If a material decision remains unanswered, return BLOCK, plan=null and requirements_feedback "
@@ -122,7 +129,11 @@ def stage_prompt(checkpoint_prompt: str, *, provider: str, role: str, planning: 
                 "contradictions, scope, exclusions, every required acceptance and verification method, role ownership, "
                 "and unnecessary complexity. Do not manufacture objections. Return PASS with no findings when ready; "
                 "REVISE with specific finding IDs and evidence for material gaps; BLOCK if the source or plan cannot "
-                "be inspected. This review does not authorize execution or replace the master's confirmation. "
+                "be inspected. For REVISE set revision_route=technical only when every finding can be fixed "
+                "without changing the master's goal, material choices, permissions, budget, roles' file ownership "
+                "or execution policy. Set revision_route=master_decision when any finding needs a new master choice "
+                "or the boundary is uncertain. Do not invent an answer to a material question. "
+                "This review does not authorize execution or replace the master's confirmation. "
             )
         elif role == "pm":
             work += (
