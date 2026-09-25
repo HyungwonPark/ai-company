@@ -1,5 +1,7 @@
 import importlib.util
+import json
 from pathlib import Path
+import signal
 import subprocess
 import tempfile
 import unittest
@@ -35,9 +37,13 @@ class ClaudePRReviewTests(unittest.TestCase):
                   control('-after', REVIEW.APPLIED)]
         self.assertTrue(REVIEW.summarize(events, nonce, 0)['review_passed'])
         self.assertFalse(REVIEW.summarize(events[:-1], nonce, 0)['review_passed'])
-        self.assertFalse(REVIEW.summarize(events, nonce, 0, timed_out=True)['review_passed'])
+        self.assertFalse(REVIEW.summarize(events, nonce, 0, incomplete_reason='timeout')['review_passed'])
         self.assertFalse(REVIEW.summarize([control('-before', {**REVIEW.APPLIED, 'ultracode': False}),
                                            *events[1:]], nonce, 0)['review_passed'])
+        self.assertIsNone(REVIEW.summarize([*events[:2], {**events[2], 'result': '판정: PASS\n판정: REVISE'},
+                                            events[3]], nonce, 0)['verdict'])
+        self.assertEqual(REVIEW.summarize([*events[:2], {**events[2], 'result': '예: 판정: PASS\n판정: REVISE'},
+                                           events[3]], nonce, 0)['verdict'], 'REVISE')
 
     def test_timeout_keeps_partial_output_and_never_claims_completion(self):
         class Process:
@@ -55,12 +61,48 @@ class ClaudePRReviewTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             with patch.object(REVIEW.subprocess, 'Popen', return_value=Process()), \
                     patch.object(REVIEW.os, 'killpg'):
-                code, events, timed_out = REVIEW.invoke(['claude'], '', Path(temporary), timeout_seconds=1)
-            self.assertTrue(timed_out)
+                code, events, reason = REVIEW.invoke(['claude'], '', Path(temporary), timeout_seconds=1)
+            self.assertEqual(reason, 'timeout')
             self.assertEqual(code, -15)
             self.assertEqual(len(events), 1)
             self.assertTrue((Path(temporary)/'events.jsonl').exists())
-            self.assertFalse(REVIEW.summarize(events, 'attempt', code, timed_out)['review_passed'])
+            self.assertFalse(REVIEW.summarize(events, 'attempt', code, reason)['review_passed'])
+
+    def test_signal_stops_child_group_and_keeps_output(self):
+        class Process:
+            pid = 12345
+            returncode = -15
+            stdin = stdout = stderr = None
+            count = 0
+
+            def communicate(self, *_args, **_kwargs):
+                self.count += 1
+                if self.count == 1:
+                    signal.raise_signal(signal.SIGTERM)
+                return '', 'interrupted'
+
+        with tempfile.TemporaryDirectory() as temporary:
+            with patch.object(REVIEW.subprocess, 'Popen', return_value=Process()), \
+                    patch.object(REVIEW.os, 'killpg') as stop:
+                _, _, reason = REVIEW.invoke(['claude'], '', Path(temporary), timeout_seconds=1)
+            self.assertEqual(reason, 'interrupted')
+            stop.assert_called_once_with(12345, signal.SIGTERM)
+            self.assertEqual((Path(temporary)/'stderr.txt').read_text(), 'interrupted')
+
+    def test_only_closed_attempt_without_prompt_can_be_retried(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)/'review'
+            REVIEW.reserve_attempt(directory, False)
+            with self.assertRaises(RuntimeError):
+                REVIEW.reserve_attempt(directory, True)
+            (directory/'facts.jsonl').write_text(json.dumps({'state':'closed'})+'\n')
+            REVIEW.reserve_attempt(directory, True)
+            self.assertTrue(directory.exists())
+            self.assertEqual(len(list(Path(temporary).glob('review-unstarted-*'))), 1)
+            (directory/'facts.jsonl').write_text('\n'.join(json.dumps(row) for row in [
+                {'state':'prompt_delivery_started'}, {'state':'closed'}])+'\n')
+            with self.assertRaises(RuntimeError):
+                REVIEW.reserve_attempt(directory, True)
 
 
 if __name__ == '__main__':

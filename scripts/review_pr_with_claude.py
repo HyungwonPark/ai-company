@@ -45,20 +45,51 @@ def write_private(path, content):
         target.write(content)
 
 
+def reserve_attempt(directory, retry_unstarted):
+    if directory.exists():
+        if not retry_unstarted:
+            raise RuntimeError('this PR head already has a review attempt; inspect its receipt')
+        facts_path = directory / 'facts.jsonl'
+        try:
+            facts = [json.loads(line) for line in facts_path.read_text().splitlines()]
+        except (OSError, json.JSONDecodeError):
+            raise RuntimeError('cannot prove the previous attempt did not call the model') from None
+        if (not facts or facts[-1].get('state') != 'closed'
+                or any(item.get('state') == 'prompt_delivery_started' for item in facts)):
+            raise RuntimeError('previous model call is possible; retry refused')
+        directory.rename(directory.with_name(directory.name + '-unstarted-' + secrets.token_hex(4)))
+    directory.mkdir(mode=0o700, exist_ok=False)
+
+
 def invoke(command_line, input_text, directory, timeout_seconds=900):
     process = subprocess.Popen(command_line, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE, text=True, start_new_session=True)
-    timed_out = False
+                               stderr=subprocess.PIPE, text=True, start_new_session=True, cwd=directory)
+    def interrupted(_number, _frame):
+        raise KeyboardInterrupt
+    previous = {number: signal.getsignal(number) for number in (signal.SIGINT, signal.SIGTERM)}
+    for number in previous:
+        signal.signal(number, interrupted)
+    incomplete_reason = None
     try:
-        stdout, stderr = process.communicate(input_text, timeout=timeout_seconds)
-    except subprocess.TimeoutExpired:
-        timed_out = True
-        os.killpg(process.pid, signal.SIGTERM)
         try:
-            stdout, stderr = process.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            os.killpg(process.pid, signal.SIGKILL)
-            stdout, stderr = process.communicate()
+            stdout, stderr = process.communicate(input_text, timeout=timeout_seconds)
+        except (subprocess.TimeoutExpired, KeyboardInterrupt) as exc:
+            incomplete_reason = 'timeout' if isinstance(exc, subprocess.TimeoutExpired) else 'interrupted'
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+            try:
+                stdout, stderr = process.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                stdout, stderr = process.communicate()
+    finally:
+        for number, handler in previous.items():
+            signal.signal(number, handler)
     write_private(directory / 'events.jsonl', stdout)
     write_private(directory / 'stderr.txt', stderr)
     events = []
@@ -66,11 +97,11 @@ def invoke(command_line, input_text, directory, timeout_seconds=900):
         try:
             events.append(json.loads(line))
         except json.JSONDecodeError:
-            timed_out = True  # Preserve raw output; never accept a malformed stream.
-    return process.returncode, events, timed_out
+            incomplete_reason = incomplete_reason or 'malformed_stream'
+    return process.returncode, events, incomplete_reason
 
 
-def summarize(events, nonce, exit_code, timed_out=False):
+def summarize(events, nonce, exit_code, incomplete_reason=None):
     settings = {}
     models = set()
     tools = []
@@ -92,7 +123,7 @@ def summarize(events, nonce, exit_code, timed_out=False):
     configuration_verified = (all(item.get('applied') == APPLIED and item.get('has_errors') is False
                                   for item in applied) and models == {MODEL})
     subagents = result.get('subagent_stats', {}) if result else {}
-    completion_verified = (configuration_verified and not timed_out and exit_code == 0
+    completion_verified = (configuration_verified and incomplete_reason is None and exit_code == 0
                            and result is not None and result.get('subtype') == 'success'
                            and not result.get('is_error') and result.get('stop_reason') == 'end_turn'
                            and result.get('terminal_reason') == 'completed'
@@ -102,11 +133,12 @@ def summarize(events, nonce, exit_code, timed_out=False):
                            and not any(subagents.get('killed', {}).values())
                            and not any(subagents.get('refused', {}).values()))
     report = result.get('result', '') if result else ''
-    verdict = re.search(r'판정\s*:\s*(PASS|REVISE|INCOMPLETE)', report)
-    verdict = verdict.group(1) if verdict else None
+    verdicts = re.findall(r'^\s*(?:\*\*)?판정:\s*(PASS|REVISE|INCOMPLETE)(?:\*\*)?\s*$',
+                          report, re.MULTILINE)
+    verdict = verdicts[0] if len(verdicts) == 1 else None
     return {'configuration_verified': configuration_verified, 'completion_verified': completion_verified,
             'review_passed': completion_verified and verdict == 'PASS', 'verdict': verdict,
-            'timed_out_or_malformed': timed_out,
+            'incomplete_reason': incomplete_reason,
             'applied_before_after': [item.get('applied') for item in applied],
             'response_models': sorted(models), 'workflow_tool_used': 'Workflow' in tools,
             'tools_used': sorted(set(tools)), 'cost_usd_estimate': result.get('total_cost_usd') if result else None,
@@ -117,6 +149,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('pr', type=int)
     parser.add_argument('--max-budget-usd', type=float, default=1.0)
+    parser.add_argument('--retry-unstarted', action='store_true', help='Archive a closed attempt that never sent a prompt')
     args = parser.parse_args()
     if not 0 < args.max_budget_usd <= 10 or args.pr < 1:
         parser.error('PR and budget must be positive; budget must be at most USD 10')
@@ -139,11 +172,13 @@ def main():
         raise RuntimeError('PR diff is empty')
     if json.loads(command('gh', 'pr', 'view', str(args.pr), '--json', 'headRefOid'))['headRefOid'] != head:
         raise RuntimeError('PR head changed during preflight')
+    if not CONTROL.is_file():
+        raise RuntimeError('trusted Claude relay is missing')
     parent = Path.home() / '.local/state/ai-company/claude-pr-reviews'
     parent.mkdir(parents=True, mode=0o700, exist_ok=True)
     parent.chmod(0o700)
     directory = parent / f'pr-{args.pr}-{head}'
-    directory.mkdir(mode=0o700, exist_ok=False)  # Never repeat an uncertain model call for the same head.
+    reserve_attempt(directory, args.retry_unstarted)
     write_private(directory / 'pr.diff', patch)
     nonce = secrets.token_hex(16)
     environment = {key: os.environ[key] for key in ('HOME', 'USER', 'PATH', 'LANG', 'TERM', 'XDG_RUNTIME_DIR')
@@ -151,13 +186,14 @@ def main():
     environment['CLAUDE_CODE_MAX_RETRIES'] = '0'
     settings = {'enableWorkflows': True, 'ultracode': True, 'disableAllHooks': True,
                 'enabledPlugins': {}, 'fallbackModel': [], 'switchModelsOnFlag': False}
+    repo = Path.cwd().resolve()
     config = {'cli_executable': str(cli), 'cli_sha256': hashlib.sha256(cli.read_bytes()).hexdigest(),
               'binding': {'nonce': nonce, 'pr': args.pr, 'head': head},
               'facts_path': str(directory / 'facts.jsonl'), 'environment': environment,
               'expected_applied': APPLIED,
               'extra_args': ['--restricted', '--strict-mcp-config', '--permission-mode', 'dontAsk',
                              '--tools', 'Read,Grep,Glob,Workflow,Task,TaskOutput,TaskStop',
-                             '--add-dir', str(directory), '--settings', json.dumps(settings),
+                             '--add-dir', str(repo), '--settings', json.dumps(settings),
                              '--max-budget-usd', str(args.max_budget_usd), '--max-turns', '12',
                              '--no-session-persistence']}
     write_private(directory / 'config.json', json.dumps(config))
@@ -173,8 +209,8 @@ def main():
     cmd = [sys.executable, '-I', '-B', str(CONTROL), str(directory / 'config.json'),
            '--print', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
            '--model', MODEL, '--effort', 'ultracode']
-    code, output, timed_out = invoke(cmd, '\n'.join(json.dumps(event) for event in events) + '\n', directory)
-    summary = summarize(output, nonce, code, timed_out)
+    code, output, incomplete_reason = invoke(cmd, '\n'.join(json.dumps(event) for event in events) + '\n', directory)
+    summary = summarize(output, nonce, code, incomplete_reason)
     write_private(directory / 'report.md', summary.pop('result') or
                   '검수 미완료: 모델 응답이나 결과가 없습니다. facts.jsonl과 events.jsonl을 확인하세요.\n')
     write_private(directory / 'receipt.json', json.dumps({
