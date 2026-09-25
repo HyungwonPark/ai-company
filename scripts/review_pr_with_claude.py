@@ -62,19 +62,24 @@ def reserve_attempt(directory, retry_unstarted):
 
 
 def invoke(command_line, input_text, directory, timeout_seconds=900):
-    process = subprocess.Popen(command_line, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE, text=True, start_new_session=True, cwd=directory)
     def interrupted(_number, _frame):
         raise KeyboardInterrupt
-    previous = {number: signal.getsignal(number) for number in (signal.SIGINT, signal.SIGTERM)}
-    for number in previous:
-        signal.signal(number, interrupted)
+    signals = (signal.SIGINT, signal.SIGTERM)
+    previous = {number: signal.getsignal(number) for number in signals}
+    previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, signals)
     incomplete_reason = None
     try:
+        for number in signals:
+            signal.signal(number, interrupted)
+        process = subprocess.Popen(command_line, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, text=True, start_new_session=True, cwd=directory)
         try:
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
             stdout, stderr = process.communicate(input_text, timeout=timeout_seconds)
         except (subprocess.TimeoutExpired, KeyboardInterrupt) as exc:
             incomplete_reason = 'timeout' if isinstance(exc, subprocess.TimeoutExpired) else 'interrupted'
+            for number in signals:
+                signal.signal(number, signal.SIG_IGN)
             try:
                 os.killpg(process.pid, signal.SIGTERM)
             except ProcessLookupError:
@@ -87,11 +92,15 @@ def invoke(command_line, input_text, directory, timeout_seconds=900):
                 except ProcessLookupError:
                     pass
                 stdout, stderr = process.communicate()
+        for number in signals:
+            signal.signal(number, signal.SIG_IGN)
+        write_private(directory / 'events.jsonl', stdout)
+        write_private(directory / 'stderr.txt', stderr)
     finally:
+        signal.pthread_sigmask(signal.SIG_BLOCK, signals)
         for number, handler in previous.items():
             signal.signal(number, handler)
-    write_private(directory / 'events.jsonl', stdout)
-    write_private(directory / 'stderr.txt', stderr)
+        signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
     events = []
     for line in stdout.splitlines():
         try:
@@ -122,7 +131,12 @@ def summarize(events, nonce, exit_code, incomplete_reason=None):
     applied = [settings.get(nonce + suffix, {}) for suffix in ('-before', '-after')]
     configuration_verified = (all(item.get('applied') == APPLIED and item.get('has_errors') is False
                                   for item in applied) and models == {MODEL})
-    subagents = result.get('subagent_stats', {}) if result else {}
+    subagents = result.get('subagent_stats') if result else None
+    subagents = subagents if isinstance(subagents, dict) else {}
+    killed = subagents.get('killed')
+    refused = subagents.get('refused')
+    killed = killed if isinstance(killed, dict) else {'invalid': 1}
+    refused = refused if isinstance(refused, dict) else {'invalid': 1}
     completion_verified = (configuration_verified and incomplete_reason is None and exit_code == 0
                            and result is not None and result.get('subtype') == 'success'
                            and not result.get('is_error') and result.get('stop_reason') == 'end_turn'
@@ -130,12 +144,13 @@ def summarize(events, nonce, exit_code, incomplete_reason=None):
                            and result.get('queued_turn_count') == 0
                            and subagents.get('spawned', 0) == subagents.get('completed', 0)
                            and subagents.get('failed', 0) == 0
-                           and not any(subagents.get('killed', {}).values())
-                           and not any(subagents.get('refused', {}).values()))
+                           and not any(killed.values()) and not any(refused.values()))
     report = result.get('result', '') if result else ''
-    verdicts = re.findall(r'^\s*(?:\*\*)?판정:\s*(PASS|REVISE|INCOMPLETE)(?:\*\*)?\s*$',
-                          report, re.MULTILINE)
-    verdict = verdicts[0] if len(verdicts) == 1 else None
+    verdict_pattern = r'(?:\*\*)?판정:\s*(PASS|REVISE|INCOMPLETE)(?:\*\*)?'
+    lines = report.strip().splitlines()
+    first_verdict = re.fullmatch(verdict_pattern, lines[0].strip()) if lines else None
+    verdicts = re.findall(r'^\s*' + verdict_pattern + r'\s*$', report, re.MULTILINE)
+    verdict = first_verdict.group(1) if first_verdict and len(verdicts) == 1 else None
     return {'configuration_verified': configuration_verified, 'completion_verified': completion_verified,
             'review_passed': completion_verified and verdict == 'PASS', 'verdict': verdict,
             'incomplete_reason': incomplete_reason,
@@ -186,7 +201,7 @@ def main():
     environment['CLAUDE_CODE_MAX_RETRIES'] = '0'
     settings = {'enableWorkflows': True, 'ultracode': True, 'disableAllHooks': True,
                 'enabledPlugins': {}, 'fallbackModel': [], 'switchModelsOnFlag': False}
-    repo = Path.cwd().resolve()
+    repo = Path(command('git', 'rev-parse', '--show-toplevel').strip()).resolve()
     config = {'cli_executable': str(cli), 'cli_sha256': hashlib.sha256(cli.read_bytes()).hexdigest(),
               'binding': {'nonce': nonce, 'pr': args.pr, 'head': head},
               'facts_path': str(directory / 'facts.jsonl'), 'environment': environment,
@@ -201,7 +216,8 @@ def main():
               f'전체 패치는 {directory / "pr.diff"}에 있습니다. 현재 저장소 코드와 대조하세요. '
               '정확성·권한·재시작·회귀를 우선하고 실제 결함만 파일과 근거로 보고하세요. '
               '검토하지 못한 파일과 비용·도구 제한을 명시하세요. 부분 검토를 PASS라고 하지 마세요. '
-              '테스트 실행이나 파일 수정은 하지 마세요. 한국어로 판정 PASS, REVISE, INCOMPLETE 중 하나를 쓰세요.')
+              '테스트 실행이나 파일 수정은 하지 마세요. 보고서 첫 줄에 정확히 '
+              '`판정: PASS`, `판정: REVISE`, `판정: INCOMPLETE` 중 하나만 한 번 쓰세요.')
     events = [
         {'type': 'control_request', 'request_id': 'init', 'request': {'subtype': 'initialize'}},
         {'type': 'user', 'message': {'role': 'user', 'content': prompt}},

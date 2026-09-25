@@ -33,17 +33,19 @@ class ClaudePRReviewTests(unittest.TestCase):
                   {'type': 'assistant', 'message': {'model': REVIEW.MODEL, 'content': []}},
                   {'type': 'result', 'subtype': 'success', 'is_error': False, 'result': '판정: PASS',
                    'stop_reason': 'end_turn', 'terminal_reason': 'completed', 'queued_turn_count': 0,
-                   'subagent_stats': {'spawned': 0, 'completed': 0}},
+                   'subagent_stats': {'spawned': 0, 'completed': 0, 'killed': {}, 'refused': {}}},
                   control('-after', REVIEW.APPLIED)]
         self.assertTrue(REVIEW.summarize(events, nonce, 0)['review_passed'])
         self.assertFalse(REVIEW.summarize(events[:-1], nonce, 0)['review_passed'])
         self.assertFalse(REVIEW.summarize(events, nonce, 0, incomplete_reason='timeout')['review_passed'])
         self.assertFalse(REVIEW.summarize([control('-before', {**REVIEW.APPLIED, 'ultracode': False}),
                                            *events[1:]], nonce, 0)['review_passed'])
+        self.assertFalse(REVIEW.summarize([*events[:2], {**events[2], 'subagent_stats': None},
+                                           events[3]], nonce, 0)['review_passed'])
         self.assertIsNone(REVIEW.summarize([*events[:2], {**events[2], 'result': '판정: PASS\n판정: REVISE'},
                                             events[3]], nonce, 0)['verdict'])
-        self.assertEqual(REVIEW.summarize([*events[:2], {**events[2], 'result': '예: 판정: PASS\n판정: REVISE'},
-                                           events[3]], nonce, 0)['verdict'], 'REVISE')
+        self.assertIsNone(REVIEW.summarize([*events[:2], {**events[2], 'result': '예: 판정: PASS\n판정: REVISE'},
+                                            events[3]], nonce, 0)['verdict'])
 
     def test_timeout_keeps_partial_output_and_never_claims_completion(self):
         class Process:
@@ -78,6 +80,8 @@ class ClaudePRReviewTests(unittest.TestCase):
             def communicate(self, *_args, **_kwargs):
                 self.count += 1
                 if self.count == 1:
+                    signal.raise_signal(signal.SIGTERM)
+                if self.count == 2:
                     signal.raise_signal(signal.SIGTERM)
                 return '', 'interrupted'
 
