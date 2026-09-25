@@ -15,7 +15,9 @@ import sys
 
 MODEL = 'claude-opus-5-5'
 APPLIED = {'model': MODEL, 'effort': 'xhigh', 'ultracode': True}
-CONTROL = Path(__file__).resolve().parents[1] / 'src/ai_company/adapters/claude_control.py'
+CONTROL = Path(__file__).with_name('claude_control.py')
+if not CONTROL.exists():
+    CONTROL = Path(__file__).resolve().parents[1] / 'src/ai_company/adapters/claude_control.py'
 
 
 def command(*args):
@@ -29,11 +31,12 @@ def reviewable(pr, head):
     if pr.get('state') != 'OPEN' or pr.get('headRefOid') != head:
         raise RuntimeError('PR is closed or its remote head differs from this checkout')
     checks = pr.get('statusCheckRollup') or []
-    if not checks or not any(check.get('conclusion') == 'SUCCESS' for check in checks):
+    outcome = lambda check: check.get('conclusion') or check.get('state')
+    if not checks or not any(outcome(check) == 'SUCCESS' for check in checks):
         raise RuntimeError('PR has no successful CI check')
-    if any(check.get('conclusion') not in ('SUCCESS', 'SKIPPED') for check in checks):
+    if any(outcome(check) not in ('SUCCESS', 'SKIPPED', 'NEUTRAL') for check in checks):
         raise RuntimeError('PR CI is pending or failing')
-    return [{'name': check.get('name'), 'conclusion': check.get('conclusion')} for check in checks]
+    return [{'name': check.get('name'), 'conclusion': outcome(check)} for check in checks]
 
 
 def write_private(path, content):
@@ -42,25 +45,32 @@ def write_private(path, content):
         target.write(content)
 
 
-def invoke(command_line, input_text, directory):
+def invoke(command_line, input_text, directory, timeout_seconds=900):
     process = subprocess.Popen(command_line, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, text=True, start_new_session=True)
+    timed_out = False
     try:
-        stdout, stderr = process.communicate(input_text, timeout=900)
+        stdout, stderr = process.communicate(input_text, timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
+        timed_out = True
         os.killpg(process.pid, signal.SIGTERM)
         try:
-            process.communicate(timeout=5)
+            stdout, stderr = process.communicate(timeout=5)
         except subprocess.TimeoutExpired:
             os.killpg(process.pid, signal.SIGKILL)
-            process.communicate()
-        raise RuntimeError('Claude review timed out; no automatic retry') from None
+            stdout, stderr = process.communicate()
     write_private(directory / 'events.jsonl', stdout)
     write_private(directory / 'stderr.txt', stderr)
-    return process.returncode, [json.loads(line) for line in stdout.splitlines()]
+    events = []
+    for line in stdout.splitlines():
+        try:
+            events.append(json.loads(line))
+        except json.JSONDecodeError:
+            timed_out = True  # Preserve raw output; never accept a malformed stream.
+    return process.returncode, events, timed_out
 
 
-def summarize(events, nonce, exit_code):
+def summarize(events, nonce, exit_code, timed_out=False):
     settings = {}
     models = set()
     tools = []
@@ -79,14 +89,28 @@ def summarize(events, nonce, exit_code):
         if event.get('type') == 'result':
             result = event
     applied = [settings.get(nonce + suffix, {}) for suffix in ('-before', '-after')]
-    verified = (exit_code == 0 and result is not None and result.get('subtype') == 'success'
-                and not result.get('is_error') and all(item.get('applied') == APPLIED
-                                                       and item.get('has_errors') is False for item in applied)
-                and models == {MODEL})
-    return {'verified': verified, 'applied_before_after': [item.get('applied') for item in applied],
+    configuration_verified = (all(item.get('applied') == APPLIED and item.get('has_errors') is False
+                                  for item in applied) and models == {MODEL})
+    subagents = result.get('subagent_stats', {}) if result else {}
+    completion_verified = (configuration_verified and not timed_out and exit_code == 0
+                           and result is not None and result.get('subtype') == 'success'
+                           and not result.get('is_error') and result.get('stop_reason') == 'end_turn'
+                           and result.get('terminal_reason') == 'completed'
+                           and result.get('queued_turn_count') == 0
+                           and subagents.get('spawned', 0) == subagents.get('completed', 0)
+                           and subagents.get('failed', 0) == 0
+                           and not any(subagents.get('killed', {}).values())
+                           and not any(subagents.get('refused', {}).values()))
+    report = result.get('result', '') if result else ''
+    verdict = re.search(r'판정\s*:\s*(PASS|REVISE|INCOMPLETE)', report)
+    verdict = verdict.group(1) if verdict else None
+    return {'configuration_verified': configuration_verified, 'completion_verified': completion_verified,
+            'review_passed': completion_verified and verdict == 'PASS', 'verdict': verdict,
+            'timed_out_or_malformed': timed_out,
+            'applied_before_after': [item.get('applied') for item in applied],
             'response_models': sorted(models), 'workflow_tool_used': 'Workflow' in tools,
             'tools_used': sorted(set(tools)), 'cost_usd_estimate': result.get('total_cost_usd') if result else None,
-            'result': result.get('result', '') if result else ''}
+            'result': report}
 
 
 def main():
@@ -149,17 +173,22 @@ def main():
     cmd = [sys.executable, '-I', '-B', str(CONTROL), str(directory / 'config.json'),
            '--print', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
            '--model', MODEL, '--effort', 'ultracode']
-    code, output = invoke(cmd, '\n'.join(json.dumps(event) for event in events) + '\n', directory)
-    summary = summarize(output, nonce, code)
-    write_private(directory / 'report.md', summary.pop('result'))
+    code, output, timed_out = invoke(cmd, '\n'.join(json.dumps(event) for event in events) + '\n', directory)
+    summary = summarize(output, nonce, code, timed_out)
+    write_private(directory / 'report.md', summary.pop('result') or
+                  '검수 미완료: 모델 응답이나 결과가 없습니다. facts.jsonl과 events.jsonl을 확인하세요.\n')
     write_private(directory / 'receipt.json', json.dumps({
         'pr': args.pr, 'url': pr['url'], 'head': head, 'checks': checks,
         'diff_sha256': hashlib.sha256(patch.encode()).hexdigest(),
-        'cli_version': version, 'cli_sha256': config['cli_sha256'], **summary}, indent=2) + '\n')
+        'cli_version': version, 'cli_sha256': config['cli_sha256'],
+        'runner_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        'relay_sha256': hashlib.sha256(CONTROL.read_bytes()).hexdigest(), **summary}, indent=2) + '\n')
     print(json.dumps({'receipt': str(directory / 'receipt.json'),
-                      'report': str(directory / 'report.md'), 'verified': summary['verified'],
+                      'report': str(directory / 'report.md'),
+                      'configuration_verified': summary['configuration_verified'],
+                      'completion_verified': summary['completion_verified'], 'verdict': summary['verdict'],
                       'workflow_tool_used': summary['workflow_tool_used']}))
-    return 0 if summary['verified'] else 1
+    return 0 if summary['review_passed'] else 1
 
 
 if __name__ == '__main__':

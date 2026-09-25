@@ -34,7 +34,15 @@
 - 후속 구현은 `docs/agent-failover.md`의 사용자 요구사항을 따른다. 역할별 허용 후보와 대체 정책을 고정하고, 사용량 제한 시 적격 대체자로 우선 이관한다. 대체자가 없으면 영속 예약 대기한다. 공유 계정 한도·종료 확인·이관 기록·누적 예산을 유지하며, 최종 검수자를 임의 변경하거나 승인 단계를 건너뛰지 않는다. 배정·복구는 모델 호출 없이 동작해야 한다.
 - 작업 공간 분리와 OS 권한 격리를 구분한다. 자격 증명을 저장소·작업 맥락·공개 로그에 넣지 않는다.
 - 초안 PR을 이용해 검토 가능한 변경을 남긴다. 사용자 지시 없이 자동 병합·배포를 추가하지 않는다.
-- PR의 최종 HEAD와 CI가 준비되면 `python3 scripts/review_pr_with_claude.py <PR 번호>`로 별도 Claude Code 검수를 실행한다. 이 검수는 로컬에 로그인된 Claude Code의 `claude-opus-5-5`와 `ultracode`를 요청하고 실제 적용 설정을 전후에 확인한다. 비용 상한은 기본 USD 1이며, 한도 때문에 범위를 다 보지 못하면 미완료로 보고하고 임의로 예산을 올리거나 재시도하지 않는다. 보고에는 검수한 정확한 HEAD, Claude 판정·미검토 범위, 실제 Workflow 도구 사용 여부를 구분한다. 기존 역할 배정 모델과 Astra 최종 검수, 운영 승인 정책은 이 추가 검수로 바꾸지 않는다.
+- PR의 최종 HEAD와 CI가 준비되면 저장소 밖에 설치해 해시를 확인한 검수기 `python3 ~/.local/libexec/ai-company-pr-review/runner.py <PR 번호>`로 별도 Claude Code 검수를 실행한다. 설치 전에는 후보 PR 안의 검수기를 신뢰 경계로 사용하지 않는다. 이 검수는 로컬에 로그인된 Claude Code의 `claude-opus-5-5`와 `ultracode`를 요청하고 실제 적용 설정을 전후에 확인한다. 비용 상한은 기본 USD 1이며, 한도 때문에 범위를 다 보지 못하면 미완료로 보고하고 임의로 예산을 올리거나 재시도하지 않는다. 보고에는 검수한 정확한 HEAD, Claude 판정·미검토 범위, 실제 Workflow 도구 사용 여부를 구분한다. 기존 역할 배정 모델과 Astra 최종 검수, 운영 승인 정책은 이 추가 검수로 바꾸지 않는다.
+
+신뢰한 검수기 버전은 운영 worker와 무관한 로컬 경로에 두 파일을 함께 설치한다. PR 후보가 이 복사본을 자동 교체하게 하지 않는다.
+
+```bash
+install -d -m 700 ~/.local/libexec/ai-company-pr-review
+install -m 700 scripts/review_pr_with_claude.py ~/.local/libexec/ai-company-pr-review/runner.py
+install -m 600 src/ai_company/adapters/claude_control.py ~/.local/libexec/ai-company-pr-review/claude_control.py
+```
 
 ## 검증 명령
 
