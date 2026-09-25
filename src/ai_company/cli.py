@@ -42,6 +42,8 @@ def main() -> int:
     for action in ("submit", "status", "worker", "context-handoff", "migrate-policy", "rollback-policy"):
         child = flow_actions.add_parser(action)
         child.add_argument("--state-dir", type=Path, default=Path(".ai-company/flows"))
+        child.add_argument("--shared-call-ledger", type=Path,
+                           help="existing reviewed common account/host reservation database")
         if action in ("submit", "migrate-policy"):
             child.add_argument("--spec", type=Path, required=True)
         if action in ("status", "context-handoff", "migrate-policy"):
@@ -76,6 +78,8 @@ def main() -> int:
     automate.add_argument("--state-dir", type=Path, required=True)
     automate.add_argument("--config", type=Path, required=True, help="trusted local server configuration JSON")
     automate.add_argument("--execution-catalog", type=Path, help="trusted local project execution catalog JSON")
+    automate.add_argument("--shared-call-ledger", type=Path,
+                          help="existing reviewed common account/host reservation database")
     automate.add_argument("--authorization-file", type=Path,
                           help="explicit master's exact-plan, single-validation delegation receipt; delegate only")
     automate.add_argument("--max-seconds", type=float, default=1800,
@@ -139,7 +143,8 @@ def automation_command(args) -> int:
         from ai_company.execution_specs import ExecutionCatalog
         catalog_path = getattr(args, "execution_catalog", None)
         catalog = ExecutionCatalog.load(catalog_path) if catalog_path is not None else None
-        worker = Automation(args.state_dir, config, execution_catalog=catalog)
+        worker = Automation(args.state_dir, config, execution_catalog=catalog,
+                            shared_calls=args.shared_call_ledger)
         if args.action == "delegate":
             if not args.authorization_file:
                 raise ValueError("delegate requires the explicit master's authorization receipt")
@@ -208,7 +213,7 @@ def flow_command(args) -> int:
     from ai_company.flow_contracts import FlowSpec
     dispatcher = None
     try:
-        dispatcher = Dispatcher(args.state_dir)
+        dispatcher = Dispatcher(args.state_dir, shared_calls=args.shared_call_ledger)
         if args.flow_action == "submit":
             result = dispatcher.submit(FlowSpec.model_validate_json(args.spec.read_text()))
         elif args.flow_action == "worker":
@@ -219,7 +224,7 @@ def flow_command(args) -> int:
                 # Each thread owns its SQLite connection. No daemon, timer or
                 # background retry loop is introduced by a scheduling pass.
                 def once(_):
-                    worker = Dispatcher(args.state_dir)
+                    worker = Dispatcher(args.state_dir, shared_calls=args.shared_call_ledger)
                     try:
                         return worker.run_once()
                     finally:

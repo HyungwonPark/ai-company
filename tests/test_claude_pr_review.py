@@ -9,6 +9,8 @@ import threading
 import unittest
 from unittest.mock import patch
 
+from ai_company.shared_calls import SharedCallLedger
+
 
 PATH = Path(__file__).resolve().parents[1] / 'scripts/review_pr_with_claude.py'
 SPEC = importlib.util.spec_from_file_location('review_pr_with_claude', PATH)
@@ -21,6 +23,96 @@ PASS_REPORT = (f'판정: PASS\n대상 HEAD: {HEAD}\n패치 SHA-256: {DIFF_SHA}\n
 
 
 class ClaudePRReviewTests(unittest.TestCase):
+    def test_quota_resume_requires_bound_terminal_limit_and_stopped_children(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary) / 'attempt'
+            directory.mkdir()
+            patch_text = 'diff --git a/a b/a\n+new\n'
+            diff_sha = hashlib.sha256(patch_text.encode()).hexdigest()
+            prompt_text = f'--- PATCH {diff_sha} BEGIN ---\n{patch_text}\n--- PATCH END ---'
+            prompt_sha = hashlib.sha256(prompt_text.encode()).hexdigest()
+            delivery_binding = {'nonce': 'fixture', 'pr': 29, 'head': HEAD,
+                                'diff_sha256': diff_sha, 'prompt_sha256': prompt_sha}
+            receipt = {'pr': 29, 'url': 'https://github.com/example/repo/pull/29', 'head': HEAD,
+                       'base': 'c' * 40, 'diff_sha256': diff_sha, 'prompt_sha256': prompt_sha,
+                       'completion_verified': False, 'input_delivery_verified': True,
+                       'binding_unchanged_after_review': True, 'incomplete_reason': None}
+            facts = [{'state': 'starting', 'binding': delivery_binding}, {'state': 'prompt_delivery_started'},
+                     {'state': 'prompt_delivered', 'prompt_sha256': prompt_sha},
+                     {'state': 'closed', 'exit_code': 0}]
+            events = [{'type': 'rate_limit_event', 'rate_limit_info': {'status': 'rejected', 'resetsAt': 200}},
+                      {'type': 'result', 'is_error': True, 'terminal_reason': 'api_error',
+                       'queued_turn_count': 0, 'subagent_stats': {'spawned': 0, 'completed': 0,
+                           'failed': 0, 'killed': {}, 'refused': {}}}]
+            (directory / 'receipt.json').write_text(json.dumps(receipt))
+            (directory / 'facts.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in facts))
+            (directory / 'events.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in events))
+            (directory / 'pr.diff').write_text(patch_text)
+            (directory / 'prompt.txt').write_text(prompt_text)
+            receipt_hash = hashlib.sha256((directory / 'receipt.json').read_bytes()).hexdigest()
+            ledger = SharedCallLedger.initialize(Path(temporary) / 'shared.db', [
+                ('claude', 'review', 'quota', 'COOLDOWN', 200, 'quota', 1, 1, 0, 1),
+            ], legacy_review_imports=[(receipt_hash, 'quota', 200)], clock=lambda: 200)
+            self.addCleanup(ledger.close)
+            binding = dict(pr_number=29, pr_url=receipt['url'], head=HEAD, base=receipt['base'],
+                           diff_sha256=diff_sha, ledger=ledger, quota_group='quota')
+            self.assertFalse(REVIEW.quota_resume_verified(directory, **binding, now=199))
+            self.assertTrue(REVIEW.quota_resume_verified(directory, **binding, now=200))
+            receipt['shared_reservation_id'] = 'missing'
+            receipt['shared_settlement_event'] = 'missing-event'
+            (directory / 'receipt.json').write_text(json.dumps(receipt))
+            self.assertFalse(REVIEW.quota_resume_verified(directory, **binding, now=200))
+            receipt.pop('shared_reservation_id')
+            receipt.pop('shared_settlement_event')
+            (directory / 'receipt.json').write_text(json.dumps(receipt))
+            self.assertFalse(REVIEW.quota_resume_verified(directory, **{**binding, 'head': 'f' * 40}, now=200))
+            with patch.object(REVIEW.time, 'time', return_value=200):
+                with REVIEW.reserve_attempt(directory, False, resume_quota=True,
+                                            quota_binding={key: value for key, value in binding.items()
+                                                           if key not in ('ledger', 'quota_group')},
+                                            ledger=ledger, quota_group='quota'):
+                    self.assertFalse((directory / 'receipt.json').exists())
+                    self.assertEqual(len(list(directory.parent.glob('attempt-quota-*'))), 1)
+            self.assertTrue(directory.exists())
+            events[0]['rate_limit_info']['status'] = 'allowed_warning'
+            (directory / 'events.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in events))
+            (directory / 'receipt.json').write_text(json.dumps(receipt))
+            (directory / 'facts.jsonl').write_text(''.join(json.dumps(row) + '\n' for row in facts))
+            self.assertFalse(REVIEW.quota_resume_verified(directory, **binding, now=300))
+
+    def test_quota_resume_rejects_missing_settlement_and_unknown_children(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            ledger = SharedCallLedger.initialize(root / 'shared.db', [
+                ('claude', 'review', 'quota', 'AVAILABLE', None, None, 0, 0, 0, 0),
+            ])
+            self.addCleanup(ledger.close)
+            events = [{'type': 'rate_limit_event', 'rate_limit_info': {'status': 'rejected', 'resetsAt': 200}},
+                      {'type': 'result', 'is_error': True, 'terminal_reason': 'api_error',
+                       'queued_turn_count': 0, 'subagent_stats': {'failed': 0, 'killed': {}, 'refused': {}}}]
+            self.assertFalse(REVIEW.terminal_children_stopped(events))
+            events[-1]['subagent_stats'].update({'spawned': 0, 'completed': 0})
+            self.assertEqual(REVIEW.rejected_quota_reset(events), 200)
+            self.assertFalse(ledger.legacy_review_imported('a' * 64, 'quota', 200))
+
+    def test_adoption_receipt_binds_reviewed_runner_relay_and_ledger_code(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            shared = root / 'shared.db'
+            shared.touch()
+            receipt = root / 'adoption.json'
+            value = {'schema_version': 1, 'shared_call_ledger': str(shared),
+                     'adopted_callers': sorted(REVIEW.ADOPTED_CALLERS),
+                     'installed_code_commit': 'a' * 40,
+                     'review_runner_sha256': hashlib.sha256(PATH.read_bytes()).hexdigest(),
+                     'review_relay_sha256': hashlib.sha256(REVIEW.CONTROL.read_bytes()).hexdigest(),
+                     'shared_calls_sha256': hashlib.sha256(REVIEW.SHARED_CONTROL.read_bytes()).hexdigest()}
+            receipt.write_text(json.dumps(value))
+            self.assertTrue(REVIEW.shared_adoption_verified(receipt, shared))
+            value['review_runner_sha256'] = '0' * 64
+            receipt.write_text(json.dumps(value))
+            self.assertFalse(REVIEW.shared_adoption_verified(receipt, shared))
+
     def test_complete_patch_uses_exact_git_base_and_head_not_truncated_gh_diff(self):
         with tempfile.TemporaryDirectory() as temporary:
             repo = Path(temporary)

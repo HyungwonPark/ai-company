@@ -350,10 +350,13 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
                 on_spawn: Callable[[dict], None] | None = None,
                 executable: str | None = None, model: str | None = None,
                 reasoning_effort: str | None = None, ultracode_enabled: bool = False, output_schema: dict | None = None,
-                permission: str | None = None, capture_configuration: bool = False, isolate_cgroup: bool = False, max_cost_usd: float | None = None) -> SessionOutcome:
+                permission: str | None = None, capture_configuration: bool = False, isolate_cgroup: bool = False,
+                max_cost_usd: float | None = None, shared_call_controlled: bool = False) -> SessionOutcome:
     """Run once and return; never sleep for quota reset or retry a session here."""
     if provider not in {"codex", "claude"}:
         raise ValueError("provider must be codex or claude")
+    if os.environ.get('AI_COMPANY_REQUIRE_SHARED_CALLS') == '1' and not shared_call_controlled:
+        raise RuntimeError('direct session call lacks the reviewed shared account reservation')
     if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
         raise ValueError("timeout_seconds must be positive and finite")
     if session_id is not None and not _valid_session_id(session_id):

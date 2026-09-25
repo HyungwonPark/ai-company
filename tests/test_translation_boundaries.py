@@ -12,9 +12,42 @@ from ai_company.dispatcher import Dispatcher
 from ai_company.adapters.translation_cli import HAIKU, TranslationCLI
 from ai_company.translation_worker import run_once
 from ai_company.translations import TranslationStore, initialize, source_digest
+from ai_company.shared_calls import SharedCallLedger
 
 
 class TranslationBoundaryTests(unittest.TestCase):
+    def test_shared_translation_result_survives_local_commit_failure_without_recall(self):
+        shared_path = Path(self.tmp.name) / 'shared-calls.db'
+        shared = SharedCallLedger.initialize(shared_path, [
+            ('codex', 'fixture-account', 'shared-fixture', 'AVAILABLE', None, None, 4, 40, 0.3, 0),
+        ], clock=lambda: self.now)
+        self.addCleanup(shared.close)
+        store = TranslationStore(self.db, clock=lambda: self.now, shared_calls=shared,
+                                 queue_id='translation-fixture')
+        store.sync('fixture-project', [self.document()], self.config)
+        job = store.claim('worker', adapter_ready=True)
+        self.assertIsNotNone(job)
+        self.assertTrue(store.started(job['id'], job['lease_token'], None))
+        outcome = {'category': 'quota', 'reset_at': 5000, 'cgroup_stopped': True,
+                   'total_cost_usd': 0.1}
+        original_save = store._save
+
+        def fail_after_shared_settlement(_job):
+            raise OSError('local commit failed')
+
+        store._save = fail_after_shared_settlement
+        with self.assertRaises(OSError):
+            store.finish(job['id'], job['lease_token'], outcome)
+        store._save = original_save
+        self.assertEqual(shared.account('codex', 'fixture-account', 'shared-fixture')['calls'], 5)
+        self.now = 2000
+        store.recover(lambda _identity: False)
+        saved = store._get(job['id'])
+        self.assertEqual(saved['reason'], 'shared_result_requires_local_reconciliation')
+        self.assertEqual(saved['status'], 'blocked')
+        self.assertIsNone(store.claim('worker-2', adapter_ready=True))
+        self.assertEqual(shared.account('codex', 'fixture-account', 'shared-fixture')['calls'], 5)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
