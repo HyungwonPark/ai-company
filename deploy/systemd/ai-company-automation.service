@@ -10,7 +10,7 @@ EnvironmentFile=%h/ai-company/runtime/control-plane/worker.env
 Environment=PATH=%h/.local/bin:%h/.nvm/versions/node/v22.13.0/bin:/usr/bin:/bin
 Environment=LANGSMITH_TRACING=false
 Environment=LANGCHAIN_TRACING_V2=false
-ExecStart=%h/ai-company/releases/control-plane/.venv/bin/python -m ai_company.service_worker automation --state-dir ${AI_COMPANY_STATE} --config ${AI_COMPANY_AUTOMATION_CONFIG} --shared-call-ledger ${AI_COMPANY_SHARED_CALL_LEDGER}
+ExecStart=%h/ai-company/releases/control-plane/.venv/bin/python -m ai_company.service_worker automation --state-dir ${AI_COMPANY_STATE} --config ${AI_COMPANY_AUTOMATION_CONFIG} --execution-catalog ${AI_COMPANY_EXECUTION_CATALOG} --shared-call-ledger ${AI_COMPANY_SHARED_CALL_LEDGER}
 Restart=on-failure
 RestartSec=15
 TimeoutStopSec=3700

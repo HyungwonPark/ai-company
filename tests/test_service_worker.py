@@ -21,6 +21,14 @@ class ServiceWorkerTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
 
+    def test_candidate_units_preserve_catalog_and_share_account_ledger(self):
+        units = Path(__file__).resolve().parents[1] / 'deploy/systemd'
+        automation = (units / 'ai-company-automation.service').read_text()
+        translation = (units / 'ai-company-translation.service').read_text()
+        self.assertIn('--execution-catalog ${AI_COMPANY_EXECUTION_CATALOG}', automation)
+        self.assertIn('--shared-call-ledger ${AI_COMPANY_SHARED_CALL_LEDGER}', automation)
+        self.assertIn('--shared-call-ledger ${AI_COMPANY_SHARED_CALL_LEDGER}', translation)
+
     def test_components_have_independent_ownership_and_reject_duplicate(self):
         with worker_ownership(self.root, 'automation'):
             with self.assertRaises(ExecutionBlocked):
