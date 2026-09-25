@@ -27,7 +27,7 @@ function harness(initialSelection=selection){
   const state={connected:true,authenticated:true,csrf:'fixture-csrf',username:'fixture-master',projectId:'fixture-project',view:'project',
     overview:{project:{request_revision:0},plans:[]},
     executionEntries:[{catalog_id:selection.catalog_id,catalog_digest:selection.catalog_digest,repository:'fixture/repo'}]};
-  const context={state,busyForms:new Set(),currentExecutionProposal,executionMessage,journeyHref,recordParams:new URLSearchParams('project=fixture-project'),structuredClone,crypto:webcrypto,
+  const context={workspaceCompatible:()=>true,state,busyForms:new Set(),currentExecutionProposal,executionMessage,journeyHref,recordParams:new URLSearchParams('project=fixture-project'),structuredClone,crypto:webcrypto,
     location:{hash:'#project?project=fixture-project'},navigator:{onLine:true},
     TextEncoder,AbortController,Error,TypeError,URLSearchParams,setTimeout,clearTimeout,
     executionIntent:()=>intent,
@@ -158,3 +158,14 @@ lateOffline.replies.push(()=>{lateOffline.context.navigator.onLine=false;return 
 await lateOffline.save();
 assert.equal(lateOffline.state.connected,false,'오프라인 전환 후 늦은 성공 응답은 쓰기 가능 상태를 복구하지 않습니다.');
 assert.equal(lateOffline.intent(),null,'서버에 저장된 성공 결과는 보존합니다.');
+
+const mixed=harness();
+mixed.replies.push(new TypeError('response lost'));
+await mixed.save();
+const originalIntent=JSON.stringify(mixed.intent()),sent=mixed.requests.length;
+mixed.context.workspaceCompatible=()=>false;
+await mixed.save();await mixed.requestPlan();
+assert.equal(mixed.requests.length,sent,'혼합 모듈에서는 저장 재시도나 새 PM 요청을 전송하지 않습니다.');
+assert.equal(JSON.stringify(mixed.intent()),originalIntent,'결과 불확실 요청의 원문·멱등 키를 보존합니다.');
+assert.equal(mixed.context.busyForms.size,0);
+console.log('PASS: 혼합 모듈 경계에서 이전 불확실 저장 의도와 멱등 키 보존·추가 전송 없음');

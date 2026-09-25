@@ -14,7 +14,7 @@ const extract=(start,end)=>{const a=app.indexOf(start),b=app.indexOf(end,a);asse
  let release;
  const state={connected:true,projectId:'p',view:'manager'};
  const location={hash:'#manager?project=p'};
- const context={state,location,busyForms:new Set(),recordParams:new URLSearchParams('project=p'),URLSearchParams,
+ const context={workspaceCompatible:()=>true,state,location,busyForms:new Set(),recordParams:new URLSearchParams('project=p'),URLSearchParams,
   executionMessage:'fixture request',projectHref:journey.journeyHref,render(){},refresh:async()=>{},notify(){},
   api:()=>new Promise(resolve=>release=resolve)};
  vm.createContext(context);
@@ -35,7 +35,7 @@ const extract=(start,end)=>{const a=app.indexOf(start),b=app.indexOf(end,a);asse
  const location={hash:'#manager?project=p'};
  const button={disabled:false,textContent:'이 계획 확정'};
  const form={id:'plan-form',dataset:{project:'p',id:'new-plan',digest:'new-digest',base:'0',key:'test-key'}};
- const context={state,location,integrated:true,busyForms:new Set(),journeyHref:journey.journeyHref,
+ const context={workspaceCompatible:()=>true,state,location,integrated:true,busyForms:new Set(),journeyHref:journey.journeyHref,
   executionReferenceMatches:manager.executionReferenceMatches,planReview:{plan:{}},
   document:{addEventListener(name,listener){assert.equal(name,'submit');submitListener=listener;},querySelector(){return null;}},
   $:selector=>selector.startsWith('button')?button:null,FormData:class{*[Symbol.iterator](){yield ['reviewed','on'];}},
@@ -60,7 +60,7 @@ const extract=(start,end)=>{const a=app.indexOf(start),b=app.indexOf(end,a);asse
  const params=new URLSearchParams('project=old-project&run=old-run');
  const document={activeElement:null,getElementById:()=>null,querySelector:()=>null};
  const empty={querySelectorAll:()=>[],classList:{toggle(){}}};
- const context={state,location,recordParams:params,integrated:true,document,app:{...empty},dialog:{...empty},
+ const context={workspaceCompatible:()=>true,state,location,recordParams:params,integrated:true,document,app:{...empty},dialog:{...empty},
   syncScope(){},readView:()=>location.hash.slice(1).split('?')[0],journeyHref:journey.journeyHref,
   scopeParams:()=>({runId:params.get('run'),snapshotId:params.get('snapshot')}),
   workspaceGraph:{isInteracting:()=>false,capture(){}},busyForms:new Set(),openDetails:new Map(),
@@ -78,7 +78,7 @@ const extract=(start,end)=>{const a=app.indexOf(start),b=app.indexOf(end,a);asse
  let release;
  const state={connected:true,projectId:'p',view:'project',navigationGeneration:0};
  const location={hash:'#project?project=p'};
- const context={state,location,busyForms:new Set(),recordParams:new URLSearchParams('project=p'),URLSearchParams,
+ const context={workspaceCompatible:()=>true,state,location,busyForms:new Set(),recordParams:new URLSearchParams('project=p'),URLSearchParams,
   executionMessage:'fixture request',projectHref:journey.journeyHref,render(){},refresh:async()=>{},notify(){},
   api:()=>new Promise(resolve=>release=resolve)};
  vm.createContext(context);
