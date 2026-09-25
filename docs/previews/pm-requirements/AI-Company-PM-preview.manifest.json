@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "kind": "offline read-only product preview",
-  "source_commit": "6306325cc577891230cebe21289d1942abbd18ef",
-  "source_dirty": false,
+  "source_commit": "26966ba97d022b27d47c87683c12e047c86b90cf",
+  "source_dirty": true,
   "sources_sha256": {
-    "docs/previews/pm-requirements/fixture.json": "2e684efee5b254d4e568b4d69b5e07b6421201a185cbced72b2bba640bba7d24",
+    "docs/previews/pm-requirements/fixture.json": "479faedaf800b68f839c07ef231c61f5d1eb3a2203951070d756f6986397900d",
     "scripts/package_journey_preview.py": "16dd914a4ce33614b5248247ec11cd0def393442ff0e8df367dec433dd2acc64",
     "src/ai_company/web/app.js": "3937d5bf96ad0465057fb80941e51c31d066646a08f7c19a215415895ab2d206",
     "src/ai_company/web/collaboration-ui.js": "ac90dd73cc810c94c353e949e052a64f6df02b24944892722290841ae7816fe2",
@@ -25,7 +25,7 @@
     "src/ai_company/web/icon.svg": "fb1099a8c5a1a97d191cb5ba3a3d97f6bfc44ac24d29419485008640464bd666",
     "src/ai_company/web/index.html": "54a3627b50e9ddebfada6033961787a0dc57ef264320b991f2ef3a9b28c8dc6e",
     "src/ai_company/web/manager-ui.js": "3f3ca988ecce62a7cef344b571d0decfdd763d329abce22b75da47f82dfb7452",
-    "src/ai_company/web/manager.css": "6141b70bd411200c1a7607c2234c5ecd10ee9b9e555d6bdd6d05d71f0dd538b7",
+    "src/ai_company/web/manager.css": "ccbf2a55793d354381c5418fa9d0e32eed879d5116496400aec525207b4d4b58",
     "src/ai_company/web/plan-ui.js": "44ec927a3687378d271c371bdb04975e7f7b26d3544c033113c30772d9f42586",
     "src/ai_company/web/report-ui.js": "4699c3a265a2e92a1a994d47fc5f2789e7cac914d6052f6e61daa393af172a20",
     "src/ai_company/web/styles.css": "a997f46bbe5c87a595ac8daefc8068145bc8366f3306f0028922e1a220670cdb",
@@ -34,7 +34,7 @@
     "src/ai_company/web/workspace-graph.css": "f7b42f26ee80a873def4cebfd3ce8320ded224c32207331ad06157650de7953e"
   },
   "original_graph_fixture_sha256": "ac970aba4ccf4abe47bd862da581cdb2b412a0cd7ca6fb98b5d9e13b798b25ba",
-  "fixture_sha256": "2e684efee5b254d4e568b4d69b5e07b6421201a185cbced72b2bba640bba7d24",
+  "fixture_sha256": "479faedaf800b68f839c07ef231c61f5d1eb3a2203951070d756f6986397900d",
   "transformations": [
     "stylesheet/font/icon embedding",
     "static relative module URL embedding",
@@ -48,5 +48,5 @@
     "no APK/service-worker/production verification",
     "frozen synthetic timestamps; original product expiry rules apply"
   ],
-  "html_sha256": "624d21a5a3d99a4f3d239f9fa5d3a20f1ff66411b9c50488d94165071712b2ec"
+  "html_sha256": "8743782106940d53c9f3e35754e9a8fbd54cbda86adeef67b59a2164cc6ea1b3"
 }
