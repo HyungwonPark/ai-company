@@ -11,7 +11,7 @@ export function createPlanUI({esc, documents}) {
       :roleOutcome==='lookup_failed'
       ?`조회 실패 · ${esc(selection.reason||'원인을 확인해 주세요.')} ${selection.can_continue===true?'기존 지침으로 진행할 수 있습니다.':'진행 가능 여부는 계획 검토에서 확인합니다.'}`
       :roleOutcome==='review_pending'?'후보를 검토 중입니다.'
-      :['lookup_pending','search_found_unpinned','lookup_not_configured','no_results'].includes(roleOutcome)
+      :['lookup_pending','search_found_unpinned','lookup_not_configured','no_results','no_matching_document'].includes(roleOutcome)
         ?esc(selection.reason||'조사 상태를 확인해 주세요.'):'현재 지침으로 진행합니다.';
     return `<section class="role-skills" aria-label="${esc(role.name||role.key)} 작업 지침"><h4>작업 지침</h4>${items.length?`<ul class="role-skill-list">${items.map(item=>`<li><div class="role-skill-heading"><strong>${esc(item.name)}</strong><span>${esc(skillState(item,selection))} · ${item.selected?'선택됨':'미선택'}</span></div><p>${esc(item.reason||'추천 근거 확인 중')}</p><details class="plan-scope" data-persist-key="skill:${esc(role.key)}:${esc(item.name)}"><summary>${esc(item.name)} 상세</summary><dl class="detail-grid"><div><dt>출처</dt><dd class="mono">${esc(item.source_url||'확인 중')}</dd></div><div><dt>버전</dt><dd>${esc(item.version||'확인 중')}</dd></div><div><dt>파일 묶음 해시</dt><dd class="mono">${esc(item.bundle_sha256||'확인 중')}</dd></div><div><dt>관련 요구사항</dt><dd>${esc(list(item.requirements).join(' · ')||'연결 없음')}</dd></div><div><dt>필요한 도구·의존성</dt><dd>${esc(list(item.dependencies).join(' · ')||'추가 없음')}</dd></div><div><dt>필요 권한</dt><dd>${esc(list(item.permissions).join(' · ')||'추가 없음')}</dd></div></dl></details></li>`).join('')}</ul>`:`<p>${fallback}</p>`}</section>`;
   }

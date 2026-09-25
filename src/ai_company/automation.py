@@ -207,7 +207,8 @@ class Automation:
                             status, reason = found["status"], found.get("reason", "")[:160]
                         continue
                     search_matches += len(found["repositories"])
-                    status = "search_found_unpinned"
+                    if status == "no_results":
+                        status = "search_found_unpinned"
                     for repo in found["repositories"][:3]:
                         if discovery_attempted:
                             break
@@ -218,6 +219,8 @@ class Automation:
                         discovered = research.run_discover(key, "discover-" + digest([repo["repository"], term])[:16],
                             repo["repository"], branch, term, policy=policy, timeout=1)
                         if discovered["status"] != "found":
+                            status = discovered["status"]
+                            reason = discovered.get("reason", "")[:160]
                             continue
                         candidate = research.run_fetch(key, "candidate-" + digest(discovered["source_url"])[:16],
                             discovered["source_url"], policy=policy,
@@ -315,6 +318,7 @@ class Automation:
         outcome = ("existing_sufficient" if not unmatched else
                    "review_pending" if any(item for role in unmatched for item in assignments[role]
                                            if not item["selected"]) else
+                   lookup_status if lookup_status in ("lookup_failed", "lookup_pending", "no_matching_document") else
                    "search_found_unpinned" if search_matches else lookup_status)
         role_outcomes = {role.key: ("review_pending" if any(not item["selected"] for item in assignments[role.key])
             else "existing_sufficient" if role.key not in unmatched
@@ -330,6 +334,7 @@ class Automation:
                     f"공개 저장소 {search_matches}개를 찾았습니다. 고정 커밋과 문서·라이선스 검토 전이라 아직 배정하지 않습니다." if current_outcome == "search_found_unpinned" else
                     "자료 조회 실패: " + lookup_reason if current_outcome == "lookup_failed" else
                     "이전 공개 조회 결과가 아직 확인되지 않았습니다. 중복 조회 없이 현재 지침으로 진행합니다." if current_outcome == "lookup_pending" else
+                    "검색된 저장소에서 해당 역량의 SKILL.md를 확인하지 못했습니다. 조사 예산을 유지하며 현재 지침으로 진행합니다." if current_outcome == "no_matching_document" else
                     "공개 조사에 사용할 일반 기술어가 설정되지 않았습니다. 현재 지침으로 진행합니다." if current_outcome == "lookup_not_configured" else
                     "허용된 일반 기술어로 조회했지만 결과가 없었습니다. 현재 지침으로 진행합니다." if current_outcome == "no_results" else
                     "추가 지침을 찾지 못했으므로 현재 지침으로 진행합니다."),
