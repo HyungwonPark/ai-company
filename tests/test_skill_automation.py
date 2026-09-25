@@ -269,6 +269,67 @@ class SkillAutomationTests(unittest.TestCase):
         self.h.worker.run_once()
         self.assertEqual(self.h.worker.store.get_run(run["id"])["roles"]["impl"]["skill_delivery"]["documents"], [])
 
+    def test_document_discovery_failure_is_attributed_only_to_its_search_term(self):
+        self.h.worker.close()
+        self.h.config = self.h.config.model_copy(update={"skill_catalog": (),
+            "skill_search_terms": ("accessibility", "testing")})
+        self.h.plan["roles"][0]["required_capabilities"] = ["accessibility"]
+        self.h.plan["roles"][1]["required_capabilities"] = ["testing"]
+        self.h.worker = self.h.open()
+
+        def search(_store, _key, _lookup_id, term, **_kwargs):
+            return {"status": "found", "term": term, "repositories": [{
+                "repository": f"example/{term}", "default_branch": "main"}], "lookups_used": 1}
+
+        from unittest.mock import patch
+        with patch("ai_company.skill_selection.SkillResearchStore.run_search", search), \
+             patch("ai_company.skill_selection.SkillResearchStore.run_discover",
+                   return_value={"status": "no_matching_document", "lookups_used": 2}) as discover:
+            plan = self.plan()
+        self.assertEqual(discover.call_count, 1)
+        selection = plan["content"]["skill_selection"]
+        self.assertEqual(selection["role_outcomes"]["impl"], "no_matching_document")
+        self.assertEqual(selection["role_outcomes"]["test"], "search_found_unpinned")
+
+    def test_unsearched_third_term_does_not_inherit_other_role_failure(self):
+        self.h.worker.close()
+        self.h.config = self.h.config.model_copy(update={"skill_catalog": (),
+            "skill_search_terms": ("accessibility", "security", "testing")})
+        self.h.plan["roles"][0]["required_capabilities"] = ["accessibility"]
+        self.h.plan["roles"][1]["required_capabilities"] = ["testing"]
+        self.h.worker = self.h.open()
+
+        def search(_store, _key, _lookup_id, term, **_kwargs):
+            return {"status": "found" if term == "accessibility" else "no_results",
+                "term": term, "repositories": [{"repository": "example/a",
+                "default_branch": "main"}] if term == "accessibility" else []}
+
+        from unittest.mock import patch
+        with patch("ai_company.skill_selection.SkillResearchStore.run_search", search), \
+             patch("ai_company.skill_selection.SkillResearchStore.run_discover",
+                   return_value={"status": "no_matching_document"}):
+            plan = self.plan()
+        self.assertEqual(plan["content"]["skill_selection"]["role_outcomes"]["test"], "not_searched")
+
+    def test_document_fetch_failure_is_attributed_to_discovered_term(self):
+        self.h.worker.close()
+        self.h.config = self.h.config.model_copy(update={"skill_catalog": (),
+            "skill_search_terms": ("accessibility",)})
+        self.h.plan["roles"][0]["required_capabilities"] = ["accessibility"]
+        self.h.worker = self.h.open()
+
+        from unittest.mock import patch
+        with patch("ai_company.skill_selection.SkillResearchStore.run_search", return_value={
+                 "status": "found", "repositories": [{"repository": "example/a",
+                 "default_branch": "main"}]}), \
+             patch("ai_company.skill_selection.SkillResearchStore.run_discover", return_value={
+                 "status": "found", "source_url": "https://github.com/example/a/blob/" + "a" * 40 + "/SKILL.md",
+                 "license_path": "LICENSE"}), \
+             patch("ai_company.skill_selection.SkillResearchStore.run_fetch", return_value={
+                 "status": "lookup_failed", "reason": "document unavailable"}):
+            plan = self.plan()
+        self.assertEqual(plan["content"]["skill_selection"]["role_outcomes"]["impl"], "lookup_failed")
+
     def test_pm_cannot_recommend_public_candidate_for_unrelated_role(self):
         self.h.worker.close()
         self.h.config = self.h.config.model_copy(update={"skill_catalog": (),
