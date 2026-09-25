@@ -142,12 +142,12 @@ def main():
                                   "verification": "저장된 마스터 답변을 확인합니다.",
                                   "role_keys": ["impl"]}]}
         elif state["stage"] == "pm" and not context.get("source_plan_id"):
-            followup = controller.h.worker.store.overview(controller.target)["pm_requests"][-1]
-            if (followup.get("conversation_context") or {}).get("previous_requirements_feedback"):
+            if (context.get("conversation_context") or {}).get("previous_requirements_feedback"):
                 report["plan"]["requirements_review"]["questions"] = [{
                     "id": "Q-1", "prompt": "첫 버전의 대표 업무는 무엇인가요?",
                     "reason": "완료 조건과 담당 범위가 달라집니다.", "status": "answered",
-                    "resolution": "작은 함수 개발", "answer_message_id": followup["request_id"]}]
+                    "resolution": "작은 함수 개발",
+                    "answer_message_id": state["task_id"].removeprefix("pm-")}]
         elif state["stage"] == "reviewer" and state["specification"]["execution_scope"] == "plan_review" and not controller.review_revised:
             controller.review_revised = True
             report.update(verdict="REVISE", revision_route="technical", summary="검증 방법을 더 구체화하세요.", findings=[{

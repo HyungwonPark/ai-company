@@ -435,7 +435,33 @@ class ManagementStore:
                                 (project_id, value.idempotency_key, digest(value.content), message["id"]))
             return message
 
-    def _conversation_context(self, project_id):
+    def _pending_material_questions(self, project_id, revision):
+        """Unresolved questions since the last confirmed plan, including older BLOCKs."""
+        baseline = 0
+        for row in self.db.execute("SELECT document FROM management_plans WHERE project_id=?", (project_id,)):
+            previous = json.loads(row[0])
+            if previous.get("status") == "confirmed" and previous["request_revision"] < revision:
+                baseline = max(baseline, previous["request_revision"])
+        pending = []
+        for row in self.db.execute("SELECT document FROM management_pm_requests WHERE project_id=? ORDER BY rowid",
+                                   (project_id,)):
+            request = json.loads(row[0])
+            if not baseline < request["request_revision"] < revision:
+                continue
+            questions = (request.get("requirements_feedback") or {}).get("questions", [])
+            if not questions:
+                continue
+            feedback = self.db.execute("SELECT rowid FROM management_messages WHERE id=? AND project_id=?",
+                                       ("pm-feedback-" + request["request_id"], project_id)).fetchone()
+            if feedback is None:
+                continue
+            for question in questions:
+                if question.get("status") == "open":
+                    pending.append({"request_id": request["request_id"],
+                                    "feedback_rowid": feedback[0], "question": question})
+        return pending
+
+    def _conversation_context(self, project_id, *, next_revision=None):
         """Project-local reading context; never execution/approval authority."""
         rows = self.db.execute("SELECT document FROM management_messages WHERE project_id=? ORDER BY rowid DESC LIMIT 8",
                                (project_id,)).fetchall()
@@ -470,8 +496,12 @@ class ManagementStore:
             candidate = {'request_id': prior['request_id'], 'requirements': prior['requirements_feedback']}
             if len(json.dumps(candidate, ensure_ascii=False)) <= 12000:
                 prior_feedback = candidate
+        pending = self._pending_material_questions(project_id, next_revision) if next_revision else []
         return {'messages': list(reversed(messages)), 'previous_proposal': previous,
                 'previous_requirements_feedback': prior_feedback,
+                'pending_material_questions': [{"request_id": item["request_id"],
+                    "question": item["question"]} for item in pending[:20]],
+                'pending_material_questions_omitted': max(0, len(pending) - 20),
                 'purpose': 'discussion_only; a new plan requires a new explicit confirmation'}
 
     def _append_pm_request(self, project, value):
@@ -490,7 +520,7 @@ class ManagementStore:
                        "state": "pending", "request_revision": revision, "base_harness_version": project["harness_version"],
                        "base_harness_digest": digest(harness["content"]), "goal_digest": digest(project["goal"]),
                        "goal": project["goal"], "content": value.content, "source": project["source"],
-                       "conversation_context": self._conversation_context(project_id),
+                       "conversation_context": self._conversation_context(project_id, next_revision=revision),
                        "created_at": self.clock(), "updated_at": self.clock(), "execution": None, "plan_id": None,
                        "configuration_digest": None, "mode": None}
         if project.get("execution_spec") is not None:
@@ -577,21 +607,28 @@ class ManagementStore:
         if any(item.status == "open" for item in spec.questions):
             raise ManagementError("answer_required", "A material decision still needs an answer")
         if plan.get("pm_guidance_version") == "pm-requirements-v3":
-            request = self.get_pm_request(plan["request_id"])
-            prior = (request.get("conversation_context") or {}).get("previous_requirements_feedback") or {}
-            previous_questions = (prior.get("requirements") or {}).get("questions", [])
-            prior_row = self.db.execute("SELECT rowid FROM management_messages WHERE id=? AND project_id=?",
-                                        (prior.get("request_id"), plan["project_id"])).fetchone()
-            for previous in previous_questions:
-                if previous.get("status") != "open":
-                    continue
-                resolved = next((item for item in spec.questions if item.id == previous.get("id")), None)
-                if resolved is None or resolved.status != "answered" or not resolved.answer_message_id:
-                    raise ManagementError("answer_required", "A previous material question needs an explicit master answer")
-                answer_row = self.db.execute("SELECT rowid FROM management_messages WHERE id=? AND project_id=?",
-                                             (resolved.answer_message_id, plan["project_id"])).fetchone()
-                if prior_row is None or answer_row is None or answer_row[0] <= prior_row[0]:
-                    raise ManagementError("answer_required", "The answer must follow the recorded material question")
+            if plan.get("status") != "confirmed":
+                request = self.get_pm_request(plan["request_id"])
+                pending_questions = self._pending_material_questions(plan["project_id"], request["request_revision"])
+                counts = {}
+                for pending in pending_questions:
+                    question_id = pending["question"]["id"]
+                    counts[question_id] = counts.get(question_id, 0) + 1
+                for pending in pending_questions:
+                    question_id = pending["question"]["id"]
+                    resolved = next((item for item in spec.questions
+                                     if item.source_request_id == pending["request_id"]
+                                     and item.source_question_id == question_id), None)
+                    if resolved is None and counts[question_id] == 1:
+                        resolved = next((item for item in spec.questions if item.id == question_id
+                                         and item.source_request_id is None), None)
+                    if (resolved is None or resolved.prompt != pending["question"]["prompt"]
+                            or resolved.status != "answered" or not resolved.answer_message_id):
+                        raise ManagementError("answer_required", "A previous material question needs an explicit master answer")
+                    answer_row = self.db.execute("SELECT rowid FROM management_messages WHERE id=? AND project_id=?",
+                                                 (resolved.answer_message_id, plan["project_id"])).fetchone()
+                    if answer_row is None or answer_row[0] <= pending["feedback_rowid"]:
+                        raise ManagementError("answer_required", "The answer must follow the recorded material question")
             for item in spec.questions:
                 if item.status == "assumed" or not item.answer_message_id:
                     raise ManagementError("answer_required", "A material decision needs a recorded master answer")

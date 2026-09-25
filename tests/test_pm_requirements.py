@@ -84,6 +84,28 @@ class PMRequirementsTests(unittest.TestCase):
             self.h.worker.run_once()
             self.assertEqual(set(self.h.worker.store.get_run(run['id'])['roles']), {'impl', 'test'})
 
+    def test_confirmed_plan_is_not_rechecked_against_new_question_history_rule(self):
+        store = self.h.worker.store
+        old = store.pm_requests(self.h.project['id'])[0]
+        store.post_message(self.h.project['id'], {'content': '같은 범위로 새 계획을 검토합니다.'})
+        plan = self.plan()
+        self.confirm(plan)
+        legacy = store.get_pm_request(old['request_id'])
+        legacy['requirements_feedback'] = {'questions': [{
+            'id': 'Q1', 'prompt': '이전 필수 결정은?', 'status': 'open'}]}
+        feedback_id = 'pm-feedback-' + old['request_id']
+        with store.db:
+            store.db.execute('UPDATE management_pm_requests SET document=? WHERE message_id=?',
+                             (json.dumps(legacy), old['request_id']))
+            store.db.execute('INSERT INTO management_messages VALUES (?,?,?)',
+                             (feedback_id, self.h.project['id'], json.dumps({
+                                 'id': feedback_id, 'role': 'assistant', 'content': '이전 필수 결정은?',
+                                 'status': 'blocked', 'created_at': self.h.now})))
+        self.assertEqual(len(store._pending_material_questions(self.h.project['id'], plan['request_revision'])), 1)
+        store.assert_plan_ready(store.get_plan(self.h.project['id'], plan['id']))
+        self.h.worker.run_once()
+        self.assertEqual(len(store.run_records()), 1)
+
     def test_missing_question_and_verification_prevent_readiness(self):
         plan = self.plan()
         content = copy.deepcopy(plan['content'])
@@ -173,10 +195,17 @@ class PMRequirementsTests(unittest.TestCase):
                     'answer_message_id': answer['id']}]
             return outcome
         self.h.execute = question_once
+        with self.h.worker.store.db:
+            self.h.worker.store.db.execute(
+                "INSERT INTO management_messages VALUES (?,?,?)",
+                ('early-answer', self.h.project['id'], json.dumps({
+                    'id': 'early-answer', 'role': 'user', 'content': '질문 전에 쓴 다른 메시지',
+                    'status': 'stored', 'created_at': self.h.now})))
         self.h.worker.run_once()
         request = self.h.worker.store.pm_requests(self.h.project['id'])[-1]
         self.assertEqual(request['state'], 'answer_needed')
         self.assertEqual(self.h.worker.store.run_records(), [])
+
         self.assertEqual(self.h.worker.store.overview(self.h.project['id'])['plans'], [])
         answer = self.h.worker.store.post_message(self.h.project['id'], {
             'content': '대표 업무는 웹사이트 제작입니다.', 'idempotency_key': 'material-answer-001'})
@@ -191,7 +220,67 @@ class PMRequirementsTests(unittest.TestCase):
         with self.assertRaises(ManagementError) as error:
             self.h.worker.store._requirements_ready(incomplete)
         self.assertEqual(error.exception.code, 'answer_required')
+        early = copy.deepcopy(plan)
+        early['content']['requirements_review']['questions'][0]['answer_message_id'] = 'early-answer'
+        with self.assertRaises(ManagementError) as error:
+            self.h.worker.store._requirements_ready(early)
+        self.assertEqual(error.exception.code, 'answer_required')
         self.assertEqual(self.h.worker.store.run_records(), [])
+
+    def test_two_open_questions_with_reused_id_need_separate_answer_bindings(self):
+        store = self.h.worker.store
+        first = store.pm_requests(self.h.project['id'])[0]
+
+        def synthetic_feedback(request, prompt):
+            # Isolate the readiness rule; the normal worker separately validates PM facts.
+            document = store.get_pm_request(request['request_id'])
+            document['requirements_feedback'] = {'questions': [{
+                'id': 'Q1', 'prompt': prompt, 'status': 'open'}]}
+            with store.db:
+                store.db.execute('UPDATE management_pm_requests SET document=? WHERE message_id=?',
+                                 (json.dumps(document), request['request_id']))
+                message_id = 'pm-feedback-' + request['request_id']
+                store.db.execute('INSERT INTO management_messages VALUES (?,?,?)',
+                                 (message_id, self.h.project['id'], json.dumps({
+                                     'id': message_id, 'role': 'assistant', 'content': prompt,
+                                     'status': 'blocked', 'created_at': self.h.now})))
+
+        synthetic_feedback(first, '배포 대상은 무엇인가요?')
+        answer_one = store.post_message(self.h.project['id'], {'content': '시험 환경만 대상으로 합니다.'})
+        second = store.get_pm_request(answer_one['id'])
+        synthetic_feedback(second, '예산 상한은 얼마인가요?')
+        answer_two = store.post_message(self.h.project['id'], {'content': '기존 예산 안에서만 합니다.'})
+        request = store.get_pm_request(answer_two['id'])
+        self.assertEqual(len(request['conversation_context']['pending_material_questions']), 2)
+        self.assertEqual([item['request_id'] for item in request['conversation_context']['pending_material_questions']],
+                         [first['request_id'], second['request_id']])
+        content = copy.deepcopy(self.h.plan)
+        questions = [
+            {'id': 'Q1-first', 'prompt': '배포 대상은 무엇인가요?', 'reason': '범위 결정',
+             'status': 'answered', 'resolution': '시험 환경', 'answer_message_id': answer_one['id'],
+             'source_request_id': first['request_id'], 'source_question_id': 'Q1'},
+            {'id': 'Q1-second', 'prompt': '예산 상한은 얼마인가요?', 'reason': '비용 결정',
+             'status': 'answered', 'resolution': '기존 예산', 'answer_message_id': answer_two['id'],
+             'source_request_id': second['request_id'], 'source_question_id': 'Q1'},
+        ]
+        content['requirements_review'] = {'version': 2, 'revision': request['request_revision'],
+            'goal_digest': request['goal_digest'], 'problem': 'Two decisions',
+            'users_and_flow': 'Master answers both questions', 'scope': ['Small task'],
+            'exclusions': [], 'assumptions': [], 'questions': questions[1:], 'findings': [],
+            'requirements': [{'id': 'R1', 'source': 'master goal', 'acceptance': 'Task is checked',
+                              'verification': 'Run isolated checks', 'role_keys': ['impl']}]}
+        check = {'content': content, 'contract_version': 2, 'request_id': request['request_id'],
+                 'request_revision': request['request_revision'], 'goal_digest': request['goal_digest'],
+                 'project_id': self.h.project['id'], 'pm_guidance_version': 'pm-requirements-v3'}
+        with self.assertRaises(ManagementError) as error:
+            store._requirements_ready(check)
+        self.assertEqual(error.exception.code, 'answer_required')
+        content['requirements_review']['questions'] = questions
+        store._requirements_ready(check)
+        content['requirements_review']['questions'][0]['prompt'] = '다른 질문으로 바꿈'
+        with self.assertRaises(ManagementError) as error:
+            store._requirements_ready(check)
+        self.assertEqual(error.exception.code, 'answer_required')
 
     def test_review_quota_wait_recovers_without_duplicate_task(self):
         original = self.h.execute

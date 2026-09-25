@@ -66,18 +66,26 @@ class MaterialQuestion(Contract):
     status: Literal["open", "answered", "assumed", "excluded"]
     resolution: Text | None = None
     answer_message_id: Key | None = None
+    source_request_id: Key | None = None
+    source_question_id: Key | None = None
 
     @model_serializer(mode="wrap")
     def preserve_legacy_question(self, handler):
         value = handler(self)
         if self.answer_message_id is None:
             value.pop("answer_message_id", None)
+        if self.source_request_id is None:
+            value.pop("source_request_id", None)
+        if self.source_question_id is None:
+            value.pop("source_question_id", None)
         return value
 
     @model_validator(mode="after")
     def resolved_has_basis(self):
         if self.status != "open" and not self.resolution:
             raise ValueError("resolved material questions need an answer, assumption or explicit exclusion")
+        if bool(self.source_request_id) != bool(self.source_question_id):
+            raise ValueError("question source needs both request and question IDs")
         return self
 
 
