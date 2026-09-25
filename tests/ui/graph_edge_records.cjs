@@ -78,7 +78,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
   assert.equal(snapshots[0].edges.filter(e=>snapshotNodeKind(snapshots[0],e.from)==='role'&&snapshotNodeKind(snapshots[0],e.to)==='pm').length,2);
   for(const width of [1440,390,320])for(const theme of ['light','black'])for(const [runIndex,snapshot] of snapshots.entries()){
    currentCase={width,theme,stage:'snapshot setup',snapshot:{id:snapshot.id,project_id:snapshot.project_id,plan_id:snapshot.plan_id,plan_digest:snapshot.plan_digest,run_id:snapshot.run_id,source:snapshot.source,nodes:snapshot.nodes.map(n=>({id:n.id,name:n.name,kind:n.kind,phase:n.phase,status:n.status})),edges:snapshot.edges.map(e=>({id:e.id,from:e.from,to:e.to,kind:e.kind,phase:e.phase,status:e.status}))}};
-   await close();await page.setViewportSize({width,height:width>700?1000:844});await page.locator(`[data-theme-choice="${theme}"]`).click();await page.locator('#rg-snapshot').selectOption(snapshot.id);if(await action('graph').getAttribute('aria-pressed')!=='true')await action('graph').click();await settle();await fitContainsAll(snapshot);
+   await close();await page.setViewportSize({width,height:width>700?1000:844});await page.locator(`[data-theme-choice="${theme}"]`).click();await page.locator('#journey-run').selectOption(snapshot.id);if(await action('graph').getAttribute('aria-pressed')!=='true')await action('graph').click();await settle();await fitContainsAll(snapshot);
    const selectedIds=[];
    for(const [index,edge] of snapshot.edges.entries()){
     currentCase={...currentCase,stage:'physical relation selection',edge:{id:edge.id,from:edge.from,to:edge.to,kind:edge.kind,index}};
@@ -100,7 +100,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
    assert.deepEqual(selectedIds,snapshot.edges.map(e=>e.id));assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));checks.push({width,theme,run_id:snapshot.run_id,edge_ids:selectedIds,physical:'label centers',keyboard:'SVG Enter',list:'same original reference',selection:'path/arrow/label/endpoints and dim restore'});
   }
   // Browser-native touch delivery through CDP, never DOM-dispatched pointer events.
-  await close();await page.setViewportSize({width:390,height:844});await page.locator('#rg-snapshot').selectOption(snapshots[1].id);await action('fit').click();await action('pan').click();await page.locator('.rg-viewport').evaluate(el=>el.scrollIntoView({block:'start'}));await settle();
+  await close();await page.setViewportSize({width:390,height:844});await page.locator('#journey-run').selectOption(snapshots[1].id);await action('fit').click();await action('pan').click();await page.locator('.rg-viewport').evaluate(el=>el.scrollIntoView({block:'start'}));await settle();
   const touchNode=snapshots[1].nodes.find(n=>n.kind==='role'),touchEdge=snapshots[1].edges.find(e=>e.from===touchNode.id&&e.kind==='handoff');assert.ok(touchEdge);
   currentCase={...currentCase,width:390,stage:'native touch synchronization',edge:{id:touchEdge.id,from:touchEdge.from,to:touchEdge.to,kind:touchEdge.kind}};
   const geometry=()=>page.evaluate(({nodeId,edgeId})=>{

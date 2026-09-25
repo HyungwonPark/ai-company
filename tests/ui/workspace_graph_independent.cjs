@@ -61,7 +61,7 @@ const {createHash} = require('node:crypto');
     const original = structuredClone(latestRead);
     const current = original.workspace_graph.snapshots.find(snapshot => snapshot.run_id === fixtures.run_ids[1]);
     const old = original.workspace_graph.snapshots.find(snapshot => snapshot.run_id === fixtures.run_ids[0]);
-    await page.locator('#rg-snapshot').selectOption(current.id);
+    await page.locator('#journey-run').selectOption(current.id);
     await action('fit').click();
     await page.locator('.rg-viewport').scrollIntoViewIfNeeded();
     // A physical pointer must hit a visible SVG stroke, not a programmatic dispatch or list fallback.
@@ -89,7 +89,7 @@ const {createHash} = require('node:crypto');
     await page.locator('.rg-direction').waitFor();
     checks.push('390px: real pointer hits SVG relationship; same ID and detail remain available in list');
 
-    await page.locator('#rg-snapshot').selectOption(old.id);
+    await page.locator('#journey-run').selectOption(old.id);
     await page.locator('.rg-reference-links a[href^="#approvals"]').click();
     await page.locator('.approval-reading').waitFor();
     assert.ok(page.url().includes('run=' + encodeURIComponent(old.run_id)));
@@ -105,7 +105,7 @@ const {createHash} = require('node:crypto');
 
     await go('#progress?project=' + fixtures.project_id);
     await page.locator(`[data-rg-root][data-project="${fixtures.project_id}"]`).waitFor();
-    await page.locator('#rg-snapshot').selectOption(current.id);
+    await page.locator('#journey-run').selectOption(current.id);
     await action('list').click();
     const selectedNode = current.nodes.find(node => node.kind === 'role');
     await page.locator(`[data-rg-node="${selectedNode.id}"]`).click();

@@ -33,7 +33,7 @@ const {createHash}=require('node:crypto');
    return point;
   });
  };
- const snapshot=async id=>{await page.locator('#rg-snapshot').selectOption(id);};
+ const snapshot=async id=>{await page.locator('#journey-run').selectOption(id);};
  const overflow=async label=>assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),label+' page overflow');
  try{
   await page.goto(base+'/?workspace=integrated#projects');
@@ -96,7 +96,7 @@ const {createHash}=require('node:crypto');
   await go('#approvals?project='+fixtures.project_id+'&run='+fixtures.run_ids[1]);assert.equal(await page.locator('.approval-reading').count(),0);assert.ok((await page.locator('#main').textContent()).includes('승인 요청'));
   checks.push('graph/list identical artifact; keyboard edge activation; planned vs recorded; exact-run approval; journey navigation retains execution scope');
   await go('#progress?project='+fixtures.other_project_id);await graph().waitFor();assert.equal(await page.locator('.rg-node').count(),0);
-  await go('#progress?project='+fixtures.project_id);await graph().waitFor();assert.equal(await page.locator('#rg-snapshot').inputValue(),current.id,'the last explicitly selected run is restored');
+  await go('#progress?project='+fixtures.project_id);await graph().waitFor();assert.equal(await page.locator('#journey-run').inputValue(),current.id,'the last explicitly selected run is restored');
   await snapshot(current.id);await action('list');
   await context.setOffline(true);await page.evaluate(()=>window.dispatchEvent(new Event('offline')));await page.getByText('연결이 끊겼습니다. 마지막 조회 자료를 표시합니다.',{exact:true}).waitFor();
   assert.equal(await page.locator('.rg-list [data-rg-node]').count(),current.nodes.length);

@@ -175,3 +175,68 @@
 /* Read the confirmation's Korean source/translation at body size in both themes. */
 .plan-reading>.report-summary,.plan-reading .role-config>p,.plan-reading .detail-grid dd,.plan-reading .plan-criteria{font-size:16px;line-height:1.75}
 .dialog-head button{min-width:44px;min-height:44px}
+
+
+/* Journey usability: preserve the existing layout and tokens, clarify reading priority. */
+.journey-workspace{
+  --progress:#245aa1;--progress-bg:#edf3fc;--progress-line:#8eafd9;
+}
+:root[data-theme=black] .journey-workspace{
+  --progress:#aecaff;--progress-bg:#25334b;--progress-line:#658ac4;
+}
+.journey-workspace.integrated-workspace :is(button,summary),
+.journey-workspace.integrated-workspace :is(.badge,.banner,.error-text,.connection,.form-row label,.form-row small,.form-actions .hint,.workspace-scope,.manager-stages li,.manager-focus-label,.next-updated,.document-language,.document-language summary,.document-toggle,.manager-agent-bottom>span,.project-picker-links a,.summary-list a,.summary-list small,.summary-decisions span,.summary-decisions time){font-size:14px}
+.journey-workspace.integrated-workspace .badge{white-space:normal;overflow-wrap:anywhere;line-height:1.5}
+.journey-workspace.integrated-workspace .badge.running{color:var(--progress);background:var(--progress-bg);border-color:var(--progress-line);border-style:dashed}
+.journey-workspace.integrated-workspace .badge.complete{color:var(--success);background:var(--success-bg);border-color:var(--success-line);border-style:solid}
+.journey-workspace.integrated-workspace .badge.waiting{border-left:3px solid var(--warning)}
+.journey-workspace.integrated-workspace .badge.blocked{border-left:3px solid var(--danger)}
+.journey-workspace.integrated-workspace :is(.report-summary,.message-content,.discussion-message p,.manager-goal,.manager-next p,.summary-list strong,.summary-list p,.project-summary>p,.pm-report-summary>p,.approval-copy p,.detail-grid dd:not(.mono)){font-size:16px;line-height:1.75}
+.journey-workspace.integrated-workspace :is(.manager-agent .badge,.collab-node-select .badge){max-width:none;flex-shrink:0}
+.journey-workspace.integrated-workspace .summary-list :is(strong,p,small){overflow-wrap:anywhere}
+.journey-workspace.integrated-workspace .main :is(summary,button){min-height:44px}
+.journey-workspace.integrated-workspace :is(.document-toggle,.banner button,.project-picker-links a){min-height:44px}
+.journey-workspace.integrated-workspace :is(.manager-heading,.page-heading,.section-line,.report-heading,.approval-top){flex-wrap:wrap}
+.journey-workspace.integrated-workspace :is(.page-heading,.manager-heading) h1{text-wrap:balance;overflow-wrap:anywhere}
+.journey-workspace.integrated-workspace .sidebar{padding-block:18px}
+.journey-workspace.integrated-workspace .topbar{padding-block:10px}
+.journey-workspace.integrated-workspace .nav-count{font-size:14px;min-width:22px;min-height:22px;line-height:22px}
+.journey-workspace.integrated-workspace .main{position:relative;scroll-margin-block:16px}
+/* The main landmark remains the skip/navigation focus target. A short marker replaces
+   the browser's full-page outline; individual controls keep their focus-visible rings. */
+.journey-workspace.integrated-workspace .main:focus{outline:none}
+.journey-workspace.integrated-workspace .main:focus-visible::before{content:"";position:absolute;top:8px;left:40px;width:44px;height:3px;background:var(--focus);border-radius:2px}
+.journey-workspace.integrated-workspace .main :focus-visible{scroll-margin-block:24px}
+.journey-workspace.integrated-workspace .empty-mark{display:none}
+.journey-workspace.integrated-workspace .empty{padding:28px 20px}
+.journey-workspace.integrated-workspace .empty p{font-size:16px;line-height:1.75}
+.journey-result-summary{display:grid;gap:18px;margin:24px 0}
+.journey-result-summary>div{display:grid;grid-template-columns:88px minmax(0,1fr);gap:16px}
+.journey-result-summary dt{font-size:14px;color:var(--muted);padding-top:2px}
+.journey-result-summary dd{margin:0;font-size:16px;line-height:1.75;overflow-wrap:anywhere}
+.role-counts{display:flex;flex-wrap:wrap;gap:8px 20px;padding:14px 0;border-block:1px solid var(--line);font-size:14px;color:var(--muted)}
+.role-counts strong{color:var(--ink);font-weight:600}
+.result-role-details,.result-system-details{margin-top:20px}
+.result-role-details>summary,.result-system-details>summary{display:flex;align-items:center;gap:8px;cursor:pointer}
+.result-role-details>summary::before,.result-system-details>summary::before{content:"+"}
+.result-role-details[open]>summary::before,.result-system-details[open]>summary::before{content:"−"}
+@media(max-width:900px){.journey-workspace.integrated-workspace .main:focus-visible::before{left:24px}}
+@media(max-width:760px){
+ .journey-workspace.integrated-workspace .sidebar{padding-block:12px}
+ .journey-workspace.integrated-workspace .topbar{padding-block:0 12px;row-gap:4px}
+ .journey-workspace.integrated-workspace .main:focus-visible::before{left:18px}
+ .journey-workspace.integrated-workspace .main :focus-visible{scroll-margin-bottom:100px}
+ .journey-workspace.integrated-workspace .topbar-actions .connection{font-size:14px;max-width:none;justify-content:flex-start}
+ .journey-workspace.integrated-workspace .nav-count{position:static;margin:0;line-height:20px;min-height:20px;padding:0 4px}
+ .journey-workspace.integrated-workspace .nav a:has(.nav-count){flex-direction:row;flex-wrap:wrap;column-gap:4px}
+ .journey-workspace.integrated-workspace .nav a:has(.nav-count) .journey-step-number{flex-basis:100%;text-align:center}
+ .journey-workspace.integrated-workspace .manager-stages{grid-template-columns:1fr;gap:10px}
+ .journey-workspace.integrated-workspace .manager-stages li:not(:last-child)::after{display:none}
+ .journey-workspace.integrated-workspace .banner{flex-wrap:wrap;gap:8px}
+ .journey-workspace.integrated-workspace .banner button{margin-left:0}
+ .journey-workspace.integrated-workspace .project-picker-links{gap:10px}
+ .journey-workspace.integrated-workspace .project-picker-links a{font-size:14px}
+ .journey-result-summary>div{grid-template-columns:1fr;gap:4px}
+ .journey-result-summary{gap:16px}
+ .role-counts{gap:8px 14px}
+}

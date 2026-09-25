@@ -68,7 +68,7 @@ const extract=(start,end)=>{const a=app.indexOf(start),b=app.indexOf(end,a);asse
   shell:()=>'',authScreen:()=>'',pendingGraphRender:false,URLSearchParams};
  vm.createContext(context);
  const start=source.indexOf('function render(){'),end=source.indexOf('async function refresh(',start);
- vm.runInContext(source.slice(start,end),context);context.render();
+ vm.runInContext(source.slice(start,end),context);context.scheduleApprovalExpiry=()=>{};context.render();
  assert.equal(location.hash,'#progress?project=new-project&run=new-run');
  console.log('PASS 3: render before pending hashchange:',location.hash);
 }
