@@ -85,6 +85,7 @@ const path=require('node:path');
   await form.waitFor();assert.equal(await form.getAttribute('data-id'),current.id);
   assert.equal(await form.getAttribute('data-digest'),current.digest);
   assert.equal((await overview(pid)).runs.length,0,'opening the modal cannot start a run');
+  await capture('confirmation-modal-light-390');
   await dialog.getByRole('checkbox').check();
   const confirmedResponse=page.waitForResponse(response=>new URL(response.url()).pathname===`/api/projects/${pid}/plans/${current.id}/confirm`);
   await dialog.getByRole('button',{name:'이 계획 확정',exact:true}).click();
