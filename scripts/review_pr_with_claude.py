@@ -36,6 +36,11 @@ def reviewable(pr, head):
         raise RuntimeError('PR has no successful CI check')
     if any(outcome(check) not in ('SUCCESS', 'SKIPPED', 'NEUTRAL') for check in checks):
         raise RuntimeError('PR CI is pending or failing')
+    required = {'unit (Python 3.11)', 'unit (Python 3.12)'}
+    successful_ci = {check.get('name') for check in checks
+                     if check.get('workflowName') == 'CI' and outcome(check) == 'SUCCESS'}
+    if not required <= successful_ci:
+        raise RuntimeError('required Python CI has not passed on this PR head')
     return [{'name': check.get('name'), 'conclusion': outcome(check)} for check in checks]
 
 
@@ -61,62 +66,92 @@ def reserve_attempt(directory, retry_unstarted):
     directory.mkdir(mode=0o700, exist_ok=False)
 
 
+def stop_and_collect(process):
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    try:
+        stdout, stderr = process.communicate(timeout=5)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        try:
+            stdout, stderr = process.communicate(timeout=5)
+        except subprocess.TimeoutExpired as final:
+            stdout = final.stdout or ''
+            stderr = final.stderr or ''
+            stdout = stdout.decode(errors='replace') if isinstance(stdout, bytes) else stdout
+            stderr = stderr.decode(errors='replace') if isinstance(stderr, bytes) else stderr
+            for pipe in (process.stdout, process.stderr):
+                if pipe:
+                    pipe.close()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                pass
+            return stdout, stderr, 'kill_timeout'
+    return stdout, stderr, None
+
+
 def invoke(command_line, input_text, directory, timeout_seconds=1800):
-    def interrupted(_number, _frame):
+    signals = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+    interrupted = False
+    waiting = True
+
+    def on_signal(_number, _frame):
+        nonlocal interrupted
+        interrupted = True
+        if not waiting:
+            return
         for number in signals:
             signal.signal(number, signal.SIG_IGN)
         raise KeyboardInterrupt
-    signals = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+
     previous = {number: signal.getsignal(number) for number in signals}
     previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, signals)
     incomplete_reason = None
+    process = None
+    stdout = stderr = ''
+    completed = False
     try:
         for number in signals:
-            signal.signal(number, interrupted)
+            signal.signal(number, on_signal)
         process = subprocess.Popen(command_line, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE, text=True, start_new_session=True, cwd=directory)
         try:
             signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
             stdout, stderr = process.communicate(input_text, timeout=timeout_seconds)
-        except (subprocess.TimeoutExpired, KeyboardInterrupt) as exc:
-            incomplete_reason = 'timeout' if isinstance(exc, subprocess.TimeoutExpired) else 'interrupted'
-            for number in signals:
-                signal.signal(number, signal.SIG_IGN)
-            try:
-                os.killpg(process.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
-            try:
-                stdout, stderr = process.communicate(timeout=5)
-            except subprocess.TimeoutExpired:
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                try:
-                    stdout, stderr = process.communicate(timeout=5)
-                except subprocess.TimeoutExpired as final:
-                    incomplete_reason = 'kill_timeout'
-                    stdout = final.stdout or ''
-                    stderr = final.stderr or ''
-                    stdout = stdout.decode(errors='replace') if isinstance(stdout, bytes) else stdout
-                    stderr = stderr.decode(errors='replace') if isinstance(stderr, bytes) else stderr
-                    for pipe in (process.stdout, process.stderr):
-                        if pipe:
-                            pipe.close()
-                    try:
-                        process.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        pass
+            completed = True
+            waiting = False
+        except subprocess.TimeoutExpired:
+            incomplete_reason = 'timeout'
+            waiting = False
+        except KeyboardInterrupt:
+            incomplete_reason = 'interrupted'
+            waiting = False
+    finally:
+        waiting = False
+        signal.pthread_sigmask(signal.SIG_BLOCK, signals)
         for number in signals:
             signal.signal(number, signal.SIG_IGN)
-        write_private(directory / 'events.jsonl', stdout)
-        write_private(directory / 'stderr.txt', stderr)
-    finally:
-        signal.pthread_sigmask(signal.SIG_BLOCK, signals)
-        for number, handler in previous.items():
-            signal.signal(number, handler)
         signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
+        try:
+            if process is not None:
+                if not completed:
+                    stdout, stderr, stop_reason = stop_and_collect(process)
+                    incomplete_reason = stop_reason or incomplete_reason or ('interrupted' if interrupted else 'stopped')
+                elif interrupted:
+                    incomplete_reason = 'interrupted'
+                write_private(directory / 'events.jsonl', stdout)
+                write_private(directory / 'stderr.txt', stderr)
+        finally:
+            signal.pthread_sigmask(signal.SIG_BLOCK, signals)
+            for number, handler in previous.items():
+                signal.signal(number, handler)
+            signal.pthread_sigmask(signal.SIG_SETMASK, previous_mask)
     events = []
     for line in stdout.splitlines():
         try:
@@ -129,7 +164,8 @@ def invoke(command_line, input_text, directory, timeout_seconds=1800):
 def summarize(events, nonce, exit_code, incomplete_reason=None):
     settings = {}
     models = set()
-    tools = []
+    tool_calls = {}
+    successful_tool_results = set()
     result = None
     for event in events:
         if event.get('type') == 'control_response':
@@ -138,10 +174,19 @@ def summarize(events, nonce, exit_code, incomplete_reason=None):
                 settings[response['request_id']] = response.get('response', {})
         if event.get('type') == 'assistant':
             message = event.get('message', {})
+            if not isinstance(message, dict):
+                continue
             if message.get('model'):
                 models.add(message['model'])
-            tools.extend(item.get('name') for item in message.get('content', [])
-                         if isinstance(item, dict) and item.get('type') == 'tool_use')
+            tool_calls.update({item['id']: item.get('name') for item in message.get('content', [])
+                               if isinstance(item, dict) and item.get('type') == 'tool_use' and item.get('id')})
+        if event.get('type') == 'user':
+            message = event.get('message', {})
+            if not isinstance(message, dict):
+                continue
+            successful_tool_results.update(item['tool_use_id'] for item in message.get('content', [])
+                                           if isinstance(item, dict) and item.get('type') == 'tool_result'
+                                           and item.get('tool_use_id') and item.get('is_error') is not True)
         if event.get('type') == 'result':
             result = event
     applied = [settings.get(nonce + suffix, {}) for suffix in ('-before', '-after')]
@@ -153,9 +198,13 @@ def summarize(events, nonce, exit_code, incomplete_reason=None):
     refused = subagents.get('refused')
     killed = killed if isinstance(killed, dict) else {'invalid': 1}
     refused = refused if isinstance(refused, dict) else {'invalid': 1}
+    denials = result.get('permission_denials') if result else None
+    denied_ids = {item.get('tool_use_id') for item in denials or [] if isinstance(item, dict)}
+    successful_tools = {tool_calls[item] for item in successful_tool_results - denied_ids if item in tool_calls}
     completion_verified = (configuration_verified and incomplete_reason is None and exit_code == 0
                            and result is not None and result.get('subtype') == 'success'
-                           and not result.get('is_error') and result.get('stop_reason') == 'end_turn'
+                           and not result.get('is_error') and not denials
+                           and result.get('stop_reason') == 'end_turn'
                            and result.get('terminal_reason') == 'completed'
                            and result.get('queued_turn_count') == 0
                            and subagents.get('spawned', 0) == subagents.get('completed', 0)
@@ -171,9 +220,19 @@ def summarize(events, nonce, exit_code, incomplete_reason=None):
             'review_passed': completion_verified and verdict == 'PASS', 'verdict': verdict,
             'incomplete_reason': incomplete_reason,
             'applied_before_after': [item.get('applied') for item in applied],
-            'response_models': sorted(models), 'workflow_tool_used': 'Workflow' in tools,
-            'tools_used': sorted(set(tools)), 'cost_usd_estimate': result.get('total_cost_usd') if result else None,
+            'response_models': sorted(models), 'workflow_tool_used': 'Workflow' in successful_tools,
+            'tools_used': sorted(successful_tools), 'permission_denials_count': len(denials or []),
+            'cost_usd_estimate': result.get('total_cost_usd') if result else None,
             'result': report}
+
+
+def binding_unchanged(pr_number, head):
+    try:
+        return (command('git', 'rev-parse', 'HEAD').strip() == head
+                and not command('git', 'status', '--porcelain').strip()
+                and json.loads(command('gh', 'pr', 'view', str(pr_number), '--json', 'headRefOid'))['headRefOid'] == head)
+    except (RuntimeError, KeyError, json.JSONDecodeError):
+        return False
 
 
 def main():
@@ -228,6 +287,7 @@ def main():
     write_private(directory / 'config.json', json.dumps(config))
     prompt = (f'PR #{args.pr}, 최종 HEAD {head}를 읽기 전용으로 독립 검수하세요. '
               f'전체 패치는 {directory / "pr.diff"}에 있습니다. 현재 저장소 코드와 대조하세요. '
+              '허용된 현재 검수 디렉터리와 저장소만 읽고, 상위 비공개 상태 디렉터리는 조사하지 마세요. '
               '정확성·권한·재시작·회귀를 우선하고 실제 결함만 파일과 근거로 보고하세요. '
               '검토하지 못한 파일과 도구 제한을 명시하세요. 부분 검토를 PASS라고 하지 마세요. '
               '테스트 실행이나 파일 수정은 하지 마세요. 보고서 첫 줄에 정확히 '
@@ -241,6 +301,11 @@ def main():
            '--model', MODEL, '--effort', 'ultracode']
     code, output, incomplete_reason = invoke(cmd, '\n'.join(json.dumps(event) for event in events) + '\n', directory)
     summary = summarize(output, nonce, code, incomplete_reason)
+    summary['binding_unchanged_after_review'] = binding_unchanged(args.pr, head)
+    if not summary['binding_unchanged_after_review']:
+        summary['completion_verified'] = False
+        summary['review_passed'] = False
+        summary['incomplete_reason'] = 'head_or_tree_changed_after_review'
     write_private(directory / 'report.md', summary.pop('result') or
                   '검수 미완료: 모델 응답이나 결과가 없습니다. facts.jsonl과 events.jsonl을 확인하세요.\n')
     write_private(directory / 'receipt.json', json.dumps({
