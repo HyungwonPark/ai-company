@@ -242,10 +242,10 @@ class Dispatcher:
                     raise ExecutionBlocked("guidance delivery requires a claimed queue attempt")
                 guidance = receipt(spec, state, job, prompt, document_hash, self.clock())
                 self._guidance_event(guidance, "prepared")
-                original_spawn = kwargs.get("on_spawn")
+                prior_guidance_spawn = kwargs.get("on_spawn")
                 def observed_spawn(identity):
-                    if original_spawn:
-                        original_spawn(identity)
+                    if prior_guidance_spawn:
+                        prior_guidance_spawn(identity)
                     self._guidance_event(guidance, "process_started")
                 kwargs["on_spawn"] = observed_spawn
             skill = spec.plan.get("skill_delivery")
@@ -261,10 +261,10 @@ class Dispatcher:
                     "selection_digest": skill["selection_digest"], "role_key": skill["role_key"],
                     "documents": skill["documents"], "model_compliance": "unverified"}
                 self._guidance_event(skill_record, "skill_prompt_prepared", prompt_digest=digest(prompt))
-                original_spawn = kwargs.get("on_spawn")
+                prior_skill_spawn = kwargs.get("on_spawn")
                 def skill_spawn(identity):
-                    if original_spawn:
-                        original_spawn(identity)
+                    if prior_skill_spawn:
+                        prior_skill_spawn(identity)
                     self._guidance_event(skill_record, "skill_process_started")
                 kwargs["on_spawn"] = skill_spawn
             def invoke(function, *args, **options):

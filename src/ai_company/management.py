@@ -436,7 +436,7 @@ class ManagementStore:
             return message
 
     def _pending_material_questions(self, project_id, revision):
-        """Unresolved questions since the last confirmed plan, including older BLOCKs."""
+        """Shown PM and repair questions since the last confirmed plan, in message order."""
         baseline = 0
         for row in self.db.execute("SELECT document FROM management_plans WHERE project_id=?", (project_id,)):
             previous = json.loads(row[0])
@@ -458,8 +458,62 @@ class ManagementStore:
             for question in questions:
                 if question.get("status") == "open":
                     pending.append({"request_id": request["request_id"],
+                                    "plan_id": None, "repair_attempt": None,
                                     "feedback_rowid": feedback[0], "question": question})
-        return pending
+        for row in self.db.execute("SELECT document FROM management_plans WHERE project_id=? ORDER BY rowid",
+                                   (project_id,)):
+            plan = json.loads(row[0])
+            if not baseline < plan["request_revision"] < revision:
+                continue
+            questions = (plan.get("revision_feedback") or {}).get("questions", [])
+            if not questions:
+                continue
+            shown = self.db.execute("SELECT rowid FROM management_messages WHERE id=? AND project_id=?",
+                                    ("pm-revision-feedback-" + plan["id"], project_id)).fetchone()
+            if shown is None:
+                continue
+            for question in questions:
+                if question.get("status") == "open":
+                    pending.append({"request_id": plan["request_id"], "plan_id": plan["id"],
+                                    "repair_attempt": plan.get("auto_revision_attempt", 0) + 1,
+                                    "feedback_rowid": shown[0], "question": question})
+        return sorted(pending, key=lambda item: item["feedback_rowid"])
+
+    @staticmethod
+    def _question_matches(item, pending, counts):
+        """Check a claimed origin, never infer a source when IDs collide."""
+        question = pending["question"]
+        if item.get("prompt") != question["prompt"]:
+            return False
+        if item.get("source_request_id") or item.get("source_question_id") or item.get("source_plan_id"):
+            return (item.get("source_request_id") == pending["request_id"]
+                    and item.get("source_question_id") == question["id"]
+                    and item.get("source_plan_id") == pending["plan_id"]
+                    and item.get("source_repair_attempt") == pending["repair_attempt"])
+        return (pending["plan_id"] is None and item.get("id") == question["id"]
+                and counts.get((question["id"], question["prompt"])) == 1)
+
+    def _shown_question_answer(self, project_id, item, pending):
+        answer_id = item.get("answer_message_id")
+        answer = self.db.execute("SELECT rowid,document FROM management_messages WHERE id=? AND project_id=?",
+                                 (answer_id, project_id)).fetchone() if answer_id else None
+        return (answer is not None and answer[0] > pending["feedback_rowid"]
+                and json.loads(answer[1]).get("role") == "user")
+
+    def _ensure_revision_feedback_message(self, plan):
+        feedback = plan.get("revision_feedback") or {}
+        if not any(item.get("status") == "open" for item in feedback.get("questions", [])):
+            return
+        message_id = "pm-revision-feedback-" + plan["id"]
+        if self.db.execute("SELECT 1 FROM management_messages WHERE id=?", (message_id,)).fetchone():
+            return
+        message = {"id": message_id, "role": "assistant", "content": plan.get("revision_problem") or
+                   "계획 수정 중 중요한 선택을 확인해야 합니다.", "status": "answer_needed",
+                   "request_id": plan["request_id"], "plan_id": plan["id"],
+                   "repair_attempt": plan.get("auto_revision_attempt", 0) + 1,
+                   "requirements_feedback": feedback, "created_at": self.clock(), "source": plan["source"]}
+        self.db.execute("INSERT INTO management_messages VALUES (?,?,?)",
+                        (message_id, plan["project_id"], json.dumps(message)))
 
     def _conversation_context(self, project_id, *, next_revision=None):
         """Project-local reading context; never execution/approval authority."""
@@ -483,6 +537,8 @@ class ManagementStore:
             previous = {'id': plan['id'], 'digest': plan['digest'], 'status': plan['status']}
             if plan.get('review'):
                 previous['review'] = plan['review']
+            if plan.get('revision_feedback'):
+                previous['revision_feedback'] = plan['revision_feedback']
             if len(json.dumps(plan['content'], ensure_ascii=False)) <= 20000:
                 previous['content'] = plan['content']
             else:
@@ -500,6 +556,7 @@ class ManagementStore:
         return {'messages': list(reversed(messages)), 'previous_proposal': previous,
                 'previous_requirements_feedback': prior_feedback,
                 'pending_material_questions': [{"request_id": item["request_id"],
+                    "plan_id": item["plan_id"], "repair_attempt": item["repair_attempt"],
                     "question": item["question"]} for item in pending[:20]],
                 'pending_material_questions_omitted': max(0, len(pending) - 20),
                 'purpose': 'discussion_only; a new plan requires a new explicit confirmation'}
@@ -507,6 +564,11 @@ class ManagementStore:
     def _append_pm_request(self, project, value):
         # Caller owns one transaction, including project creation when requested.
         project_id = project['id']
+        # Older saved repair questions also receive a visible ordering record
+        # before the next master message; no past answer is silently backdated.
+        for row in self.db.execute("SELECT document FROM management_plans WHERE project_id=? ORDER BY rowid",
+                                   (project_id,)):
+            self._ensure_revision_feedback_message(json.loads(row[0]))
         message = {"id": uuid4().hex, "role": "user", "content": value.content,
                    "status": "awaiting_pm", "created_at": self.clock()}
         revision = project.get("request_revision", 0) + 1
@@ -612,23 +674,25 @@ class ManagementStore:
                 pending_questions = self._pending_material_questions(plan["project_id"], request["request_revision"])
                 counts = {}
                 for pending in pending_questions:
-                    question_id = pending["question"]["id"]
-                    counts[question_id] = counts.get(question_id, 0) + 1
+                    identity = (pending["question"]["id"], pending["question"]["prompt"])
+                    counts[identity] = counts.get(identity, 0) + 1
+                questions = [item.model_dump(mode="json") for item in spec.questions]
                 for pending in pending_questions:
-                    question_id = pending["question"]["id"]
-                    resolved = next((item for item in spec.questions
-                                     if item.source_request_id == pending["request_id"]
-                                     and item.source_question_id == question_id), None)
-                    if resolved is None and counts[question_id] == 1:
-                        resolved = next((item for item in spec.questions if item.id == question_id
-                                         and item.source_request_id is None), None)
-                    if (resolved is None or resolved.prompt != pending["question"]["prompt"]
-                            or resolved.status != "answered" or not resolved.answer_message_id):
+                    resolved = next((item for item in questions if self._question_matches(item, pending, counts)), None)
+                    if (resolved is None or resolved["status"] != "answered"
+                            or resolved.get("evidence_kind") == "master_goal"
+                            or not self._shown_question_answer(plan["project_id"], resolved, pending)):
                         raise ManagementError("answer_required", "A previous material question needs an explicit master answer")
-                    answer_row = self.db.execute("SELECT rowid FROM management_messages WHERE id=? AND project_id=?",
-                                                 (resolved.answer_message_id, plan["project_id"])).fetchone()
-                    if answer_row is None or answer_row[0] <= pending["feedback_rowid"]:
-                        raise ManagementError("answer_required", "The answer must follow the recorded material question")
+                for item in questions:
+                    matches = [pending for pending in pending_questions
+                               if self._question_matches(item, pending, counts)]
+                    if any(item.get(key) for key in ("source_request_id", "source_question_id", "source_plan_id")):
+                        if len(matches) != 1:
+                            raise ManagementError("answer_required", "A claimed question source must exist in this project")
+                    elif not matches and item.get("evidence_kind") != "master_goal":
+                        raise ManagementError("answer_required", "A decision in the original goal needs explicit evidence type")
+                    if matches and (len(matches) != 1 or not self._shown_question_answer(plan["project_id"], item, matches[0])):
+                        raise ManagementError("answer_required", "The answer must follow its saved question")
             for item in spec.questions:
                 if item.status == "assumed" or not item.answer_message_id:
                     raise ManagementError("answer_required", "A material decision needs a recorded master answer")
@@ -637,6 +701,10 @@ class ManagementStore:
                 answer = json.loads(row[0]) if row else {}
                 if answer.get("role") != "user":
                     raise ManagementError("answer_required", "A material decision needs a project-local master answer")
+                if (item.evidence_kind == "master_goal" and
+                        (not item.goal_quote or item.resolution != item.goal_quote
+                         or item.goal_quote not in answer.get("content", ""))):
+                    raise ManagementError("answer_required", "An original-goal decision must quote that saved master message")
         if any(item.blocking and item.status != "resolved" for item in spec.findings):
             raise ManagementError("blocking_finding", "A blocking plan finding is unresolved")
 
@@ -935,6 +1003,14 @@ class ManagementStore:
             plan = self.get_plan(project_id, plan_id)
             if plan["status"] != "needs_revision":
                 return plan
+            if feedback is not None:
+                from ai_company.automation_contracts import PMRequirements
+                feedback = PMRequirements.model_validate(feedback).model_dump(mode="json")
+                if (feedback["revision"] != plan["request_revision"]
+                        or feedback["goal_digest"] != plan["goal_digest"]):
+                    raise ManagementError("requirements_mismatch", "Repair questions do not bind this plan")
+                if plan.get("revision_feedback") not in (None, feedback):
+                    raise ManagementError("result_conflict", "Shown repair questions cannot be replaced")
             action = "master_decision" if decision_required else "blocked"
             if (plan.get("revision_action"), plan.get("revision_problem"), plan.get("revision_feedback")) != (action, reason, feedback):
                 plan.update(revision_action=action, revision_problem=reason)
@@ -942,6 +1018,7 @@ class ManagementStore:
                     plan["revision_feedback"] = copy.deepcopy(feedback)
                 self.db.execute("UPDATE management_plans SET document=? WHERE id=?", (json.dumps(plan), plan_id))
                 self._event(project_id, "pm_revision_waiting", plan_id)
+            self._ensure_revision_feedback_message(plan)
         return plan
 
     def save_pm_feedback(self, request_id, response, *, reason):
@@ -971,22 +1048,19 @@ class ManagementStore:
                 raise ManagementError('requirements_mismatch', 'PM questions do not bind this goal and revision')
             if feedback and request.get('pm_guidance_version') == self.PM_GUIDANCE_VERSION:
                 pending = self._pending_material_questions(request['project_id'], request['request_revision'])
+                counts = {}
+                for source in pending:
+                    identity = (source['question']['id'], source['question']['prompt'])
+                    counts[identity] = counts.get(identity, 0) + 1
                 for question in questions:
                     if question['status'] == 'open':
+                        if any(question.get(key) for key in ('source_request_id', 'source_question_id', 'source_plan_id')):
+                            raise ManagementError('answer_required', 'A new open question cannot claim an older source')
                         continue
-                    matches = [item for item in pending
-                               if item['question']['id'] == (question.get('source_question_id') or question['id'])
-                               and item['question']['prompt'] == question['prompt']
-                               and (not question.get('source_request_id')
-                                    or item['request_id'] == question['source_request_id'])]
+                    matches = [item for item in pending if self._question_matches(question, item, counts)]
                     if (question['status'] != 'answered' or not question.get('answer_message_id')
-                            or len(matches) != 1):
+                            or len(matches) != 1 or not self._shown_question_answer(request['project_id'], question, matches[0])):
                         raise ManagementError('answer_required', 'A resolved PM question needs its earlier recorded question and answer')
-                    answer_row = self.db.execute('SELECT rowid,document FROM management_messages WHERE id=? AND project_id=?',
-                                                 (question['answer_message_id'], request['project_id'])).fetchone()
-                    if (answer_row is None or answer_row[0] <= matches[0]['feedback_rowid']
-                            or json.loads(answer_row[1]).get('role') != 'user'):
-                        raise ManagementError('answer_required', 'A resolved PM question needs a later project-local master answer')
             awaiting_answer = any(item.get('status') == 'open' for item in questions)
             request.update(state=('answer_needed' if awaiting_answer else 'blocked') if current else 'stale',
                            reason=reason, updated_at=self.clock())

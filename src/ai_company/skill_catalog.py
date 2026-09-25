@@ -7,14 +7,16 @@ anything found on the web.
 
 from datetime import datetime, timezone
 from hashlib import sha256
+from http.client import HTTPSConnection
 import json
 from pathlib import Path, PurePosixPath
 import re
 import stat
+import subprocess
+import sys
 from time import monotonic
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 MAX_FILE_BYTES = 64 * 1024
@@ -31,11 +33,6 @@ OFFICIAL_HOSTS = frozenset({"agentskills.io", "docs.github.com", "www.anthropic.
 
 class SkillCatalogError(ValueError):
     """A candidate cannot be treated as approved guidance."""
-
-
-class _NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, request, fp, code, msg, headers, newurl):
-        raise SkillCatalogError("public source redirected")
 
 
 def _now():
@@ -179,14 +176,60 @@ def _github_source(url):
     return base, relative, parts[3].lower()
 
 
+def _public_get_impl(url, max_bytes, timeout):
+    # Recheck the deadline after each bounded read; a socket's idle timeout
+    # alone can be extended forever by a slow trickle of response bytes.
+    parsed = urlsplit(url)
+    if (parsed.scheme != "https" or parsed.hostname not in
+            ({"api.github.com", "raw.githubusercontent.com"} | OFFICIAL_HOSTS)
+            or parsed.port not in (None, 443) or parsed.username or parsed.password
+            or timeout <= 0 or max_bytes <= 0):
+        raise SkillCatalogError("unapproved public lookup URL or limit")
+    deadline = monotonic() + timeout
+    accept = "application/vnd.github+json" if parsed.hostname == "api.github.com" else "text/plain"
+    connection = HTTPSConnection(parsed.hostname, timeout=timeout)
+    try:
+        connection.request("GET", parsed.path + ("?" + parsed.query if parsed.query else ""),
+                           headers={"Accept": accept, "User-Agent": "AI-Company-Skill-Research/1"})
+        response = connection.getresponse()
+        if response.status < 200 or response.status >= 300:
+            raise SkillCatalogError(f"public source returned HTTP {response.status}")
+        data = bytearray()
+        while True:
+            remaining = deadline - monotonic()
+            if remaining <= 0:
+                raise SkillCatalogError("public lookup deadline exceeded")
+            socket = connection.sock or response.fp.raw._sock
+            socket.settimeout(remaining)
+            chunk = response.read1(min(8192, max_bytes + 1 - len(data)))
+            if not chunk:
+                break
+            data.extend(chunk)
+            if len(data) > max_bytes:
+                raise SkillCatalogError("public response exceeds size limit")
+        if monotonic() > deadline:
+            raise SkillCatalogError("public lookup deadline exceeded")
+        return bytes(data)
+    finally:
+        connection.close()
+
+
 def _public_get(url, max_bytes, timeout):
-    # Host and URL are constructed by _github_source or search_public_skills.
-    request = Request(url, headers={"Accept": "text/plain", "User-Agent": "AI-Company-Skill-Research/1"})
-    with build_opener(_NoRedirect).open(request, timeout=timeout) as response:
-        data = response.read(max_bytes + 1)
-    if len(data) > max_bytes:
+    """Bound the whole DNS/TLS/header/body call, including slow headers."""
+    if timeout <= 0 or timeout > 15 or max_bytes <= 0 or max_bytes > MAX_SEARCH_BYTES:
+        raise SkillCatalogError("unbounded public lookup")
+    try:
+        result = subprocess.run([sys.executable, "-m", "ai_company.skill_catalog", "_fetch",
+                                 url, str(max_bytes), str(timeout)],
+                                capture_output=True, timeout=timeout, check=False)
+    except subprocess.TimeoutExpired as error:
+        raise SkillCatalogError("public lookup deadline exceeded") from error
+    if result.returncode != 0:
+        raise SkillCatalogError(result.stderr.decode("utf-8", errors="replace")[:160]
+                                or "public lookup failed")
+    if len(result.stdout) > max_bytes:
         raise SkillCatalogError("public response exceeds size limit")
-    return data
+    return result.stdout
 
 
 def fetch_public_skill(url, *, reference_paths=(), license_path=None,
@@ -201,10 +244,16 @@ def fetch_public_skill(url, *, reference_paths=(), license_path=None,
     files = {}
     total = 0
     started = monotonic()
+    deadline = started + timeout
     try:
         for path in paths:
+            remaining = deadline - monotonic()
+            if remaining <= 0:
+                raise SkillCatalogError("public skill bundle deadline exceeded")
             encoded = "/".join(quote(part, safe="") for part in path.split("/"))
-            data = _public_get(f"{base}/{encoded}", min(MAX_FILE_BYTES, max_bytes - total), timeout)
+            data = _public_get(f"{base}/{encoded}", min(MAX_FILE_BYTES, max_bytes - total), remaining)
+            if monotonic() > deadline:
+                raise SkillCatalogError("public skill bundle deadline exceeded")
             total += len(data)
             files[path] = data
     except (HTTPError, URLError, OSError, SkillCatalogError) as error:
@@ -228,7 +277,9 @@ def fetch_public_skill(url, *, reference_paths=(), license_path=None,
             "lookups_used": len(paths), "bytes_read": total,
             "elapsed_ms": round((monotonic() - started) * 1000),
             "format_check": format_check, "content_review": "not_reviewed",
-            "delivery": "not_delivered", "task_evaluation": "not_evaluated"}
+            "delivery": "not_delivered", "task_evaluation": "not_evaluated",
+            "document_excerpt": files[main].decode("utf-8", errors="replace")[:1200],
+            "license_excerpt": files[license_path].decode("utf-8", errors="replace")[:300] if license_path else ""}
 
 
 def search_public_skills(term, *, allowed_terms, max_results=6, timeout=5):
@@ -243,7 +294,8 @@ def search_public_skills(term, *, allowed_terms, max_results=6, timeout=5):
         raw = _public_get(url, MAX_SEARCH_BYTES, timeout)
         payload = json.loads(raw)
         items = payload["items"][:max_results]
-        repos = [{"repository": item["full_name"], "url": item["html_url"]}
+        repos = [{"repository": item["full_name"], "url": item["html_url"],
+                  "default_branch": item.get("default_branch", "")}
                  for item in items if re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", item["full_name"])
                  and item["html_url"] == f"https://github.com/{item['full_name']}"]
         status, reason = ("found" if repos else "no_results"), None
@@ -252,6 +304,48 @@ def search_public_skills(term, *, allowed_terms, max_results=6, timeout=5):
     return {"status": status, "term": term, "repositories": repos, "checked_at": _now(),
             "lookups_used": 1, "elapsed_ms": round((monotonic() - started) * 1000),
             "max_results": max_results, "reason": reason}
+
+
+def discover_public_skill(repository, branch, term, *, timeout=2):
+    """Resolve a search hit to one exact public document and its license path."""
+    if (not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository)
+            or not _SEGMENT.fullmatch(branch) or not _TERM.fullmatch(term)
+            or timeout <= 0 or timeout > 15):
+        raise SkillCatalogError("invalid public repository discovery")
+    started = monotonic()
+    deadline = started + timeout
+    base = f"https://api.github.com/repos/{repository}"
+    try:
+        raw = _public_get(f"{base}/commits/{quote(branch, safe='')}", MAX_SEARCH_BYTES, timeout)
+        commit = json.loads(raw)["sha"].lower()
+        if not _COMMIT.fullmatch(commit):
+            raise SkillCatalogError("repository did not return a commit")
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            raise SkillCatalogError("public discovery deadline exceeded")
+        raw = _public_get(f"{base}/git/trees/{commit}?recursive=1", MAX_SEARCH_BYTES, remaining)
+        if monotonic() > deadline:
+            raise SkillCatalogError("public discovery deadline exceeded")
+        tree = json.loads(raw)
+        if tree.get("truncated"):
+            raise SkillCatalogError("public repository tree was truncated")
+        paths = {entry["path"] for entry in tree["tree"] if entry.get("type") == "blob"
+                 and isinstance(entry.get("path"), str) and len(entry["path"]) < 240}
+        documents = sorted(path for path in paths if path.endswith("/SKILL.md") or path == "SKILL.md")
+        matching = [path for path in documents if term in path.lower()]
+        if not matching:
+            return {"status": "no_matching_document", "repository": repository, "source_ref": commit,
+                    "lookups_used": 2, "checked_at": _now()}
+        main = matching[0]
+        parent = main.rsplit("/", 1)[0] if "/" in main else ""
+        license_path = next((path for path in (f"{parent}/LICENSE" if parent else "LICENSE",
+                                               "LICENSE", "LICENSE.md", "LICENSE.txt") if path in paths), None)
+        return {"status": "found", "repository": repository, "source_ref": commit,
+                "source_url": f"https://github.com/{repository}/blob/{commit}/{main}",
+                "license_path": license_path, "lookups_used": 2, "checked_at": _now()}
+    except (HTTPError, URLError, OSError, ValueError, KeyError, TypeError) as error:
+        return {"status": "lookup_failed", "repository": repository,
+                "reason": str(error)[:160], "lookups_used": 2, "checked_at": _now()}
 
 
 def read_official_reference(url, *, max_bytes=MAX_FILE_BYTES, timeout=5):
@@ -304,3 +398,13 @@ def recommend_skills(role_capabilities, catalog, *, external_candidates=(), look
             result[role] = {"status": "lookup_failed" if lookup_status == "lookup_failed" else "not_found",
                             "recommendations": []}
     return result
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 5 or sys.argv[1] != "_fetch":
+        raise SystemExit(2)
+    try:
+        sys.stdout.buffer.write(_public_get_impl(sys.argv[2], int(sys.argv[3]), float(sys.argv[4])))
+    except (OSError, ValueError, TypeError) as error:
+        sys.stderr.write(str(error)[:160])
+        raise SystemExit(1)

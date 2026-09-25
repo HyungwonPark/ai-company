@@ -119,6 +119,38 @@ class SkillCatalogTests(unittest.TestCase):
         self.assertEqual(evidence["content_sha256"], sha256(b"Official document").hexdigest())
         self.assertNotIn("approved", evidence)
 
+    def test_public_read_stops_slow_trickle_at_cumulative_deadline(self):
+        from time import sleep
+        class Socket:
+            def __init__(self): self.timeouts = []
+            def settimeout(self, value): self.timeouts.append(value)
+        class Response:
+            status = 200
+            def __init__(self): self.reads = 0
+            def read1(self, _size):
+                self.reads += 1
+                sleep(.025)
+                return b"x"
+        class Connection:
+            def __init__(self, *_args, **_kwargs):
+                self.sock, self.response = Socket(), Response()
+            def request(self, *_args, **_kwargs): pass
+            def getresponse(self): return self.response
+            def close(self): pass
+        connection = Connection()
+        with patch.object(skills, "HTTPSConnection", return_value=connection):
+            with self.assertRaisesRegex(skills.SkillCatalogError, "deadline"):
+                skills._public_get_impl("https://api.github.com/search/repositories?q=test", 64, .04)
+        self.assertLessEqual(connection.response.reads, 2)
+        self.assertLess(connection.sock.timeouts[-1], .04)
+
+    def test_public_lookup_process_is_killed_on_slow_headers(self):
+        from subprocess import TimeoutExpired
+        with patch.object(skills.subprocess, "run", side_effect=TimeoutExpired("fetch", .04)) as run:
+            with self.assertRaisesRegex(skills.SkillCatalogError, "deadline"):
+                skills._public_get("https://api.github.com/search/repositories?q=test", 64, .04)
+        self.assertEqual(run.call_args.kwargs["timeout"], .04)
+
     def test_reuse_pending_failure_and_no_skill_are_separate(self):
         installed = self.inspect()
         pending = {"skill_id": "new", "bundle_sha256": "f" * 64,

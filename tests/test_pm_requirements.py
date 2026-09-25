@@ -106,6 +106,99 @@ class PMRequirementsTests(unittest.TestCase):
         self.h.worker.run_once()
         self.assertEqual(len(store.run_records()), 1)
 
+    def test_new_question_cannot_claim_nonexistent_source_and_old_goal_message(self):
+        original = self.h.execute
+        old_request = self.h.worker.store.pm_requests(self.h.project['id'])[0]
+        def forged(agent, state, provider, worktree, prompt, session_id, **kwargs):
+            outcome = original(agent, state, provider, worktree, prompt, session_id, **kwargs)
+            if state['stage'] == 'pm':
+                outcome.result['structured_output']['plan']['requirements_review']['questions'] = [{
+                    'id': 'Q-NEVER-ASKED', 'prompt': '공개 배포를 허용합니까?',
+                    'reason': '공개 범위가 달라집니다.', 'status': 'answered', 'resolution': '허용',
+                    'answer_message_id': old_request['request_id'],
+                    'source_request_id': 'nonexistent-request',
+                    'source_question_id': 'nonexistent-question'}]
+            return outcome
+        self.h.execute = forged
+        self.h.worker.close(); self.h.worker = self.h.open()
+        for _ in range(5):
+            self.h.worker.run_once()
+        self.assertEqual(self.h.worker.store.overview(self.h.project['id'])['plans'], [])
+        self.assertEqual(self.h.worker.store.run_records(), [])
+
+    def test_original_goal_decision_needs_verbatim_saved_master_evidence(self):
+        plan = self.plan()
+        store = self.h.worker.store
+        request = store.get_pm_request(plan['request_id'])
+        content = copy.deepcopy(plan['content'])
+        question = {'id': 'Q-DEPLOY', 'prompt': '공개 배포를 허용합니까?',
+                    'reason': '배포 범위가 달라집니다.', 'status': 'answered',
+                    'answer_message_id': request['request_id'], 'evidence_kind': 'master_goal',
+                    'resolution': '공개 배포를 허용합니다.', 'goal_quote': '공개 배포를 허용합니다.'}
+        content['requirements_review']['questions'] = [question]
+        with self.assertRaises(ManagementError) as error:
+            store._requirements_ready({**plan, 'content': content})
+        self.assertEqual(error.exception.code, 'answer_required')
+        quoted = request['content'][:20]
+        content['requirements_review']['questions'][0].update(
+            resolution=quoted, goal_quote=quoted)
+        store._requirements_ready({**plan, 'content': content})
+
+    def test_repair_question_survives_restart_and_new_unanswered_request(self):
+        original = self.h.execute
+        rejected = {'value': False}
+        answer_id = {'value': None}
+        repair_source = {'plan': None}
+        def repair_question(agent, state, provider, worktree, prompt, session_id, **kwargs):
+            outcome = original(agent, state, provider, worktree, prompt, session_id, **kwargs)
+            report = outcome.result['structured_output']
+            scope = state['specification']['execution_scope']
+            if scope == 'plan_review' and not rejected['value']:
+                rejected['value'] = True
+                report.update(verdict='REVISE', revision_route='technical', findings=[{
+                    'finding_id': 'F-VERIFY', 'detail': '검사를 구체화합니다.',
+                    'evidence': '요구사항 검증 방법'}])
+            elif scope == 'planning' and state['specification']['plan'].get('source_plan_id'):
+                feedback = copy.deepcopy(report['plan']['requirements_review'])
+                feedback['questions'] = [{'id': 'Q-REPAIR', 'prompt': '어떤 배포를 허용합니까?',
+                    'reason': '배포 범위가 달라집니다.', 'status': 'open'}]
+                report.update(verdict='BLOCK', plan=None, requirements_feedback=feedback,
+                              summary='배포 범위를 결정해주세요.')
+            elif scope == 'planning' and answer_id['value'] and state['task_id'] == 'pm-' + answer_id['value']:
+                report['plan']['requirements_review']['questions'] = [{
+                    'id': 'Q-REPAIR', 'prompt': '어떤 배포를 허용합니까?',
+                    'reason': '배포 범위가 달라집니다.', 'status': 'answered',
+                    'resolution': '이번 단계에서는 배포하지 않습니다.',
+                    'answer_message_id': answer_id['value'],
+                    'source_request_id': repair_source['plan']['request_id'],
+                    'source_question_id': 'Q-REPAIR',
+                    'source_plan_id': repair_source['plan']['id'],
+                    'source_repair_attempt': 1}]
+            return outcome
+        self.h.execute = repair_question
+        self.h.worker.close(); self.h.worker = self.h.open()
+        for _ in range(10):
+            self.h.worker.run_once()
+        old = self.h.worker.store.overview(self.h.project['id'])['plans'][0]
+        repair_source['plan'] = old
+        self.assertEqual(old['revision_action'], 'master_decision')
+        self.h.worker.close(); self.h.worker = self.h.open()
+        self.h.worker.store.post_message(self.h.project['id'], {'content': '계획을 다시 보여주세요.'})
+        pending = self.h.worker.store.pm_requests(self.h.project['id'])[-1]['conversation_context']['pending_material_questions']
+        self.assertEqual(pending[0]['plan_id'], old['id'])
+        for _ in range(6):
+            self.h.worker.run_once()
+        self.assertEqual(len(self.h.worker.store.overview(self.h.project['id'])['plans']), 1)
+        self.assertEqual(self.h.worker.store.run_records(), [])
+        answer = self.h.worker.store.post_message(self.h.project['id'], {
+            'content': '이번 단계에서는 배포하지 않습니다.', 'idempotency_key': 'repair-answer-once'})
+        answer_id['value'] = answer['id']
+        reviewed = self.plan()
+        self.assertEqual(reviewed['content']['requirements_review']['questions'][0]['source_plan_id'], old['id'])
+        run = self.confirm(reviewed)['run']
+        self.assertEqual(run['plan_id'], reviewed['id'])
+        self.assertEqual(len(self.h.worker.store.run_records()), 1)
+
     def test_missing_question_and_verification_prevent_readiness(self):
         plan = self.plan()
         content = copy.deepcopy(plan['content'])

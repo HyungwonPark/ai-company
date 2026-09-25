@@ -1,9 +1,12 @@
 """Pinned skill choices travel with one reviewed plan into the assigned role."""
 
 from hashlib import sha256
+import json
 import unittest
 
 from ai_company import skill_catalog
+from ai_company.automation_contracts import PMPlanContent
+from ai_company.runtime import ExecutionBlocked
 from ai_company.management import ManagementError
 from tests import test_automation as fixture
 
@@ -114,6 +117,21 @@ class SkillAutomationTests(unittest.TestCase):
         self.assertTrue(plan["content"]["skill_selection"]["can_continue"])
         self.assertEqual(plan["status"], "proposed")
 
+    def test_public_candidate_cannot_reuse_trusted_skill_identity(self):
+        self.h.worker.close()
+        self.h.config = self.h.config.model_copy(update={"skill_public_sources": (
+            "https://github.com/example/skills/blob/" + "b" * 40 + "/review/SKILL.md",)})
+        self.h.plan["roles"][0]["required_capabilities"] = ["security"]
+        self.h.worker = self.h.open()
+        external = {"skill_id": "review", "status": "review_pending"}
+        from unittest.mock import patch
+        with patch("ai_company.skill_selection.SkillResearchStore.run_fetch", return_value=external):
+            plan = self.plan()
+        chosen = plan["content"]["skill_selection"]
+        self.assertEqual(chosen["roles"]["impl"], [])
+        self.assertEqual(chosen["outcome"], "lookup_failed")
+        self.assertIn("충돌", chosen["reason"])
+
     def test_duplicate_public_name_is_one_pending_candidate(self):
         self.h.worker.close()
         urls = tuple("https://github.com/example/skills/blob/" + char * 40 + "/candidate/SKILL.md"
@@ -182,6 +200,94 @@ class SkillAutomationTests(unittest.TestCase):
         self.assertEqual(selection["roles"]["impl"], [])
         self.assertIn("고정 커밋", selection["reason"])
         self.assertEqual(self.h.worker.store.run_records(), [])
+
+    def test_failed_configured_source_does_not_exceed_budget_with_search_fallback(self):
+        self.h.worker.close()
+        self.h.config = self.h.config.model_copy(update={"skill_catalog": (),
+            "skill_public_sources": ("https://github.com/example/skills/blob/" + "b" * 40 + "/SKILL.md",),
+            "skill_search_terms": ("accessibility",)})
+        self.h.plan["roles"][0]["required_capabilities"] = ["accessibility"]
+        self.h.worker = self.h.open()
+        from unittest.mock import patch
+        with patch("ai_company.skill_selection.SkillResearchStore.run_fetch",
+                   side_effect=skill_catalog.SkillCatalogError("source unavailable")), \
+             patch("ai_company.skill_selection.SkillResearchStore.run_search") as search:
+            plan = self.plan()
+        search.assert_not_called()
+        self.assertEqual(plan["content"]["skill_selection"]["outcome"], "lookup_failed")
+        self.assertEqual(plan["content"]["skill_selection"]["roles"]["impl"], [])
+
+    def test_public_search_documents_reach_pm_and_only_matching_role(self):
+        self.h.worker.close()
+        self.h.config = self.h.config.model_copy(update={"skill_catalog": (),
+            "skill_search_terms": ("accessibility",)})
+        self.h.plan["roles"][0]["required_capabilities"] = ["accessibility"]
+        self.h.plan["roles"][1]["required_capabilities"] = ["testing"]
+        self.h.worker = self.h.open()
+        original = self.h.execute
+        seen = []
+        def pm_uses_evidence(agent, state, provider, worktree, prompt, session_id, **kwargs):
+            result = original(agent, state, provider, worktree, prompt, session_id, **kwargs)
+            if state["stage"] == "pm":
+                research = state["specification"]["plan"]["skill_research"]
+                seen.append(research)
+                candidate = research["candidates"][0]
+                result.result["structured_output"]["plan"]["skill_recommendations"] = {
+                    "impl": [candidate["skill_id"]]}
+            return result
+        self.h.execute = pm_uses_evidence
+        self.h.worker.close(); self.h.worker = self.h.open()
+        commit = "b" * 40
+        def public_response(url, _limit, _timeout):
+            if "/search/repositories" in url:
+                return json.dumps({"items": [{"full_name": "example/agent-skills",
+                    "html_url": "https://github.com/example/agent-skills",
+                    "default_branch": "main"}]}).encode()
+            if url.endswith("/commits/main"):
+                return json.dumps({"sha": commit}).encode()
+            if "/git/trees/" in url:
+                return json.dumps({"tree": [{"path": path, "type": "blob"} for path in
+                    ("skills/accessibility/SKILL.md", "LICENSE")], "truncated": False}).encode()
+            if url.endswith("/skills/accessibility/SKILL.md"):
+                return b"---\nname: accessibility\n---\nCheck keyboard access and focus.\n"
+            if url.endswith("/LICENSE"):
+                return b"MIT License\n"
+            raise AssertionError(url)
+        from unittest.mock import patch
+        with patch.object(skill_catalog, "_public_get", side_effect=public_response) as fetched:
+            plan = self.plan()
+        self.assertEqual(fetched.call_count, 5)
+        self.assertIn("keyboard access", seen[0]["candidates"][0]["document_excerpt"])
+        self.assertIn("MIT License", seen[0]["candidates"][0]["license_excerpt"])
+        selected = plan["content"]["skill_selection"]
+        self.assertEqual(selected["outcome"], "review_pending")
+        self.assertEqual(len(selected["roles"]["impl"]), 1)
+        self.assertEqual(selected["roles"]["test"], [])
+        self.assertEqual(selected["roles"]["impl"][0]["research_match_terms"], ["accessibility"])
+        self.assertFalse(selected["roles"]["impl"][0]["selected"])
+        run = self.confirm(plan)["run"]
+        self.h.worker.run_once()
+        self.assertEqual(self.h.worker.store.get_run(run["id"])["roles"]["impl"]["skill_delivery"]["documents"], [])
+
+    def test_pm_cannot_recommend_public_candidate_for_unrelated_role(self):
+        self.h.worker.close()
+        self.h.config = self.h.config.model_copy(update={"skill_catalog": (),
+            "skill_search_terms": ("accessibility",)})
+        self.h.plan["roles"][0]["required_capabilities"] = ["accessibility"]
+        self.h.plan["roles"][1]["required_capabilities"] = ["testing"]
+        self.h.worker = self.h.open()
+        candidate = {"skill_id": "public-example", "name": "후보", "source_url":
+            "https://github.com/example/skills/blob/" + "a" * 40 + "/SKILL.md",
+            "source_ref": "a" * 40, "version": "a" * 40, "bundle_sha256": "f" * 64,
+            "files": {"SKILL.md": "e" * 64}, "license": {"id": "unreviewed", "path": None,
+            "redistribution": "not_assessed"}, "compatibility": {"providers": [], "runners": []},
+            "dependencies": [], "permissions": [], "status": "review_pending",
+            "research_match_terms": ["accessibility"], "research_origin": "public_search"}
+        plan = PMPlanContent.model_validate({**self.h.plan,
+            "skill_recommendations": {"test": [candidate["skill_id"]]}})
+        with self.assertRaises(ExecutionBlocked):
+            self.h.worker._select_skills(plan, {"candidates": [candidate],
+                "status": "review_pending", "search_matches": 1})
 
     def test_missing_search_allowlist_is_distinct_from_no_results(self):
         self.h.worker.close()

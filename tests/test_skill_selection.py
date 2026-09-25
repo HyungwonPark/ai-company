@@ -148,6 +148,61 @@ class SkillSelectionTests(unittest.TestCase):
         with self.assertRaisesRegex(skills.SkillCatalogError, "budget"):
             store.run_fetch("project", "fetch2", URL, policy=self.policy)
 
+    def test_discovery_and_document_fetch_share_persisted_budget(self):
+        policy = {**self.policy, "max_fetches": 4, "max_bytes": 600_000}
+        store = self.store()
+        resolved = {"status": "found", "source_url": URL, "license_path": "LICENSE",
+                    "source_ref": COMMIT, "lookups_used": 2}
+        with patch.object(skills, "discover_public_skill", return_value=resolved) as discover, \
+             patch.object(skills, "fetch_public_skill", return_value={"status": "review_pending",
+                 "source_url": URL, "lookups_used": 2}) as fetch:
+            first = store.run_discover("project", "discovery", "example/agent-skills", "main",
+                                       "accessibility", policy=policy, timeout=1)
+            second = store.run_discover("project", "discovery", "example/agent-skills", "main",
+                                        "accessibility", policy=policy, timeout=1)
+            self.assertTrue(second["cache_hit"])
+            store.run_fetch("project", "documents", first["source_url"],
+                            license_path=first["license_path"], policy=policy, timeout=1)
+        discover.assert_called_once(); fetch.assert_called_once()
+        self.assertEqual(store.snapshot("project")["fetches"], 4)
+        store.close()
+        reopened = self.store()
+        with patch.object(skills, "discover_public_skill") as no_network:
+            cached = reopened.run_discover("project", "discovery", "example/agent-skills", "main",
+                                           "accessibility", policy=policy, timeout=1)
+            self.assertTrue(cached["cache_hit"])
+            with self.assertRaisesRegex(skills.SkillCatalogError, "budget"):
+                reopened.run_discover("project", "different", "other/agent-skills", "main",
+                                      "accessibility", policy=policy, timeout=1)
+        no_network.assert_not_called()
+
+    def test_multi_file_fetch_has_one_deadline_and_persists_failed_budget(self):
+        from time import sleep
+        policy = {**self.policy, "max_fetches": 3, "max_bytes": 3 * 65536,
+                  "max_elapsed_ms": 40}
+        calls = []
+        def slow(_url, _limit, timeout):
+            calls.append(timeout)
+            sleep(.03)
+            return b"name: example\n"
+        store = self.store()
+        with patch.object(skills, "_public_get", side_effect=slow):
+            result = store.run_fetch("project", "bundle", URL, policy=policy,
+                                     reference_paths=("reference.md",), license_path="LICENSE", timeout=.04)
+        self.assertEqual(result["status"], "lookup_failed")
+        self.assertIn("deadline", result["reason"])
+        self.assertEqual(len(calls), 2)
+        self.assertLess(calls[1], calls[0])
+        self.assertEqual(store.snapshot("project")["reserved_ms"], 40)
+        store.close()
+        reopened = self.store()
+        with patch.object(skills, "_public_get") as again:
+            cached = reopened.run_fetch("project", "bundle", URL, policy=policy,
+                                        reference_paths=("reference.md",), license_path="LICENSE", timeout=.04)
+        self.assertTrue(cached["cache_hit"])
+        self.assertEqual(cached["status"], "lookup_failed")
+        again.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

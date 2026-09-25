@@ -79,12 +79,21 @@ const path=require('node:path');
   assert.equal(await page.locator('.manager-plan-detail .role-skills details').first().getAttribute('open'),'');
   checks.push('REVISE returns to bounded PM repair and a new independent PASS; old plan cannot be confirmed');
 
-  stage='exact test-client confirmation and two-role assignment';
-  const confirmation=await request(`/api/projects/${pid}/plans/${current.id}/confirm`,{plan_digest:current.digest,base_harness_version:current.base_harness_version,idempotency_key:'pm-v2-browser-test-client-confirm'});
+  stage='real reviewed modal confirmation and two-role assignment';
+  await page.locator('[data-action="review-plan"]:visible').first().click();
+  const dialog=page.getByRole('dialog'),form=dialog.locator('#plan-form');
+  await form.waitFor();assert.equal(await form.getAttribute('data-id'),current.id);
+  assert.equal(await form.getAttribute('data-digest'),current.digest);
+  assert.equal((await overview(pid)).runs.length,0,'opening the modal cannot start a run');
+  await dialog.getByRole('checkbox').check();
+  const confirmedResponse=page.waitForResponse(response=>new URL(response.url()).pathname===`/api/projects/${pid}/plans/${current.id}/confirm`);
+  await dialog.getByRole('button',{name:'이 계획 확정',exact:true}).click();
+  const response=await confirmedResponse,confirmation={status:response.status(),body:await response.json()};
   assert.equal(confirmation.status,200,JSON.stringify(confirmation.body));
+  await form.waitFor({state:'hidden'});
   const run=confirmation.body.run;assert.equal(run.plan_id,current.id);assert.equal(run.plan_digest,current.digest);
   state=await command('assign');assert.equal(state.runs.length,1);assert.deepEqual(state.runs[0].roles,['impl','test']);assert.equal(state.role_tasks.length,2);
-  checks.push('test client confirms exact reviewed plan once; coordinator assigns two roles only afterward');
+  checks.push('actual browser modal acknowledges and confirms exact reviewed plan once; coordinator assigns two roles only afterward');
 
   stage='project scope and logout';
   await go(`#manager?project=${pid}`);await page.locator('#message-content').fill('첫 프로젝트에만 남는 초안');
@@ -110,7 +119,7 @@ const path=require('node:path');
   checks.push('new skill-selection request invalidates in-flight review; project drafts are scoped and logout removes keys');
 
   assert.deepEqual(errors,[]);assert.deepEqual(violations,[]);
-  const evidence={status:'PASS',scope:'temporary real API + sandboxed Chrome + synthetic model and reviewer; automated test client, not master',
+  const evidence={status:'PASS',scope:'temporary real API + sandboxed Chrome + synthetic model and reviewer; browser clicks real confirmation modal, not master',
    project_id:pid,plan_id:current.id,plan_digest:current.digest,run_id:run.id,repair_of:first.id,
    checks,captures,errors,violations};
   await fs.writeFile(path.join(out,'pm-v2-flow.json'),JSON.stringify(evidence,null,2));

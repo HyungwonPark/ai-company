@@ -113,7 +113,7 @@ class SkillResearchStore:
                     "status": "lookup_pending", "lookup_id": prior_input[0],
                     "reason": "previous lookup has no committed result", "cache_hit": True}
             search_count = row[1] + (1 if kind == "search" else 0)
-            fetch_count = row[2] + (calls if kind == "fetch" else 0)
+            fetch_count = row[2] + (calls if kind in ("fetch", "discover") else 0)
             reserved_bytes = row[3] + bytes_limit
             reserved_ms = row[4] + round(timeout * 1000)
             if (search_count > policy["max_searches"] or fetch_count > policy["max_fetches"]
@@ -179,6 +179,21 @@ class SkillResearchStore:
                       "reason": str(error)[:160], "lookups_used": calls}
         return self._finish(key, lookup_id, result)
 
+    def run_discover(self, key, lookup_id, repository, branch, term, *, policy, timeout=2):
+        if not catalog._TERM.fullmatch(term):
+            raise catalog.SkillCatalogError("invalid discovery term")
+        prior = self._reserve(key, lookup_id, "discover",
+                              {"repository": repository, "branch": branch, "term": term},
+                              policy, calls=2, bytes_limit=2 * catalog.MAX_SEARCH_BYTES, timeout=timeout)
+        if prior is not None:
+            return prior
+        try:
+            result = catalog.discover_public_skill(repository, branch, term, timeout=timeout)
+        except Exception as error:
+            result = {"status": "lookup_failed", "repository": repository,
+                      "reason": str(error)[:160], "lookups_used": 2}
+        return self._finish(key, lookup_id, result)
+
 
 def load_trusted_catalog(config_entries):
     """Load operator-owned pinned local documents; HTTP never supplies these entries."""
@@ -203,13 +218,20 @@ def catalog_version(trusted_catalog):
 
 
 def _identity(entry):
-    return deepcopy({key: entry[key] for key in ("skill_id", "name", "source_url", "source_ref", "version",
+    result = deepcopy({key: entry[key] for key in ("skill_id", "name", "source_url", "source_ref", "version",
                                              "bundle_sha256", "files", "license", "compatibility",
                                              "dependencies", "permissions", "status")})
+    if entry["status"] == "review_pending" and entry.get("research_origin"):
+        result["research_origin"] = entry["research_origin"]
+        result["research_match_terms"] = entry.get("research_match_terms", [])
+        result["document_excerpt"] = entry.get("document_excerpt", "")[:1200]
+        result["license_excerpt"] = entry.get("license_excerpt", "")[:300]
+    return result
 
 
 def build_selection(role_assignments, trusted_catalog, *, external_candidates=(),
-                    outcome="existing_sufficient", reason="", can_continue=True):
+                    outcome="existing_sufficient", reason="", can_continue=True,
+                    role_outcomes=None):
     """Freeze at most three recommendations per role and six public candidates.
 
     role_assignments maps role keys to [{skill_id, reason, requirements, selected}].
@@ -250,6 +272,8 @@ def build_selection(role_assignments, trusted_catalog, *, external_candidates=()
                          else "review_pending" if any(items for items in roles.values())
                          else "no_additional_skill",
                "outcome": outcome, "reason": reason, "can_continue": bool(can_continue), "roles": roles}
+    if role_outcomes is not None:
+        payload["role_outcomes"] = role_outcomes
     return {**payload, "digest": _hash(payload)}
 
 
