@@ -49,7 +49,7 @@
 | 질문 Light 390px 캡처 SHA-256 | `c62e8dfb95e09e8d0a77724694f9eb33a6bdc2148a2bbe2121210e7423894615` |
 | 검토 Black 390px 캡처 SHA-256 | `aa57f59a36cfb44c69e9fab71f41f4dc5a343acb697ac51d18efc6e990ffa529` |
 
-로컬 Python 전체 회귀는 478개 통과·3개 skip, PM 경계 묶음은 25개 통과했다. JavaScript 문법 검사와 매니저 상태 검사가 통과했다. 독립 코드 검수에서 원래 목표를 reviewer에게 전달하지 않은 문제, 검토 종료 실패의 무한 대기, 오래된 질문 답변 연결, 빈 REVISE, 요구 출처 표시 누락을 발견해 수정했고 재검수에서 5건 모두 해소됐다.
+로컬 Python 전체 회귀는 478건 실행 중 475건 통과·3건 건너뜀, PM 경계 묶음은 25건 통과했다. JavaScript 문법 검사와 매니저 상태 검사가 통과했다. 독립 코드 검수에서 원래 목표를 reviewer에게 전달하지 않은 문제, 검토 종료 실패의 무한 대기, 오래된 질문 답변 연결, 빈 REVISE, 요구 출처 표시 누락을 발견해 수정했고 재검수에서 5건 모두 해소됐다.
 
 원격 검사에서 처음에는 격리 API 테스트 도우미의 가져오기 경로와 브라우저 선택자 2건이 실패했다. `a4aa00c`에서 두 검사 결함을 고쳤고, [Python 3.11·3.12](https://github.com/HyungwonPark/ai-company/actions/runs/36103789648)와 [Journey UI](https://github.com/HyungwonPark/ai-company/actions/runs/36103789646)가 통과했다. Journey UI의 새 검사에서 sandboxed Chrome으로 Light·Black × 320/390/1440px의 질문·검토 화면을 선택하고 스크린샷 12장, 오류 0건, 외부 네트워크 요청 0건, GET 이외 API 호출 0건을 확인했다. 위 390px 캡처 두 장은 해당 원격 검사 증적에서 복사한 합성 미리보기 이미지다. 최종 게시 커밋의 CI는 별도로 대조한다.
 
