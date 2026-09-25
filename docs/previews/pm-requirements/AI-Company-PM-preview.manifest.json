@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "kind": "offline read-only product preview",
-  "source_commit": "2f4cb86fe1c1a127f0dd8bde5cdbe83f2693b001",
+  "source_commit": "8b87c78e22fba3ad53fa2490594e154fa04780db",
   "source_dirty": false,
   "sources_sha256": {
     "docs/previews/pm-requirements/fixture.json": "2e684efee5b254d4e568b4d69b5e07b6421201a185cbced72b2bba640bba7d24",
@@ -24,7 +24,7 @@
     "src/ai_company/web/graph-preview/fixture.json": "ac970aba4ccf4abe47bd862da581cdb2b412a0cd7ca6fb98b5d9e13b798b25ba",
     "src/ai_company/web/icon.svg": "fb1099a8c5a1a97d191cb5ba3a3d97f6bfc44ac24d29419485008640464bd666",
     "src/ai_company/web/index.html": "54a3627b50e9ddebfada6033961787a0dc57ef264320b991f2ef3a9b28c8dc6e",
-    "src/ai_company/web/manager-ui.js": "7b4d93249130714f9c4554b4dd4a52045e0591768bec19c10270371d45028b29",
+    "src/ai_company/web/manager-ui.js": "3f3ca988ecce62a7cef344b571d0decfdd763d329abce22b75da47f82dfb7452",
     "src/ai_company/web/manager.css": "6141b70bd411200c1a7607c2234c5ecd10ee9b9e555d6bdd6d05d71f0dd538b7",
     "src/ai_company/web/plan-ui.js": "44ec927a3687378d271c371bdb04975e7f7b26d3544c033113c30772d9f42586",
     "src/ai_company/web/report-ui.js": "4699c3a265a2e92a1a994d47fc5f2789e7cac914d6052f6e61daa393af172a20",
@@ -48,5 +48,5 @@
     "no APK/service-worker/production verification",
     "frozen synthetic timestamps; original product expiry rules apply"
   ],
-  "html_sha256": "e391f1da3848683f917ec326fcdbd875247a0957aca6c57b209ee3a5152e92f9"
+  "html_sha256": "baedf42b3ca7b4b465cb9f07b41dcda413430306ae7108d78342839cd4fc9dbc"
 }
