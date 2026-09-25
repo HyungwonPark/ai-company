@@ -7,12 +7,16 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import time
 
 
 def main():
+    # The PR review runner blocks these signals while spawning this relay.
+    # Clear the inherited mask before spawning the native Claude CLI.
+    signal.pthread_sigmask(signal.SIG_UNBLOCK, (signal.SIGINT, signal.SIGTERM, signal.SIGHUP))
     config = json.loads(Path(sys.argv[1]).read_text())
     expected = config.get('expected_applied', {'model': 'claude-opus-5', 'effort': 'xhigh', 'ultracode': True})
     if (not isinstance(expected, dict) or set(expected) != {'model', 'effort', 'ultracode'}

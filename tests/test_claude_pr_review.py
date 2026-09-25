@@ -80,9 +80,9 @@ class ClaudePRReviewTests(unittest.TestCase):
             def communicate(self, *_args, **_kwargs):
                 self.count += 1
                 if self.count == 1:
-                    signal.raise_signal(signal.SIGTERM)
+                    signal.raise_signal(signal.SIGHUP)
                 if self.count == 2:
-                    signal.raise_signal(signal.SIGTERM)
+                    signal.raise_signal(signal.SIGHUP)
                 return '', 'interrupted'
 
         with tempfile.TemporaryDirectory() as temporary:

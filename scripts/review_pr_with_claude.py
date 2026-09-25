@@ -64,7 +64,7 @@ def reserve_attempt(directory, retry_unstarted):
 def invoke(command_line, input_text, directory, timeout_seconds=900):
     def interrupted(_number, _frame):
         raise KeyboardInterrupt
-    signals = (signal.SIGINT, signal.SIGTERM)
+    signals = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
     previous = {number: signal.getsignal(number) for number in signals}
     previous_mask = signal.pthread_sigmask(signal.SIG_BLOCK, signals)
     incomplete_reason = None
