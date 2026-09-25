@@ -309,6 +309,7 @@ class Automation:
                      not set(known[skill_id]["research_match_terms"]).intersection(missing_by_role[role_key]))
                     for skill_id in ids):
                 raise ExecutionBlocked("PM skill recommendation is not supported by this role's public evidence")
+        capacity_blocked = {}
         for role_key in unmatched:
             for item in external:
                 terms = set(item.get("research_match_terms", []))
@@ -318,22 +319,32 @@ class Automation:
                     continue
                 if suggestions and item["skill_id"] not in suggestions.get(role_key, []):
                     continue
+                if len(assignments[role_key]) >= 3:
+                    capacity_blocked.setdefault(role_key, []).append(item["skill_id"])
+                    continue
                 assignments[role_key].append({"skill_id": item["skill_id"],
                     "reason": "공개 문서 후보 · " + ", ".join(sorted(terms.intersection(missing_by_role[role_key])))
                               + " · 검토 전이므로 전달하지 않습니다.",
                     "requirements": [], "selected": False})
-                if len(assignments[role_key]) == 3:
-                    break
+        role_reasons = {role_key: ("역할별 지침 최대 3개에 도달해 공개 후보 "
+            + ", ".join(ids) + "를 추가하지 않았습니다. 부족 역량: "
+            + ", ".join(missing_by_role[role_key]) + ". 기존 승인 지침은 유지하며 교체는 새 계획에서 검토해야 합니다.")
+            for role_key, ids in capacity_blocked.items()}
+        has_pending = any(not item["selected"] for role in unmatched for item in assignments[role])
         outcome = ("existing_sufficient" if not unmatched else
-                   "review_pending" if any(item for role in unmatched for item in assignments[role]
-                                           if not item["selected"]) else
+                   "review_pending" if has_pending else
+                   "limit_reached" if capacity_blocked else
                    lookup_status if lookup_status in ("lookup_failed", "lookup_pending", "no_matching_document") else
                    "search_found_unpinned" if search_matches else lookup_status)
-        def role_outcome(role_key):
+        def role_outcome(role_key, *, fallback=False):
             if any(not item["selected"] for item in assignments[role_key]):
                 return "review_pending"
             if role_key not in unmatched:
                 return "existing_sufficient"
+            if role_key in capacity_blocked:
+                return "limit_reached"
+            if fallback:
+                return "lookup_failed"
             if self.config.skill_public_sources or not self.config.skill_search_terms:
                 return outcome
             relevant = [value for term, value in research.get("term_outcomes", {}).items()
@@ -347,20 +358,23 @@ class Automation:
                 if state in relevant:
                     return state
             return outcome
-        role_outcomes = {role.key: role_outcome(role.key) for role in plan.roles}
         required_missing = any(role.skill_required and role.key in unmatched for role in plan.roles)
-        def selection_with(candidates, current_outcome):
+        def selection_with(candidates, current_outcome, *, fallback=False):
+            pending_now = any(not item["selected"] for role in unmatched for item in assignments[role])
             return build_selection(assignments, trusted, external_candidates=candidates,
                 outcome=current_outcome, reason=("기존 지침으로 진행합니다." if current_outcome == "existing_sufficient" else
-                    "공개 후보는 검토 전이므로 작업 지침으로 전달하지 않습니다." if candidates else
-                    f"공개 저장소 {search_matches}개를 찾았습니다. 고정 커밋과 문서·라이선스 검토 전이라 아직 배정하지 않습니다." if current_outcome == "search_found_unpinned" else
+                    "공개 후보는 검토 전이므로 작업 지침으로 전달하지 않습니다." if pending_now else
                     "자료 조회 실패: " + lookup_reason if current_outcome == "lookup_failed" else
+                    "일부 역할은 지침 3개 상한에 도달했습니다. 기존 승인 지침을 유지하고 교체는 새 계획에서 검토합니다." if current_outcome == "limit_reached" else
+                    f"공개 저장소 {search_matches}개를 찾았습니다. 고정 커밋과 문서·라이선스 검토 전이라 아직 배정하지 않습니다." if current_outcome == "search_found_unpinned" else
                     "이전 공개 조회 결과가 아직 확인되지 않았습니다. 중복 조회 없이 현재 지침으로 진행합니다." if current_outcome == "lookup_pending" else
                     "검색된 저장소에서 해당 역량의 SKILL.md를 확인하지 못했습니다. 조사 예산을 유지하며 현재 지침으로 진행합니다." if current_outcome == "no_matching_document" else
                     "공개 조사에 사용할 일반 기술어가 설정되지 않았습니다. 현재 지침으로 진행합니다." if current_outcome == "lookup_not_configured" else
                     "허용된 일반 기술어로 조회했지만 결과가 없었습니다. 현재 지침으로 진행합니다." if current_outcome == "no_results" else
                     "추가 지침을 찾지 못했으므로 현재 지침으로 진행합니다."),
-                can_continue=not required_missing, role_outcomes=role_outcomes)
+                can_continue=not required_missing,
+                role_outcomes={role.key: role_outcome(role.key, fallback=fallback) for role in plan.roles},
+                role_reasons=role_reasons)
         try:
             selection = selection_with(external, outcome)
         except (SkillCatalogError, KeyError, TypeError, ValueError) as error:
@@ -369,7 +383,7 @@ class Automation:
             for role_key in unmatched:
                 assignments[role_key] = [item for item in assignments[role_key] if item["selected"]]
             lookup_reason = str(error)[:160]
-            selection = selection_with([], "lookup_failed")
+            selection = selection_with([], "lookup_failed", fallback=True)
         return plan.model_copy(update={"skill_selection": selection})
 
     def _pm(self, request):

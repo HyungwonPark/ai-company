@@ -22,7 +22,7 @@ assert.match(managerUI.render(overview(failed),options),/조회 실패 · 공식
 assert.match(planUI.render(failed),/기존 지침으로 진행할 수 있습니다/);
 const uncertain={...base,content:{...base.content,skill_selection:{status:'no_additional_skill',outcome:'lookup_pending',reason:'이전 공개 조회 결과가 아직 확인되지 않았습니다.',can_continue:true,roles:{web:[]}}}};
 assert.match(planUI.render(uncertain),/이 역할의 공개 조회 결과가 아직 확인되지 않았습니다/);
-assert.match(managerUI.render(overview(uncertain),options),/이전 공개 조회 결과가 아직 확인되지 않았습니다/);
+assert.match(managerUI.render(overview(uncertain),options),/이 역할의 공개 조회 결과가 아직 확인되지 않았습니다/);
 const secondRole={...role,key:'test',name:'검사'};
 const mixed={...base,content:{...base.content,roles:[role,secondRole],skill_selection:{
   status:'no_additional_skill',outcome:'no_matching_document',reason:'첫 역할의 문서를 찾지 못함',
@@ -38,6 +38,20 @@ assert.match(managerUI.render(overview(revising),options),/기술 지적을 자�
 const skill={skill_id:'screen',name:'접근성 점검',reason:'키보드 이동과 모바일 버튼 크기를 확인합니다.',status:'reviewed',selected:true,
   source_url:'https://example.org/skill/<script>',version:'v1',bundle_sha256:'abc123',requirements:['R1'],dependencies:['Chrome'],permissions:['읽기'],delivery_id:'receipt-1'};
 const selected={...base,content:{...base.content,skill_selection:{status:'delivered',roles:{web:[skill]}}}};
+const limitReason='역할별 최대 3개 · 부족 역량 performance · 공개 후보 public-d 제외';
+const capped={...base,content:{...base.content,skill_selection:{status:'selected',outcome:'review_pending',
+  reason:'공개 후보 검토 전',role_outcomes:{web:'limit_reached',test:'review_pending',empty:'existing_sufficient'},
+  role_reasons:{web:limitReason},roles:{web:[skill,{...skill,skill_id:'second',name:'두 번째'},
+    {...skill,skill_id:'third',name:'세 번째'}],test:[{...skill,skill_id:'public-d',name:'공개 후보',selected:false,status:'review_pending'}],empty:[]}},
+  roles:[role,{...role,key:'test',name:'검사'},{...role,key:'empty',name:'빈 역할'}]}};
+for(const html of [planUI.render(capped),managerUI.render(overview(capped),options)]){
+  assert.match(html,/부족 역량 performance · 공개 후보 public-d 제외/);
+  assert.match(html,/공개 후보/);
+  assert.doesNotMatch(html,/자료 조회 실패|조회 실패/);
+}
+const emptyRoleHTML=managerUI.render(overview(capped),options).split('<strong>빈 역할</strong>')[1].split('</li>')[0];
+assert.match(emptyRoleHTML,/현재 지침으로 진행합니다/);
+assert.doesNotMatch(emptyRoleHTML,/후보를 검토 중/);
 const before=JSON.stringify(selected),planHTML=planUI.render(selected),teamHTML=managerUI.render(overview(selected),options);
 assert.equal(JSON.stringify(selected),before,'rendering must not mutate the plan, digest, or selection');
 for(const html of [planHTML,teamHTML]){

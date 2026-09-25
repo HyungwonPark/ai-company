@@ -231,7 +231,7 @@ def _identity(entry):
 
 def build_selection(role_assignments, trusted_catalog, *, external_candidates=(),
                     outcome="existing_sufficient", reason="", can_continue=True,
-                    role_outcomes=None):
+                    role_outcomes=None, role_reasons=None):
     """Freeze at most three recommendations per role and six public candidates.
 
     role_assignments maps role keys to [{skill_id, reason, requirements, selected}].
@@ -274,6 +274,8 @@ def build_selection(role_assignments, trusted_catalog, *, external_candidates=()
                "outcome": outcome, "reason": reason, "can_continue": bool(can_continue), "roles": roles}
     if role_outcomes is not None:
         payload["role_outcomes"] = role_outcomes
+    if role_reasons:
+        payload["role_reasons"] = role_reasons
     return {**payload, "digest": _hash(payload)}
 
 

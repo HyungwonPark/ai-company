@@ -59,6 +59,35 @@ const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
    checks.push({width,theme,question_project:questions.id,review_project:review.id});
    await context.close();
   }
+  const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block',reducedMotion:'reduce'});
+  const page=await context.newPage();page.setDefaultTimeout(10000);
+  page.on('pageerror',error=>errors.push(error.message));
+  page.on('request',request=>{if(/^https?:/.test(request.url()))network.push(request.url());});
+  await page.goto(pathToFileURL(html).href+'#projects');
+  await page.locator('.project-list-card').first().waitFor();
+  const planSource=(await fs.readFile('src/ai_company/web/plan-ui.js','utf8'))
+    .replace('export function createPlanUI','window.createPlanUI = function createPlanUI');
+  await page.addScriptTag({content:planSource});
+  await page.evaluate(()=>{
+   const esc=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
+   const documents={text:(_id,_field,fallback)=>fallback,meta:()=>''};
+   const skill=(name,selected=true)=>({name,status:selected?'approved_document':'review_pending',selected,
+     reason:'역할에 맞는 지침',source_url:'https://example.org/skill',version:'v1',bundle_sha256:'fixture'});
+   const roles=[{key:'web',name:'화면 개발'},{key:'test',name:'검사'}];
+   const plan={id:'limit-fixture',content:{summary:'스킬 상한 확인',roles,skill_selection:{
+     outcome:'review_pending',role_outcomes:{web:'limit_reached',test:'review_pending'},
+     role_reasons:{web:'역할별 최대 3개 · 부족 역량 performance · 공개 후보 public-d 제외'},
+     roles:{web:[skill('승인 지침 A'),skill('승인 지침 B'),skill('승인 지침 C')],test:[skill('공개 후보',false)]}}}};
+   document.querySelector('#main').innerHTML=window.createPlanUI({esc,documents}).render(plan);
+  });
+  assert.equal(await page.locator('.role-skills').first().locator('.role-skill-list > li').count(),3);
+  assert.match(await page.locator('.role-skills').first().textContent(),/부족 역량 performance · 공개 후보 public-d 제외/);
+  assert.match(await page.locator('.role-skills').nth(1).textContent(),/공개 후보/);
+  assert.doesNotMatch(await page.locator('#main').textContent(),/자료 조회 실패/);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  await page.screenshot({path:path.join(output,'pm-skill-limit-light-390.png'),fullPage:true});
+  checks.push({width:390,theme:'light',scenario:'skill limit and independent role',mode:'component fixture'});
+  await context.close();
   assert.deepEqual(errors,[]);assert.deepEqual(network,[]);
   await fs.writeFile(path.join(output,'pm-preview-validation.json'),JSON.stringify({status:'PASS',scope:'packaged synthetic read-only UI; no model/API/approval',source_commit:manifest.source_commit,
     html_sha256:manifest.html_sha256,fixture_sha256:manifest.fixture_sha256,browser:browser.version(),sandbox:true,checks},null,2));

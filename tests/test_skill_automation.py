@@ -46,6 +46,83 @@ class SkillAutomationTests(unittest.TestCase):
             "plan_digest": plan["digest"], "base_harness_version": plan["base_harness_version"],
             "idempotency_key": "skill-confirm-001"})
 
+    def capacity_selection(self, role_keys, *, required=False, extra_candidate=False,
+                           invalid_candidate=False):
+        from unittest.mock import patch
+        from ai_company.skill_selection import load_trusted_catalog
+        source = load_trusted_catalog(self.h.config.skill_catalog)["review"]["entry"]
+        trusted = {name: {"entry": {**source, "skill_id": name, "name": name,
+            "bundle_sha256": char * 64, "capabilities": [capability]}, "root": self.skill}
+            for name, char, capability in (("skill-a", "a", "alpha"),
+                                           ("skill-b", "b", "bravo"),
+                                           ("skill-c", "c", "charlie"))}
+        candidate = {**source, "skill_id": "public-d", "name": "공개 후보",
+            "bundle_sha256": "d" * 64, "status": "review_pending",
+            "research_origin": "public_search", "research_match_terms": ["performance"]}
+        if invalid_candidate:
+            candidate.pop("name")
+        candidates = [candidate]
+        if extra_candidate:
+            candidates.append({**candidate, "skill_id": "public-e", "bundle_sha256": "e" * 64})
+        capabilities = {"zero": ["performance"],
+                        "two": ["alpha", "bravo", "performance"],
+                        "three": ["alpha", "bravo", "charlie", "performance"],
+                        "empty": []}
+        roles = [{"key": key, "name": key, "responsibility": "Check", "goal": "Check",
+                  "acceptance": ["Checked"], "allowed_paths": [f"src/{key}.txt"],
+                  "depends_on": [], "required_capabilities": capabilities[key],
+                  "skill_required": required and key == "three"} for key in role_keys]
+        plan = PMPlanContent.model_validate({"summary": "Check role guidance", "roles": roles,
+            "completion_criteria": ["Checked"],
+            "skill_recommendations": {key: ["public-d", "public-e"] if extra_candidate and key == "two"
+                                      else ["public-d"] for key in role_keys if key != "empty"}})
+        with patch("ai_company.skill_selection.load_trusted_catalog", return_value=trusted):
+            return self.h.worker._select_skills(plan, {"candidates": candidates,
+                "status": "review_pending", "search_matches": 1,
+                "term_outcomes": {"performance": "review_pending"}}).skill_selection
+
+    def test_zero_approved_skills_keep_relevant_public_candidate(self):
+        selection = self.capacity_selection(("zero", "empty"))
+        self.assertEqual([item["skill_id"] for item in selection["roles"]["zero"]], ["public-d"])
+        self.assertEqual(selection["role_outcomes"]["zero"], "review_pending")
+        self.assertEqual(selection["roles"]["empty"], [])
+
+    def test_two_approved_skills_add_only_one_public_candidate(self):
+        selection = self.capacity_selection(("two", "empty"), extra_candidate=True)
+        self.assertEqual(len(selection["roles"]["two"]), 3)
+        self.assertEqual(sum(item["selected"] for item in selection["roles"]["two"]), 2)
+        self.assertEqual(selection["roles"]["two"][-1]["skill_id"], "public-d")
+        self.assertIn("public-e", selection["role_reasons"]["two"])
+
+    def test_three_approved_skills_keep_selection_and_record_capacity_reason(self):
+        selection = self.capacity_selection(("three", "empty"), required=True)
+        self.assertEqual({item["skill_id"] for item in selection["roles"]["three"]},
+                         {"skill-a", "skill-b", "skill-c"})
+        self.assertEqual(selection["role_outcomes"]["three"], "limit_reached")
+        self.assertIn("performance", selection["role_reasons"]["three"])
+        self.assertIn("public-d", selection["role_reasons"]["three"])
+        self.assertFalse(selection["can_continue"])
+        self.assertNotEqual(selection["outcome"], "lookup_failed")
+
+    def test_full_role_does_not_erase_other_roles_public_recommendations(self):
+        selection = self.capacity_selection(("zero", "two", "three", "empty"))
+        self.assertEqual(len(selection["roles"]["zero"]), 1)
+        self.assertEqual(len(selection["roles"]["two"]), 3)
+        self.assertEqual(len(selection["roles"]["three"]), 3)
+        self.assertEqual(selection["roles"]["empty"], [])
+        self.assertEqual(selection["role_outcomes"]["three"], "limit_reached")
+        self.assertEqual(selection["role_outcomes"]["zero"], "review_pending")
+        self.assertEqual(selection["outcome"], "review_pending")
+        self.assertNotIn("조회 실패", selection["reason"])
+
+    def test_failed_public_candidate_fallback_matches_removed_candidate_list(self):
+        selection = self.capacity_selection(("zero", "empty"), invalid_candidate=True)
+        self.assertEqual(selection["roles"]["zero"], [])
+        self.assertEqual(selection["outcome"], "lookup_failed")
+        self.assertEqual(selection["role_outcomes"]["zero"], "lookup_failed")
+        self.assertIn("자료 조회 실패", selection["reason"])
+        self.assertNotIn("후보는 검토 전", selection["reason"])
+
     def test_reviewed_document_is_bound_to_plan_and_role_task(self):
         plan = self.plan()
         selection = plan["content"]["skill_selection"]
