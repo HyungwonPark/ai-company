@@ -25,7 +25,7 @@ for line in sys.stdin:
     req=event['request_id']
     payload={'account':{'secret':'PRIVATE_ACCOUNT'}}
     if event['request']['subtype']=='get_settings':
-        payload={'applied':{'model':'claude-opus-5','effort':os.environ['EFFORT'],'ultracode':True},
+        payload={'applied':{'model':os.environ['MODEL'],'effort':os.environ['EFFORT'],'ultracode':True},
                  'settings':{'env':{'SECRET':'PRIVATE_ENV'}},'errors':[]}
     print(json.dumps({'type':'control_response','response':{'request_id':req,'subtype':'success','response':payload}}),flush=True)
 '''
@@ -36,12 +36,15 @@ class ClaudeFileAdapterTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(); self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
 
-    def relay(self, effort):
+    def relay(self, effort, model='claude-opus-5'):
         directory = self.root / effort; directory.mkdir()
         native = directory / 'native'; native.write_text(NATIVE); native.chmod(0o700)
         config = {'cli_executable':str(native), 'cli_sha256':hashlib.sha256(native.read_bytes()).hexdigest(),
             'binding':{'nonce':'attempt-1'}, 'facts_path':str(directory/'facts.jsonl'), 'extra_args':[],
-            'environment':{'PATH':os.environ['PATH'], 'EFFORT':effort, 'MARKER':str(directory/'delivered')}}
+            'environment':{'PATH':os.environ['PATH'], 'EFFORT':effort, 'MODEL':model,
+                           'MARKER':str(directory/'delivered')}}
+        if model != 'claude-opus-5':
+            config['expected_applied'] = {'model':model, 'effort':'xhigh', 'ultracode':True}
         path = directory/'config.json'; path.write_text(json.dumps(config))
         records = [{'type':'control_request','request_id':'init','request':{'subtype':'initialize'}},
                    {'type':'user','message':{'role':'user','content':'task'}}]
@@ -65,6 +68,11 @@ class ClaudeFileAdapterTests(unittest.TestCase):
         self.assertIn('configuration_refused', [r['state'] for r in facts])
         self.assertNotIn('prompt_delivery_started', [r['state'] for r in facts])
         self.assertNotIn('PRIVATE_', result.stdout)
+
+    def test_separate_pr_review_model_is_checked_before_prompt(self):
+        directory, _, facts = self.relay('xhigh', 'claude-opus-5-5')
+        self.assertTrue((directory/'delivered').exists())
+        self.assertEqual(facts[1]['applied']['model'], 'claude-opus-5-5')
 
     def test_runtime_preflight_refuses_before_native_launch_and_does_not_replay(self):
         repo = self.root/'repo'; repo.mkdir()
