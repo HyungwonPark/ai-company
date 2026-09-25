@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "kind": "offline read-only product preview",
-  "source_commit": "26966ba97d022b27d47c87683c12e047c86b90cf",
-  "source_dirty": true,
+  "source_commit": "d5e4ad5369c1bf828465d56411d9d40affbe4478",
+  "source_dirty": false,
   "sources_sha256": {
     "docs/previews/pm-requirements/fixture.json": "479faedaf800b68f839c07ef231c61f5d1eb3a2203951070d756f6986397900d",
     "scripts/package_journey_preview.py": "16dd914a4ce33614b5248247ec11cd0def393442ff0e8df367dec433dd2acc64",
@@ -48,5 +48,5 @@
     "no APK/service-worker/production verification",
     "frozen synthetic timestamps; original product expiry rules apply"
   ],
-  "html_sha256": "8743782106940d53c9f3e35754e9a8fbd54cbda86adeef67b59a2164cc6ea1b3"
+  "html_sha256": "375a7d85115a6944932ccff2c677cc22d46bf62032568954c364afbd50c3c803"
 }
