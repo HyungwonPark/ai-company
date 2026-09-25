@@ -7,13 +7,22 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import time
 
 
 def main():
+    # The PR review runner blocks these signals while spawning this relay.
+    # Clear the inherited mask before spawning the native Claude CLI.
+    signal.pthread_sigmask(signal.SIG_UNBLOCK, (signal.SIGINT, signal.SIGTERM, signal.SIGHUP))
     config = json.loads(Path(sys.argv[1]).read_text())
+    expected = config.get('expected_applied', {'model': 'claude-opus-5', 'effort': 'xhigh', 'ultracode': True})
+    if (not isinstance(expected, dict) or set(expected) != {'model', 'effort', 'ultracode'}
+            or not isinstance(expected['model'], str) or not expected['model']
+            or expected['effort'] != 'xhigh' or expected['ultracode'] is not True):
+        raise RuntimeError('invalid expected Claude configuration')
     native = Path(config['cli_executable'])
     if hashlib.sha256(native.read_bytes()).hexdigest() != config['cli_sha256']:
         raise RuntimeError('Claude executable changed before launch')
@@ -26,6 +35,12 @@ def main():
             or incoming[0].get('request', {}).get('subtype') != 'initialize'
             or incoming[1].get('type') != 'user'):
         raise RuntimeError('controlled CLI requires initialize and one user message')
+    prompt_sha256 = config['binding'].get('prompt_sha256')
+    if prompt_sha256:
+        message = incoming[1].get('message', {})
+        prompt = message.get('content') if isinstance(message, dict) else None
+        if not isinstance(prompt, str) or hashlib.sha256(prompt.encode()).hexdigest() != prompt_sha256:
+            raise RuntimeError('controlled CLI prompt differs from the bound review input')
     before = config['binding']['nonce'] + '-before'
     after = config['binding']['nonce'] + '-after'
     facts_path = Path(config['facts_path'])
@@ -74,11 +89,13 @@ def main():
                     send({'type': 'control_request', 'request_id': before, 'request': {'subtype': 'get_settings'}})
                 elif event.get('type') == 'control_response' and ident == before and not sent:
                     safe = event['response']['response']
-                    if safe['applied'] == {'model': 'claude-opus-5', 'effort': 'xhigh', 'ultracode': True} and not safe['has_errors']:
+                    if safe['applied'] == expected and not safe['has_errors']:
                         # Intent precedes delivery. After a crash the record
                         # never incorrectly claims that no model call occurred.
                         record({'state': 'prompt_delivery_started'})
                         send(incoming[1])
+                        if prompt_sha256:
+                            record({'state': 'prompt_delivered', 'prompt_sha256': prompt_sha256})
                         sent = True
                     else:
                         record({'state': 'configuration_refused'})
