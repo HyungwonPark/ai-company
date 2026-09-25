@@ -21,8 +21,16 @@ const failed={...base,content:{...base.content,skill_selection:{status:'0',outco
 assert.match(managerUI.render(overview(failed),options),/조회 실패 · 공식 자료 조회 시간 초과/);
 assert.match(planUI.render(failed),/기존 지침으로 진행할 수 있습니다/);
 const uncertain={...base,content:{...base.content,skill_selection:{status:'no_additional_skill',outcome:'lookup_pending',reason:'이전 공개 조회 결과가 아직 확인되지 않았습니다.',can_continue:true,roles:{web:[]}}}};
-assert.match(planUI.render(uncertain),/이전 공개 조회 결과가 아직 확인되지 않았습니다/);
+assert.match(planUI.render(uncertain),/이 역할의 공개 조회 결과가 아직 확인되지 않았습니다/);
 assert.match(managerUI.render(overview(uncertain),options),/이전 공개 조회 결과가 아직 확인되지 않았습니다/);
+const secondRole={...role,key:'test',name:'검사'};
+const mixed={...base,content:{...base.content,roles:[role,secondRole],skill_selection:{
+  status:'no_additional_skill',outcome:'no_matching_document',reason:'첫 역할의 문서를 찾지 못함',
+  role_outcomes:{web:'no_matching_document',test:'not_searched'},roles:{web:[],test:[]}}}};
+const mixedHTML=planUI.render(mixed);
+assert.match(mixedHTML,/조사한 저장소에서 이 역할의 SKILL.md를 찾지 못했습니다/);
+assert.match(mixedHTML,/이 역할의 공개 자료는 이번 조회 한도에서 조사하지 않았습니다/);
+assert.doesNotMatch(mixedHTML,/첫 역할의 문서를 찾지 못함/,'global status cannot be presented as the second role result');
 const revising={...base,status:'needs_revision',revision_action:'automatic'};
 assert.match(managerUI.render(overview(revising),options),/PM 자동 수정 중/);
 assert.match(managerUI.render(overview(revising),options),/기술 지적을 자동으로 보완/);

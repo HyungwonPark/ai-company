@@ -8,7 +8,7 @@ export function createPlanUI({esc, documents}) {
     const items=list(selection.roles?.[role.key]);
     const roleOutcome=selection.role_outcomes?.[role.key]||selection.outcome;
     const fallback=roleOutcome==='not_allowlisted'?'이 역할에 허용된 공개 조사어가 없습니다. 현재 지침으로 진행합니다.'
-      :roleOutcome==='lookup_failed'?'이 역할의 자료 조회에 실패했습니다. 현재 지침으로 진행합니다.'
+      :roleOutcome==='lookup_failed'?`이 역할의 자료 조회에 실패했습니다. ${selection.can_continue===true?'기존 지침으로 진행할 수 있습니다.':'진행 가능 여부는 계획 검토에서 확인합니다.'}`
       :roleOutcome==='review_pending'?'후보를 검토 중입니다.'
       :roleOutcome==='search_found_unpinned'?'공개 저장소를 찾았지만 이 역할의 문서는 확인하지 못했습니다. 현재 지침으로 진행합니다.'
       :roleOutcome==='no_matching_document'?'조사한 저장소에서 이 역할의 SKILL.md를 찾지 못했습니다. 현재 지침으로 진행합니다.'
