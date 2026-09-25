@@ -37,7 +37,9 @@ const old=name=>execFileSync('git',['show',baseline+':src/ai_company/web/'+name]
    await configure({mode:'new',fail:item.fail,oldapp:item.oldapp});active.stage='authenticated selective module failure';
    const requestedRun=fixture.run_ids[0],requestedHash='#progress?project='+fixture.project_id+'&run='+requestedRun;
    const requests=files.map(async name=>{const response=await page.waitForResponse(r=>new URL(r.url()).pathname==='/'+name);return [name,hash(await response.body())];});
-   await page.goto(base+(item.oldapp?'/#progress?project='+fixture.project_id:'/'+requestedHash));
+   // A hash-only goto does not request module bytes. Set the intended route and
+   // explicitly reload in the same browser task before an old render rewrites it.
+   await Promise.all([page.waitForNavigation(),page.evaluate(url=>{history.replaceState(null,'',url);location.reload();},base+(item.oldapp?'/#progress?project='+fixture.project_id:'/'+requestedHash))]);
    const loaded=Object.fromEntries(await Promise.all(requests));
    for(const name of files){const shouldOld=item.oldapp&&name==='app.js'||item.fail.includes(name);assert.equal(loaded[name],(shouldOld?expectedOld:expectedNew)[name],item.name+' '+name+' bytes');}
    const states=[];for(const worker of context.serviceWorkers())try{states.push(await worker.evaluate(async()=>({cache:CACHE,clients:(await self.clients.matchAll({type:'window'})).length})));}catch{}

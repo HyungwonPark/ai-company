@@ -72,7 +72,9 @@ const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
    // Preserve real expiry evaluation. The frozen fixture may have expired by
    // the time this package is inspected; never turn the clock back to pass.
    const expired=Date.now()/1000>=approval.expires_at;
-   if(expired)assert.equal(await page.locator(`button[data-decision][data-id="${approval.id}"]:enabled`).count(),0);
+   // The frozen pending record is not rewritten to the server's expired state.
+   // Its approve action must be disabled; every preview write still returns 405.
+   if(expired)assert.equal(await page.locator(`button[data-decision="approve"][data-id="${approval.id}"]:enabled`).count(),0);
    if(width===390)await snapshot(`${theme}-${width}-approval`);
    await page.locator('.nav a[aria-label="진행"]').click();await scope(old.run_id,old.id);await page.locator('[data-rg-root]').waitFor();
    assert.equal(await page.locator('[data-rg-root]').getAttribute('data-snapshot'),old.id);
