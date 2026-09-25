@@ -1,13 +1,15 @@
 """Provider-aware stage instructions; execution permissions remain adapter-owned."""
 
 
-def stage_prompt(checkpoint_prompt: str, *, provider: str, role: str, planning: bool = False, contribution: bool = False,
+def stage_prompt(checkpoint_prompt: str, *, provider: str, role: str, planning: bool = False, plan_review: bool = False, contribution: bool = False,
                  file_tools: bool = False) -> str:
     if provider not in {"codex", "claude"} or role not in {"pm", "developer", "reviewer", "final"}:
         raise ValueError("unsupported stage prompt provider or role")
 
     if planning and role != "pm":
         raise ValueError("planning schema is limited to the PM stage")
+    if plan_review and (role != "reviewer" or planning or contribution):
+        raise ValueError("plan content review requires the reviewer stage")
 
     if contribution and (role != "developer" or planning):
         raise ValueError("contribution schema is limited to its developer stage")
@@ -102,6 +104,25 @@ def stage_prompt(checkpoint_prompt: str, *, provider: str, role: str, planning: 
                 "CI policy, select deployment credentials, or execute the proposed plan. Return PASS only "
                 "with a complete valid plan; return BLOCK with plan=null when required decisions or access "
                 "are missing. This proposal is not a code review or execution approval. "
+                "Write requirements_review version 2 with the supplied request_revision and goal_digest. "
+                "Record the goal, problem, users and flow, scope, exclusions, assumptions, ID-linked requirements "
+                "with acceptance, verification and responsible role keys, material questions, and any findings. "
+                "Use evidence, impact, alternatives, recommendation and disposition for each finding. "
+                "Do not invent questions or objections to fill a quota. Read prior answers and do not ask them again. "
+                "If a material decision remains unanswered, return BLOCK, plan=null and requirements_feedback "
+                "with open question IDs, clear prompts, reasons, options when useful and a concise Korean recommendation. Never ask the user to write "
+                "technical file paths, function contracts or a harness. Make reversible technical assumptions within "
+                "the existing permission and explain their impact. A clear request needs no extra questions. "
+            )
+        elif role == "reviewer" and plan_review:
+            work += (
+                "Review the original goal, master's latest message, saved conversation decisions, proposed plan "
+                "and requirements_review in checkpoint.plan. Do not review code. "
+                "This is a separate session from the PM. Check purpose versus proposed method, answered decisions, "
+                "contradictions, scope, exclusions, every required acceptance and verification method, role ownership, "
+                "and unnecessary complexity. Do not manufacture objections. Return PASS with no findings when ready; "
+                "REVISE with specific finding IDs and evidence for material gaps; BLOCK if the source or plan cannot "
+                "be inspected. This review does not authorize execution or replace the master's confirmation. "
             )
         elif role == "pm":
             work += (

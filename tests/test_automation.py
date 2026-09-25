@@ -111,10 +111,20 @@ class CoordinatorTests(unittest.TestCase):
             verification_digest=digest(state["verification"]) if state["verification"] else None,
             verdict="DONE" if state["stage"] == "developer" else "PASS", findings=[], resolved_findings=[], summary="Fixture result")
         if state["stage"] == "pm":
-            report["plan"] = copy.deepcopy(self.plan)
+            plan = copy.deepcopy(self.plan)
+            plan["requirements_review"] = {
+                "version": 2, "revision": spec.plan["request_revision"],
+                "goal_digest": spec.plan["goal_digest"], "problem": "Create two verifiable outputs",
+                "users_and_flow": "A project owner requests and confirms two independent outputs",
+                "scope": ["Create the two approved outputs"], "exclusions": [], "assumptions": [],
+                "questions": [], "findings": [],
+                "requirements": [{"id": "R-" + role["key"], "source": "master goal",
+                    "acceptance": role["acceptance"][0], "verification": "Inspect the role output and run unit checks",
+                    "role_keys": [role["key"]]} for role in plan["roles"]]}
+            report["plan"] = plan
         elif state["stage"] == "developer":
             report["commit_requested"] = True
-        elif state["stage"] == "reviewer" and self.reject_once:
+        elif state["stage"] == "reviewer" and spec.execution_scope != "plan_review" and self.reject_once:
             self.reject_once = False
             report.update(verdict="REVISE", findings=[dict(finding_id="FIX-IMPL", detail="Fix implementation output", evidence="src/result.txt")])
         return SessionOutcome("success", session_id=sid, result={"duration_seconds": 1, "total_cost_usd": 0.01,
@@ -122,10 +132,14 @@ class CoordinatorTests(unittest.TestCase):
             "observed_ultracode": [agent.ultracode_enabled], "structured_output": report})
 
     def confirm(self):
-        self.worker.run_once()
-        proposals = self.worker.store.overview(self.project["id"])["plans"]
+        for _ in range(4):
+            self.worker.run_once()
+            proposals = self.worker.store.overview(self.project["id"])["plans"]
+            if proposals and proposals[0]["status"] == "proposed":
+                break
         self.assertEqual(len(proposals), 1, self.worker.store.pm_requests())
         plan = proposals[0]
+        self.assertEqual(plan["status"], "proposed", plan)
         self.assertEqual(self.worker.store.run_records(), [])
         return self.worker.store.confirm_plan(self.project["id"], plan["id"], {
             "plan_digest": plan["digest"], "base_harness_version": plan["base_harness_version"],

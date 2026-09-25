@@ -74,6 +74,10 @@ def inject(state, action, project_id):
         if action == "proposal":
             request = store.overview(project_id)["pm_requests"][-1]
             assert request["state"] == "pending", "Fixture completion applies only to the pending request"
+            old = store.get_pm_request(request["request_id"]); old.pop("requirements_contract_version")
+            with store.db:
+                store.db.execute("UPDATE management_pm_requests SET document=? WHERE message_id=?", (json.dumps(old), request["request_id"]))
+            request = store.get_pm_request(request["request_id"])
             config = store.execution_config_for(project_id, request["execution_spec"]) if request.get("execution_spec") else catalog_config()
             store.save_pm_request({**request, "state": "running", "configuration_digest": digest(config), "mode": "fixture"}, expected_state="pending")
             body = content()

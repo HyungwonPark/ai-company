@@ -43,10 +43,10 @@ class ProjectAutomationTests(unittest.TestCase):
     def plan(self, project):
         self.h.now += 1
         self.h.worker.store.post_message(project["id"], {"content": "등록한 명세로 두 역할을 제안해 주세요."})
-        for _ in range(4):
+        for _ in range(6):
             self.h.worker.run_once()
             plans = self.h.worker.store.overview(project["id"])["plans"]
-            current = [p for p in plans if self.h.worker.store.request_is_current(p["request_id"])]
+            current = [p for p in plans if p["status"] == "proposed" and self.h.worker.store.request_is_current(p["request_id"])]
             if current:
                 return current[0]
             self.h.now += 60
@@ -94,6 +94,7 @@ class ProjectAutomationTests(unittest.TestCase):
     def test_pm_technical_proposal_requires_separate_registration_and_new_plan(self):
         entry = self.catalog.public_entries()[1]
         self.h.plan["execution_spec_proposal"] = {"catalog_id": entry["catalog_id"], "catalog_digest": entry["catalog_digest"]}
+        self.h.worker.run_once()
         self.h.worker.run_once()
         plan = self.h.worker.store.overview(self.h.project["id"])["plans"][0]
         with self.assertRaises(ManagementError) as error:

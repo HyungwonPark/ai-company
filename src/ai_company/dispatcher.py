@@ -90,7 +90,7 @@ class Dispatcher:
                                 (agent.provider, agent.credential_ref, agent.quota_group))
                 self.db.execute("INSERT OR IGNORE INTO quota_groups VALUES (?,'AVAILABLE',NULL,NULL)", (agent.quota_group,))
             state = {"task_id": spec.task.task_id, "specification": spec.model_dump(mode="json"),
-                     "spec_digest": digest(spec), "stage": "check" if spec.execution_scope == "integration" else ("developer" if spec.approved_plan else "pm"),
+                     "spec_digest": digest(spec), "stage": "check" if spec.execution_scope == "integration" else ("reviewer" if spec.execution_scope == "plan_review" else ("developer" if spec.approved_plan else "pm")),
                      "status": "READY", "reason": "approved plan" if spec.approved_plan else "PM decision needed",
                      "snapshot": snapshot, "plan": spec.plan, "last_completed_stage": "approved_plan" if spec.approved_plan else "submitted",
                      "generation": 0, "active": None, "executions": [], "findings": [], "verification": None,
@@ -231,7 +231,7 @@ class Dispatcher:
             reservation = state.get("project_reservation")
             if reservation is not None:
                 kwargs["timeout_seconds"] = min(kwargs["timeout_seconds"], reservation["runtime_seconds"])
-            prompt = stage_prompt(prompt, provider=provider, role=state["stage"], planning=scope == "planning",
+            prompt = stage_prompt(prompt, provider=provider, role=state["stage"], planning=scope == "planning", plan_review=scope == "plan_review",
                                   contribution=scope == "contribution", file_tools=file_tools)
             guidance = None
             if "guidance" in spec.plan:
@@ -375,9 +375,9 @@ class Dispatcher:
             raise ExecutionBlocked("read-only role changed the repository")
         session = {"provider": job["provider"], "session_id": job["session_id"]}
         if active["role"] in ("reviewer", "final"):
-            if session in state["authors"] or (active["role"] == "final" and session in state["pm_sessions"]):
+            if session in state["authors"] or (active["role"] == "final" or spec.execution_scope == "plan_review") and session in state["pm_sessions"]:
                 raise ExecutionBlocked("author/PM session cannot approve its own work")
-            if report.verification_digest != digest(state["verification"]):
+            if report.verification_digest != (None if spec.execution_scope == "plan_review" else digest(state["verification"])):
                 raise ExecutionBlocked("review does not bind the required checks and remote CI")
             pending = {f["finding_id"] for f in state["findings"]}
             if report.verdict == "PASS" and (report.findings or not pending.issubset(report.resolved_findings)):
@@ -404,7 +404,10 @@ class Dispatcher:
                                "final": "independent review passed; designated final review is ready",
                                "gate": "final review passed; remote evidence will be refreshed"}.get(
                                    state["stage"], "next stage is ready")
-        if spec.execution_scope == "planning" and completed_stage == "pm" and verdict == "PASS":
+        if spec.execution_scope == "plan_review" and completed_stage == "reviewer":
+            state.update(stage="reviewer", status="PLAN_REVIEWED" if verdict == "PASS" else "NEEDS_PLAN_REVISION",
+                         resume_at=None, reason="Independent plan content review recorded")
+        elif spec.execution_scope == "planning" and completed_stage == "pm" and verdict == "PASS":
             state.update(stage="pm", status="PLAN_READY", resume_at=None, reason="PM proposal is ready for master confirmation")
         elif spec.execution_scope == "contribution" and completed_stage == "developer" and verdict == "DONE":
             state.update(stage="developer", status="CONTRIBUTION_READY", resume_at=None,

@@ -23,6 +23,10 @@ def seed_plan(store, name):
     """No model or worker is called: only the real API persistence contract is exercised."""
     project = store.create_project({"name": name, "goal": "UI fixture: review and confirm a stored PM plan"})
     message = store.post_message(project["id"], {"content": "UI fixture: propose two independent roles"})
+    # Old UI fixture plan: retain its pre-v2 digest and bypass the new model review.
+    old = store.get_pm_request(message["id"]); old.pop("requirements_contract_version")
+    with store.db:
+        store.db.execute("UPDATE management_pm_requests SET document=? WHERE message_id=?", (json.dumps(old), message["id"]))
     request = store.get_pm_request(message["id"])
     store.save_pm_request({**request, "state": "running", "configuration_digest": "c" * 64, "mode": "fixture"}, expected_state="pending")
     plan = store.complete_pm_request(message["id"], {

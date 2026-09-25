@@ -39,6 +39,7 @@ class ProjectInput(Contract):
 
 class MessageInput(Contract):
     content: Text
+    idempotency_key: str | None = Field(default=None, pattern=r"^[a-zA-Z0-9_.:-]{8,128}$")
 
 
 class HarnessInput(Contract):
@@ -105,6 +106,9 @@ class ValidationDelegationAuthorization(BaseModel):
 
 
 class ManagementStore:
+    PM_GUIDANCE_VERSION = "pm-requirements-v2"
+    PLAN_REVIEW_VERSION = "plan-content-review-v1"
+
     def __init__(self, root: Path, *, clock=time.time, execution_catalog=None):
         self.root, self.clock = Path(root).resolve(), clock
         self.execution_catalog = execution_catalog
@@ -137,6 +141,8 @@ class ManagementStore:
                 project_id TEXT NOT NULL, document TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS management_auth(token_hash TEXT PRIMARY KEY, csrf TEXT NOT NULL, expires_at REAL NOT NULL);
             CREATE TABLE IF NOT EXISTS management_pm_requests(message_id TEXT PRIMARY KEY, project_id TEXT NOT NULL, document TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS management_message_submissions(project_id TEXT NOT NULL, idempotency_key TEXT NOT NULL,
+                content_digest TEXT NOT NULL, message_id TEXT NOT NULL, PRIMARY KEY(project_id,idempotency_key));
             CREATE TABLE IF NOT EXISTS management_plans(id TEXT PRIMARY KEY, project_id TEXT NOT NULL, document TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS management_runs(id TEXT PRIMARY KEY, project_id TEXT NOT NULL, document TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS management_delegations(id TEXT PRIMARY KEY, source_id TEXT NOT NULL UNIQUE,
@@ -362,7 +368,21 @@ class ManagementStore:
         value = MessageInput.model_validate(value)
         with self.db:
             self.db.execute("BEGIN IMMEDIATE")
-            return self._append_pm_request(self._project(project_id), value)
+            project = self._project(project_id)
+            if value.idempotency_key:
+                prior = self.db.execute("SELECT content_digest,message_id FROM management_message_submissions "
+                                        "WHERE project_id=? AND idempotency_key=?",
+                                        (project_id, value.idempotency_key)).fetchone()
+                if prior:
+                    if prior[0] != digest(value.content):
+                        raise ManagementError("idempotency_conflict", "이 전송 번호는 다른 답변에 이미 사용됐습니다")
+                    row = self.db.execute("SELECT document FROM management_messages WHERE id=?", (prior[1],)).fetchone()
+                    return json.loads(row[0])
+            message = self._append_pm_request(project, value)
+            if value.idempotency_key:
+                self.db.execute("INSERT INTO management_message_submissions VALUES (?,?,?,?)",
+                                (project_id, value.idempotency_key, digest(value.content), message["id"]))
+            return message
 
     def _conversation_context(self, project_id):
         """Project-local reading context; never execution/approval authority."""
@@ -384,11 +404,23 @@ class ManagementStore:
         if row:
             plan = json.loads(row[0])
             previous = {'id': plan['id'], 'digest': plan['digest'], 'status': plan['status']}
+            if plan.get('review'):
+                previous['review'] = plan['review']
             if len(json.dumps(plan['content'], ensure_ascii=False)) <= 20000:
                 previous['content'] = plan['content']
             else:
                 previous['content_omitted'] = True
+        feedback_row = self.db.execute("SELECT document FROM management_pm_requests WHERE project_id=? "
+                                       "AND json_type(document,'$.requirements_feedback')='object' "
+                                       "ORDER BY rowid DESC LIMIT 1", (project_id,)).fetchone()
+        prior_feedback = None
+        if feedback_row:
+            prior = json.loads(feedback_row[0])
+            candidate = {'request_id': prior['request_id'], 'requirements': prior['requirements_feedback']}
+            if len(json.dumps(candidate, ensure_ascii=False)) <= 12000:
+                prior_feedback = candidate
         return {'messages': list(reversed(messages)), 'previous_proposal': previous,
+                'previous_requirements_feedback': prior_feedback,
                 'purpose': 'discussion_only; a new plan requires a new explicit confirmation'}
 
     def _append_pm_request(self, project, value):
@@ -401,6 +433,7 @@ class ManagementStore:
                                           (project_id, project["harness_version"])).fetchone()
         harness = json.loads(harness_row[0])
         request = {"request_id": message["id"], "message_id": message["id"], "project_id": project_id,
+                       "requirements_contract_version": 2,
                        "state": "pending", "request_revision": revision, "base_harness_version": project["harness_version"],
                        "base_harness_digest": digest(harness["content"]), "goal_digest": digest(project["goal"]),
                        "goal": project["goal"], "content": value.content, "source": project["source"],
@@ -436,7 +469,7 @@ class ManagementStore:
             self.db.execute("BEGIN IMMEDIATE")
             previous = self.get_pm_request(document["request_id"])
             immutable = ("request_id", "message_id", "project_id", "request_revision", "base_harness_version",
-                         "base_harness_digest", "goal_digest", "goal", "content", "source", "created_at", "conversation_context", "execution_spec")
+                         "base_harness_digest", "goal_digest", "goal", "content", "source", "created_at", "conversation_context", "execution_spec", "requirements_contract_version")
             if any(document.get(key) != previous.get(key) for key in immutable):
                 raise ManagementError("request_mismatch", "PM request snapshot is immutable")
             for key in ("configuration_digest", "mode"):
@@ -467,7 +500,90 @@ class ManagementStore:
         result = {key: plan[key] for key in fields}
         if plan.get("execution_spec") is not None:
             result["execution_spec"] = plan["execution_spec"]
+        if plan.get("contract_version") == 2:
+            result["contract_version"] = 2
+            result["pm_guidance_version"] = plan["pm_guidance_version"]
+            result["plan_review_version"] = plan["plan_review_version"]
         return result
+
+    @staticmethod
+    def _requirements_ready(plan):
+        if plan.get("contract_version") != 2:
+            return
+        from ai_company.automation_contracts import PMPlanContent
+        content = PMPlanContent.model_validate(plan["content"])
+        spec = content.requirements_review
+        if (spec is None or spec.version != 2 or spec.revision != plan["request_revision"]
+                or spec.goal_digest != plan["goal_digest"]):
+            raise ManagementError("requirements_mismatch", "Requirements do not bind this goal and revision")
+        roles = {role.key for role in content.roles}
+        if any(not set(item.role_keys) <= roles for item in spec.requirements):
+            raise ManagementError("requirements_unmapped", "Every requirement needs a valid responsible role")
+        if any(item.status == "open" for item in spec.questions):
+            raise ManagementError("answer_required", "A material decision still needs an answer")
+        if any(item.blocking and item.status != "resolved" for item in spec.findings):
+            raise ManagementError("blocking_finding", "A blocking plan finding is unresolved")
+
+    def assert_plan_ready(self, plan):
+        if digest(self._plan_binding(plan)) != plan["digest"]:
+            raise ManagementError("plan_mismatch", "Plan content or version differs from its digest")
+        self._requirements_ready(plan)
+        if plan.get("contract_version") == 2:
+            review = plan.get("review")
+            if (not isinstance(review, dict) or review.get("verdict") != "PASS"
+                    or review.get("plan_digest") != plan["digest"]
+                    or review.get("requirements_revision") != plan["request_revision"]
+                    or review.get("requirements_digest") != digest(plan["content"]["requirements_review"])
+                    or review.get("review_version") != plan["plan_review_version"]
+                    or review.get("pm_session_id") != (plan.get("evidence") or {}).get("session_id")
+                    or review.get("pm_session_id") == review.get("session_id")
+                    or not review.get("session_id") or review.get("findings")):
+                raise ManagementError("plan_review_required", "This exact plan needs a passing independent content review")
+            self._review_fact(plan, review)
+            readiness = plan.get("readiness") or {}
+            if readiness != {"state": "eligible_for_master_confirmation", "source": "server",
+                    "plan_digest": plan["digest"], "requirements_revision": plan["request_revision"],
+                    "requirements_digest": digest(plan["content"]["requirements_review"]),
+                    "review_task_id": review["task_id"], "review_session_id": review["session_id"]}:
+                raise ManagementError("plan_readiness_required", "Server readiness does not bind this reviewed plan")
+
+    def _review_fact(self, plan, review):
+        """Match the review receipt to the durable Dispatcher and session facts."""
+        row = self.db.execute("SELECT document FROM flow_tasks WHERE task_id=?", (review.get("task_id"),)).fetchone()
+        state = json.loads(row[0]) if row else {}
+        specification = state.get("specification") or {}
+        from ai_company.flow_contracts import FlowSpec
+        try:
+            spec_valid = digest(FlowSpec.model_validate(specification)) == state.get("spec_digest")
+        except ValueError:
+            spec_valid = False
+        context = specification.get("plan") or {}
+        request = self.get_pm_request(plan["request_id"])
+        executions = state.get("executions") or []
+        job_row = self.db.execute("SELECT document FROM session_jobs WHERE job_id=?",
+                                  (executions[-1]["job_id"],)).fetchone() if executions and executions[-1].get("job_id") else None
+        job = json.loads(job_row[0]) if job_row else {}
+        report = (state.get("reviews") or {}).get("reviewer") or {}
+        expected_pm = {"provider": (plan.get("evidence") or {}).get("provider") or "codex",
+                       "session_id": review["pm_session_id"]}
+        if (not spec_valid or state.get("task_id") != review.get("task_id") or state.get("status") != "PLAN_REVIEWED"
+                or specification.get("execution_scope") != "plan_review"
+                or specification.get("approved_plan") is not False
+                or expected_pm not in specification.get("inherited_pm_sessions", [])
+                or context.get("plan_digest") != plan["digest"]
+                or context.get("requirements_revision") != plan["request_revision"]
+                or context.get("review_version") != plan["plan_review_version"]
+                or context.get("plan") != plan["content"]
+                or context.get("goal") != request["goal"]
+                or context.get("master_message") != request["content"]
+                or context.get("conversation_context") != request["conversation_context"]
+                or job.get("status") != "SESSION_COMPLETED"
+                or job.get("session_id") != review["session_id"]
+                or (job.get("provider"), job.get("session_id")) == (expected_pm["provider"], expected_pm["session_id"])
+                or report.get("verdict") != review["verdict"]
+                or report.get("findings") != review["findings"]
+                or report.get("summary") != review["summary"]):
+            raise ManagementError("plan_review_mismatch", "Stored review is not the result of this exact independent run")
 
     def get_plan(self, project_id, plan_id):
         row = self.db.execute("SELECT document FROM management_plans WHERE id=? AND project_id=?", (plan_id, project_id)).fetchone()
@@ -507,12 +623,21 @@ class ManagementStore:
                 raise ManagementError("configuration_missing", "PM completion requires its claimed server configuration")
             if request["mode"] == "live" and isinstance(evidence, dict) and (evidence.get("source") == "fixture" or evidence.get("scope") == "fixture"):
                 raise ManagementError("fixture_only", "Fixture PM evidence cannot produce a live proposal")
+            if request.get("requirements_contract_version") == 2:
+                check = {"content": content, "contract_version": 2,
+                         "request_revision": request["request_revision"], "goal_digest": request["goal_digest"]}
+                self._requirements_ready(check)
+                if not isinstance(evidence, dict) or not evidence.get("session_id"):
+                    raise ManagementError("pm_evidence_required", "New plans require the PM session identity")
             current = self._request_current(request, project)
             plan = {"id": uuid4().hex, "request_id": request_id, "project_id": project["id"],
-                    "status": "proposed" if current else "stale", "content": content,
+                    "status": ("reviewing" if request.get("requirements_contract_version") == 2 else "proposed") if current else "stale", "content": content,
                     **{key: request[key] for key in ("request_revision", "base_harness_version", "base_harness_digest", "goal_digest")},
                     "created_at": self.clock(), "evidence": evidence, "source": (evidence or {}).get("source", request["source"]),
                     "configuration_digest": request["configuration_digest"], "mode": request["mode"]}
+            if request.get("requirements_contract_version") == 2:
+                plan.update(contract_version=2, pm_guidance_version=self.PM_GUIDANCE_VERSION,
+                            plan_review_version=self.PLAN_REVIEW_VERSION)
             if request.get('execution_spec') is not None:
                 self._validate_plan_execution_spec(project['id'], request['execution_spec'], content, request['configuration_digest'])
                 plan['execution_spec'] = copy.deepcopy(request['execution_spec'])
@@ -528,6 +653,53 @@ class ManagementStore:
             self.db.execute("UPDATE management_messages SET document=? WHERE id=?", (json.dumps(user), request_id))
             self.db.execute("INSERT INTO management_messages VALUES (?,?,?)", (assistant["id"], project["id"], json.dumps(assistant)))
             self._event(project["id"], "pm_plan_proposed" if current else "pm_plan_stale", plan["id"])
+        return plan
+
+    def complete_plan_review(self, project_id, plan_id, review):
+        """Worker-only receipt for one separately executed reviewer session."""
+        with self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            plan = self.get_plan(project_id, plan_id)
+            if plan.get("contract_version") != 2:
+                raise ManagementError("plan_review_mismatch", "Legacy plans do not use content review")
+            if plan.get("review"):
+                if plan["review"] != review:
+                    raise ManagementError("plan_review_conflict", "A different review is already stored")
+                return plan
+            if plan["status"] != "reviewing" or not self._request_current(self.get_pm_request(plan["request_id"]), self._project(project_id)):
+                raise ManagementError("stale_plan", "Only the current exact plan can finish review")
+            if (review.get("plan_digest") != plan["digest"]
+                    or review.get("requirements_revision") != plan["request_revision"]
+                    or review.get("requirements_digest") != digest(plan["content"]["requirements_review"])
+                    or review.get("review_version") != plan["plan_review_version"]
+                    or review.get("pm_session_id") != (plan.get("evidence") or {}).get("session_id")
+                    or not review.get("session_id") or review["session_id"] == review["pm_session_id"]
+                    or review.get("verdict") not in ("PASS", "REVISE", "BLOCK")
+                    or review.get("verdict") == "REVISE" and not review.get("findings")
+                    or review.get("verdict") == "PASS" and review.get("findings")):
+                raise ManagementError("plan_review_mismatch", "Review does not bind this plan and separate session")
+            if review["verdict"] == "PASS":
+                self._review_fact(plan, review)
+            plan["review"] = copy.deepcopy(review)
+            plan["status"] = "proposed" if review["verdict"] == "PASS" else "needs_revision"
+            plan.pop("review_problem", None)
+            if review["verdict"] == "PASS":
+                plan["readiness"] = {"state": "eligible_for_master_confirmation", "source": "server",
+                    "plan_digest": plan["digest"], "requirements_revision": plan["request_revision"],
+                    "requirements_digest": digest(plan["content"]["requirements_review"]),
+                    "review_task_id": review["task_id"], "review_session_id": review["session_id"]}
+            self.db.execute("UPDATE management_plans SET document=? WHERE id=?", (json.dumps(plan), plan_id))
+            self._event(project_id, "plan_review_completed", plan_id)
+        return plan
+
+    def note_plan_review_problem(self, project_id, plan_id, reason):
+        with self.db:
+            self.db.execute("BEGIN IMMEDIATE")
+            plan = self.get_plan(project_id, plan_id)
+            if plan["status"] == "reviewing" and plan.get("review_problem") != reason:
+                plan["review_problem"] = reason
+                self.db.execute("UPDATE management_plans SET document=? WHERE id=?", (json.dumps(plan), plan_id))
+                self._event(project_id, "plan_review_waiting", plan_id)
         return plan
 
     def save_pm_feedback(self, request_id, response, *, reason):
@@ -549,7 +721,17 @@ class ManagementStore:
             if request['state'] != 'running' or not request.get('configuration_digest') or request.get('mode') not in ('fixture', 'live'):
                 raise ManagementError('request_conflict', 'PM feedback requires its claimed running request')
             current = self._request_current(request, self._project(request['project_id']))
-            request.update(state='blocked' if current else 'stale', reason=reason, updated_at=self.clock())
+            questions = (response.get('requirements_feedback') or {}).get('questions', [])
+            feedback = response.get('requirements_feedback')
+            if feedback and (feedback['version'] != request.get('requirements_contract_version')
+                             or feedback['revision'] != request['request_revision']
+                             or feedback['goal_digest'] != request['goal_digest']):
+                raise ManagementError('requirements_mismatch', 'PM questions do not bind this goal and revision')
+            awaiting_answer = any(item.get('status') == 'open' for item in questions)
+            request.update(state=('answer_needed' if awaiting_answer else 'blocked') if current else 'stale',
+                           reason=reason, updated_at=self.clock())
+            if response.get('requirements_feedback') is not None:
+                request['requirements_feedback'] = response['requirements_feedback']
             message = dict(id=message_id, role='assistant', content=response['summary'], status=request['state'],
                            request_id=request_id, created_at=self.clock(), evidence=response,
                            source='fixture' if request['mode'] == 'fixture' else 'dispatcher')
@@ -632,6 +814,7 @@ class ManagementStore:
             if (plan.get("id") != row[0] or plan.get("project_id") != row[1]
                     or digest(self._plan_binding(plan)) != plan_digest or plan.get("status") != "confirmed" or not plan.get("run_id")):
                 raise ManagementError("plan_mismatch", "The approved plan must remain confirmed and unchanged")
+            self.assert_plan_ready(plan)
             project = self._project(plan["project_id"])
             parent = self.get_run(plan["run_id"])
             if (project.get("source") == "fixture" or plan.get("source") == "fixture" or plan.get("mode") != "live" or parent.get("mode") != "live"):
@@ -695,6 +878,7 @@ class ManagementStore:
                 return json.loads(prior[1])
             if value.plan_digest != plan["digest"] or digest(self._plan_binding(plan)) != plan["digest"]:
                 raise ManagementError("plan_mismatch", "Plan contents changed; reload before confirming")
+            self.assert_plan_ready(plan)
             if plan["status"] == "confirmed":
                 raise ManagementError("already_confirmed", "Plan already has a run")
             request = self.get_pm_request(plan["request_id"])

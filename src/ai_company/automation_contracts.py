@@ -33,17 +33,85 @@ class RolePlan(Contract):
         return self
 
 
+class Requirement(Contract):
+    id: Key
+    source: Text
+    acceptance: Text
+    verification: Text
+    role_keys: list[Key] = Field(min_length=1, max_length=8)
+
+
+class MaterialQuestion(Contract):
+    id: Key
+    prompt: Text
+    reason: Text
+    options: list[Text] = Field(default_factory=list, max_length=5)
+    recommendation: Text | None = None
+    status: Literal["open", "answered", "assumed", "excluded"]
+    resolution: Text | None = None
+
+    @model_validator(mode="after")
+    def resolved_has_basis(self):
+        if self.status != "open" and not self.resolution:
+            raise ValueError("resolved material questions need an answer, assumption or explicit exclusion")
+        return self
+
+
+class PlanFinding(Contract):
+    id: Key
+    evidence: Text
+    impact: Text
+    alternatives: list[Text] = Field(min_length=1, max_length=5)
+    recommendation: Text
+    blocking: bool
+    status: Literal["open", "resolved", "deferred"]
+    resolution: Text | None = None
+
+    @model_validator(mode="after")
+    def disposition(self):
+        if self.status != "open" and not self.resolution:
+            raise ValueError("disposed findings need a recorded reason")
+        if self.blocking and self.status == "deferred":
+            raise ValueError("blocking findings cannot be deferred")
+        return self
+
+
+class PMRequirements(Contract):
+    version: Literal[2]
+    revision: int = Field(ge=1)
+    goal_digest: Digest
+    problem: Text
+    users_and_flow: Text
+    scope: list[Text] = Field(min_length=1, max_length=20)
+    exclusions: list[Text] = Field(max_length=20)
+    assumptions: list[Text] = Field(max_length=20)
+    questions: list[MaterialQuestion] = Field(max_length=20)
+    findings: list[PlanFinding] = Field(max_length=20)
+    requirements: list[Requirement] = Field(min_length=1, max_length=40)
+
+    @model_validator(mode="after")
+    def unique_ids(self):
+        for items in (self.questions, self.findings, self.requirements):
+            ids = [item.id for item in items]
+            if len(ids) != len(set(ids)):
+                raise ValueError("requirement, question and finding IDs must be unique")
+        return self
+
+
 class PMPlanContent(Contract):
     summary: Text
     roles: list[RolePlan] = Field(min_length=2, max_length=8)
     completion_criteria: list[Text] = Field(min_length=1, max_length=20)
     execution_spec_proposal: dict | None = None
+    requirements_review: PMRequirements | None = None
 
     @model_serializer(mode="wrap")
     def preserve_legacy_content(self, handler):
         value = handler(self)
         if self.execution_spec_proposal is None:
             value.pop("execution_spec_proposal", None)
+        if self.requirements_review is None:
+            value.pop("requirements_review", None)
         return value
 
     @model_validator(mode="after")

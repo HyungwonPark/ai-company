@@ -60,6 +60,9 @@ jobs:
       - name: Verify self-contained preview with browser sandbox
         if: always()
         run: node tests/ui/journey_preview.cjs
+      - name: Verify PM question and review preview with browser sandbox
+        if: always()
+        run: node tests/ui/pm_requirements_preview.cjs
       - name: Verify shell update and rollback with browser sandbox
         if: always()
         run: node tests/ui/journey_service_worker.cjs

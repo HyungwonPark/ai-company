@@ -7,6 +7,7 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from tests.legacy_pm import use_legacy_requests
 from unittest.mock import patch
 
 from pydantic import ValidationError
@@ -144,6 +145,7 @@ class ExecutionCatalogTests(unittest.TestCase):
 
 class ExecutionSpecPersistenceTests(unittest.TestCase):
     def setUp(self):
+        use_legacy_requests(self)
         self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
         self.config = catalog_config(); self.catalog = ExecutionCatalog({'project-main': self.config})
         self.store = ManagementStore(Path(self.tmp.name) / 'state', execution_catalog=self.catalog, clock=lambda: 1000.0)

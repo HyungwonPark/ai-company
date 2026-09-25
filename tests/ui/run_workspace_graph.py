@@ -29,6 +29,9 @@ def seed_graph(store, root, *, long_names=False):
         "tests": "독립 검사 · 입력과 승인 원문을 보존하며 병렬 작업의 결과를 대조하는 Korean Evidence Review 담당" if long_names else "검사",
     }
     message = store.post_message(pid, {"content": "개발과 검사를 나누고 전달한 결과와 대기 이유를 보여 주세요."})
+    old = store.get_pm_request(message["id"]); old.pop("requirements_contract_version")
+    with store.db:
+        store.db.execute("UPDATE management_pm_requests SET document=? WHERE message_id=?", (json.dumps(old), message["id"]))
     request = store.get_pm_request(message["id"])
     store.save_pm_request({**request, "state": "running", "configuration_digest": "c" * 64, "mode": "fixture"}, expected_state="pending")
     plan = store.complete_pm_request(message["id"], {

@@ -96,7 +96,7 @@ class FlowSpec(Contract):
     plan: dict = Field(default_factory=dict)
     dependencies: tuple[Key, ...] = ()
     mode: Literal["live", "fixture"] = "live"
-    execution_scope: Literal["full", "planning", "contribution", "integration"] = "full"
+    execution_scope: Literal["full", "planning", "plan_review", "contribution", "integration"] = "full"
     inherited_authors: tuple[dict, ...] = ()
     inherited_pm_sessions: tuple[dict, ...] = ()
     project_budget: ProjectBudget | None = None
@@ -138,8 +138,10 @@ class FlowSpec(Contract):
             raise ValueError("contribution/integration require the confirmed plan")
         if self.execution_scope == "integration" and not self.inherited_authors:
             raise ValueError("integration requires inherited authors to enforce independent review")
-        if self.execution_scope != "integration" and (self.inherited_authors or self.inherited_pm_sessions):
-            raise ValueError("inherited review exclusions belong to integration scope")
+        if self.execution_scope not in ("integration", "plan_review") and (self.inherited_authors or self.inherited_pm_sessions):
+            raise ValueError("inherited review exclusions belong to review scopes")
+        if self.execution_scope == "plan_review" and (self.approved_plan or not self.inherited_pm_sessions or self.inherited_authors):
+            raise ValueError("plan review requires an unapproved plan and the PM session identity")
         by_id = {a.agent_id: a for a in self.agents}
         if len(by_id) != len(self.agents):
             raise ValueError("agent IDs must be unique")
@@ -202,6 +204,7 @@ class ContributionStageReport(StageReport):
 class PMPlanStageReport(StageReport):
     # A local validator avoids automation_contracts -> flow_contracts circular imports.
     plan: dict | None
+    requirements_feedback: dict | None = None
 
     @field_validator("plan")
     @classmethod
@@ -211,12 +214,29 @@ class PMPlanStageReport(StageReport):
         from ai_company.automation_contracts import PMPlanContent
         return PMPlanContent.model_validate(value).model_dump(mode="json")
 
+    @field_validator("requirements_feedback")
+    @classmethod
+    def typed_feedback(cls, value):
+        if value is None:
+            return None
+        from ai_company.automation_contracts import PMRequirements
+        return PMRequirements.model_validate(value).model_dump(mode="json")
+
+    @model_serializer(mode="wrap")
+    def preserve_legacy_report(self, handler):
+        value = handler(self)
+        if self.requirements_feedback is None:
+            value.pop("requirements_feedback", None)
+        return value
+
     @model_validator(mode="after")
     def planning_verdict(self):
         if self.role != "pm" or self.verdict not in ("PASS", "BLOCK"):
             raise ValueError("planning report must be PM PASS or BLOCK")
         if self.verdict == "PASS" and self.plan is None:
             raise ValueError("planning PASS requires a validated plan")
+        if self.verdict == "PASS" and self.plan and self.plan.get("requirements_review") and self.findings:
+            raise ValueError("planning PASS cannot leave separate unresolved findings outside requirements review")
         return self
 
     @classmethod
