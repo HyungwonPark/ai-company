@@ -106,8 +106,8 @@ class ValidationDelegationAuthorization(BaseModel):
 
 
 class ManagementStore:
-    PM_GUIDANCE_VERSION = "pm-requirements-v3"
-    PLAN_REVIEW_VERSION = "plan-content-review-v2"
+    PM_GUIDANCE_VERSION = "pm-requirements-v4"
+    PLAN_REVIEW_VERSION = "plan-content-review-v3"
 
     def __init__(self, root: Path, *, clock=time.time, execution_catalog=None):
         self.root, self.clock = Path(root).resolve(), clock
@@ -222,7 +222,7 @@ class ManagementStore:
 
     def _skill_selection_ready(self, plan):
         selection = plan["content"].get("skill_selection")
-        if plan.get("pm_guidance_version") != "pm-requirements-v3":
+        if plan.get("pm_guidance_version") not in ("pm-requirements-v3", "pm-requirements-v4"):
             return
         if not isinstance(selection, dict):
             raise ManagementError("skill_selection_required", "Current plans need a server-owned skill selection")
@@ -668,7 +668,7 @@ class ManagementStore:
             raise ManagementError("requirements_unmapped", "Every requirement needs a valid responsible role")
         if any(item.status == "open" for item in spec.questions):
             raise ManagementError("answer_required", "A material decision still needs an answer")
-        if plan.get("pm_guidance_version") == "pm-requirements-v3":
+        if plan.get("pm_guidance_version") in ("pm-requirements-v3", "pm-requirements-v4"):
             if plan.get("status") != "confirmed":
                 request = self.get_pm_request(plan["request_id"])
                 pending_questions = self._pending_material_questions(plan["project_id"], request["request_revision"])

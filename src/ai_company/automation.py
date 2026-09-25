@@ -115,7 +115,7 @@ class Automation:
             pool = selection.get("role_candidates", {}).get(role_key)
             if pool:
                 policy = policy.model_copy(update={"candidates": {**policy.candidates, "developer": tuple(pool)}})
-        elif plan.get("pm_guidance_version") == "pm-requirements-v3":
+        elif plan.get("pm_guidance_version") in ("pm-requirements-v3", "pm-requirements-v4"):
             extra["project_budget"] = ProjectBudget(scope_id=plan["project_id"], max_parallel=self.config.max_parallel,
                 **{key: getattr(self.config.policy, key) for key in
                    ("max_cost_usd", "max_runtime_seconds", "max_executions", "max_repairs")})

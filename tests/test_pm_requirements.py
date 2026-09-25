@@ -52,8 +52,8 @@ class PMRequirementsTests(unittest.TestCase):
         plan = self.plan()
         store = self.h.worker.store
         self.assertTrue(store.request_is_current(plan['request_id']))
-        with patch.object(type(store), 'PM_GUIDANCE_VERSION', 'pm-requirements-v4'), \
-             patch.object(type(store), 'PLAN_REVIEW_VERSION', 'plan-content-review-v3'):
+        with patch.object(type(store), 'PM_GUIDANCE_VERSION', 'pm-requirements-v5'), \
+             patch.object(type(store), 'PLAN_REVIEW_VERSION', 'plan-content-review-v4'):
             self.assertFalse(store.request_is_current(plan['request_id']))
             projected = store.overview(self.h.project['id'])['plans'][-1]
             self.assertEqual(projected['status'], 'stale')
@@ -67,8 +67,8 @@ class PMRequirementsTests(unittest.TestCase):
         store = self.h.worker.store
         plan = store.overview(self.h.project['id'])['plans'][-1]
         self.assertEqual(plan['status'], 'reviewing')
-        with patch.object(type(store), 'PM_GUIDANCE_VERSION', 'pm-requirements-v4'), \
-             patch.object(type(store), 'PLAN_REVIEW_VERSION', 'plan-content-review-v3'):
+        with patch.object(type(store), 'PM_GUIDANCE_VERSION', 'pm-requirements-v5'), \
+             patch.object(type(store), 'PLAN_REVIEW_VERSION', 'plan-content-review-v4'):
             self.h.worker.run_once()
             waiting = store.overview(self.h.project['id'])['plans'][-1]
             self.assertEqual(waiting['status'], 'reviewing')
@@ -78,8 +78,8 @@ class PMRequirementsTests(unittest.TestCase):
     def test_confirmed_run_recovers_with_its_original_review_policy(self):
         plan = self.plan()
         run = self.confirm(plan)['run']
-        with patch.object(type(self.h.worker.store), 'PM_GUIDANCE_VERSION', 'pm-requirements-v4'), \
-             patch.object(type(self.h.worker.store), 'PLAN_REVIEW_VERSION', 'plan-content-review-v3'):
+        with patch.object(type(self.h.worker.store), 'PM_GUIDANCE_VERSION', 'pm-requirements-v5'), \
+             patch.object(type(self.h.worker.store), 'PLAN_REVIEW_VERSION', 'plan-content-review-v4'):
             self.h.worker.close(); self.h.worker = self.h.open()
             self.h.worker.run_once()
             self.assertEqual(set(self.h.worker.store.get_run(run['id'])['roles']), {'impl', 'test'})
