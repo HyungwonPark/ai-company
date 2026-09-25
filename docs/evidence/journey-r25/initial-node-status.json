@@ -1,0 +1,31 @@
+{
+  "status": "REPRODUCED",
+  "groups": [
+    {
+      "title": "완료",
+      "count": 0,
+      "statuses": []
+    },
+    {
+      "title": "진행·대기",
+      "count": 4,
+      "statuses": [
+        "MERGE_READY",
+        "RECONCILIATION_REQUIRED",
+        "NEEDS_RECONCILIATION",
+        "NEEDS_CONTEXT_HANDOFF"
+      ]
+    },
+    {
+      "title": "차단",
+      "count": 0,
+      "statuses": []
+    }
+  ],
+  "rejected": {
+    "title": "상태 미확인",
+    "next": "저장된 실행 상태와 근거를 진행에서 확인하세요."
+  },
+  "expected": "Existing completion and operator-required statuses need explicit categories; a recorded rejection is not unknown.",
+  "limitations": "Actual renderer/helper execution with synthetic read-only records; no real browser, DB or approval."
+}

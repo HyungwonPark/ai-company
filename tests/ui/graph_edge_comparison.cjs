@@ -10,9 +10,12 @@ const {pathToFileURL}=require('node:url');
  const after=path.join(out,'AI-Company-edges.html'),before=path.join(out,'AI-Company-edges-before.html');
  execFileSync('python3',['scripts/package_graph_preview.py',after]);
  const renderer=await fs.readFile('src/ai_company/web/workspace-graph-ui.js','utf8');
- const baseline=execFileSync('git',['show','1b50332:src/ai_company/web/workspace-graph-ui.js'],{encoding:'utf8'});
+ const comparisonBaseline=process.env.GRAPH_COMPARE_BASELINE||'1b50332';
+ const baseline=execFileSync('git',['show',comparisonBaseline+':src/ai_company/web/workspace-graph-ui.js'],{encoding:'utf8'});
  const html=await fs.readFile(after,'utf8');assert.ok(html.includes(renderer.replaceAll('export function ','function ')));
- await fs.writeFile(before,html.replace(renderer.replaceAll('export function ','function '),baseline.replaceAll('export function ','function ')));
+ let beforeHTML=html.replace(renderer.replaceAll('export function ','function '),baseline.replaceAll('export function ','function '));
+ if(process.env.GRAPH_COMPARE_BASELINE){const css=await fs.readFile('src/ai_company/web/workspace-graph.css','utf8');assert.ok(beforeHTML.includes(css));beforeHTML=beforeHTML.replace(css,execFileSync('git',['show',comparisonBaseline+':src/ai_company/web/workspace-graph.css'],{encoding:'utf8'}));}
+ await fs.writeFile(before,beforeHTML);
  const browser=await chromium.launch({headless:true,chromiumSandbox:true,...(process.env.CHROME_CHANNEL?{channel:process.env.CHROME_CHANNEL}:{}),...(process.env.CHROMIUM_EXECUTABLE?{executablePath:process.env.CHROMIUM_EXECUTABLE}:{})});
  const records=[],errors=[],requests=[];
  try{for(const theme of ['light','black'])for(const width of [320,390,1440])for(const run of ['recent','previous'])for(const [version,file]of [['before',before],['after',after]]){
@@ -30,7 +33,7 @@ const {pathToFileURL}=require('node:url');
  }
  for(let i=0;i<records.length;i+=2)assert.deepEqual(records[i].ids,records[i+1].ids,'same relationship records in paired images');
  assert.deepEqual(errors,[]);assert.deepEqual(requests,[]);
- await fs.writeFile(path.join(out,'workspace-edges-comparison-validation.json'),JSON.stringify({status:'PASS',baseline:'1b50332',source:'sanitized offline fixture; no model or production calls',records},null,2));
+ await fs.writeFile(path.join(out,'workspace-edges-comparison-validation.json'),JSON.stringify({status:'PASS',baseline:comparisonBaseline,css_baseline:process.env.GRAPH_COMPARE_BASELINE?comparisonBaseline:'candidate',source:'sanitized offline fixture; no model or production calls',records},null,2));
  console.log('PASS: paired before/after screenshots at Light/Black 320/390/1440; identical relations; offline preview');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});

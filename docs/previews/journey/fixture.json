@@ -1,0 +1,4023 @@
+{
+  "fixture": true,
+  "read_only": true,
+  "provenance": {
+    "generator": "tests/ui/run_workspace_graph.py:seed_graph",
+    "generator_sha256": "d189d65c866b65b5a5e8238226d4e88665681d6dfb57427efb3a81aa74a09e36",
+    "database": "new temporary directory; removed after export",
+    "scope": "synthetic fixture only; no live API, models, credentials or production records",
+    "timestamps": "frozen API observation; approval expiry is evaluated by the unmodified product UI"
+  },
+  "fixtures": {
+    "project_id": "b6e3599066d9409492c3e4e74e05190c",
+    "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+    "run_ids": [
+      "7ba3b840de144b798a13a709fb2a8c14",
+      "graph-fixture-new-run"
+    ],
+    "other_project_id": "1d27e3af736e46a1a071c3c014591d56"
+  },
+  "projects": [
+    {
+      "id": "b6e3599066d9409492c3e4e74e05190c",
+      "name": "역할 상태 확인 · 그래프 예시",
+      "goal": "역할별로 무엇을 하는지 한눈에 보고 싶어요.",
+      "status": "PLAN_CONFIRMED",
+      "harness_version": 2,
+      "request_revision": 1,
+      "source": "fixture",
+      "created_at": 1790186823.7242446,
+      "updated_at": 1790186823.7814069,
+      "pending_approval_count": 1,
+      "recent_run": {
+        "id": "graph-fixture-new-run",
+        "state": "waiting",
+        "created_at": 1790186833.73913,
+        "mode": "fixture"
+      },
+      "recent_pm_request": {
+        "id": "9acb2715b36749799082e7111d49bdf3",
+        "state": "completed",
+        "created_at": 1790186823.72603,
+        "mode": "fixture",
+        "execution": null
+      }
+    },
+    {
+      "id": "1d27e3af736e46a1a071c3c014591d56",
+      "name": "다른 프로젝트 · 예시",
+      "goal": "이전 프로젝트의 실행과 섞이지 않습니다.",
+      "status": "PLANNING",
+      "harness_version": 1,
+      "request_revision": 0,
+      "source": "fixture",
+      "created_at": 1790186823.793672,
+      "updated_at": 1790186823.7937508,
+      "pending_approval_count": 0,
+      "recent_run": null,
+      "recent_pm_request": null
+    }
+  ],
+  "overviews": {
+    "b6e3599066d9409492c3e4e74e05190c": {
+      "project": {
+        "id": "b6e3599066d9409492c3e4e74e05190c",
+        "name": "역할 상태 확인 · 그래프 예시",
+        "goal": "역할별로 무엇을 하는지 한눈에 보고 싶어요.",
+        "status": "PLAN_CONFIRMED",
+        "harness_version": 2,
+        "request_revision": 1,
+        "source": "fixture",
+        "created_at": 1790186823.7242446,
+        "harness_content": "{\n  \"summary\": \"함수 개발과 독립 검사를 나눕니다. 예시 기록이며 실제 모델을 실행하지 않았습니다.\",\n  \"roles\": [\n    {\n      \"key\": \"dev\",\n      \"name\": \"개발\",\n      \"responsibility\": \"역할 상태를 집계합니다.\",\n      \"goal\": \"역할 상태를 집계합니다.\",\n      \"acceptance\": [\n        \"빈 입력과 모든 상태 확인\"\n      ],\n      \"allowed_paths\": [\n        \"src/ai_company/pilot_status.py\"\n      ],\n      \"depends_on\": []\n    },\n    {\n      \"key\": \"tests\",\n      \"name\": \"검사\",\n      \"responsibility\": \"별도 테스트로 결과를 확인합니다.\",\n      \"goal\": \"별도 테스트로 결과를 확인합니다.\",\n      \"acceptance\": [\n        \"빈 입력과 모든 상태 확인\"\n      ],\n      \"allowed_paths\": [\n        \"tests/test_pilot_status.py\"\n      ],\n      \"depends_on\": []\n    }\n  ],\n  \"completion_criteria\": [\n    \"격리 검사\",\n    \"같은 후보의 독립 검수와 Astra 최종 검수\"\n  ]\n}"
+      },
+      "roles": [
+        {
+          "id": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+          "key": "dev",
+          "name": "개발",
+          "responsibility": "역할 상태를 집계합니다.",
+          "goal": "역할 상태를 집계합니다.",
+          "acceptance": [
+            "빈 입력과 모든 상태 확인"
+          ],
+          "allowed_paths": [
+            "src/ai_company/pilot_status.py"
+          ],
+          "depends_on": [],
+          "active": true,
+          "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+          "status": "RUNNING",
+          "assigned_model": "gpt-6-astra",
+          "session_id": null,
+          "current_task_id": "graph-fixture-new-dev",
+          "next_task_id": "graph-fixture-old-dev",
+          "wait_reason": "예시로 저장한 작업 상태",
+          "resume_at": null,
+          "handoffs": []
+        },
+        {
+          "id": "bfae982a80f04a88b4497a320d13d02b",
+          "key": "tests",
+          "name": "검사",
+          "responsibility": "별도 테스트로 결과를 확인합니다.",
+          "goal": "별도 테스트로 결과를 확인합니다.",
+          "acceptance": [
+            "빈 입력과 모든 상태 확인"
+          ],
+          "allowed_paths": [
+            "tests/test_pilot_status.py"
+          ],
+          "depends_on": [],
+          "active": true,
+          "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+          "status": "WAITING_CAPACITY",
+          "assigned_model": "claude-opus-5",
+          "session_id": null,
+          "current_task_id": "graph-fixture-new-tests",
+          "next_task_id": "graph-fixture-old-tests",
+          "wait_reason": "공유 한도 대기 · 개발은 계속됩니다.",
+          "resume_at": 1790187723.7706437,
+          "handoffs": []
+        }
+      ],
+      "tasks": [
+        {
+          "id": "graph-fixture-old-dev",
+          "flow_task_id": "graph-fixture-old-dev",
+          "role_id": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+          "title": "역할 상태 집계",
+          "harness_version": 2,
+          "status": "CONTRIBUTION_READY",
+          "stage": "developer",
+          "dependencies": [],
+          "execution_scope": "contribution",
+          "created_at": 1790186823.750147,
+          "revision": 0,
+          "generation": null,
+          "candidate_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "wait_reason": "예시로 저장한 작업 상태",
+          "resume_at": null,
+          "active": {
+            "agent_id": "fixture-codex",
+            "role": "developer",
+            "execution_id": "graph-fixture-old-dev:2",
+            "generation": 2,
+            "previous_execution_id": "graph-fixture-old-dev:1"
+          },
+          "agents": [
+            {
+              "agent_id": "fixture-codex",
+              "provider": "codex",
+              "model": "gpt-6-astra",
+              "reasoning_effort": "ultra",
+              "quota_group": "fixture-codex"
+            },
+            {
+              "agent_id": "fixture-claude",
+              "provider": "claude",
+              "model": "claude-opus-5",
+              "reasoning_effort": "xhigh",
+              "quota_group": "fixture-claude"
+            }
+          ],
+          "handoffs": [],
+          "repair_reason": []
+        },
+        {
+          "id": "graph-fixture-old-tests",
+          "flow_task_id": "graph-fixture-old-tests",
+          "role_id": "bfae982a80f04a88b4497a320d13d02b",
+          "title": "독립 검사",
+          "harness_version": 2,
+          "status": "CONTRIBUTION_READY",
+          "stage": "developer",
+          "dependencies": [],
+          "execution_scope": "contribution",
+          "created_at": 1790186823.7538574,
+          "revision": 0,
+          "generation": null,
+          "candidate_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "wait_reason": "예시로 저장한 작업 상태",
+          "resume_at": null,
+          "active": {
+            "agent_id": "fixture-claude",
+            "role": "developer",
+            "execution_id": "graph-fixture-old-tests:2",
+            "generation": 2,
+            "previous_execution_id": "graph-fixture-old-tests:1"
+          },
+          "agents": [
+            {
+              "agent_id": "fixture-codex",
+              "provider": "codex",
+              "model": "gpt-6-astra",
+              "reasoning_effort": "ultra",
+              "quota_group": "fixture-codex"
+            },
+            {
+              "agent_id": "fixture-claude",
+              "provider": "claude",
+              "model": "claude-opus-5",
+              "reasoning_effort": "xhigh",
+              "quota_group": "fixture-claude"
+            }
+          ],
+          "handoffs": [],
+          "repair_reason": []
+        },
+        {
+          "id": "graph-fixture-old-integration",
+          "flow_task_id": "graph-fixture-old-integration",
+          "role_id": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+          "title": "역할 상태 집계",
+          "harness_version": 2,
+          "status": "MERGE_READY",
+          "stage": "final",
+          "dependencies": [],
+          "execution_scope": "integration",
+          "created_at": 1790186823.7601209,
+          "revision": 0,
+          "generation": null,
+          "candidate_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "wait_reason": "예시로 저장한 작업 상태",
+          "resume_at": null,
+          "active": {
+            "agent_id": "fixture-codex",
+            "role": "final",
+            "execution_id": "graph-fixture-old-integration:2",
+            "generation": 2,
+            "previous_execution_id": "graph-fixture-old-integration:1"
+          },
+          "agents": [
+            {
+              "agent_id": "fixture-codex",
+              "provider": "codex",
+              "model": "gpt-6-astra",
+              "reasoning_effort": "ultra",
+              "quota_group": "fixture-codex"
+            },
+            {
+              "agent_id": "fixture-claude",
+              "provider": "claude",
+              "model": "claude-opus-5",
+              "reasoning_effort": "xhigh",
+              "quota_group": "fixture-claude"
+            }
+          ],
+          "handoffs": [
+            {
+              "agent_id": "fixture-codex",
+              "role": "reviewer",
+              "execution_id": "graph-fixture-old-integration:reviewer",
+              "generation": 2,
+              "previous_execution_id": "graph-fixture-old-integration:1"
+            },
+            {
+              "agent_id": "fixture-codex",
+              "role": "final",
+              "execution_id": "graph-fixture-old-integration:final",
+              "generation": 2,
+              "previous_execution_id": "graph-fixture-old-integration:1"
+            }
+          ],
+          "repair_reason": []
+        },
+        {
+          "id": "graph-fixture-new-dev",
+          "flow_task_id": "graph-fixture-new-dev",
+          "role_id": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+          "title": "역할 상태 집계",
+          "harness_version": 2,
+          "status": "RUNNING",
+          "stage": "developer",
+          "dependencies": [],
+          "execution_scope": "contribution",
+          "created_at": 1790186823.7675579,
+          "revision": 0,
+          "generation": null,
+          "candidate_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "wait_reason": "예시로 저장한 작업 상태",
+          "resume_at": null,
+          "active": {
+            "agent_id": "fixture-codex",
+            "role": "developer",
+            "execution_id": "graph-fixture-new-dev:2",
+            "generation": 2,
+            "previous_execution_id": "graph-fixture-new-dev:1"
+          },
+          "agents": [
+            {
+              "agent_id": "fixture-codex",
+              "provider": "codex",
+              "model": "gpt-6-astra",
+              "reasoning_effort": "ultra",
+              "quota_group": "fixture-codex"
+            },
+            {
+              "agent_id": "fixture-claude",
+              "provider": "claude",
+              "model": "claude-opus-5",
+              "reasoning_effort": "xhigh",
+              "quota_group": "fixture-claude"
+            }
+          ],
+          "handoffs": [],
+          "repair_reason": []
+        },
+        {
+          "id": "graph-fixture-new-tests",
+          "flow_task_id": "graph-fixture-new-tests",
+          "role_id": "bfae982a80f04a88b4497a320d13d02b",
+          "title": "독립 검사",
+          "harness_version": 2,
+          "status": "WAITING_CAPACITY",
+          "stage": "developer",
+          "dependencies": [],
+          "execution_scope": "contribution",
+          "created_at": 1790186823.7706425,
+          "revision": 0,
+          "generation": null,
+          "candidate_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "wait_reason": "공유 한도 대기 · 개발은 계속됩니다.",
+          "resume_at": 1790187723.7706437,
+          "active": {
+            "agent_id": "fixture-claude",
+            "role": "developer",
+            "execution_id": "graph-fixture-new-tests:2",
+            "generation": 2,
+            "previous_execution_id": "graph-fixture-new-tests:1"
+          },
+          "agents": [
+            {
+              "agent_id": "fixture-codex",
+              "provider": "codex",
+              "model": "gpt-6-astra",
+              "reasoning_effort": "ultra",
+              "quota_group": "fixture-codex"
+            },
+            {
+              "agent_id": "fixture-claude",
+              "provider": "claude",
+              "model": "claude-opus-5",
+              "reasoning_effort": "xhigh",
+              "quota_group": "fixture-claude"
+            }
+          ],
+          "handoffs": [],
+          "repair_reason": []
+        },
+        {
+          "id": "graph-fixture-new-integration",
+          "flow_task_id": "graph-fixture-new-integration",
+          "role_id": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+          "title": "역할 상태 집계",
+          "harness_version": 2,
+          "status": "WAITING_DEPENDENCY",
+          "stage": "reviewer",
+          "dependencies": [],
+          "execution_scope": "integration",
+          "created_at": 1790186823.776251,
+          "revision": 0,
+          "generation": null,
+          "candidate_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "wait_reason": "공유 한도 대기 · 개발은 계속됩니다.",
+          "resume_at": 1790187723.7762527,
+          "active": {
+            "agent_id": "fixture-codex",
+            "role": "reviewer",
+            "execution_id": "graph-fixture-new-integration:2",
+            "generation": 2,
+            "previous_execution_id": "graph-fixture-new-integration:1"
+          },
+          "agents": [
+            {
+              "agent_id": "fixture-codex",
+              "provider": "codex",
+              "model": "gpt-6-astra",
+              "reasoning_effort": "ultra",
+              "quota_group": "fixture-codex"
+            },
+            {
+              "agent_id": "fixture-claude",
+              "provider": "claude",
+              "model": "claude-opus-5",
+              "reasoning_effort": "xhigh",
+              "quota_group": "fixture-claude"
+            }
+          ],
+          "handoffs": [],
+          "repair_reason": []
+        }
+      ],
+      "reports": [
+        {
+          "id": "flow-graph-fixture-old-dev",
+          "title": "역할 상태 집계",
+          "summary": "CONTRIBUTION_READY: 예시로 저장한 작업 상태",
+          "source": "system",
+          "created_at": 1790186823.756955,
+          "evidence": [],
+          "verification": null,
+          "review_reports": {}
+        },
+        {
+          "id": "flow-graph-fixture-old-tests",
+          "title": "독립 검사",
+          "summary": "CONTRIBUTION_READY: 예시로 저장한 작업 상태",
+          "source": "system",
+          "created_at": 1790186823.7585266,
+          "evidence": [],
+          "verification": null,
+          "review_reports": {}
+        },
+        {
+          "id": "flow-graph-fixture-old-integration",
+          "title": "역할 상태 집계",
+          "summary": "MERGE_READY: 예시로 저장한 작업 상태",
+          "source": "system",
+          "created_at": 1790186823.763379,
+          "evidence": [
+            {
+              "label": "Verified candidate commit",
+              "url": "https://github.com/fixture/graph/commit/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ],
+          "verification": {
+            "head_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "passed": true,
+            "remote": {
+              "source": "fixture",
+              "conclusion": "success"
+            }
+          },
+          "review_reports": {}
+        },
+        {
+          "id": "flow-graph-fixture-new-dev",
+          "title": "역할 상태 집계",
+          "summary": "RUNNING: 예시로 저장한 작업 상태",
+          "source": "system",
+          "created_at": 1790186823.7732294,
+          "evidence": [],
+          "verification": null,
+          "review_reports": {}
+        },
+        {
+          "id": "flow-graph-fixture-new-tests",
+          "title": "독립 검사",
+          "summary": "WAITING_CAPACITY: 공유 한도 대기 · 개발은 계속됩니다.",
+          "source": "system",
+          "created_at": 1790186823.7747376,
+          "evidence": [],
+          "verification": null,
+          "review_reports": {}
+        },
+        {
+          "id": "flow-graph-fixture-new-integration",
+          "title": "역할 상태 집계",
+          "summary": "WAITING_DEPENDENCY: 공유 한도 대기 · 개발은 계속됩니다.",
+          "source": "system",
+          "created_at": 1790186823.7796524,
+          "evidence": [
+            {
+              "label": "Verified candidate commit",
+              "url": "https://github.com/fixture/graph/commit/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          ],
+          "verification": {
+            "head_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "passed": true,
+            "remote": {
+              "source": "fixture",
+              "conclusion": "success"
+            }
+          },
+          "review_reports": {}
+        }
+      ],
+      "approvals": [
+        {
+          "id": "65b54153b88048ce869c4b9e38303a2a",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "title": "이전 예시 후보 수용",
+          "action": "결과 수용만 기록합니다. 배포·병합은 아닙니다.",
+          "environment": "isolated-fixture",
+          "artifact_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "cost_usd": 0.0,
+          "expires_at": 1790273223.7648141,
+          "impact": "이전 예시 실행의 후보",
+          "rollback": "승인을 미결로 유지",
+          "verification": "fixture; 실제 모델·CI 실행 아님",
+          "status": "pending",
+          "source": "unverified",
+          "subject_digest": "76b115eda3c0267232256cc747495f5062623d657024f38b65d7ef3032158de6",
+          "created_at": 1790186823.765006
+        }
+      ],
+      "messages": [
+        {
+          "id": "9acb2715b36749799082e7111d49bdf3",
+          "role": "user",
+          "content": "개발과 검사를 나누고 전달한 결과와 대기 이유를 보여 주세요.",
+          "status": "completed",
+          "created_at": 1790186823.7259445
+        },
+        {
+          "id": "237a885bdd2346dcb2c2a9f2b3a5c8ac",
+          "role": "assistant",
+          "content": "함수 개발과 독립 검사를 나눕니다. 예시 기록이며 실제 모델을 실행하지 않았습니다.",
+          "status": "proposed",
+          "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+          "request_id": "9acb2715b36749799082e7111d49bdf3",
+          "created_at": 1790186823.7369013,
+          "evidence": {
+            "source": "fixture",
+            "verification_level": "graph browser fixture; no models"
+          },
+          "source": "fixture"
+        }
+      ],
+      "harnesses": [
+        {
+          "version": 1,
+          "status": "superseded",
+          "content": "{\n  \"goal\": \"역할별로 무엇을 하는지 한눈에 보고 싶어요.\",\n  \"roles\": []\n}",
+          "digest": "7425d0c18d81f9ab0621c30c3c68622ca5783767fdf8f0939f1d4a8bbca8ba72",
+          "created_at": 1790186823.724301
+        },
+        {
+          "version": 2,
+          "base_version": 1,
+          "status": "active",
+          "content": "{\n  \"summary\": \"함수 개발과 독립 검사를 나눕니다. 예시 기록이며 실제 모델을 실행하지 않았습니다.\",\n  \"roles\": [\n    {\n      \"key\": \"dev\",\n      \"name\": \"개발\",\n      \"responsibility\": \"역할 상태를 집계합니다.\",\n      \"goal\": \"역할 상태를 집계합니다.\",\n      \"acceptance\": [\n        \"빈 입력과 모든 상태 확인\"\n      ],\n      \"allowed_paths\": [\n        \"src/ai_company/pilot_status.py\"\n      ],\n      \"depends_on\": []\n    },\n    {\n      \"key\": \"tests\",\n      \"name\": \"검사\",\n      \"responsibility\": \"별도 테스트로 결과를 확인합니다.\",\n      \"goal\": \"별도 테스트로 결과를 확인합니다.\",\n      \"acceptance\": [\n        \"빈 입력과 모든 상태 확인\"\n      ],\n      \"allowed_paths\": [\n        \"tests/test_pilot_status.py\"\n      ],\n      \"depends_on\": []\n    }\n  ],\n  \"completion_criteria\": [\n    \"격리 검사\",\n    \"같은 후보의 독립 검수와 Astra 최종 검수\"\n  ]\n}",
+          "digest": "11f23ee655ac8a7550ceba8259621a366a36bbf423a4394005c5994b9635d463",
+          "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+          "created_at": 1790186823.7390919
+        }
+      ],
+      "readiness": {
+        "mode": "fixture",
+        "pm": "plan_proposed",
+        "execution": "waiting",
+        "execution_mode": "fixture"
+      },
+      "pm_requests": [
+        {
+          "request_id": "9acb2715b36749799082e7111d49bdf3",
+          "message_id": "9acb2715b36749799082e7111d49bdf3",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "state": "completed",
+          "request_revision": 1,
+          "base_harness_version": 1,
+          "base_harness_digest": "7425d0c18d81f9ab0621c30c3c68622ca5783767fdf8f0939f1d4a8bbca8ba72",
+          "goal_digest": "97af60a07736d003e4d7e36f3d7c1dba4c04a033306c6e5a4703108f8069d1e8",
+          "goal": "역할별로 무엇을 하는지 한눈에 보고 싶어요.",
+          "content": "개발과 검사를 나누고 전달한 결과와 대기 이유를 보여 주세요.",
+          "source": "unverified",
+          "conversation_context": {
+            "messages": [],
+            "previous_proposal": null,
+            "purpose": "discussion_only; a new plan requires a new explicit confirmation"
+          },
+          "created_at": 1790186823.726033,
+          "updated_at": 1790186823.7368512,
+          "execution": null,
+          "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+          "configuration_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "mode": "fixture"
+        }
+      ],
+      "plans": [
+        {
+          "id": "089d4d6486d245ad95c511a620d3e36f",
+          "request_id": "9acb2715b36749799082e7111d49bdf3",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "status": "confirmed",
+          "content": {
+            "summary": "함수 개발과 독립 검사를 나눕니다. 예시 기록이며 실제 모델을 실행하지 않았습니다.",
+            "roles": [
+              {
+                "key": "dev",
+                "name": "개발",
+                "responsibility": "역할 상태를 집계합니다.",
+                "goal": "역할 상태를 집계합니다.",
+                "acceptance": [
+                  "빈 입력과 모든 상태 확인"
+                ],
+                "allowed_paths": [
+                  "src/ai_company/pilot_status.py"
+                ],
+                "depends_on": []
+              },
+              {
+                "key": "tests",
+                "name": "검사",
+                "responsibility": "별도 테스트로 결과를 확인합니다.",
+                "goal": "별도 테스트로 결과를 확인합니다.",
+                "acceptance": [
+                  "빈 입력과 모든 상태 확인"
+                ],
+                "allowed_paths": [
+                  "tests/test_pilot_status.py"
+                ],
+                "depends_on": []
+              }
+            ],
+            "completion_criteria": [
+              "격리 검사",
+              "같은 후보의 독립 검수와 Astra 최종 검수"
+            ]
+          },
+          "request_revision": 1,
+          "base_harness_version": 1,
+          "base_harness_digest": "7425d0c18d81f9ab0621c30c3c68622ca5783767fdf8f0939f1d4a8bbca8ba72",
+          "goal_digest": "97af60a07736d003e4d7e36f3d7c1dba4c04a033306c6e5a4703108f8069d1e8",
+          "created_at": 1790186823.7368095,
+          "evidence": {
+            "source": "fixture",
+            "verification_level": "graph browser fixture; no models"
+          },
+          "source": "fixture",
+          "configuration_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "mode": "fixture",
+          "digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+          "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+          "confirmed_at": 1790186823.739133
+        }
+      ],
+      "runs": [
+        {
+          "id": "7ba3b840de144b798a13a709fb2a8c14",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+          "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+          "state": "awaiting_approval",
+          "role_ids": {
+            "dev": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+            "tests": "bfae982a80f04a88b4497a320d13d02b"
+          },
+          "harness_version": 2,
+          "created_at": 1790186823.739131,
+          "updated_at": 1790186823.7391312,
+          "configuration_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "mode": "fixture",
+          "roles": {
+            "dev": {
+              "task_id": "graph-fixture-old-dev",
+              "candidate_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "tests": {
+              "task_id": "graph-fixture-old-tests",
+              "candidate_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          },
+          "integration": {
+            "task_id": "graph-fixture-old-integration"
+          },
+          "approval_id": "65b54153b88048ce869c4b9e38303a2a"
+        },
+        {
+          "id": "graph-fixture-new-run",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+          "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+          "state": "waiting",
+          "role_ids": {
+            "dev": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+            "tests": "bfae982a80f04a88b4497a320d13d02b"
+          },
+          "harness_version": 2,
+          "created_at": 1790186833.739131,
+          "updated_at": 1790186833.739131,
+          "configuration_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "mode": "fixture",
+          "roles": {
+            "dev": {
+              "task_id": "graph-fixture-new-dev",
+              "candidate_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            },
+            "tests": {
+              "task_id": "graph-fixture-new-tests",
+              "candidate_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+            }
+          },
+          "integration": {
+            "task_id": "graph-fixture-new-integration"
+          }
+        }
+      ],
+      "workers": {
+        "automation": {
+          "state": "unavailable",
+          "source": "worker_heartbeat"
+        },
+        "translation": {
+          "state": "unavailable",
+          "source": "worker_heartbeat"
+        }
+      },
+      "project_report": {
+        "source": "system",
+        "scope": "current_plan",
+        "project_id": "b6e3599066d9409492c3e4e74e05190c",
+        "goal": "역할별로 무엇을 하는지 한눈에 보고 싶어요.",
+        "goal_digest": "97af60a07736d003e4d7e36f3d7c1dba4c04a033306c6e5a4703108f8069d1e8",
+        "request_revision": 1,
+        "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+        "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+        "run_id": "graph-fixture-new-run",
+        "mode": "fixture",
+        "completed": [],
+        "in_progress": [
+          {
+            "role_key": "dev",
+            "role_index": 0,
+            "title": "개발",
+            "task_id": "graph-fixture-new-dev",
+            "status": "RUNNING",
+            "stage": "developer",
+            "reason": "예시로 저장한 작업 상태",
+            "resume_at": null,
+            "candidate_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "role_key": "tests",
+            "role_index": 1,
+            "title": "검사",
+            "task_id": "graph-fixture-new-tests",
+            "status": "WAITING_CAPACITY",
+            "stage": "developer",
+            "reason": "공유 한도 대기 · 개발은 계속됩니다.",
+            "resume_at": 1790187723.7706437,
+            "candidate_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        ],
+        "blockers": [
+          {
+            "role_key": "tests",
+            "role_index": 1,
+            "title": "검사",
+            "task_id": "graph-fixture-new-tests",
+            "status": "WAITING_CAPACITY",
+            "stage": "developer",
+            "reason": "공유 한도 대기 · 개발은 계속됩니다.",
+            "resume_at": 1790187723.7706437,
+            "candidate_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          {
+            "task_id": "graph-fixture-new-integration",
+            "status": "WAITING_DEPENDENCY",
+            "stage": "reviewer",
+            "candidate_sha": null,
+            "pr_url": null,
+            "reason": "공유 한도 대기 · 개발은 계속됩니다.",
+            "resume_at": 1790187723.7762527,
+            "title": "통합 검수"
+          },
+          {
+            "title": "실행기",
+            "status": "WORKER_UNCONFIRMED",
+            "reason": "PM·조정기의 최근 가동 신호가 없습니다."
+          }
+        ],
+        "next_actions": [
+          {
+            "owner": "operator",
+            "text": "실행기 가동 상태를 확인하세요.",
+            "view": "manager"
+          },
+          {
+            "owner": "coordinator",
+            "text": "대기 원인과 예약 시각을 확인합니다. 독립 작업은 계속합니다.",
+            "view": "progress"
+          }
+        ],
+        "decisions": [
+          {
+            "kind": "plan_confirmed",
+            "at": 1790186823.739133,
+            "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+            "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+            "delegated": false
+          }
+        ],
+        "completion_criteria": [
+          "격리 검사",
+          "같은 후보의 독립 검수와 Astra 최종 검수"
+        ],
+        "goal_assessment": "not_assessed",
+        "candidate_verified": false,
+        "pm_report_ids": [],
+        "candidate_sha": null,
+        "verification": {
+          "task_id": "graph-fixture-new-integration",
+          "status": "WAITING_DEPENDENCY",
+          "stage": "reviewer",
+          "candidate_sha": null,
+          "pr_url": null,
+          "reason": "공유 한도 대기 · 개발은 계속됩니다.",
+          "resume_at": 1790187723.7762527
+        },
+        "digest": "a4f087f1b7296e049cc4286256da9a88089ca1969826e9cda02000bd3f08111e"
+      },
+      "documents": {
+        "approval:65b54153b88048ce869c4b9e38303a2a": {
+          "id": "approval:65b54153b88048ce869c4b9e38303a2a",
+          "kind": "approval",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "76b115eda3c0267232256cc747495f5062623d657024f38b65d7ef3032158de6",
+          "author_role": "unverified",
+          "source_ref": {
+            "approval_id": "65b54153b88048ce869c4b9e38303a2a",
+            "subject_digest": "76b115eda3c0267232256cc747495f5062623d657024f38b65d7ef3032158de6"
+          },
+          "fields": {
+            "title": "이전 예시 후보 수용",
+            "action": "결과 수용만 기록합니다. 배포·병합은 아닙니다.",
+            "impact": "이전 예시 실행의 후보",
+            "rollback": "승인을 미결로 유지"
+          },
+          "protected": {
+            "subject_digest": "76b115eda3c0267232256cc747495f5062623d657024f38b65d7ef3032158de6",
+            "artifact_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "environment": "isolated-fixture",
+            "cost_usd": 0.0,
+            "expires_at": 1790273223.7648141,
+            "verification": "fixture; 실제 모델·CI 실행 아님"
+          },
+          "source_digest": "7532817e52ed9811fefd44b9d4f6916cd2ee00fd3c8a428bf2a69553dad392f4",
+          "original_language": "ko",
+          "translation": null
+        },
+        "report:flow-graph-fixture-old-dev": {
+          "id": "report:flow-graph-fixture-old-dev",
+          "kind": "report",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "82d548d184c88a80a320636b255502c486539ad5c1aae090fae6ec2e7598f92b",
+          "author_role": "system",
+          "source_ref": {
+            "report_id": "flow-graph-fixture-old-dev",
+            "evidence": []
+          },
+          "fields": {
+            "title": "역할 상태 집계",
+            "summary": "CONTRIBUTION_READY: 예시로 저장한 작업 상태"
+          },
+          "protected": {},
+          "source_digest": "5f0d9c96582ed8db305cad225a4305b30eaab9106547ba7ec371945b0d0702b5",
+          "original_language": "mixed",
+          "translation": null
+        },
+        "report:flow-graph-fixture-old-tests": {
+          "id": "report:flow-graph-fixture-old-tests",
+          "kind": "report",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "a181c8aab6672f047ca59bf7b62ee2e3b99f44469862d3b494ad9e27c14357a3",
+          "author_role": "system",
+          "source_ref": {
+            "report_id": "flow-graph-fixture-old-tests",
+            "evidence": []
+          },
+          "fields": {
+            "title": "독립 검사",
+            "summary": "CONTRIBUTION_READY: 예시로 저장한 작업 상태"
+          },
+          "protected": {},
+          "source_digest": "5eccd1f29928b70fd6de3dc6ccba5300e99dd40cd2ff0cae6aa9c15ca6edab2e",
+          "original_language": "mixed",
+          "translation": null
+        },
+        "report:flow-graph-fixture-old-integration": {
+          "id": "report:flow-graph-fixture-old-integration",
+          "kind": "report",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "646adab029a6d3f06c2c537bf863f16256fc6b97554eac4cd358424c5c1311e5",
+          "author_role": "system",
+          "source_ref": {
+            "report_id": "flow-graph-fixture-old-integration",
+            "evidence": [
+              {
+                "label": "Verified candidate commit",
+                "url": "https://github.com/fixture/graph/commit/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ]
+          },
+          "fields": {
+            "title": "역할 상태 집계",
+            "summary": "MERGE_READY: 예시로 저장한 작업 상태"
+          },
+          "protected": {},
+          "source_digest": "e6d59c51cbe505bc9c8720418ff56f13b1b205bcda97e0892bc812b359fcf6a1",
+          "original_language": "mixed",
+          "translation": null
+        },
+        "report:flow-graph-fixture-new-dev": {
+          "id": "report:flow-graph-fixture-new-dev",
+          "kind": "report",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "9a18dcde3f28f78ee88b9b70a668c8b47a1aa86c298903b9094567d32037668d",
+          "author_role": "system",
+          "source_ref": {
+            "report_id": "flow-graph-fixture-new-dev",
+            "evidence": []
+          },
+          "fields": {
+            "title": "역할 상태 집계",
+            "summary": "RUNNING: 예시로 저장한 작업 상태"
+          },
+          "protected": {},
+          "source_digest": "3483895594d3d47428363b879ccbd91cf9be4dafdbecce7b1a23c97f9e70dc4b",
+          "original_language": "mixed",
+          "translation": null
+        },
+        "report:flow-graph-fixture-new-tests": {
+          "id": "report:flow-graph-fixture-new-tests",
+          "kind": "report",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "369b740aa8c6cff3cd1592609364e0efc918c9c62ebface8a59d3b60be6b9ed5",
+          "author_role": "system",
+          "source_ref": {
+            "report_id": "flow-graph-fixture-new-tests",
+            "evidence": []
+          },
+          "fields": {
+            "title": "독립 검사",
+            "summary": "WAITING_CAPACITY: 공유 한도 대기 · 개발은 계속됩니다."
+          },
+          "protected": {},
+          "source_digest": "877efed77ec92287a353f2b789d293715bfa39b48fa1cc5da1870cd0b78d0880",
+          "original_language": "mixed",
+          "translation": null
+        },
+        "report:flow-graph-fixture-new-integration": {
+          "id": "report:flow-graph-fixture-new-integration",
+          "kind": "report",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "012f229f4e35db005786576fde288e38eb13578f3e0552dad8e4c2900195bdc8",
+          "author_role": "system",
+          "source_ref": {
+            "report_id": "flow-graph-fixture-new-integration",
+            "evidence": [
+              {
+                "label": "Verified candidate commit",
+                "url": "https://github.com/fixture/graph/commit/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ]
+          },
+          "fields": {
+            "title": "역할 상태 집계",
+            "summary": "WAITING_DEPENDENCY: 공유 한도 대기 · 개발은 계속됩니다."
+          },
+          "protected": {},
+          "source_digest": "c839625804c335391519db056352f74822ffdd22307160cb59151f3dc5d11f52",
+          "original_language": "mixed",
+          "translation": null
+        },
+        "message:237a885bdd2346dcb2c2a9f2b3a5c8ac": {
+          "id": "message:237a885bdd2346dcb2c2a9f2b3a5c8ac",
+          "kind": "message",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "d408b712cb994b652bda4f928f7253260f538423bb1aa13da5058ba457fdaf57",
+          "author_role": "pm",
+          "source_ref": {
+            "message_id": "237a885bdd2346dcb2c2a9f2b3a5c8ac",
+            "plan_id": "089d4d6486d245ad95c511a620d3e36f"
+          },
+          "fields": {
+            "content": "함수 개발과 독립 검사를 나눕니다. 예시 기록이며 실제 모델을 실행하지 않았습니다."
+          },
+          "protected": {},
+          "source_digest": "18a06ccc150fd89c032a3e6b779e9f4aeb29bb036606895fe740e1e9b86b789a",
+          "original_language": "ko",
+          "translation": null
+        },
+        "task:graph-fixture-old-dev:reason": {
+          "id": "task:graph-fixture-old-dev:reason",
+          "kind": "reason",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "a6b8688192610c90a1a3affdcb0c088264def234df8dd351fb7b7a778b07e94b",
+          "author_role": "system",
+          "source_ref": {
+            "task_id": "graph-fixture-old-dev"
+          },
+          "fields": {
+            "reason": "예시로 저장한 작업 상태"
+          },
+          "protected": {},
+          "source_digest": "4d1022baabb636d883a8ecdf41cb55d947bc9479fdedcf17ed829584792e6a15",
+          "original_language": "ko",
+          "translation": null
+        },
+        "task:graph-fixture-old-tests:reason": {
+          "id": "task:graph-fixture-old-tests:reason",
+          "kind": "reason",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "a6b8688192610c90a1a3affdcb0c088264def234df8dd351fb7b7a778b07e94b",
+          "author_role": "system",
+          "source_ref": {
+            "task_id": "graph-fixture-old-tests"
+          },
+          "fields": {
+            "reason": "예시로 저장한 작업 상태"
+          },
+          "protected": {},
+          "source_digest": "5112ff606ab1e5aa6febf705b43f5782788bb30d12a466a7c5b2cb3e8e3367ab",
+          "original_language": "ko",
+          "translation": null
+        },
+        "task:graph-fixture-old-integration:reason": {
+          "id": "task:graph-fixture-old-integration:reason",
+          "kind": "reason",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "a6b8688192610c90a1a3affdcb0c088264def234df8dd351fb7b7a778b07e94b",
+          "author_role": "system",
+          "source_ref": {
+            "task_id": "graph-fixture-old-integration"
+          },
+          "fields": {
+            "reason": "예시로 저장한 작업 상태"
+          },
+          "protected": {},
+          "source_digest": "4c0c5f312b271cd2e7bdca069341488a794fff0a397f436879f5f2e926cff03a",
+          "original_language": "ko",
+          "translation": null
+        },
+        "task:graph-fixture-new-dev:reason": {
+          "id": "task:graph-fixture-new-dev:reason",
+          "kind": "reason",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "a6b8688192610c90a1a3affdcb0c088264def234df8dd351fb7b7a778b07e94b",
+          "author_role": "system",
+          "source_ref": {
+            "task_id": "graph-fixture-new-dev"
+          },
+          "fields": {
+            "reason": "예시로 저장한 작업 상태"
+          },
+          "protected": {},
+          "source_digest": "672525572e640aa183b527a1769780763aa435345c006454e1713688d6c88276",
+          "original_language": "ko",
+          "translation": null
+        },
+        "task:graph-fixture-new-tests:reason": {
+          "id": "task:graph-fixture-new-tests:reason",
+          "kind": "reason",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "158183990516a5d77f33413c0e3d294697efabb9eacee424c1de1514a844aaee",
+          "author_role": "system",
+          "source_ref": {
+            "task_id": "graph-fixture-new-tests"
+          },
+          "fields": {
+            "reason": "공유 한도 대기 · 개발은 계속됩니다."
+          },
+          "protected": {},
+          "source_digest": "a8af25b90c76a771dfae28b4aa17488c7d5e4cbfe0d923c8adf519c6955bbe2b",
+          "original_language": "ko",
+          "translation": null
+        },
+        "task:graph-fixture-new-integration:reason": {
+          "id": "task:graph-fixture-new-integration:reason",
+          "kind": "reason",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "158183990516a5d77f33413c0e3d294697efabb9eacee424c1de1514a844aaee",
+          "author_role": "system",
+          "source_ref": {
+            "task_id": "graph-fixture-new-integration"
+          },
+          "fields": {
+            "reason": "공유 한도 대기 · 개발은 계속됩니다."
+          },
+          "protected": {},
+          "source_digest": "92186074ec23bc0b141e2b59f79f30d62d414e4ccd5a912c23a7c0b3c51419e1",
+          "original_language": "ko",
+          "translation": null
+        },
+        "project:b6e3599066d9409492c3e4e74e05190c": {
+          "id": "project:b6e3599066d9409492c3e4e74e05190c",
+          "kind": "project",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "97af60a07736d003e4d7e36f3d7c1dba4c04a033306c6e5a4703108f8069d1e8",
+          "author_role": "master",
+          "source_ref": {
+            "project_id": "b6e3599066d9409492c3e4e74e05190c"
+          },
+          "fields": {
+            "goal": "역할별로 무엇을 하는지 한눈에 보고 싶어요."
+          },
+          "protected": {},
+          "source_digest": "2bf407cc26c42fd7cb89d535f50fc12ede003f4928e2d435a1941465f4cf6a5f",
+          "original_language": "ko",
+          "translation": null
+        },
+        "plan:089d4d6486d245ad95c511a620d3e36f": {
+          "id": "plan:089d4d6486d245ad95c511a620d3e36f",
+          "kind": "plan",
+          "project_id": "b6e3599066d9409492c3e4e74e05190c",
+          "source_version": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+          "author_role": "pm",
+          "source_ref": {
+            "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+            "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4"
+          },
+          "fields": {
+            "summary": "함수 개발과 독립 검사를 나눕니다. 예시 기록이며 실제 모델을 실행하지 않았습니다.",
+            "role:0:name": "개발",
+            "role:0:responsibility": "역할 상태를 집계합니다.",
+            "role:0:goal": "역할 상태를 집계합니다.",
+            "role:0:acceptance:0": "빈 입력과 모든 상태 확인",
+            "role:1:name": "검사",
+            "role:1:responsibility": "별도 테스트로 결과를 확인합니다.",
+            "role:1:goal": "별도 테스트로 결과를 확인합니다.",
+            "role:1:acceptance:0": "빈 입력과 모든 상태 확인",
+            "completion:0": "격리 검사",
+            "completion:1": "같은 후보의 독립 검수와 Astra 최종 검수"
+          },
+          "protected": {
+            "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+            "content": {
+              "summary": "함수 개발과 독립 검사를 나눕니다. 예시 기록이며 실제 모델을 실행하지 않았습니다.",
+              "roles": [
+                {
+                  "key": "dev",
+                  "name": "개발",
+                  "responsibility": "역할 상태를 집계합니다.",
+                  "goal": "역할 상태를 집계합니다.",
+                  "acceptance": [
+                    "빈 입력과 모든 상태 확인"
+                  ],
+                  "allowed_paths": [
+                    "src/ai_company/pilot_status.py"
+                  ],
+                  "depends_on": []
+                },
+                {
+                  "key": "tests",
+                  "name": "검사",
+                  "responsibility": "별도 테스트로 결과를 확인합니다.",
+                  "goal": "별도 테스트로 결과를 확인합니다.",
+                  "acceptance": [
+                    "빈 입력과 모든 상태 확인"
+                  ],
+                  "allowed_paths": [
+                    "tests/test_pilot_status.py"
+                  ],
+                  "depends_on": []
+                }
+              ],
+              "completion_criteria": [
+                "격리 검사",
+                "같은 후보의 독립 검수와 Astra 최종 검수"
+              ]
+            }
+          },
+          "source_digest": "9a7daee3672de8a45c43697b194499907462a80b35b891f34ab0bae0ddcdd0fb",
+          "original_language": "mixed",
+          "translation": null
+        }
+      },
+      "translation_summary": {
+        "status": "unconfigured",
+        "model": "gpt-5.6-luna",
+        "candidate_model": "gpt-5.6-luna",
+        "provider": "codex",
+        "quota_group": null,
+        "counts": {},
+        "requested_configuration": {
+          "provider": "codex",
+          "model": "gpt-5.6-luna",
+          "reasoning_effort": "low",
+          "model_version": "0.154.0"
+        },
+        "observed_configuration": null,
+        "resume_at": null,
+        "reason": "tool_free_execution_not_verified"
+      },
+      "collaboration": {
+        "cursor": 25,
+        "source": "fixture",
+        "nodes": [
+          {
+            "id": "pm:b6e3599066d9409492c3e4e74e05190c",
+            "name": "Astra Ultra PM",
+            "kind": "pm",
+            "responsibility": "목표·역할·완료 기준 제안",
+            "status": "completed",
+            "current_task_id": null,
+            "task_ids": [],
+            "assignment": {
+              "agent_id": null,
+              "provider": null,
+              "session_id": null,
+              "execution_id": null,
+              "generation": null,
+              "requested": {
+                "model": null,
+                "reasoning_effort": null,
+                "ultracode_enabled": null
+              },
+              "observed": {
+                "status": "unavailable",
+                "model": null,
+                "reasoning_effort": null,
+                "source": null,
+                "scope": null,
+                "backend_model_verified": false,
+                "evidence": null
+              },
+              "quota_group": null,
+              "quota": {
+                "status": "unobserved",
+                "reset_at": null
+              },
+              "harness_version": 2
+            },
+            "wait_reason": null,
+            "resume_at": null,
+            "handoffs": [],
+            "active": true
+          },
+          {
+            "id": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+            "name": "개발",
+            "kind": "role",
+            "responsibility": "역할 상태를 집계합니다.",
+            "status": "RUNNING",
+            "current_task_id": "graph-fixture-new-dev",
+            "task_ids": [
+              "graph-fixture-old-dev",
+              "graph-fixture-new-dev"
+            ],
+            "assignment": {
+              "agent_id": "fixture-codex",
+              "provider": "codex",
+              "session_id": null,
+              "execution_id": "graph-fixture-new-dev:2",
+              "generation": 2,
+              "requested": {
+                "model": "gpt-6-astra",
+                "reasoning_effort": "ultra",
+                "ultracode_enabled": null
+              },
+              "observed": {
+                "status": "unavailable",
+                "model": null,
+                "reasoning_effort": null,
+                "source": null,
+                "scope": null,
+                "backend_model_verified": false,
+                "evidence": null
+              },
+              "quota_group": "fixture-codex",
+              "quota": {
+                "status": "AVAILABLE",
+                "reset_at": null
+              },
+              "harness_version": 2
+            },
+            "wait_reason": "예시로 저장한 작업 상태",
+            "resume_at": null,
+            "handoffs": [],
+            "active": true
+          },
+          {
+            "id": "bfae982a80f04a88b4497a320d13d02b",
+            "name": "검사",
+            "kind": "role",
+            "responsibility": "별도 테스트로 결과를 확인합니다.",
+            "status": "WAITING_CAPACITY",
+            "current_task_id": "graph-fixture-new-tests",
+            "task_ids": [
+              "graph-fixture-old-tests",
+              "graph-fixture-new-tests"
+            ],
+            "assignment": {
+              "agent_id": "fixture-claude",
+              "provider": "claude",
+              "session_id": null,
+              "execution_id": "graph-fixture-new-tests:2",
+              "generation": 2,
+              "requested": {
+                "model": "claude-opus-5",
+                "reasoning_effort": "xhigh",
+                "ultracode_enabled": null
+              },
+              "observed": {
+                "status": "unavailable",
+                "model": null,
+                "reasoning_effort": null,
+                "source": null,
+                "scope": null,
+                "backend_model_verified": false,
+                "evidence": null
+              },
+              "quota_group": "fixture-claude",
+              "quota": {
+                "status": "COOLDOWN",
+                "reset_at": 1790187723.7489195
+              },
+              "harness_version": 2
+            },
+            "wait_reason": "공유 한도 대기 · 개발은 계속됩니다.",
+            "resume_at": 1790187723.7706437,
+            "handoffs": [],
+            "active": true
+          },
+          {
+            "id": "check:7ba3b840de144b798a13a709fb2a8c14",
+            "name": "검사",
+            "kind": "check",
+            "responsibility": "검사",
+            "status": "COMPLETE",
+            "current_task_id": "graph-fixture-old-integration",
+            "task_ids": [
+              "graph-fixture-old-integration"
+            ],
+            "assignment": {
+              "agent_id": null,
+              "provider": null,
+              "session_id": null,
+              "execution_id": null,
+              "generation": null,
+              "requested": {
+                "model": null,
+                "reasoning_effort": null,
+                "ultracode_enabled": null
+              },
+              "observed": {
+                "status": "unavailable",
+                "model": null,
+                "reasoning_effort": null,
+                "source": null,
+                "scope": null,
+                "backend_model_verified": false,
+                "evidence": null
+              },
+              "quota_group": null,
+              "quota": {
+                "status": "unobserved",
+                "reset_at": null
+              },
+              "harness_version": 2
+            },
+            "wait_reason": null,
+            "resume_at": null,
+            "handoffs": [],
+            "active": true
+          },
+          {
+            "id": "reviewer:7ba3b840de144b798a13a709fb2a8c14",
+            "name": "독립 검수",
+            "kind": "reviewer",
+            "responsibility": "독립 검수",
+            "status": "COMPLETE",
+            "current_task_id": "graph-fixture-old-integration",
+            "task_ids": [
+              "graph-fixture-old-integration"
+            ],
+            "assignment": {
+              "agent_id": "fixture-codex",
+              "provider": "codex",
+              "session_id": null,
+              "execution_id": "graph-fixture-old-integration:reviewer",
+              "generation": 2,
+              "requested": {
+                "model": "gpt-6-astra",
+                "reasoning_effort": "ultra",
+                "ultracode_enabled": null
+              },
+              "observed": {
+                "status": "unavailable",
+                "model": null,
+                "reasoning_effort": null,
+                "source": null,
+                "scope": null,
+                "backend_model_verified": false,
+                "evidence": null
+              },
+              "quota_group": "fixture-codex",
+              "quota": {
+                "status": "AVAILABLE",
+                "reset_at": null
+              },
+              "harness_version": 2
+            },
+            "wait_reason": null,
+            "resume_at": null,
+            "handoffs": [
+              {
+                "agent_id": "fixture-codex",
+                "role": "reviewer",
+                "execution_id": "graph-fixture-old-integration:reviewer",
+                "generation": 2,
+                "previous_execution_id": "graph-fixture-old-integration:1"
+              }
+            ],
+            "active": true
+          },
+          {
+            "id": "final:7ba3b840de144b798a13a709fb2a8c14",
+            "name": "Astra 최종 검수",
+            "kind": "final",
+            "responsibility": "Astra 최종 검수",
+            "status": "MERGE_READY",
+            "current_task_id": "graph-fixture-old-integration",
+            "task_ids": [
+              "graph-fixture-old-integration"
+            ],
+            "assignment": {
+              "agent_id": "fixture-codex",
+              "provider": "codex",
+              "session_id": null,
+              "execution_id": "graph-fixture-old-integration:2",
+              "generation": 2,
+              "requested": {
+                "model": "gpt-6-astra",
+                "reasoning_effort": "ultra",
+                "ultracode_enabled": null
+              },
+              "observed": {
+                "status": "unavailable",
+                "model": null,
+                "reasoning_effort": null,
+                "source": null,
+                "scope": null,
+                "backend_model_verified": false,
+                "evidence": null
+              },
+              "quota_group": "fixture-codex",
+              "quota": {
+                "status": "AVAILABLE",
+                "reset_at": null
+              },
+              "harness_version": 2
+            },
+            "wait_reason": "예시로 저장한 작업 상태",
+            "resume_at": null,
+            "handoffs": [
+              {
+                "agent_id": "fixture-codex",
+                "role": "final",
+                "execution_id": "graph-fixture-old-integration:final",
+                "generation": 2,
+                "previous_execution_id": "graph-fixture-old-integration:1"
+              }
+            ],
+            "active": true
+          },
+          {
+            "id": "check:graph-fixture-new-run",
+            "name": "검사",
+            "kind": "check",
+            "responsibility": "검사",
+            "status": "COMPLETE",
+            "current_task_id": "graph-fixture-new-integration",
+            "task_ids": [
+              "graph-fixture-new-integration"
+            ],
+            "assignment": {
+              "agent_id": null,
+              "provider": null,
+              "session_id": null,
+              "execution_id": null,
+              "generation": null,
+              "requested": {
+                "model": null,
+                "reasoning_effort": null,
+                "ultracode_enabled": null
+              },
+              "observed": {
+                "status": "unavailable",
+                "model": null,
+                "reasoning_effort": null,
+                "source": null,
+                "scope": null,
+                "backend_model_verified": false,
+                "evidence": null
+              },
+              "quota_group": null,
+              "quota": {
+                "status": "unobserved",
+                "reset_at": null
+              },
+              "harness_version": 2
+            },
+            "wait_reason": null,
+            "resume_at": null,
+            "handoffs": [],
+            "active": true
+          },
+          {
+            "id": "reviewer:graph-fixture-new-run",
+            "name": "독립 검수",
+            "kind": "reviewer",
+            "responsibility": "독립 검수",
+            "status": "WAITING_DEPENDENCY",
+            "current_task_id": "graph-fixture-new-integration",
+            "task_ids": [
+              "graph-fixture-new-integration"
+            ],
+            "assignment": {
+              "agent_id": "fixture-codex",
+              "provider": "codex",
+              "session_id": null,
+              "execution_id": "graph-fixture-new-integration:2",
+              "generation": 2,
+              "requested": {
+                "model": "gpt-6-astra",
+                "reasoning_effort": "ultra",
+                "ultracode_enabled": null
+              },
+              "observed": {
+                "status": "unavailable",
+                "model": null,
+                "reasoning_effort": null,
+                "source": null,
+                "scope": null,
+                "backend_model_verified": false,
+                "evidence": null
+              },
+              "quota_group": "fixture-codex",
+              "quota": {
+                "status": "AVAILABLE",
+                "reset_at": null
+              },
+              "harness_version": 2
+            },
+            "wait_reason": "공유 한도 대기 · 개발은 계속됩니다.",
+            "resume_at": 1790187723.7762527,
+            "handoffs": [],
+            "active": true
+          },
+          {
+            "id": "final:graph-fixture-new-run",
+            "name": "Astra 최종 검수",
+            "kind": "final",
+            "responsibility": "Astra 최종 검수",
+            "status": "WAITING_DEPENDENCY",
+            "current_task_id": "graph-fixture-new-integration",
+            "task_ids": [
+              "graph-fixture-new-integration"
+            ],
+            "assignment": {
+              "agent_id": null,
+              "provider": null,
+              "session_id": null,
+              "execution_id": null,
+              "generation": null,
+              "requested": {
+                "model": null,
+                "reasoning_effort": null,
+                "ultracode_enabled": null
+              },
+              "observed": {
+                "status": "unavailable",
+                "model": null,
+                "reasoning_effort": null,
+                "source": null,
+                "scope": null,
+                "backend_model_verified": false,
+                "evidence": null
+              },
+              "quota_group": null,
+              "quota": {
+                "status": "unobserved",
+                "reset_at": null
+              },
+              "harness_version": 2
+            },
+            "wait_reason": null,
+            "resume_at": null,
+            "handoffs": [],
+            "active": true
+          },
+          {
+            "id": "translator:b6e3599066d9409492c3e4e74e05190c",
+            "name": "한글 번역",
+            "kind": "translator",
+            "responsibility": "원문을 보존하는 번역 전용 · 실행·승인 권한 없음",
+            "status": "unconfigured",
+            "current_task_id": null,
+            "task_ids": [],
+            "assignment": {
+              "requested": {
+                "provider": "codex",
+                "model": "gpt-5.6-luna",
+                "reasoning_effort": "low",
+                "model_version": "0.154.0"
+              },
+              "observed": {
+                "status": "unavailable"
+              },
+              "agent_id": "document-translator",
+              "provider": "codex",
+              "quota_group": null,
+              "session_id": null,
+              "quota": null,
+              "harness_version": 2
+            },
+            "wait_reason": "tool_free_execution_not_verified",
+            "resume_at": null,
+            "handoffs": [],
+            "active": true
+          }
+        ],
+        "transfers": [
+          {
+            "id": "de7017a216d19a99b90aaf5edfde69df61b50462ca8efdaf0037429232a94773",
+            "cursor": 7,
+            "kind": "specification",
+            "from": "pm:b6e3599066d9409492c3e4e74e05190c",
+            "to": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+            "task_id": "graph-fixture-old-dev",
+            "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+            "title": "역할 상태 집계",
+            "reason": "확정한 계획의 역할·허용 경로·완료 기준 전달",
+            "status": "completed",
+            "created_at": 1790186823.750147,
+            "started_at": null,
+            "completed_at": null,
+            "artifact_refs": [
+              {
+                "label": "계획 해시",
+                "sha": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4"
+              }
+            ],
+            "caused_by": null,
+            "execution_id": "graph-fixture-old-dev:2",
+            "generation": 2,
+            "source": {
+              "table": "management_links",
+              "id": "graph-fixture-old-dev"
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "c4853fdfa82616bda5e2857347f4fa592ea740a4c3a51ce5a709072312386a37",
+            "cursor": 7,
+            "kind": "result_report",
+            "from": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+            "to": "pm:b6e3599066d9409492c3e4e74e05190c",
+            "task_id": "graph-fixture-old-dev",
+            "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+            "title": "역할 상태 집계",
+            "reason": "역할 산출물 커밋 완료",
+            "status": "completed",
+            "created_at": 1790186823.7570622,
+            "started_at": null,
+            "completed_at": 1790186823.7570622,
+            "artifact_refs": [
+              {
+                "label": "역할 후보 커밋",
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "caused_by": null,
+            "execution_id": "graph-fixture-old-dev:2",
+            "generation": 2,
+            "source": {
+              "table": "flow_events",
+              "id": 3
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "12e87e3265e68ae2f6c7480771eacc577f91e2fc3594abfdf03f26cc0f95e393",
+            "cursor": 8,
+            "kind": "specification",
+            "from": "pm:b6e3599066d9409492c3e4e74e05190c",
+            "to": "bfae982a80f04a88b4497a320d13d02b",
+            "task_id": "graph-fixture-old-tests",
+            "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+            "title": "독립 검사",
+            "reason": "확정한 계획의 역할·허용 경로·완료 기준 전달",
+            "status": "completed",
+            "created_at": 1790186823.7538574,
+            "started_at": null,
+            "completed_at": null,
+            "artifact_refs": [
+              {
+                "label": "계획 해시",
+                "sha": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4"
+              }
+            ],
+            "caused_by": null,
+            "execution_id": "graph-fixture-old-tests:2",
+            "generation": 2,
+            "source": {
+              "table": "management_links",
+              "id": "graph-fixture-old-tests"
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "d1b1581c690ee26698b37847ef75930b2315472b260a552e2e8275c2046dc2bb",
+            "cursor": 8,
+            "kind": "dependency",
+            "from": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+            "to": "bfae982a80f04a88b4497a320d13d02b",
+            "task_id": "graph-fixture-old-tests",
+            "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+            "title": "독립 검사",
+            "reason": "선행 역할의 후보를 작업 기준에 통합",
+            "status": "completed",
+            "created_at": 1790186823.7538574,
+            "started_at": null,
+            "completed_at": null,
+            "artifact_refs": [
+              {
+                "label": "dev",
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "path": "/fixture-only/not-public"
+              }
+            ],
+            "caused_by": null,
+            "execution_id": "graph-fixture-old-tests:2",
+            "generation": 2,
+            "source": {
+              "table": "flow_tasks",
+              "id": "graph-fixture-old-tests"
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "5b980636c20eacae726ac95b0c11d2597158db8b6cf25769abd40c06b6b2ffb6",
+            "cursor": 8,
+            "kind": "result_report",
+            "from": "bfae982a80f04a88b4497a320d13d02b",
+            "to": "pm:b6e3599066d9409492c3e4e74e05190c",
+            "task_id": "graph-fixture-old-tests",
+            "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+            "title": "독립 검사",
+            "reason": "역할 산출물 커밋 완료",
+            "status": "completed",
+            "created_at": 1790186823.7585983,
+            "started_at": null,
+            "completed_at": 1790186823.7585983,
+            "artifact_refs": [
+              {
+                "label": "역할 후보 커밋",
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "caused_by": null,
+            "execution_id": "graph-fixture-old-tests:2",
+            "generation": 2,
+            "source": {
+              "table": "flow_events",
+              "id": 4
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "62521e8d8995bc103fe9e4ae4a7689b0fc8167be95a3a8448d6470ae26002137",
+            "cursor": 11,
+            "kind": "result_report",
+            "from": "bfae982a80f04a88b4497a320d13d02b",
+            "to": "check:7ba3b840de144b798a13a709fb2a8c14",
+            "task_id": "graph-fixture-old-integration",
+            "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+            "title": "역할 상태 집계",
+            "reason": "역할 후보를 합쳐 같은 커밋의 검사 시작",
+            "status": "completed",
+            "created_at": 1790186823.7632375,
+            "started_at": null,
+            "completed_at": null,
+            "artifact_refs": [
+              {
+                "label": "tests",
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "caused_by": null,
+            "execution_id": "graph-fixture-old-integration:2",
+            "generation": 2,
+            "source": {
+              "table": "flow_events",
+              "id": 6
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "cace6f108a4b0fe98debee8958b74c7a9919cac48424efbde6fabaef02f43f91",
+            "cursor": 11,
+            "kind": "result_report",
+            "from": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+            "to": "check:7ba3b840de144b798a13a709fb2a8c14",
+            "task_id": "graph-fixture-old-integration",
+            "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+            "title": "역할 상태 집계",
+            "reason": "역할 후보를 합쳐 같은 커밋의 검사 시작",
+            "status": "completed",
+            "created_at": 1790186823.7632375,
+            "started_at": null,
+            "completed_at": null,
+            "artifact_refs": [
+              {
+                "label": "dev",
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "caused_by": null,
+            "execution_id": "graph-fixture-old-integration:2",
+            "generation": 2,
+            "source": {
+              "table": "flow_events",
+              "id": 6
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "068d9316bf836cbfee8530db8dc1504535cb69b972b6106b932f2ac3e8f0ea48",
+            "cursor": 11,
+            "kind": "review_request",
+            "from": "check:7ba3b840de144b798a13a709fb2a8c14",
+            "to": "reviewer:7ba3b840de144b798a13a709fb2a8c14",
+            "task_id": "graph-fixture-old-integration",
+            "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+            "title": "역할 상태 집계",
+            "reason": "같은 후보 커밋의 독립 검수 요청",
+            "status": "completed",
+            "created_at": 1790186823.7633712,
+            "started_at": null,
+            "completed_at": null,
+            "artifact_refs": [
+              {
+                "label": "후보 커밋",
+                "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+              }
+            ],
+            "caused_by": null,
+            "execution_id": "graph-fixture-old-integration:2",
+            "generation": 2,
+            "source": {
+              "table": "flow_events",
+              "id": 7
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "5ae36b5b0e4acf794ad08d25944c2df9aa48a96728ea5fa5798593de445f5e7c",
+            "cursor": 17,
+            "kind": "specification",
+            "from": "pm:b6e3599066d9409492c3e4e74e05190c",
+            "to": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+            "task_id": "graph-fixture-new-dev",
+            "run_id": "graph-fixture-new-run",
+            "title": "역할 상태 집계",
+            "reason": "확정한 계획의 역할·허용 경로·완료 기준 전달",
+            "status": "started",
+            "created_at": 1790186823.7675579,
+            "started_at": null,
+            "completed_at": null,
+            "artifact_refs": [
+              {
+                "label": "계획 해시",
+                "sha": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4"
+              }
+            ],
+            "caused_by": null,
+            "execution_id": "graph-fixture-new-dev:2",
+            "generation": 2,
+            "source": {
+              "table": "management_links",
+              "id": "graph-fixture-new-dev"
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "9278b7187627445ced9dbc876172a6e2e2e21683cbbdd76d1cc21dcdd90dc1d4",
+            "cursor": 17,
+            "kind": "revision_return",
+            "from": "reviewer:graph-fixture-new-run",
+            "to": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+            "task_id": "graph-fixture-new-dev",
+            "run_id": "graph-fixture-new-run",
+            "title": "역할 상태 집계",
+            "reason": "알 수 없는 상태의 집계 근거를 보완해 주세요.",
+            "status": "started",
+            "created_at": 1790186823.7675579,
+            "started_at": null,
+            "completed_at": null,
+            "artifact_refs": [],
+            "caused_by": 0,
+            "execution_id": "graph-fixture-new-dev:2",
+            "generation": 2,
+            "source": {
+              "table": "flow_tasks",
+              "id": "graph-fixture-new-dev"
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "b531638c71a6a968e6ef17c57e4d67292a3feb0cff84ef72d2b153f799c0993b",
+            "cursor": 17,
+            "kind": "handoff",
+            "from": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+            "to": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+            "task_id": "graph-fixture-new-dev",
+            "run_id": "graph-fixture-new-run",
+            "title": "역할 상태 집계",
+            "reason": "같은 역할·작업의 담당 실행 이관",
+            "status": "started",
+            "created_at": 1790186823.77335,
+            "started_at": null,
+            "completed_at": null,
+            "artifact_refs": [
+              {
+                "label": "인계 체크포인트",
+                "sha": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+              }
+            ],
+            "caused_by": "graph-fixture-new-dev:1",
+            "execution_id": "graph-fixture-new-dev:2",
+            "generation": 2,
+            "source": {
+              "table": "flow_events",
+              "id": 11
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "51d0551f570e3b97651dd092431de4595885c52091f5884afabba76ac0bc96bd",
+            "cursor": 18,
+            "kind": "specification",
+            "from": "pm:b6e3599066d9409492c3e4e74e05190c",
+            "to": "bfae982a80f04a88b4497a320d13d02b",
+            "task_id": "graph-fixture-new-tests",
+            "run_id": "graph-fixture-new-run",
+            "title": "독립 검사",
+            "reason": "확정한 계획의 역할·허용 경로·완료 기준 전달",
+            "status": "waiting",
+            "created_at": 1790186823.7706425,
+            "started_at": null,
+            "completed_at": null,
+            "artifact_refs": [
+              {
+                "label": "계획 해시",
+                "sha": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4"
+              }
+            ],
+            "caused_by": null,
+            "execution_id": "graph-fixture-new-tests:2",
+            "generation": 2,
+            "source": {
+              "table": "management_links",
+              "id": "graph-fixture-new-tests"
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "b90b440de6232721a8b84137566feb6978f8ed98ad8199d8d8a4ba8a18e3b926",
+            "cursor": 18,
+            "kind": "dependency",
+            "from": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+            "to": "bfae982a80f04a88b4497a320d13d02b",
+            "task_id": "graph-fixture-new-tests",
+            "run_id": "graph-fixture-new-run",
+            "title": "독립 검사",
+            "reason": "선행 역할의 후보를 작업 기준에 통합",
+            "status": "waiting",
+            "created_at": 1790186823.7706425,
+            "started_at": null,
+            "completed_at": null,
+            "artifact_refs": [
+              {
+                "label": "dev",
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "path": "/fixture-only/not-public"
+              }
+            ],
+            "caused_by": null,
+            "execution_id": "graph-fixture-new-tests:2",
+            "generation": 2,
+            "source": {
+              "table": "flow_tasks",
+              "id": "graph-fixture-new-tests"
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "67ec8a150cb3d4edcc359f602468f832fc6ef8498ca5888e04f4dd24c403c8f2",
+            "cursor": 18,
+            "kind": "handoff",
+            "from": "bfae982a80f04a88b4497a320d13d02b",
+            "to": "bfae982a80f04a88b4497a320d13d02b",
+            "task_id": "graph-fixture-new-tests",
+            "run_id": "graph-fixture-new-run",
+            "title": "독립 검사",
+            "reason": "같은 역할·작업의 담당 실행 이관",
+            "status": "waiting",
+            "created_at": 1790186823.774837,
+            "started_at": null,
+            "completed_at": null,
+            "artifact_refs": [
+              {
+                "label": "인계 체크포인트",
+                "sha": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+              }
+            ],
+            "caused_by": "graph-fixture-new-tests:1",
+            "execution_id": "graph-fixture-new-tests:2",
+            "generation": 2,
+            "source": {
+              "table": "flow_events",
+              "id": 12
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "3a203124308e9dee054c9a28b4099fc516de5691793f7491a0a9a02de043812b",
+            "cursor": 21,
+            "kind": "result_report",
+            "from": "6dfc4c7bf40c4f8eb9ec960198d9031e",
+            "to": "check:graph-fixture-new-run",
+            "task_id": "graph-fixture-new-integration",
+            "run_id": "graph-fixture-new-run",
+            "title": "역할 상태 집계",
+            "reason": "역할 후보를 합쳐 같은 커밋의 검사 시작",
+            "status": "waiting",
+            "created_at": 1790186823.7795439,
+            "started_at": null,
+            "completed_at": null,
+            "artifact_refs": [
+              {
+                "label": "dev",
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ],
+            "caused_by": null,
+            "execution_id": "graph-fixture-new-integration:2",
+            "generation": 2,
+            "source": {
+              "table": "flow_events",
+              "id": 14
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "49566bba5c1d304092b97d79d4856902e57ced96fa66e07c3b9e603717a38693",
+            "cursor": 21,
+            "kind": "result_report",
+            "from": "bfae982a80f04a88b4497a320d13d02b",
+            "to": "check:graph-fixture-new-run",
+            "task_id": "graph-fixture-new-integration",
+            "run_id": "graph-fixture-new-run",
+            "title": "역할 상태 집계",
+            "reason": "역할 후보를 합쳐 같은 커밋의 검사 시작",
+            "status": "waiting",
+            "created_at": 1790186823.7795439,
+            "started_at": null,
+            "completed_at": null,
+            "artifact_refs": [
+              {
+                "label": "tests",
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ],
+            "caused_by": null,
+            "execution_id": "graph-fixture-new-integration:2",
+            "generation": 2,
+            "source": {
+              "table": "flow_events",
+              "id": 14
+            },
+            "mode": "fixture"
+          },
+          {
+            "id": "4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0",
+            "cursor": 21,
+            "kind": "review_request",
+            "from": "check:graph-fixture-new-run",
+            "to": "reviewer:graph-fixture-new-run",
+            "task_id": "graph-fixture-new-integration",
+            "run_id": "graph-fixture-new-run",
+            "title": "역할 상태 집계",
+            "reason": "같은 후보 커밋의 독립 검수 요청",
+            "status": "waiting",
+            "created_at": 1790186823.7796474,
+            "started_at": null,
+            "completed_at": null,
+            "artifact_refs": [
+              {
+                "label": "후보 커밋",
+                "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+              }
+            ],
+            "caused_by": null,
+            "execution_id": "graph-fixture-new-integration:2",
+            "generation": 2,
+            "source": {
+              "table": "flow_events",
+              "id": 15
+            },
+            "mode": "fixture"
+          }
+        ]
+      },
+      "workspace_graph": {
+        "schema_version": 1,
+        "project_id": "b6e3599066d9409492c3e4e74e05190c",
+        "cursor": 25,
+        "observed_at": 1790186823.7995598,
+        "default_snapshot_id": "graph:c8e46c99e598e3931797271f",
+        "snapshots": [
+          {
+            "id": "graph:352cb04a067c39c1005b9bf2",
+            "project_id": "b6e3599066d9409492c3e4e74e05190c",
+            "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+            "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+            "run_id": null,
+            "source": "fixture",
+            "mode": "planned",
+            "cursor": 25,
+            "observed_at": 1790186823.7995598,
+            "nodes": [
+              {
+                "id": "graph:352cb04a067c39c1005b9bf2:pm:b6e3599066d9409492c3e4e74e05190c",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": null,
+                "kind": "pm",
+                "name": "Astra Ultra PM",
+                "responsibility": "목표·역할·완료 기준 제안",
+                "status": "completed",
+                "current_task_id": null,
+                "task_ids": [],
+                "current_task_title": "",
+                "phase": "recorded",
+                "assignment": {
+                  "provider": null,
+                  "execution_id": null,
+                  "generation": null,
+                  "harness_version": 2,
+                  "requested": {
+                    "model": null,
+                    "reasoning_effort": null,
+                    "ultracode_enabled": null
+                  },
+                  "observed": {
+                    "status": "unavailable",
+                    "model": null,
+                    "reasoning_effort": null,
+                    "source": null,
+                    "scope": null,
+                    "backend_model_verified": false
+                  },
+                  "quota": {
+                    "status": "unobserved",
+                    "reset_at": null
+                  }
+                },
+                "wait_reason": null,
+                "resume_at": null,
+                "source": "fixture",
+                "reference": {
+                  "table": "management_pm_requests",
+                  "id": "9acb2715b36749799082e7111d49bdf3"
+                },
+                "handoffs": []
+              },
+              {
+                "id": "graph:352cb04a067c39c1005b9bf2:planned:dev",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": null,
+                "kind": "role",
+                "name": "개발",
+                "responsibility": "역할 상태를 집계합니다.",
+                "status": "IDLE",
+                "current_task_id": null,
+                "task_ids": [],
+                "current_task_title": "",
+                "phase": "planned",
+                "assignment": {
+                  "provider": null,
+                  "execution_id": null,
+                  "generation": null,
+                  "harness_version": 2,
+                  "requested": {
+                    "model": null,
+                    "reasoning_effort": null,
+                    "ultracode_enabled": null
+                  },
+                  "observed": {
+                    "status": "unavailable",
+                    "model": null,
+                    "reasoning_effort": null,
+                    "source": null,
+                    "scope": null,
+                    "backend_model_verified": false
+                  },
+                  "quota": {
+                    "status": "unobserved",
+                    "reset_at": null
+                  }
+                },
+                "wait_reason": null,
+                "resume_at": null,
+                "source": "fixture",
+                "reference": {
+                  "table": "management_plans",
+                  "id": "089d4d6486d245ad95c511a620d3e36f",
+                  "role_key": "dev"
+                },
+                "handoffs": []
+              },
+              {
+                "id": "graph:352cb04a067c39c1005b9bf2:planned:tests",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": null,
+                "kind": "role",
+                "name": "검사",
+                "responsibility": "별도 테스트로 결과를 확인합니다.",
+                "status": "IDLE",
+                "current_task_id": null,
+                "task_ids": [],
+                "current_task_title": "",
+                "phase": "planned",
+                "assignment": {
+                  "provider": null,
+                  "execution_id": null,
+                  "generation": null,
+                  "harness_version": 2,
+                  "requested": {
+                    "model": null,
+                    "reasoning_effort": null,
+                    "ultracode_enabled": null
+                  },
+                  "observed": {
+                    "status": "unavailable",
+                    "model": null,
+                    "reasoning_effort": null,
+                    "source": null,
+                    "scope": null,
+                    "backend_model_verified": false
+                  },
+                  "quota": {
+                    "status": "unobserved",
+                    "reset_at": null
+                  }
+                },
+                "wait_reason": null,
+                "resume_at": null,
+                "source": "fixture",
+                "reference": {
+                  "table": "management_plans",
+                  "id": "089d4d6486d245ad95c511a620d3e36f",
+                  "role_key": "tests"
+                },
+                "handoffs": []
+              }
+            ],
+            "edges": [
+              {
+                "id": "graph:352cb04a067c39c1005b9bf2:specification:8a17302d4ffff29e2c56",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": null,
+                "from": "graph:352cb04a067c39c1005b9bf2:pm:b6e3599066d9409492c3e4e74e05190c",
+                "to": "graph:352cb04a067c39c1005b9bf2:planned:dev",
+                "kind": "planned_specification",
+                "status": "planned",
+                "title": "역할 제안",
+                "reason": "PM 계획에 포함된 역할입니다. 실제 작업 배정·전달 기록은 아닙니다.",
+                "source": "fixture",
+                "phase": "planned",
+                "cursor": 25,
+                "artifact_refs": [],
+                "reference": {
+                  "table": "management_plans",
+                  "id": "089d4d6486d245ad95c511a620d3e36f",
+                  "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                  "role_key": "dev"
+                }
+              },
+              {
+                "id": "graph:352cb04a067c39c1005b9bf2:specification:68f05093bc600659c0ae",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": null,
+                "from": "graph:352cb04a067c39c1005b9bf2:pm:b6e3599066d9409492c3e4e74e05190c",
+                "to": "graph:352cb04a067c39c1005b9bf2:planned:tests",
+                "kind": "planned_specification",
+                "status": "planned",
+                "title": "역할 제안",
+                "reason": "PM 계획에 포함된 역할입니다. 실제 작업 배정·전달 기록은 아닙니다.",
+                "source": "fixture",
+                "phase": "planned",
+                "cursor": 25,
+                "artifact_refs": [],
+                "reference": {
+                  "table": "management_plans",
+                  "id": "089d4d6486d245ad95c511a620d3e36f",
+                  "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                  "role_key": "tests"
+                }
+              }
+            ],
+            "report_refs": [],
+            "approval_refs": [],
+            "warnings": [],
+            "history": {
+              "complete": true,
+              "shown": 2,
+              "total": 2,
+              "recorded": 0,
+              "planned": 2
+            },
+            "empty_reason": null,
+            "fingerprint": "75616d2b58a25abed6c52c76ffba75876f01f63e7a5ae8026281ebf801c7e533"
+          },
+          {
+            "id": "graph:8a7cfc836e89222f8c2e00c0",
+            "project_id": "b6e3599066d9409492c3e4e74e05190c",
+            "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+            "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+            "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+            "source": "fixture",
+            "mode": "execution",
+            "cursor": 25,
+            "observed_at": 1790186823.7995598,
+            "nodes": [
+              {
+                "id": "graph:8a7cfc836e89222f8c2e00c0:pm:b6e3599066d9409492c3e4e74e05190c",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "kind": "pm",
+                "name": "Astra Ultra PM",
+                "responsibility": "목표·역할·완료 기준 제안",
+                "status": "completed",
+                "current_task_id": null,
+                "task_ids": [],
+                "current_task_title": "",
+                "phase": "recorded",
+                "assignment": {
+                  "provider": null,
+                  "execution_id": null,
+                  "generation": null,
+                  "harness_version": 2,
+                  "requested": {
+                    "model": null,
+                    "reasoning_effort": null,
+                    "ultracode_enabled": null
+                  },
+                  "observed": {
+                    "status": "unavailable",
+                    "model": null,
+                    "reasoning_effort": null,
+                    "source": null,
+                    "scope": null,
+                    "backend_model_verified": false
+                  },
+                  "quota": {
+                    "status": "unobserved",
+                    "reset_at": null
+                  }
+                },
+                "wait_reason": null,
+                "resume_at": null,
+                "source": "fixture",
+                "reference": {
+                  "table": "management_pm_requests",
+                  "id": "9acb2715b36749799082e7111d49bdf3"
+                },
+                "handoffs": []
+              },
+              {
+                "id": "graph:8a7cfc836e89222f8c2e00c0:6dfc4c7bf40c4f8eb9ec960198d9031e",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "kind": "role",
+                "name": "개발",
+                "responsibility": "역할 상태를 집계합니다.",
+                "status": "CONTRIBUTION_READY",
+                "current_task_id": "graph-fixture-old-dev",
+                "task_ids": [
+                  "graph-fixture-old-dev"
+                ],
+                "current_task_title": "역할 상태 집계",
+                "phase": "recorded",
+                "assignment": {
+                  "provider": "codex",
+                  "execution_id": "graph-fixture-old-dev:2",
+                  "generation": 2,
+                  "harness_version": 2,
+                  "requested": {
+                    "model": "gpt-6-astra",
+                    "reasoning_effort": "ultra",
+                    "ultracode_enabled": null
+                  },
+                  "observed": {
+                    "status": "unavailable",
+                    "model": null,
+                    "reasoning_effort": null,
+                    "source": null,
+                    "scope": null,
+                    "backend_model_verified": false
+                  },
+                  "quota": {
+                    "status": "AVAILABLE",
+                    "reset_at": null
+                  }
+                },
+                "wait_reason": "예시로 저장한 작업 상태",
+                "resume_at": null,
+                "source": "fixture",
+                "reference": {
+                  "table": "flow_tasks",
+                  "id": "graph-fixture-old-dev",
+                  "task_id": "graph-fixture-old-dev",
+                  "role_id": "6dfc4c7bf40c4f8eb9ec960198d9031e"
+                },
+                "handoffs": []
+              },
+              {
+                "id": "graph:8a7cfc836e89222f8c2e00c0:bfae982a80f04a88b4497a320d13d02b",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "kind": "role",
+                "name": "검사",
+                "responsibility": "별도 테스트로 결과를 확인합니다.",
+                "status": "CONTRIBUTION_READY",
+                "current_task_id": "graph-fixture-old-tests",
+                "task_ids": [
+                  "graph-fixture-old-tests"
+                ],
+                "current_task_title": "독립 검사",
+                "phase": "recorded",
+                "assignment": {
+                  "provider": "claude",
+                  "execution_id": "graph-fixture-old-tests:2",
+                  "generation": 2,
+                  "harness_version": 2,
+                  "requested": {
+                    "model": "claude-opus-5",
+                    "reasoning_effort": "xhigh",
+                    "ultracode_enabled": null
+                  },
+                  "observed": {
+                    "status": "unavailable",
+                    "model": null,
+                    "reasoning_effort": null,
+                    "source": null,
+                    "scope": null,
+                    "backend_model_verified": false
+                  },
+                  "quota": {
+                    "status": "COOLDOWN",
+                    "reset_at": 1790187723.7489195
+                  }
+                },
+                "wait_reason": "예시로 저장한 작업 상태",
+                "resume_at": null,
+                "source": "fixture",
+                "reference": {
+                  "table": "flow_tasks",
+                  "id": "graph-fixture-old-tests",
+                  "task_id": "graph-fixture-old-tests",
+                  "role_id": "bfae982a80f04a88b4497a320d13d02b"
+                },
+                "handoffs": []
+              },
+              {
+                "id": "graph:8a7cfc836e89222f8c2e00c0:check:7ba3b840de144b798a13a709fb2a8c14",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "kind": "check",
+                "name": "검사",
+                "responsibility": "검사",
+                "status": "COMPLETE",
+                "current_task_id": "graph-fixture-old-integration",
+                "task_ids": [
+                  "graph-fixture-old-integration"
+                ],
+                "current_task_title": "역할 상태 집계",
+                "phase": "recorded",
+                "assignment": {
+                  "provider": null,
+                  "execution_id": null,
+                  "generation": null,
+                  "harness_version": 2,
+                  "requested": {
+                    "model": null,
+                    "reasoning_effort": null,
+                    "ultracode_enabled": null
+                  },
+                  "observed": {
+                    "status": "unavailable",
+                    "model": null,
+                    "reasoning_effort": null,
+                    "source": null,
+                    "scope": null,
+                    "backend_model_verified": false
+                  },
+                  "quota": {
+                    "status": "unobserved",
+                    "reset_at": null
+                  }
+                },
+                "wait_reason": null,
+                "resume_at": null,
+                "source": "fixture",
+                "reference": {
+                  "table": "flow_tasks",
+                  "id": "graph-fixture-old-integration",
+                  "task_id": "graph-fixture-old-integration",
+                  "role_id": "check:7ba3b840de144b798a13a709fb2a8c14"
+                },
+                "handoffs": []
+              },
+              {
+                "id": "graph:8a7cfc836e89222f8c2e00c0:reviewer:7ba3b840de144b798a13a709fb2a8c14",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "kind": "reviewer",
+                "name": "독립 검수",
+                "responsibility": "독립 검수",
+                "status": "COMPLETE",
+                "current_task_id": "graph-fixture-old-integration",
+                "task_ids": [
+                  "graph-fixture-old-integration"
+                ],
+                "current_task_title": "역할 상태 집계",
+                "phase": "recorded",
+                "assignment": {
+                  "provider": "codex",
+                  "execution_id": "graph-fixture-old-integration:reviewer",
+                  "generation": 2,
+                  "harness_version": 2,
+                  "requested": {
+                    "model": "gpt-6-astra",
+                    "reasoning_effort": "ultra",
+                    "ultracode_enabled": null
+                  },
+                  "observed": {
+                    "status": "unavailable",
+                    "model": null,
+                    "reasoning_effort": null,
+                    "source": null,
+                    "scope": null,
+                    "backend_model_verified": false
+                  },
+                  "quota": {
+                    "status": "AVAILABLE",
+                    "reset_at": null
+                  }
+                },
+                "wait_reason": null,
+                "resume_at": null,
+                "source": "fixture",
+                "reference": {
+                  "table": "flow_tasks",
+                  "id": "graph-fixture-old-integration",
+                  "task_id": "graph-fixture-old-integration",
+                  "role_id": "reviewer:7ba3b840de144b798a13a709fb2a8c14"
+                },
+                "handoffs": [
+                  {
+                    "execution_id": "graph-fixture-old-integration:reviewer",
+                    "previous_execution_id": "graph-fixture-old-integration:1",
+                    "generation": 2,
+                    "role": "reviewer"
+                  }
+                ]
+              },
+              {
+                "id": "graph:8a7cfc836e89222f8c2e00c0:final:7ba3b840de144b798a13a709fb2a8c14",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "kind": "final",
+                "name": "Astra 최종 검수",
+                "responsibility": "Astra 최종 검수",
+                "status": "MERGE_READY",
+                "current_task_id": "graph-fixture-old-integration",
+                "task_ids": [
+                  "graph-fixture-old-integration"
+                ],
+                "current_task_title": "역할 상태 집계",
+                "phase": "recorded",
+                "assignment": {
+                  "provider": "codex",
+                  "execution_id": "graph-fixture-old-integration:2",
+                  "generation": 2,
+                  "harness_version": 2,
+                  "requested": {
+                    "model": "gpt-6-astra",
+                    "reasoning_effort": "ultra",
+                    "ultracode_enabled": null
+                  },
+                  "observed": {
+                    "status": "unavailable",
+                    "model": null,
+                    "reasoning_effort": null,
+                    "source": null,
+                    "scope": null,
+                    "backend_model_verified": false
+                  },
+                  "quota": {
+                    "status": "AVAILABLE",
+                    "reset_at": null
+                  }
+                },
+                "wait_reason": "예시로 저장한 작업 상태",
+                "resume_at": null,
+                "source": "fixture",
+                "reference": {
+                  "table": "flow_tasks",
+                  "id": "graph-fixture-old-integration",
+                  "task_id": "graph-fixture-old-integration",
+                  "role_id": "final:7ba3b840de144b798a13a709fb2a8c14"
+                },
+                "handoffs": [
+                  {
+                    "execution_id": "graph-fixture-old-integration:final",
+                    "previous_execution_id": "graph-fixture-old-integration:1",
+                    "generation": 2,
+                    "role": "final"
+                  }
+                ]
+              },
+              {
+                "id": "graph:8a7cfc836e89222f8c2e00c0:report:flow-graph-fixture-old-dev",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "kind": "document",
+                "name": "역할 상태 집계",
+                "status": "AVAILABLE",
+                "source": "fixture",
+                "phase": "recorded",
+                "document_kind": "report",
+                "reference": {
+                  "id": "flow-graph-fixture-old-dev",
+                  "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                  "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                  "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                  "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                  "title": "역할 상태 집계",
+                  "kind": "report",
+                  "document_id": "report:flow-graph-fixture-old-dev"
+                },
+                "assignment": {},
+                "responsibility": "같은 실행에 연결된 보고",
+                "current_task_id": null,
+                "task_ids": [],
+                "handoffs": []
+              },
+              {
+                "id": "graph:8a7cfc836e89222f8c2e00c0:report:flow-graph-fixture-old-tests",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "kind": "document",
+                "name": "독립 검사",
+                "status": "AVAILABLE",
+                "source": "fixture",
+                "phase": "recorded",
+                "document_kind": "report",
+                "reference": {
+                  "id": "flow-graph-fixture-old-tests",
+                  "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                  "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                  "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                  "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                  "title": "독립 검사",
+                  "kind": "report",
+                  "document_id": "report:flow-graph-fixture-old-tests"
+                },
+                "assignment": {},
+                "responsibility": "같은 실행에 연결된 보고",
+                "current_task_id": null,
+                "task_ids": [],
+                "handoffs": []
+              },
+              {
+                "id": "graph:8a7cfc836e89222f8c2e00c0:report:flow-graph-fixture-old-integration",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "kind": "document",
+                "name": "역할 상태 집계",
+                "status": "AVAILABLE",
+                "source": "fixture",
+                "phase": "recorded",
+                "document_kind": "report",
+                "reference": {
+                  "id": "flow-graph-fixture-old-integration",
+                  "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                  "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                  "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                  "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                  "title": "역할 상태 집계",
+                  "kind": "report",
+                  "document_id": "report:flow-graph-fixture-old-integration"
+                },
+                "assignment": {},
+                "responsibility": "같은 실행에 연결된 보고",
+                "current_task_id": null,
+                "task_ids": [],
+                "handoffs": []
+              },
+              {
+                "id": "graph:8a7cfc836e89222f8c2e00c0:approval:65b54153b88048ce869c4b9e38303a2a",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "kind": "document",
+                "name": "이전 예시 후보 수용",
+                "status": "pending",
+                "source": "fixture",
+                "phase": "recorded",
+                "document_kind": "approval",
+                "reference": {
+                  "id": "65b54153b88048ce869c4b9e38303a2a",
+                  "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                  "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                  "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                  "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                  "title": "이전 예시 후보 수용",
+                  "kind": "approval",
+                  "document_id": "approval:65b54153b88048ce869c4b9e38303a2a",
+                  "subject_digest": "76b115eda3c0267232256cc747495f5062623d657024f38b65d7ef3032158de6",
+                  "artifact_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                  "status": "pending"
+                },
+                "assignment": {},
+                "responsibility": "같은 실행에 연결된 승인",
+                "current_task_id": null,
+                "task_ids": [],
+                "handoffs": []
+              }
+            ],
+            "edges": [
+              {
+                "kind": "specification",
+                "status": "completed",
+                "title": "역할 상태 집계",
+                "reason": "확정한 계획의 역할·허용 경로·완료 기준 전달",
+                "cursor": 7,
+                "created_at": 1790186823.750147,
+                "started_at": null,
+                "completed_at": null,
+                "execution_id": "graph-fixture-old-dev:2",
+                "generation": 2,
+                "task_id": "graph-fixture-old-dev",
+                "id": "graph:8a7cfc836e89222f8c2e00c0:de7017a216d19a99b90aaf5edfde69df61b50462ca8efdaf0037429232a94773",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "from": "graph:8a7cfc836e89222f8c2e00c0:pm:b6e3599066d9409492c3e4e74e05190c",
+                "to": "graph:8a7cfc836e89222f8c2e00c0:6dfc4c7bf40c4f8eb9ec960198d9031e",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "management_links",
+                  "id": "graph-fixture-old-dev"
+                },
+                "artifact_refs": [
+                  {
+                    "label": "계획 해시",
+                    "sha": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4"
+                  }
+                ]
+              },
+              {
+                "kind": "result_report",
+                "status": "completed",
+                "title": "역할 상태 집계",
+                "reason": "역할 산출물 커밋 완료",
+                "cursor": 7,
+                "created_at": 1790186823.7570622,
+                "started_at": null,
+                "completed_at": 1790186823.7570622,
+                "execution_id": "graph-fixture-old-dev:2",
+                "generation": 2,
+                "task_id": "graph-fixture-old-dev",
+                "id": "graph:8a7cfc836e89222f8c2e00c0:c4853fdfa82616bda5e2857347f4fa592ea740a4c3a51ce5a709072312386a37",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "from": "graph:8a7cfc836e89222f8c2e00c0:6dfc4c7bf40c4f8eb9ec960198d9031e",
+                "to": "graph:8a7cfc836e89222f8c2e00c0:pm:b6e3599066d9409492c3e4e74e05190c",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "flow_events",
+                  "id": 3
+                },
+                "artifact_refs": [
+                  {
+                    "label": "역할 후보 커밋",
+                    "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  }
+                ]
+              },
+              {
+                "kind": "specification",
+                "status": "completed",
+                "title": "독립 검사",
+                "reason": "확정한 계획의 역할·허용 경로·완료 기준 전달",
+                "cursor": 8,
+                "created_at": 1790186823.7538574,
+                "started_at": null,
+                "completed_at": null,
+                "execution_id": "graph-fixture-old-tests:2",
+                "generation": 2,
+                "task_id": "graph-fixture-old-tests",
+                "id": "graph:8a7cfc836e89222f8c2e00c0:12e87e3265e68ae2f6c7480771eacc577f91e2fc3594abfdf03f26cc0f95e393",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "from": "graph:8a7cfc836e89222f8c2e00c0:pm:b6e3599066d9409492c3e4e74e05190c",
+                "to": "graph:8a7cfc836e89222f8c2e00c0:bfae982a80f04a88b4497a320d13d02b",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "management_links",
+                  "id": "graph-fixture-old-tests"
+                },
+                "artifact_refs": [
+                  {
+                    "label": "계획 해시",
+                    "sha": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4"
+                  }
+                ]
+              },
+              {
+                "kind": "dependency",
+                "status": "completed",
+                "title": "독립 검사",
+                "reason": "선행 역할의 후보를 작업 기준에 통합",
+                "cursor": 8,
+                "created_at": 1790186823.7538574,
+                "started_at": null,
+                "completed_at": null,
+                "execution_id": "graph-fixture-old-tests:2",
+                "generation": 2,
+                "task_id": "graph-fixture-old-tests",
+                "id": "graph:8a7cfc836e89222f8c2e00c0:d1b1581c690ee26698b37847ef75930b2315472b260a552e2e8275c2046dc2bb",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "from": "graph:8a7cfc836e89222f8c2e00c0:6dfc4c7bf40c4f8eb9ec960198d9031e",
+                "to": "graph:8a7cfc836e89222f8c2e00c0:bfae982a80f04a88b4497a320d13d02b",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "flow_tasks",
+                  "id": "graph-fixture-old-tests"
+                },
+                "artifact_refs": [
+                  {
+                    "label": "dev",
+                    "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  }
+                ]
+              },
+              {
+                "kind": "result_report",
+                "status": "completed",
+                "title": "독립 검사",
+                "reason": "역할 산출물 커밋 완료",
+                "cursor": 8,
+                "created_at": 1790186823.7585983,
+                "started_at": null,
+                "completed_at": 1790186823.7585983,
+                "execution_id": "graph-fixture-old-tests:2",
+                "generation": 2,
+                "task_id": "graph-fixture-old-tests",
+                "id": "graph:8a7cfc836e89222f8c2e00c0:5b980636c20eacae726ac95b0c11d2597158db8b6cf25769abd40c06b6b2ffb6",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "from": "graph:8a7cfc836e89222f8c2e00c0:bfae982a80f04a88b4497a320d13d02b",
+                "to": "graph:8a7cfc836e89222f8c2e00c0:pm:b6e3599066d9409492c3e4e74e05190c",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "flow_events",
+                  "id": 4
+                },
+                "artifact_refs": [
+                  {
+                    "label": "역할 후보 커밋",
+                    "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  }
+                ]
+              },
+              {
+                "kind": "result_report",
+                "status": "completed",
+                "title": "역할 상태 집계",
+                "reason": "역할 후보를 합쳐 같은 커밋의 검사 시작",
+                "cursor": 11,
+                "created_at": 1790186823.7632375,
+                "started_at": null,
+                "completed_at": null,
+                "execution_id": "graph-fixture-old-integration:2",
+                "generation": 2,
+                "task_id": "graph-fixture-old-integration",
+                "id": "graph:8a7cfc836e89222f8c2e00c0:62521e8d8995bc103fe9e4ae4a7689b0fc8167be95a3a8448d6470ae26002137",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "from": "graph:8a7cfc836e89222f8c2e00c0:bfae982a80f04a88b4497a320d13d02b",
+                "to": "graph:8a7cfc836e89222f8c2e00c0:check:7ba3b840de144b798a13a709fb2a8c14",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "flow_events",
+                  "id": 6
+                },
+                "artifact_refs": [
+                  {
+                    "label": "tests",
+                    "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  }
+                ]
+              },
+              {
+                "kind": "result_report",
+                "status": "completed",
+                "title": "역할 상태 집계",
+                "reason": "역할 후보를 합쳐 같은 커밋의 검사 시작",
+                "cursor": 11,
+                "created_at": 1790186823.7632375,
+                "started_at": null,
+                "completed_at": null,
+                "execution_id": "graph-fixture-old-integration:2",
+                "generation": 2,
+                "task_id": "graph-fixture-old-integration",
+                "id": "graph:8a7cfc836e89222f8c2e00c0:cace6f108a4b0fe98debee8958b74c7a9919cac48424efbde6fabaef02f43f91",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "from": "graph:8a7cfc836e89222f8c2e00c0:6dfc4c7bf40c4f8eb9ec960198d9031e",
+                "to": "graph:8a7cfc836e89222f8c2e00c0:check:7ba3b840de144b798a13a709fb2a8c14",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "flow_events",
+                  "id": 6
+                },
+                "artifact_refs": [
+                  {
+                    "label": "dev",
+                    "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  }
+                ]
+              },
+              {
+                "kind": "review_request",
+                "status": "completed",
+                "title": "역할 상태 집계",
+                "reason": "같은 후보 커밋의 독립 검수 요청",
+                "cursor": 11,
+                "created_at": 1790186823.7633712,
+                "started_at": null,
+                "completed_at": null,
+                "execution_id": "graph-fixture-old-integration:2",
+                "generation": 2,
+                "task_id": "graph-fixture-old-integration",
+                "id": "graph:8a7cfc836e89222f8c2e00c0:068d9316bf836cbfee8530db8dc1504535cb69b972b6106b932f2ac3e8f0ea48",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "from": "graph:8a7cfc836e89222f8c2e00c0:check:7ba3b840de144b798a13a709fb2a8c14",
+                "to": "graph:8a7cfc836e89222f8c2e00c0:reviewer:7ba3b840de144b798a13a709fb2a8c14",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "flow_events",
+                  "id": 7
+                },
+                "artifact_refs": [
+                  {
+                    "label": "후보 커밋",
+                    "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                  }
+                ]
+              }
+            ],
+            "report_refs": [
+              {
+                "id": "flow-graph-fixture-old-dev",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "title": "역할 상태 집계",
+                "kind": "report",
+                "document_id": "report:flow-graph-fixture-old-dev"
+              },
+              {
+                "id": "flow-graph-fixture-old-tests",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "title": "독립 검사",
+                "kind": "report",
+                "document_id": "report:flow-graph-fixture-old-tests"
+              },
+              {
+                "id": "flow-graph-fixture-old-integration",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "title": "역할 상태 집계",
+                "kind": "report",
+                "document_id": "report:flow-graph-fixture-old-integration"
+              }
+            ],
+            "approval_refs": [
+              {
+                "id": "65b54153b88048ce869c4b9e38303a2a",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "7ba3b840de144b798a13a709fb2a8c14",
+                "title": "이전 예시 후보 수용",
+                "kind": "approval",
+                "document_id": "approval:65b54153b88048ce869c4b9e38303a2a",
+                "subject_digest": "76b115eda3c0267232256cc747495f5062623d657024f38b65d7ef3032158de6",
+                "artifact_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "status": "pending"
+              }
+            ],
+            "warnings": [],
+            "history": {
+              "complete": true,
+              "shown": 8,
+              "total": 8,
+              "recorded": 8,
+              "planned": 0
+            },
+            "empty_reason": null,
+            "fingerprint": "906d99e0faf359ec8a1a7c961a3748ac801be1a26e3cdffc70ddcdf1841f379e"
+          },
+          {
+            "id": "graph:c8e46c99e598e3931797271f",
+            "project_id": "b6e3599066d9409492c3e4e74e05190c",
+            "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+            "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+            "run_id": "graph-fixture-new-run",
+            "source": "fixture",
+            "mode": "execution",
+            "cursor": 25,
+            "observed_at": 1790186823.7995598,
+            "nodes": [
+              {
+                "id": "graph:c8e46c99e598e3931797271f:pm:b6e3599066d9409492c3e4e74e05190c",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "kind": "pm",
+                "name": "Astra Ultra PM",
+                "responsibility": "목표·역할·완료 기준 제안",
+                "status": "completed",
+                "current_task_id": null,
+                "task_ids": [],
+                "current_task_title": "",
+                "phase": "recorded",
+                "assignment": {
+                  "provider": null,
+                  "execution_id": null,
+                  "generation": null,
+                  "harness_version": 2,
+                  "requested": {
+                    "model": null,
+                    "reasoning_effort": null,
+                    "ultracode_enabled": null
+                  },
+                  "observed": {
+                    "status": "unavailable",
+                    "model": null,
+                    "reasoning_effort": null,
+                    "source": null,
+                    "scope": null,
+                    "backend_model_verified": false
+                  },
+                  "quota": {
+                    "status": "unobserved",
+                    "reset_at": null
+                  }
+                },
+                "wait_reason": null,
+                "resume_at": null,
+                "source": "fixture",
+                "reference": {
+                  "table": "management_pm_requests",
+                  "id": "9acb2715b36749799082e7111d49bdf3"
+                },
+                "handoffs": []
+              },
+              {
+                "id": "graph:c8e46c99e598e3931797271f:6dfc4c7bf40c4f8eb9ec960198d9031e",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "kind": "role",
+                "name": "개발",
+                "responsibility": "역할 상태를 집계합니다.",
+                "status": "RUNNING",
+                "current_task_id": "graph-fixture-new-dev",
+                "task_ids": [
+                  "graph-fixture-new-dev"
+                ],
+                "current_task_title": "역할 상태 집계",
+                "phase": "recorded",
+                "assignment": {
+                  "provider": "codex",
+                  "execution_id": "graph-fixture-new-dev:2",
+                  "generation": 2,
+                  "harness_version": 2,
+                  "requested": {
+                    "model": "gpt-6-astra",
+                    "reasoning_effort": "ultra",
+                    "ultracode_enabled": null
+                  },
+                  "observed": {
+                    "status": "unavailable",
+                    "model": null,
+                    "reasoning_effort": null,
+                    "source": null,
+                    "scope": null,
+                    "backend_model_verified": false
+                  },
+                  "quota": {
+                    "status": "AVAILABLE",
+                    "reset_at": null
+                  }
+                },
+                "wait_reason": "예시로 저장한 작업 상태",
+                "resume_at": null,
+                "source": "fixture",
+                "reference": {
+                  "table": "flow_tasks",
+                  "id": "graph-fixture-new-dev",
+                  "task_id": "graph-fixture-new-dev",
+                  "role_id": "6dfc4c7bf40c4f8eb9ec960198d9031e"
+                },
+                "handoffs": []
+              },
+              {
+                "id": "graph:c8e46c99e598e3931797271f:bfae982a80f04a88b4497a320d13d02b",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "kind": "role",
+                "name": "검사",
+                "responsibility": "별도 테스트로 결과를 확인합니다.",
+                "status": "WAITING_CAPACITY",
+                "current_task_id": "graph-fixture-new-tests",
+                "task_ids": [
+                  "graph-fixture-new-tests"
+                ],
+                "current_task_title": "독립 검사",
+                "phase": "recorded",
+                "assignment": {
+                  "provider": "claude",
+                  "execution_id": "graph-fixture-new-tests:2",
+                  "generation": 2,
+                  "harness_version": 2,
+                  "requested": {
+                    "model": "claude-opus-5",
+                    "reasoning_effort": "xhigh",
+                    "ultracode_enabled": null
+                  },
+                  "observed": {
+                    "status": "unavailable",
+                    "model": null,
+                    "reasoning_effort": null,
+                    "source": null,
+                    "scope": null,
+                    "backend_model_verified": false
+                  },
+                  "quota": {
+                    "status": "COOLDOWN",
+                    "reset_at": 1790187723.7489195
+                  }
+                },
+                "wait_reason": "공유 한도 대기 · 개발은 계속됩니다.",
+                "resume_at": 1790187723.7706437,
+                "source": "fixture",
+                "reference": {
+                  "table": "flow_tasks",
+                  "id": "graph-fixture-new-tests",
+                  "task_id": "graph-fixture-new-tests",
+                  "role_id": "bfae982a80f04a88b4497a320d13d02b"
+                },
+                "handoffs": []
+              },
+              {
+                "id": "graph:c8e46c99e598e3931797271f:check:graph-fixture-new-run",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "kind": "check",
+                "name": "검사",
+                "responsibility": "검사",
+                "status": "COMPLETE",
+                "current_task_id": "graph-fixture-new-integration",
+                "task_ids": [
+                  "graph-fixture-new-integration"
+                ],
+                "current_task_title": "역할 상태 집계",
+                "phase": "recorded",
+                "assignment": {
+                  "provider": null,
+                  "execution_id": null,
+                  "generation": null,
+                  "harness_version": 2,
+                  "requested": {
+                    "model": null,
+                    "reasoning_effort": null,
+                    "ultracode_enabled": null
+                  },
+                  "observed": {
+                    "status": "unavailable",
+                    "model": null,
+                    "reasoning_effort": null,
+                    "source": null,
+                    "scope": null,
+                    "backend_model_verified": false
+                  },
+                  "quota": {
+                    "status": "unobserved",
+                    "reset_at": null
+                  }
+                },
+                "wait_reason": null,
+                "resume_at": null,
+                "source": "fixture",
+                "reference": {
+                  "table": "flow_tasks",
+                  "id": "graph-fixture-new-integration",
+                  "task_id": "graph-fixture-new-integration",
+                  "role_id": "check:graph-fixture-new-run"
+                },
+                "handoffs": []
+              },
+              {
+                "id": "graph:c8e46c99e598e3931797271f:reviewer:graph-fixture-new-run",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "kind": "reviewer",
+                "name": "독립 검수",
+                "responsibility": "독립 검수",
+                "status": "WAITING_DEPENDENCY",
+                "current_task_id": "graph-fixture-new-integration",
+                "task_ids": [
+                  "graph-fixture-new-integration"
+                ],
+                "current_task_title": "역할 상태 집계",
+                "phase": "recorded",
+                "assignment": {
+                  "provider": "codex",
+                  "execution_id": "graph-fixture-new-integration:2",
+                  "generation": 2,
+                  "harness_version": 2,
+                  "requested": {
+                    "model": "gpt-6-astra",
+                    "reasoning_effort": "ultra",
+                    "ultracode_enabled": null
+                  },
+                  "observed": {
+                    "status": "unavailable",
+                    "model": null,
+                    "reasoning_effort": null,
+                    "source": null,
+                    "scope": null,
+                    "backend_model_verified": false
+                  },
+                  "quota": {
+                    "status": "AVAILABLE",
+                    "reset_at": null
+                  }
+                },
+                "wait_reason": "공유 한도 대기 · 개발은 계속됩니다.",
+                "resume_at": 1790187723.7762527,
+                "source": "fixture",
+                "reference": {
+                  "table": "flow_tasks",
+                  "id": "graph-fixture-new-integration",
+                  "task_id": "graph-fixture-new-integration",
+                  "role_id": "reviewer:graph-fixture-new-run"
+                },
+                "handoffs": []
+              },
+              {
+                "id": "graph:c8e46c99e598e3931797271f:final:graph-fixture-new-run",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "kind": "final",
+                "name": "Astra 최종 검수",
+                "responsibility": "Astra 최종 검수",
+                "status": "WAITING_DEPENDENCY",
+                "current_task_id": "graph-fixture-new-integration",
+                "task_ids": [
+                  "graph-fixture-new-integration"
+                ],
+                "current_task_title": "역할 상태 집계",
+                "phase": "recorded",
+                "assignment": {
+                  "provider": null,
+                  "execution_id": null,
+                  "generation": null,
+                  "harness_version": 2,
+                  "requested": {
+                    "model": null,
+                    "reasoning_effort": null,
+                    "ultracode_enabled": null
+                  },
+                  "observed": {
+                    "status": "unavailable",
+                    "model": null,
+                    "reasoning_effort": null,
+                    "source": null,
+                    "scope": null,
+                    "backend_model_verified": false
+                  },
+                  "quota": {
+                    "status": "unobserved",
+                    "reset_at": null
+                  }
+                },
+                "wait_reason": null,
+                "resume_at": null,
+                "source": "fixture",
+                "reference": {
+                  "table": "flow_tasks",
+                  "id": "graph-fixture-new-integration",
+                  "task_id": "graph-fixture-new-integration",
+                  "role_id": "final:graph-fixture-new-run"
+                },
+                "handoffs": []
+              },
+              {
+                "id": "graph:c8e46c99e598e3931797271f:report:flow-graph-fixture-new-dev",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "kind": "document",
+                "name": "역할 상태 집계",
+                "status": "AVAILABLE",
+                "source": "fixture",
+                "phase": "recorded",
+                "document_kind": "report",
+                "reference": {
+                  "id": "flow-graph-fixture-new-dev",
+                  "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                  "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                  "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                  "run_id": "graph-fixture-new-run",
+                  "title": "역할 상태 집계",
+                  "kind": "report",
+                  "document_id": "report:flow-graph-fixture-new-dev"
+                },
+                "assignment": {},
+                "responsibility": "같은 실행에 연결된 보고",
+                "current_task_id": null,
+                "task_ids": [],
+                "handoffs": []
+              },
+              {
+                "id": "graph:c8e46c99e598e3931797271f:report:flow-graph-fixture-new-tests",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "kind": "document",
+                "name": "독립 검사",
+                "status": "AVAILABLE",
+                "source": "fixture",
+                "phase": "recorded",
+                "document_kind": "report",
+                "reference": {
+                  "id": "flow-graph-fixture-new-tests",
+                  "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                  "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                  "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                  "run_id": "graph-fixture-new-run",
+                  "title": "독립 검사",
+                  "kind": "report",
+                  "document_id": "report:flow-graph-fixture-new-tests"
+                },
+                "assignment": {},
+                "responsibility": "같은 실행에 연결된 보고",
+                "current_task_id": null,
+                "task_ids": [],
+                "handoffs": []
+              },
+              {
+                "id": "graph:c8e46c99e598e3931797271f:report:flow-graph-fixture-new-integration",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "kind": "document",
+                "name": "역할 상태 집계",
+                "status": "AVAILABLE",
+                "source": "fixture",
+                "phase": "recorded",
+                "document_kind": "report",
+                "reference": {
+                  "id": "flow-graph-fixture-new-integration",
+                  "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                  "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                  "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                  "run_id": "graph-fixture-new-run",
+                  "title": "역할 상태 집계",
+                  "kind": "report",
+                  "document_id": "report:flow-graph-fixture-new-integration"
+                },
+                "assignment": {},
+                "responsibility": "같은 실행에 연결된 보고",
+                "current_task_id": null,
+                "task_ids": [],
+                "handoffs": []
+              }
+            ],
+            "edges": [
+              {
+                "kind": "specification",
+                "status": "started",
+                "title": "역할 상태 집계",
+                "reason": "확정한 계획의 역할·허용 경로·완료 기준 전달",
+                "cursor": 17,
+                "created_at": 1790186823.7675579,
+                "started_at": null,
+                "completed_at": null,
+                "execution_id": "graph-fixture-new-dev:2",
+                "generation": 2,
+                "task_id": "graph-fixture-new-dev",
+                "id": "graph:c8e46c99e598e3931797271f:5ae36b5b0e4acf794ad08d25944c2df9aa48a96728ea5fa5798593de445f5e7c",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "from": "graph:c8e46c99e598e3931797271f:pm:b6e3599066d9409492c3e4e74e05190c",
+                "to": "graph:c8e46c99e598e3931797271f:6dfc4c7bf40c4f8eb9ec960198d9031e",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "management_links",
+                  "id": "graph-fixture-new-dev"
+                },
+                "artifact_refs": [
+                  {
+                    "label": "계획 해시",
+                    "sha": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4"
+                  }
+                ]
+              },
+              {
+                "kind": "revision_return",
+                "status": "started",
+                "title": "역할 상태 집계",
+                "reason": "알 수 없는 상태의 집계 근거를 보완해 주세요.",
+                "cursor": 17,
+                "created_at": 1790186823.7675579,
+                "started_at": null,
+                "completed_at": null,
+                "execution_id": "graph-fixture-new-dev:2",
+                "generation": 2,
+                "task_id": "graph-fixture-new-dev",
+                "id": "graph:c8e46c99e598e3931797271f:9278b7187627445ced9dbc876172a6e2e2e21683cbbdd76d1cc21dcdd90dc1d4",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "from": "graph:c8e46c99e598e3931797271f:reviewer:graph-fixture-new-run",
+                "to": "graph:c8e46c99e598e3931797271f:6dfc4c7bf40c4f8eb9ec960198d9031e",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "flow_tasks",
+                  "id": "graph-fixture-new-dev"
+                },
+                "artifact_refs": []
+              },
+              {
+                "kind": "handoff",
+                "status": "started",
+                "title": "역할 상태 집계",
+                "reason": "같은 역할·작업의 담당 실행 이관",
+                "cursor": 17,
+                "created_at": 1790186823.77335,
+                "started_at": null,
+                "completed_at": null,
+                "execution_id": "graph-fixture-new-dev:2",
+                "generation": 2,
+                "task_id": "graph-fixture-new-dev",
+                "id": "graph:c8e46c99e598e3931797271f:b531638c71a6a968e6ef17c57e4d67292a3feb0cff84ef72d2b153f799c0993b",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "from": "graph:c8e46c99e598e3931797271f:6dfc4c7bf40c4f8eb9ec960198d9031e",
+                "to": "graph:c8e46c99e598e3931797271f:6dfc4c7bf40c4f8eb9ec960198d9031e",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "flow_events",
+                  "id": 11
+                },
+                "artifact_refs": [
+                  {
+                    "label": "인계 체크포인트",
+                    "sha": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+                  }
+                ]
+              },
+              {
+                "kind": "specification",
+                "status": "waiting",
+                "title": "독립 검사",
+                "reason": "확정한 계획의 역할·허용 경로·완료 기준 전달",
+                "cursor": 18,
+                "created_at": 1790186823.7706425,
+                "started_at": null,
+                "completed_at": null,
+                "execution_id": "graph-fixture-new-tests:2",
+                "generation": 2,
+                "task_id": "graph-fixture-new-tests",
+                "id": "graph:c8e46c99e598e3931797271f:51d0551f570e3b97651dd092431de4595885c52091f5884afabba76ac0bc96bd",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "from": "graph:c8e46c99e598e3931797271f:pm:b6e3599066d9409492c3e4e74e05190c",
+                "to": "graph:c8e46c99e598e3931797271f:bfae982a80f04a88b4497a320d13d02b",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "management_links",
+                  "id": "graph-fixture-new-tests"
+                },
+                "artifact_refs": [
+                  {
+                    "label": "계획 해시",
+                    "sha": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4"
+                  }
+                ]
+              },
+              {
+                "kind": "dependency",
+                "status": "waiting",
+                "title": "독립 검사",
+                "reason": "선행 역할의 후보를 작업 기준에 통합",
+                "cursor": 18,
+                "created_at": 1790186823.7706425,
+                "started_at": null,
+                "completed_at": null,
+                "execution_id": "graph-fixture-new-tests:2",
+                "generation": 2,
+                "task_id": "graph-fixture-new-tests",
+                "id": "graph:c8e46c99e598e3931797271f:b90b440de6232721a8b84137566feb6978f8ed98ad8199d8d8a4ba8a18e3b926",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "from": "graph:c8e46c99e598e3931797271f:6dfc4c7bf40c4f8eb9ec960198d9031e",
+                "to": "graph:c8e46c99e598e3931797271f:bfae982a80f04a88b4497a320d13d02b",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "flow_tasks",
+                  "id": "graph-fixture-new-tests"
+                },
+                "artifact_refs": [
+                  {
+                    "label": "dev",
+                    "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                  }
+                ]
+              },
+              {
+                "kind": "handoff",
+                "status": "waiting",
+                "title": "독립 검사",
+                "reason": "같은 역할·작업의 담당 실행 이관",
+                "cursor": 18,
+                "created_at": 1790186823.774837,
+                "started_at": null,
+                "completed_at": null,
+                "execution_id": "graph-fixture-new-tests:2",
+                "generation": 2,
+                "task_id": "graph-fixture-new-tests",
+                "id": "graph:c8e46c99e598e3931797271f:67ec8a150cb3d4edcc359f602468f832fc6ef8498ca5888e04f4dd24c403c8f2",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "from": "graph:c8e46c99e598e3931797271f:bfae982a80f04a88b4497a320d13d02b",
+                "to": "graph:c8e46c99e598e3931797271f:bfae982a80f04a88b4497a320d13d02b",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "flow_events",
+                  "id": 12
+                },
+                "artifact_refs": [
+                  {
+                    "label": "인계 체크포인트",
+                    "sha": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+                  }
+                ]
+              },
+              {
+                "kind": "result_report",
+                "status": "waiting",
+                "title": "역할 상태 집계",
+                "reason": "역할 후보를 합쳐 같은 커밋의 검사 시작",
+                "cursor": 21,
+                "created_at": 1790186823.7795439,
+                "started_at": null,
+                "completed_at": null,
+                "execution_id": "graph-fixture-new-integration:2",
+                "generation": 2,
+                "task_id": "graph-fixture-new-integration",
+                "id": "graph:c8e46c99e598e3931797271f:3a203124308e9dee054c9a28b4099fc516de5691793f7491a0a9a02de043812b",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "from": "graph:c8e46c99e598e3931797271f:6dfc4c7bf40c4f8eb9ec960198d9031e",
+                "to": "graph:c8e46c99e598e3931797271f:check:graph-fixture-new-run",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "flow_events",
+                  "id": 14
+                },
+                "artifact_refs": [
+                  {
+                    "label": "dev",
+                    "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                  }
+                ]
+              },
+              {
+                "kind": "result_report",
+                "status": "waiting",
+                "title": "역할 상태 집계",
+                "reason": "역할 후보를 합쳐 같은 커밋의 검사 시작",
+                "cursor": 21,
+                "created_at": 1790186823.7795439,
+                "started_at": null,
+                "completed_at": null,
+                "execution_id": "graph-fixture-new-integration:2",
+                "generation": 2,
+                "task_id": "graph-fixture-new-integration",
+                "id": "graph:c8e46c99e598e3931797271f:49566bba5c1d304092b97d79d4856902e57ced96fa66e07c3b9e603717a38693",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "from": "graph:c8e46c99e598e3931797271f:bfae982a80f04a88b4497a320d13d02b",
+                "to": "graph:c8e46c99e598e3931797271f:check:graph-fixture-new-run",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "flow_events",
+                  "id": 14
+                },
+                "artifact_refs": [
+                  {
+                    "label": "tests",
+                    "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                  }
+                ]
+              },
+              {
+                "kind": "review_request",
+                "status": "waiting",
+                "title": "역할 상태 집계",
+                "reason": "같은 후보 커밋의 독립 검수 요청",
+                "cursor": 21,
+                "created_at": 1790186823.7796474,
+                "started_at": null,
+                "completed_at": null,
+                "execution_id": "graph-fixture-new-integration:2",
+                "generation": 2,
+                "task_id": "graph-fixture-new-integration",
+                "id": "graph:c8e46c99e598e3931797271f:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "from": "graph:c8e46c99e598e3931797271f:check:graph-fixture-new-run",
+                "to": "graph:c8e46c99e598e3931797271f:reviewer:graph-fixture-new-run",
+                "source": "fixture",
+                "phase": "recorded",
+                "reference": {
+                  "table": "flow_events",
+                  "id": 15
+                },
+                "artifact_refs": [
+                  {
+                    "label": "후보 커밋",
+                    "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+                  }
+                ]
+              }
+            ],
+            "report_refs": [
+              {
+                "id": "flow-graph-fixture-new-dev",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "title": "역할 상태 집계",
+                "kind": "report",
+                "document_id": "report:flow-graph-fixture-new-dev"
+              },
+              {
+                "id": "flow-graph-fixture-new-tests",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "title": "독립 검사",
+                "kind": "report",
+                "document_id": "report:flow-graph-fixture-new-tests"
+              },
+              {
+                "id": "flow-graph-fixture-new-integration",
+                "project_id": "b6e3599066d9409492c3e4e74e05190c",
+                "plan_id": "089d4d6486d245ad95c511a620d3e36f",
+                "plan_digest": "760bd1ba4da3727b5bbdbdb1546a0b54d4f8d668a6d1bfdeb79c782e6c60e3c4",
+                "run_id": "graph-fixture-new-run",
+                "title": "역할 상태 집계",
+                "kind": "report",
+                "document_id": "report:flow-graph-fixture-new-integration"
+              }
+            ],
+            "approval_refs": [],
+            "warnings": [],
+            "history": {
+              "complete": true,
+              "shown": 9,
+              "total": 9,
+              "recorded": 9,
+              "planned": 0
+            },
+            "empty_reason": null,
+            "fingerprint": "061b4d31809f9575326b9dfc803ca84d4eea9f1f343d38ae34c7466389a7c989"
+          }
+        ],
+        "fingerprint": "4b9242760cde2c3c6eee0704a89f95ee013d1019a15b55aa2e1dcc3326e7efbd"
+      }
+    },
+    "1d27e3af736e46a1a071c3c014591d56": {
+      "project": {
+        "id": "1d27e3af736e46a1a071c3c014591d56",
+        "name": "다른 프로젝트 · 예시",
+        "goal": "이전 프로젝트의 실행과 섞이지 않습니다.",
+        "status": "PLANNING",
+        "harness_version": 1,
+        "request_revision": 0,
+        "source": "fixture",
+        "created_at": 1790186823.793672,
+        "harness_content": "{\n  \"goal\": \"이전 프로젝트의 실행과 섞이지 않습니다.\",\n  \"roles\": []\n}"
+      },
+      "roles": [],
+      "tasks": [],
+      "reports": [],
+      "approvals": [],
+      "messages": [],
+      "harnesses": [
+        {
+          "version": 1,
+          "status": "active",
+          "content": "{\n  \"goal\": \"이전 프로젝트의 실행과 섞이지 않습니다.\",\n  \"roles\": []\n}",
+          "digest": "740d08e298b8c9b8bac90dcac152e4e66f0bf037f71282d959db5ad2cc38e0b7",
+          "created_at": 1790186823.793685
+        }
+      ],
+      "readiness": {
+        "mode": "fixture",
+        "pm": "unverified",
+        "execution": "unverified"
+      },
+      "pm_requests": [],
+      "plans": [],
+      "runs": [],
+      "workers": {
+        "automation": {
+          "state": "unavailable",
+          "source": "worker_heartbeat"
+        },
+        "translation": {
+          "state": "unavailable",
+          "source": "worker_heartbeat"
+        }
+      },
+      "project_report": {
+        "source": "system",
+        "scope": "current_plan",
+        "project_id": "1d27e3af736e46a1a071c3c014591d56",
+        "goal": "이전 프로젝트의 실행과 섞이지 않습니다.",
+        "goal_digest": "3cc023a34e761e11eb2e94104e3df4624567f9425bed4a8e067414a433ffbff1",
+        "request_revision": 0,
+        "plan_id": null,
+        "plan_digest": null,
+        "run_id": null,
+        "mode": "fixture",
+        "completed": [],
+        "in_progress": [],
+        "blockers": [],
+        "next_actions": [
+          {
+            "owner": "master",
+            "text": "목표를 입력하세요.",
+            "view": "manager"
+          }
+        ],
+        "decisions": [],
+        "completion_criteria": [],
+        "goal_assessment": "not_assessed",
+        "candidate_verified": false,
+        "pm_report_ids": [],
+        "candidate_sha": null,
+        "digest": "3939d83eae80b68d59262525c22ba81696ddb84abbc9f55e0faed2746cc84d78"
+      },
+      "documents": {
+        "project:1d27e3af736e46a1a071c3c014591d56": {
+          "id": "project:1d27e3af736e46a1a071c3c014591d56",
+          "kind": "project",
+          "project_id": "1d27e3af736e46a1a071c3c014591d56",
+          "source_version": "3cc023a34e761e11eb2e94104e3df4624567f9425bed4a8e067414a433ffbff1",
+          "author_role": "master",
+          "source_ref": {
+            "project_id": "1d27e3af736e46a1a071c3c014591d56"
+          },
+          "fields": {
+            "goal": "이전 프로젝트의 실행과 섞이지 않습니다."
+          },
+          "protected": {},
+          "source_digest": "554c87dc7516f686bbfccde0fc59baac30b6d3a3d169589c01f8966d305165d7",
+          "original_language": "ko",
+          "translation": null
+        }
+      },
+      "translation_summary": {
+        "status": "unconfigured",
+        "model": "gpt-5.6-luna",
+        "candidate_model": "gpt-5.6-luna",
+        "provider": "codex",
+        "quota_group": null,
+        "counts": {},
+        "requested_configuration": {
+          "provider": "codex",
+          "model": "gpt-5.6-luna",
+          "reasoning_effort": "low",
+          "model_version": "0.154.0"
+        },
+        "observed_configuration": null,
+        "resume_at": null,
+        "reason": "tool_free_execution_not_verified"
+      },
+      "collaboration": {
+        "cursor": 26,
+        "source": "fixture",
+        "nodes": [
+          {
+            "id": "pm:1d27e3af736e46a1a071c3c014591d56",
+            "name": "Astra Ultra PM",
+            "kind": "pm",
+            "responsibility": "목표·역할·완료 기준 제안",
+            "status": "IDLE",
+            "current_task_id": null,
+            "task_ids": [],
+            "assignment": {
+              "agent_id": null,
+              "provider": null,
+              "session_id": null,
+              "execution_id": null,
+              "generation": null,
+              "requested": {
+                "model": null,
+                "reasoning_effort": null,
+                "ultracode_enabled": null
+              },
+              "observed": {
+                "status": "unavailable",
+                "model": null,
+                "reasoning_effort": null,
+                "source": null,
+                "scope": null,
+                "backend_model_verified": false,
+                "evidence": null
+              },
+              "quota_group": null,
+              "quota": {
+                "status": "unobserved",
+                "reset_at": null
+              },
+              "harness_version": 1
+            },
+            "wait_reason": null,
+            "resume_at": null,
+            "handoffs": [],
+            "active": true
+          },
+          {
+            "id": "translator:1d27e3af736e46a1a071c3c014591d56",
+            "name": "한글 번역",
+            "kind": "translator",
+            "responsibility": "원문을 보존하는 번역 전용 · 실행·승인 권한 없음",
+            "status": "unconfigured",
+            "current_task_id": null,
+            "task_ids": [],
+            "assignment": {
+              "requested": {
+                "provider": "codex",
+                "model": "gpt-5.6-luna",
+                "reasoning_effort": "low",
+                "model_version": "0.154.0"
+              },
+              "observed": {
+                "status": "unavailable"
+              },
+              "agent_id": "document-translator",
+              "provider": "codex",
+              "quota_group": null,
+              "session_id": null,
+              "quota": null,
+              "harness_version": 1
+            },
+            "wait_reason": "tool_free_execution_not_verified",
+            "resume_at": null,
+            "handoffs": [],
+            "active": true
+          }
+        ],
+        "transfers": []
+      },
+      "workspace_graph": {
+        "schema_version": 1,
+        "project_id": "1d27e3af736e46a1a071c3c014591d56",
+        "cursor": 26,
+        "observed_at": 1790186823.8023946,
+        "default_snapshot_id": "graph:e303e609f080455fe9937a5d",
+        "snapshots": [
+          {
+            "id": "graph:e303e609f080455fe9937a5d",
+            "project_id": "1d27e3af736e46a1a071c3c014591d56",
+            "plan_id": null,
+            "plan_digest": null,
+            "run_id": null,
+            "source": "fixture",
+            "mode": "planned",
+            "cursor": 26,
+            "observed_at": 1790186823.8023946,
+            "nodes": [],
+            "edges": [],
+            "report_refs": [],
+            "approval_refs": [],
+            "warnings": [],
+            "history": {
+              "complete": true,
+              "shown": 0,
+              "total": 0,
+              "recorded": 0,
+              "planned": 0
+            },
+            "empty_reason": null,
+            "fingerprint": "1bfcd88fcd30742c3d0d51c81452f49083d106a42cf3ece05ba352d8e99d9ce2"
+          }
+        ],
+        "fingerprint": "1f45fe8f60d533398784d834a4b59337e0f0f9a9d3d04c608c597b4c2a17c05d"
+      }
+    }
+  },
+  "execution_catalog": {
+    "entries": []
+  }
+}

@@ -21,7 +21,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs/promises'),path=r
  const settle=()=>page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
  const shot=async name=>{await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:path.join(out,`graph-edges-independent-${name}.png`),fullPage:true});};
  const fingerprint=body=>{const graph=body.workspace_graph;graph.fingerprint=createHash('sha256').update(JSON.stringify(graph.snapshots)).digest('hex');for(const s of graph.snapshots)s.fingerprint=createHash('sha256').update(JSON.stringify(s.nodes)+JSON.stringify(s.edges)).digest('hex');return body;};
- async function refresh(){const count=readCount;await page.locator('.integrated-graph-refresh [data-action="refresh"]').click();await page.waitForFunction(()=>!document.querySelector('.integrated-graph-refresh [data-action="refresh"]')?.disabled);for(let i=0;readCount===count&&i<120;i++)await new Promise(resolve=>setTimeout(resolve,50));assert.ok(readCount>count);await settle();}
+ async function refresh(){const count=readCount;await page.locator('.page-heading [data-action="refresh"]').click();await page.waitForFunction(()=>!document.querySelector('.page-heading [data-action="refresh"]')?.disabled);for(let i=0;readCount===count&&i<120;i++)await new Promise(resolve=>setTimeout(resolve,50));assert.ok(readCount>count);await settle();}
  async function selection(edge,snapshot){
   await page.locator('.rg-direction').waitFor();
   assert.equal((await page.locator('.rg-direction').textContent()).trim(),`${snapshot.nodes.find(n=>n.id===edge.from).name} → ${snapshot.nodes.find(n=>n.id===edge.to).name}`);

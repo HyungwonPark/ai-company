@@ -7,12 +7,14 @@ import vm from 'node:vm';
 const source=await readFile(new URL('../../src/ai_company/web/app.js',import.meta.url),'utf8');
 const executionSource=await readFile(new URL('../../src/ai_company/web/execution-ui.js',import.meta.url),'utf8');
 const {currentExecutionProposal,executionMessage}=await import('data:text/javascript;base64,'+Buffer.from(executionSource).toString('base64'));
+const journeySource=await readFile(new URL('../../src/ai_company/web/app.js',import.meta.url),'utf8');
+const {journeyHref}=await import('data:text/javascript;base64,'+Buffer.from(journeySource.split('/* Journey projections */')[1].split('/* End journey projections */')[0].replaceAll('function ','export function ')).toString('base64'));
 function extract(start,end){
   const first=source.indexOf(start),last=source.indexOf(end,first);
   assert.ok(first>=0&&last>first,`실제 함수 추출 경계를 찾을 수 없습니다: ${start}`);
   return source.slice(first,last);
 }
-const functions=extract('function projectHref(','async function api(')
+const functions=extract('function scopeParams(','async function api(')
   +extract('async function api(','function themeControls(')
   +extract('async function saveExecutionSpec(){','function closeButton(');
 const selection={catalog_id:'catalog',catalog_digest:'a'.repeat(64),allowed_paths:['src/original.py']};
@@ -25,9 +27,9 @@ function harness(initialSelection=selection){
   const state={connected:true,authenticated:true,csrf:'fixture-csrf',username:'fixture-master',projectId:'fixture-project',view:'project',
     overview:{project:{request_revision:0},plans:[]},
     executionEntries:[{catalog_id:selection.catalog_id,catalog_digest:selection.catalog_digest,repository:'fixture/repo'}]};
-  const context={state,busyForms:new Set(),currentExecutionProposal,executionMessage,structuredClone,crypto:webcrypto,
+  const context={workspaceCompatible:()=>true,state,busyForms:new Set(),currentExecutionProposal,executionMessage,journeyHref,recordParams:new URLSearchParams('project=fixture-project'),structuredClone,crypto:webcrypto,
     location:{hash:'#project?project=fixture-project'},navigator:{onLine:true},
-    TextEncoder,AbortController,Error,TypeError,setTimeout,clearTimeout,
+    TextEncoder,AbortController,Error,TypeError,URLSearchParams,setTimeout,clearTimeout,
     executionIntent:()=>intent,
     storeExecutionIntent(value,project){
       assert.equal(project,state.projectId);
@@ -156,3 +158,14 @@ lateOffline.replies.push(()=>{lateOffline.context.navigator.onLine=false;return 
 await lateOffline.save();
 assert.equal(lateOffline.state.connected,false,'오프라인 전환 후 늦은 성공 응답은 쓰기 가능 상태를 복구하지 않습니다.');
 assert.equal(lateOffline.intent(),null,'서버에 저장된 성공 결과는 보존합니다.');
+
+const mixed=harness();
+mixed.replies.push(new TypeError('response lost'));
+await mixed.save();
+const originalIntent=JSON.stringify(mixed.intent()),sent=mixed.requests.length;
+mixed.context.workspaceCompatible=()=>false;
+await mixed.save();await mixed.requestPlan();
+assert.equal(mixed.requests.length,sent,'혼합 모듈에서는 저장 재시도나 새 PM 요청을 전송하지 않습니다.');
+assert.equal(JSON.stringify(mixed.intent()),originalIntent,'결과 불확실 요청의 원문·멱등 키를 보존합니다.');
+assert.equal(mixed.context.busyForms.size,0);
+console.log('PASS: 혼합 모듈 경계에서 이전 불확실 저장 의도와 멱등 키 보존·추가 전송 없음');

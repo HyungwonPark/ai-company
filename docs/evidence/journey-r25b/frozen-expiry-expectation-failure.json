@@ -1,0 +1,12 @@
+{
+  "currentCase": {
+    "width": 320,
+    "theme": "light",
+    "stage": "same-run result and approval navigation"
+  },
+  "error": "Expected values to be strictly equal:\n\n2 !== 0\n",
+  "checks": [],
+  "errors": [],
+  "consoleErrors": [],
+  "network": []
+}

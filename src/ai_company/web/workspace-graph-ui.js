@@ -1,7 +1,7 @@
 /* Read-only graph. Server records own relationships, state, model observations and authority. */
 const kindLabels={pm:'PM',role:'역할',task:'작업',check:'검사',reviewer:'독립 검수',final:'최종 검수',translator:'번역',document:'문서',artifact:'산출물'};
 const relationLabels={specification:'명세',dependency:'의존',review_request:'검수 요청',revision_return:'수정 반환',result_report:'결과 보고',handoff:'이관',translation_request:'번역',planned_dependency:'예정 의존',planned_specification:'역할 제안'};
-const statusLabels={READY:'준비',AVAILABLE:'확인 가능',CONTRIBUTION_READY:'산출물 준비',MERGE_READY:'검수 완료',COOLDOWN:'한도 대기',RUNNING:'진행',running:'진행',WAITING_QUOTA:'한도 대기',waiting_quota:'한도 대기',WAITING_RETRY:'재시도 대기',WAITING_DEPENDENCY:'선행 작업 대기',WAITING_DEPENDENCIES:'선행 작업 대기',WAITING_CAPACITY:'담당 대기',pending:'준비',planned:'예정',PLANNED:'예정',IDLE:'준비',completed:'완료',COMPLETE:'완료',DONE:'완료',APPROVED:'완료',BLOCKED:'차단',blocked:'차단',FAILED:'실패',received:'수신',sent:'보냄',started:'착수',awaiting_approval:'승인 대기'};
+const statusLabels={READY:'준비',AVAILABLE:'확인 가능',CONTRIBUTION_READY:'산출물 준비',MERGE_READY:'검수 완료',RECONCILIATION_REQUIRED:'상태 대조 필요',NEEDS_RECONCILIATION:'종료·결과 대조 필요',NEEDS_CONTEXT_HANDOFF:'인수인계 필요',NO_ELIGIBLE_AGENT:'적격 담당자 없음',SUPERSEDED:'후속 담당 대조 필요',HANDOFF_PENDING:'담당 이관 중',CHECK_RUNNING:'검사 중',WAITING_CHECKS:'원격 검사 대기',rejected:'반려됨',COOLDOWN:'한도 대기',RUNNING:'진행',running:'진행',WAITING_QUOTA:'한도 대기',waiting_quota:'한도 대기',WAITING_RETRY:'재시도 대기',WAITING_DEPENDENCY:'선행 작업 대기',WAITING_DEPENDENCIES:'선행 작업 대기',WAITING_CAPACITY:'담당 대기',pending:'준비',planned:'예정',PLANNED:'예정',IDLE:'준비',completed:'완료',COMPLETE:'완료',DONE:'완료',APPROVED:'완료',BLOCKED:'차단',blocked:'차단',FAILED:'실패',received:'수신',sent:'보냄',started:'착수',awaiting_approval:'승인 대기'};
 const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 const shortModel=value=>({'gpt-6-astra':'Astra','claude-opus-5':'Claude Opus','claude-haiku-4-5':'Claude Haiku'}[value]||value||'미배정');
 const planned=item=>item.phase==='planned'||item.mode==='planned'||item.source==='planned'||item.status==='planned';
@@ -36,15 +36,21 @@ export function routeGraphEdges(edges,positions,width,height,{basePositions=posi
  // slots must be allocated together so a newly arrived short edge is not hidden.
  if(previousRoutes&&(previousRoutes.size!==ordered.length||ordered.some(e=>previousRoutes.get(e.id)?.identity!==identity(e))))previousRoutes=null;
  const boxes=Object.entries(positions).map(([id,p])=>({id,left:p.x,top:p.y,right:p.x+width,bottom:p.y+height}));
- const outerRight=Math.max(0,...boxes.map(b=>b.right)),ports=new Map(),plans=new Map();let outerLane=0;
+ const baseXs=boxes.map(b=>(basePositions[b.id]||positions[b.id]).x),center=(Math.min(...baseXs)+Math.max(...baseXs)+width)/2,ports=new Map(),plans=new Map(),selfLanes=new Map();
  const add=(id,side,key)=>{const group=id+':'+side;if(!ports.has(group))ports.set(group,[]);ports.get(group).push(key);};
  for(const e of ordered){const a=basePositions[e.from]||positions[e.from],b=basePositions[e.to]||positions[e.to];
   let fromSide='bottom',toSide='top',type='forward';
-  if(e.from===e.to){fromSide=toSide='right';type='self';}
-  else if(e.kind==='revision_return'){fromSide=toSide='right';type='return';}
+  if(e.from===e.to){fromSide=toSide=a.x+width/2<center?'left':'right';type='self';}
+  else if(e.kind==='revision_return'){fromSide=toSide=(a.x+b.x+width)/2<center?'left':'right';type='return';}
   else if(Math.abs(a.y-b.y)<height/2&&Math.abs(a.x-b.x)>width/2){fromSide=a.x<b.x?'right':'left';toSide=a.x<b.x?'left':'right';type='same-row';}
-  else if(a.y>b.y){fromSide=toSide='right';type='backward';}
-  plans.set(e.id,{fromSide,toSide,type,exitY:positions[e.from].y-24,entryY:positions[e.to].y+height+24,outerX:['self','return','backward'].includes(type)?outerRight+38+outerLane++*32:null});
+  else if(a.y>b.y){fromSide=toSide=(a.x+b.x+width)/2<center?'left':'right';type='backward';}
+  let outerX=null,outerY=null;
+  if(type==='return'&&Math.abs(a.y-b.y)<height/2){fromSide=toSide='top';outerY=Math.min(positions[e.from].y,positions[e.to].y)-38;}
+  if(type==='self'){
+   const lane=selfLanes.get(e.from)||0;selfLanes.set(e.from,lane+1);
+   outerX=positions[e.from].x+(fromSide==='right'?width+38+lane*16:-38-lane*16);
+  }
+  plans.set(e.id,{fromSide,toSide,type,outerX,outerY});
   add(e.from,fromSide,e.id+':from');add(e.to,toSide,e.id+':to');
  }
  for(const values of ports.values())values.sort();
@@ -56,7 +62,7 @@ export function routeGraphEdges(edges,positions,width,height,{basePositions=posi
  const points=[],endpoints=new Map();
  for(const e of ordered){const plan=plans.get(e.id),a=port(e.from,plan.fromSide,e.id+':from'),b=port(e.to,plan.toSide,e.id+':to');const start=stub(a,plan.fromSide),end=stub(b,plan.toSide);endpoints.set(e.id,{a,b,start,end});points.push(start,end);}
  const xs=[...new Set([...points.map(p=>p.x),...boxes.flatMap(b=>[b.left-12,b.right+12]),...[...plans.values()].map(p=>p.outerX).filter(v=>v!==null)])].sort((a,b)=>a-b);
- const ys=[...new Set([...points.map(p=>p.y),...boxes.flatMap(b=>[b.top-12,b.bottom+12]),...[...plans.values()].filter(p=>p.outerX!==null).flatMap(p=>[p.exitY,p.entryY])])].sort((a,b)=>a-b);
+ const ys=[...new Set([...points.map(p=>p.y),...boxes.flatMap(b=>[b.top-12,b.bottom+12]),...[...plans.values()].map(p=>p.outerY).filter(v=>v!==null)])].sort((a,b)=>a-b);
  const arrowBoxes=[...endpoints].map(([id,{b}])=>{const side=plans.get(id).toSide;
   return {left:b.x-(side==='left'?24:side==='right'?4:10),right:b.x+(side==='right'?24:side==='left'?4:10),top:b.y-(side==='top'?24:side==='bottom'?4:10),bottom:b.y+(side==='bottom'?24:side==='top'?4:10)};
  });
@@ -109,9 +115,12 @@ export function routeGraphEdges(edges,positions,width,height,{basePositions=posi
   const old=previousRoutes?.get(e.id),retained=old?.identity===identity(e)?retainedPath(old,plan,a,b,start,end):null;let middle;
   if(retained)middle=retained.slice(1,-1);
   else
-  if(plan.outerX!==null){
-   const waypoints=[start,{x:start.x,y:plan.exitY},{x:plan.outerX,y:plan.exitY},{x:plan.outerX,y:plan.entryY},{x:end.x,y:plan.entryY},end];
+  if(plan.outerX!==null||plan.outerY!==null){
+   const waypoints=plan.outerY!==null?[start,{x:start.x,y:plan.outerY},{x:end.x,y:plan.outerY},end]:[start,{x:plan.outerX,y:start.y},{x:plan.outerX,y:end.y},end];
    middle=[];for(let i=1;i<waypoints.length;i++){const leg=search(waypoints[i-1],waypoints[i]);if(!leg){middle=null;break;}middle.push(...leg);}
+   // A dragged neighbour can occupy the preferred local loop. In that case
+   // locality yields to the ordinary obstacle-avoiding route search.
+   if(!middle)middle=search(start,end);
   }
   else middle=search(start,end);
   const issue=middle?null:'space-limited',path=retained||simplify([a,...(middle||[start,{x:start.x,y:end.y},end]),b]);
@@ -145,7 +154,7 @@ export function routeGraphEdges(edges,positions,width,height,{basePositions=posi
   // Prefer labels on the line. In a narrow mobile gutter, move the label into
   // free space with a small leader instead of covering a role or another name.
   for(const compact of [false,true]){const text=compact?String(index+1):full,w=compact?30:Math.max(52,[...text].reduce((n,c)=>n+(c.charCodeAt(0)>255?14:8),0)+20),h=28;
-   for(const offset of [0,32,-32,64,-64,96,-96,128,-128,192,-192]){
+   for(const offset of [0,...Array.from({length:16},(_,i)=>(i+1)*16).flatMap(n=>[n,-n])]){
     for(const segment of segments){for(const fraction of [.5,.25,.75,.4,.6,.125,.875]){
      const anchor={x:segment.a.x+(segment.b.x-segment.a.x)*fraction,y:segment.a.y+(segment.b.y-segment.a.y)*fraction};
      const x=anchor.x+(segment.a.x===segment.b.x?offset:0),y=anchor.y+(segment.a.y===segment.b.y?offset:0),rect={left:x-w/2,top:y-h/2,right:x+w/2,bottom:y+h/2};
@@ -172,8 +181,8 @@ export function validateGraphEnvelope(envelope,project){
   return s.nodes.every(n=>typeof n.id==='string'&&bound(n))&&s.edges.every(e=>typeof e.id==='string'&&typeof e.from==='string'&&typeof e.to==='string'&&bound(e));
  });
 }
-export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabels[v]||v,stamp=v=>v?new Date(v*1000).toLocaleString('ko-KR'):'미기록',onInteractionEnd=()=>{}}){
- const projects=new Map(),views=new Map();let activeProject='',resizeObserver,disposeMount=()=>{},interaction=null,pendingEnvelope=null;
+export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabels[v]||v,stamp=v=>v?new Date(v*1000).toLocaleString('ko-KR'):'미기록',onInteractionEnd=()=>{},onScopeChange=()=>{}}){
+ const projects=new Map(),views=new Map();let activeProject='',resizeObserver,disposeMount=()=>{},interaction=null,pendingEnvelope=null,helpOpen=false;
  const status=v=>statusLabels[v]||label(v)||'미기록';
  const button=(text,action,attrs='')=>`<button type="button" data-rg-action="${action}" ${attrs}>${text}</button>`;
  function ingest(overview,project){
@@ -186,28 +195,49 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
   if(interaction?.project===project){pendingEnvelope={project,data:envelope};return true;}
   const oldEdges=new Set((prior?.data.snapshots||[]).flatMap(s=>s.edges.map(e=>e.id)));
   const fresh=prior&&!prior.disconnected?envelope.snapshots.flatMap(s=>s.edges.filter(e=>!oldEdges.has(e.id)&&!planned(e)).map(e=>e.id)):[];
-  const missing=Boolean(prior?.selected&&!envelope.snapshots.some(s=>s.id===prior.selected));
-  projects.set(project,{data:envelope,selected:missing?envelope.default_snapshot_id:prior?.selected||envelope.default_snapshot_id||envelope.snapshots[0]?.id,missingSelection:missing,disconnected:false,fresh:new Set(fresh)});
+  const requestedRun=prior?.requestedRun??null,requestedSnapshot=prior?.requestedSnapshot??null;
+  const requested=requestedRun||requestedSnapshot;
+  const match=requested?envelope.snapshots.find(s=>(!requestedRun||s.run_id===requestedRun)&&(!requestedSnapshot||s.id===requestedSnapshot)):null;
+  const selected=requested?(match?.id||requestedSnapshot||prior?.selected):prior?.selected??envelope.default_snapshot_id??envelope.snapshots[0]?.id;
+  const missing=requested?!match:Boolean(selected&&!envelope.snapshots.some(s=>s.id===selected));
+  projects.set(project,{data:envelope,selected,lastSelected:missing?prior?.lastSelected:selected,requestedRun,requestedSnapshot,missingSelection:missing,disconnected:false,fresh:new Set(fresh)});
   return true;
  }
- function scope(project){const p=projects.get(project);if(!p)return null;return p.data.snapshots.find(s=>s.id===p.selected)||p.data.snapshots[0];}
- function view(snapshot){const k=graphKey(snapshot);if(!views.has(k))views.set(k,{mode:'graph',selection:null,zoom:1,pan:{x:0,y:0},positions:{},positionsBySize:new Map(),camerasBySize:new Map(),adjustCamera:false,small:null,panMode:false,seen:new Set(),focus:null,detailScroll:0,detailOpen:[]});return views.get(k);}
+ function scope(project){const p=projects.get(project);if(!p||p.missingSelection)return null;return p.data.snapshots.find(s=>s.id===p.selected)||null;}
+ function selectScope(project,{runId=null,snapshotId=null}={}){
+  const p=projects.get(project);if(!p)return null;
+  if(!runId&&!snapshotId){
+   // An unscoped URL leaves a valid selection alone. Returning from an invalid
+   // explicit URL clears that request, without reusing it for the next visit.
+   p.requestedRun=null;p.requestedSnapshot=null;
+   if(p.missingSelection){
+    const selected=p.data.snapshots.find(s=>s.id===p.lastSelected)||p.data.snapshots.find(s=>s.id===p.data.default_snapshot_id)||p.data.snapshots[0];
+    p.selected=selected?.id;p.lastSelected=p.selected;p.missingSelection=false;
+   }
+   return scope(project);
+  }
+  const selected=p.data.snapshots.find(s=>(!runId||s.run_id===runId)&&(!snapshotId||s.id===snapshotId));
+  p.requestedRun=runId;p.requestedSnapshot=snapshotId;p.selected=selected?.id||snapshotId||null;p.missingSelection=!selected;
+  if(selected)p.lastSelected=selected.id;
+  return selected||null;
+ }
+ function view(snapshot){const k=graphKey(snapshot);if(!views.has(k))views.set(k,{mode:'graph',selection:null,zoom:1,pan:{x:0,y:0},positions:{},positionsBySize:new Map(),camerasBySize:new Map(),adjustCamera:true,revealSelection:false,cameraWidth:0,cameraTouched:false,small:null,panMode:false,seen:new Set(),focus:null,detailScroll:0,detailOpen:[]});return views.get(k);}
  function refs(snapshot){return `<details class="rg-provenance"><summary>기록 기준</summary><dl><dt>프로젝트</dt><dd><code>${esc(snapshot.project_id)}</code></dd><dt>계획</dt><dd><code>${esc(snapshot.plan_id||'없음')}</code><code>${esc(snapshot.plan_digest||'없음')}</code></dd><dt>실행</dt><dd><code>${esc(snapshot.run_id||'확정 전 · 실행 없음')}</code></dd><dt>조회 시각 · 순서</dt><dd>${esc(stamp(snapshot.observed_at))} · ${esc(snapshot.cursor)}</dd></dl></details>`;}
  function nodeInfo(node){if(node.kind==='document')return `<p>${node.document_kind==='approval'?'후보 수용을 결정하는 승인 문서입니다.':'이 실행의 시스템 보고 문서입니다.'}</p><p>아래 실행별 링크에서 원문과 대상 식별자를 확인할 수 있습니다.</p><details><summary>문서 참조</summary><pre>${esc(JSON.stringify({reference:node.reference||{},configuration:node.assignment||{}},null,2))}</pre></details>`;const a=node.assignment||{},r=a.requested||{},o=a.observed||{};return `<dl class="rg-facts"><div><dt>종류</dt><dd>${esc(kindLabels[node.kind]||node.kind)} · ${planned(node)?'예정':'저장된 기록'}</dd></div><div><dt>담당 업무</dt><dd>${esc(node.current_task_title||node.task_title||node.current_work||node.responsibility||'연결된 작업 없음')}</dd></div><div><dt>요청</dt><dd>${esc(r.model||'미배정')} · ${esc(r.reasoning_effort||'추론 미설정')}<br>Ultracode ${r.ultracode_enabled===true?'요청함':r.ultracode_enabled===false?'요청 안 함':'미확인'}</dd></div><div><dt>실행에서 확인된 설정</dt><dd>${o.status==='observed'?`${esc(o.model||'모델 미확인')} · ${esc(o.reasoning_effort||'추론 미확인')}`:'미확인'}</dd></div><div><dt>확인 근거</dt><dd>${esc(o.source||'없음')} · ${esc(o.scope||'미확인')}<br>모델의 자기 설명을 근거로 사용하지 않습니다.</dd></div>${node.wait_reason?`<div><dt>대기 이유</dt><dd>${esc(node.wait_reason)}${node.resume_at?`<br>재개 예약 ${esc(stamp(node.resume_at))}`:''}</dd></div>`:''}${a.quota?.status?`<div><dt>공유 한도</dt><dd>${esc(status(a.quota.status))}${a.quota.reset_at?` · ${esc(stamp(a.quota.reset_at))}`:''}</dd></div>`:''}</dl>${node.handoffs?.length?`<details><summary>담당 이관 ${node.handoffs.length}건</summary><p>역할과 작업은 유지하고 담당 세션만 바뀝니다.</p><pre>${esc(JSON.stringify(node.handoffs,null,2))}</pre></details>`:''}<details><summary>원본 참조</summary><pre>${esc(JSON.stringify({reference:node.reference||{},configuration:node.assignment||{}},null,2))}</pre></details>`;}
  function edgeInfo(edge,snapshot){const name=id=>snapshot.nodes.find(n=>n.id===id)?.name||id;return `<p class="rg-direction">${esc(name(edge.from))} → ${esc(name(edge.to))}</p><p>${esc(edge.reason||edge.title||'관계의 상세 이유는 기록되지 않았습니다.')}</p><dl class="rg-facts"><div><dt>구분</dt><dd>${planned(edge)?'계획의 예정 관계 · 실제 전달 아님':'저장된 전달 사실'}</dd></div><div><dt>상태</dt><dd>${esc(status(edge.status))}</dd></div><div><dt>기록 시각</dt><dd>${esc(stamp(edge.created_at))}</dd></div></dl><h4>산출물</h4>${edge.artifact_refs?.length?edge.artifact_refs.map(a=>`<div class="rg-artifact"><strong>${esc(a.kind||'근거')}</strong><code>${esc(a.sha||a.path||a.uri||a.id||'식별자 미기록')}</code></div>`).join(''):'<p>연결된 산출물 근거가 없습니다.</p>'}<details><summary>원본 참조</summary><pre>${esc(JSON.stringify(edge.reference||edge.source_ref||{},null,2))}</pre></details>`;}
- function detail(snapshot,v){const selected=v.selection,item=selected&&(selected.kind==='node'?snapshot.nodes:snapshot.edges).find(n=>n.id===selected.id);const html=`<aside class="rg-detail ${item?'is-open':''}" aria-label="그래프 상세"><div class="rg-detail-top"><h3 id="rg-detail-heading" tabindex="-1">${item?esc(selected.kind==='node'?item.name:relationLabels[item.kind]||item.kind):'상세'}</h3>${item?button('닫기','clear','aria-label="상세 닫기"'):''}</div>${item?`${selected.kind==='node'?`<p class="rg-state">${esc(status(item.status))}</p>${nodeInfo(item)}`:edgeInfo(item,snapshot)}`:selected?'<p>선택한 기록은 이번 응답에 없습니다. 과거 기록이 없다는 뜻은 아닙니다.</p>':'<p>노드나 전달선을 누르면 담당 모델과 산출물·대기 이유를 읽을 수 있습니다.</p>'}${refs(snapshot)}<div class="rg-reference-links">${(snapshot.approval_refs||[]).length?`<a href="#approvals?project=${encodeURIComponent(snapshot.project_id)}&run=${encodeURIComponent(snapshot.run_id)}">이 실행의 승인 ${(snapshot.approval_refs||[]).length}건</a>`:''}${(snapshot.report_refs||[]).length?`<a href="#reports?project=${encodeURIComponent(snapshot.project_id)}&run=${encodeURIComponent(snapshot.run_id)}">이 실행의 보고 ${(snapshot.report_refs||[]).length}건</a>`:''}</div><p class="rg-small">그래프 선택·위치 이동은 계획·모델·실행 권한을 변경하지 않습니다.</p></aside>`;return html.replace(/<summary>(.*?)<\/summary>/g,(_,text)=>{const key=text.startsWith('담당 이관')?'handoff':({'원본 참조':'source','문서 참조':'source','기록 기준':'provenance'}[text]||'evidence');return `<summary id="rg-detail-summary-${key}" data-rg-detail-key="${key}">${text}</summary>`;});}
+ function detail(snapshot,v){const selected=v.selection,item=selected&&(selected.kind==='node'?snapshot.nodes:snapshot.edges).find(n=>n.id===selected.id);const html=`<aside class="rg-detail ${selected?'is-open':''}" aria-label="그래프 상세" data-rg-detail-id="${esc(selected?.id||'')}" data-rg-detail-kind="${esc(selected?.kind||'')}"><div class="rg-detail-top"><h3 id="rg-detail-heading" tabindex="-1">${item?esc(selected.kind==='node'?item.name:relationLabels[item.kind]||item.kind):'상세'}</h3>${selected?button('닫기','clear','id="rg-detail-close" aria-label="상세 닫기"'):''}</div>${item?`${selected.kind==='node'?`<p class="rg-state">${esc(status(item.status))}</p>${nodeInfo(item)}`:edgeInfo(item,snapshot)}`:selected?'<p role="status" data-rg-missing-record>선택한 기록은 이번 응답에 없습니다. 과거 기록이 없다는 뜻은 아닙니다.</p>':'<p>노드나 전달선을 누르면 담당 모델과 산출물·대기 이유를 읽을 수 있습니다.</p>'}${refs(snapshot)}<div class="rg-reference-links">${(snapshot.approval_refs||[]).length?`<a href="#approvals?project=${encodeURIComponent(snapshot.project_id)}&run=${encodeURIComponent(snapshot.run_id)}">이 실행의 승인 ${(snapshot.approval_refs||[]).length}건</a>`:''}${(snapshot.report_refs||[]).length?`<a href="#reports?project=${encodeURIComponent(snapshot.project_id)}&run=${encodeURIComponent(snapshot.run_id)}">이 실행의 보고 ${(snapshot.report_refs||[]).length}건</a>`:''}</div><p class="rg-small">그래프 선택·위치 이동은 계획·모델·실행 권한을 변경하지 않습니다.</p></aside>`;return html.replace(/<summary>(.*?)<\/summary>/g,(_,text)=>{const key=text.startsWith('담당 이관')?'handoff':({'원본 참조':'source','문서 참조':'source','기록 기준':'provenance'}[text]||'evidence');return `<summary id="rg-detail-summary-${key}" data-rg-detail-key="${key}">${text}</summary>`;});}
  function summaryNode(node){if(node.kind==='document')return node.document_kind==='approval'?'승인 원문':'시스템 보고';const a=node.assignment||{},o=a.observed||{},r=a.requested||{};return `${o.status==='observed'?'확인':'요청'} · ${shortModel(o.status==='observed'?o.model:r.model)}`;}
  function graph(snapshot,v){const small=innerWidth<=700,layout=graphLayout(snapshot.nodes,small);
   if(v.small!==small){
    if(v.small!==null){
     v.positionsBySize.set(v.small,v.positions);
-    v.camerasBySize.set(v.small,{pan:{...v.pan},zoom:v.zoom});
+    v.camerasBySize.set(v.small,{pan:{...v.pan},zoom:v.zoom,width:v.cameraWidth,touched:v.cameraTouched});
    }
    // Restore each width's camera. A newly visited width keeps the zoom but
    // recentres horizontally, so a wide-screen offset cannot hide the graph.
    const camera=v.camerasBySize.get(small);
-   v.adjustCamera=!camera&&v.small!==null;
-   if(camera){v.pan={...camera.pan};v.zoom=camera.zoom;}
+   v.adjustCamera=!camera;v.revealSelection=v.small!==null;
+   if(camera){v.pan={...camera.pan};v.zoom=camera.zoom;v.cameraWidth=camera.width;v.cameraTouched=camera.touched;}else v.cameraWidth=0;
    v.positions=v.positionsBySize.get(small)||{};v.small=small;v.routes=null;
   }
   v.positions=placeGraphNodes(snapshot.nodes,layout,v.positions);
@@ -230,11 +260,15 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
   v.routes=routes;v.canvas={x:bounds.left,y:bounds.top,width:bounds.right-bounds.left,height:bounds.bottom-bounds.top};
  }
  function list(snapshot,v){return `<div class="rg-list"><h3>역할</h3>${snapshot.nodes.map(n=>`<button type="button" id="rg-list-node-${esc(n.id)}" data-rg-node="${esc(n.id)}" aria-pressed="${v.selection?.kind==='node'&&v.selection.id===n.id}"><strong>${esc(n.name)}</strong><span>${esc(status(n.status))} · ${planned(n)?'예정':'기록'}</span><span>${esc(summaryNode(n))}</span></button>`).join('')}<h3>관계</h3>${snapshot.edges.map(e=>`<button type="button" id="rg-list-edge-${esc(e.id)}" data-rg-edge="${esc(e.id)}" aria-pressed="${v.selection?.kind==='edge'&&v.selection.id===e.id}"><strong>${esc(snapshot.nodes.find(n=>n.id===e.from)?.name||e.from)} → ${esc(snapshot.nodes.find(n=>n.id===e.to)?.name||e.to)}</strong><span>${esc(e.title||relationLabels[e.kind]||e.kind)} · ${planned(e)?'예정':'기록'}</span></button>`).join('')||'<p>이 응답에 연결된 관계가 없습니다.</p>'}</div>`;}
- function body(project){const record=projects.get(project),snapshot=scope(project);if(!record||!snapshot)return '<p class="rg-empty">그래프 기록이 없습니다. PM과 계획을 정하면 예정된 역할부터 확인할 수 있습니다.</p>';
+ function snapshotSelector(record,snapshot){return `<label>대상<select id="rg-snapshot" data-rg-snapshot aria-label="그래프 대상">${!snapshot?'<option value="" selected disabled>대상 확인 필요</option>':''}${record.data.snapshots.map(s=>`<option value="${esc(s.id)}" ${s.id===snapshot?.id?'selected':''}>${esc(s.run_id?`실행 ${record.data.snapshots.filter(x=>x.run_id).findIndex(x=>x.id===s.id)+1}`:s.plan_id?`계획 ${record.data.snapshots.filter(x=>!x.run_id).findIndex(x=>x.id===s.id)+1}`:'준비')}${s.id===record.data.default_snapshot_id?' · 최근':''}</option>`).join('')}</select></label>`;}
+ function body(project){const record=projects.get(project),snapshot=scope(project);if(!record||!snapshot){
+  if(record?.missingSelection)return `<header class="rg-header"><h2>진행</h2>${snapshotSelector(record,null)}</header><p class="rg-alert" role="status" data-rg-missing-scope>선택한 실행 또는 계획이 이번 조회에 없습니다. 다른 실행으로 대신 표시하지 않습니다. 대상을 다시 선택해 주세요.</p>`;
+  return '<p class="rg-empty">그래프 기록이 없습니다. PM과 계획을 정하면 예정된 역할부터 확인할 수 있습니다.</p>';
+ }
   const v=view(snapshot),history=snapshot.history||{};
   const newCount=[...record.fresh].filter(id=>snapshot.edges.some(e=>e.id===id)&&!v.seen.has(id)).length;
   for(const id of record.fresh)v.seen.add(id);
-  return `<header class="rg-header"><div><h2>진행</h2><p>${snapshot.source==='fixture'?'예시 기록 · 실제 실행 아님':snapshot.mode==='planned'||!snapshot.run_id?'계획 · 실제 실행 전':'저장된 실행 기록'}</p></div><label>대상<select id="rg-snapshot" data-rg-snapshot aria-label="그래프 대상">${record.data.snapshots.map(s=>`<option value="${esc(s.id)}" ${s.id===snapshot.id?'selected':''}>${esc(s.run_id?`실행 ${record.data.snapshots.filter(x=>x.run_id).findIndex(x=>x.id===s.id)+1}`:s.plan_id?`계획 ${record.data.snapshots.filter(x=>!x.run_id).findIndex(x=>x.id===s.id)+1}`:'준비')}${s.id===record.data.default_snapshot_id?' · 최근':''}</option>`).join('')}</select></label></header>${record.missingSelection?'<p class="rg-alert">선택한 실행이 이번 조회에 없어 최근 대상을 표시합니다. 실행 식별자를 확인하세요.</p>':''}${(snapshot.warnings||[]).map(w=>`<p class="rg-alert">${esc(w)}</p>`).join('')}${record.disconnected?'<p class="rg-alert" role="status">연결이 끊겼습니다. 마지막 조회 자료를 표시합니다.</p>':''}<div class="rg-tools">${diagramLinks&&snapshot.plan_id?`<a class="rg-export" href="/diagram-view.html?project=${encodeURIComponent(project)}&snapshot=${encodeURIComponent(snapshot.id)}&fingerprint=${encodeURIComponent(snapshot.fingerprint)}" target="_blank" rel="noopener">그림</a>`:''}<div role="group" aria-label="진행 보기">${button('그래프','graph',`aria-pressed="${v.mode==='graph'}"`)}${button('목록','list',`aria-pressed="${v.mode==='list'}"`)}</div>${v.mode==='graph'?`<div role="group" aria-label="그래프 탐색">${button('−','zoom-out','aria-label="축소"')}${button('+','zoom-in','aria-label="확대"')}${button('맞춤','fit')}${button('이동','pan',`aria-pressed="${v.panMode}"`)}</div><output class="rg-zoom" aria-label="확대 비율">${Math.round(v.zoom*100)}%</output>`:''}</div><div class="rg-layout"><section class="rg-map" aria-label="관계 보기">${snapshot.nodes.length?v.mode==='graph'?graph(snapshot,v):list(snapshot,v):`<p class="rg-empty">${esc(snapshot.empty_reason||'저장된 역할이 없습니다. PM의 역할 제안을 확인하세요.')}</p>`}${v.mode==='graph'&&[...(v.routes?.values()||[])].some(r=>r.issue||!r.label)?'<p class="rg-alert">배치가 좁아 일부 선이나 이름표가 겹칠 수 있습니다. 노드를 벌리거나 목록에서 관계를 선택하세요.</p>':''}<p class="rg-small">실선: 저장된 관계 · 점선: 예정 관계<br>표시 ${snapshot.edges.length}건${Number.isInteger(history.total)?` / 조회 대상 ${history.total}건`:''}${history.complete===false?' · 과거 이력 일부만 포함':''}. 위치는 실행 순서를 뜻하지 않습니다.</p><details class="rg-help"><summary>조작</summary><p>노드·선을 눌러 상세를 엽니다. 이동 모드를 켜면 화면과 노드를 끌 수 있습니다. 키보드는 방향키로 화면 이동, 노드에서 Alt+방향키로 배치 이동합니다. 목록에서도 같은 기록을 선택할 수 있습니다.</p></details><p class="rg-update" role="status">${newCount?`새 전달 ${newCount}건`:`조회 순서 ${record.data.cursor}`}</p></section>${detail(snapshot,v)}</div>`;
+  return `<header class="rg-header"><div><h2>진행</h2><p>${snapshot.source==='fixture'?'예시 기록 · 실제 실행 아님':snapshot.mode==='planned'||!snapshot.run_id?'계획 · 실제 실행 전':'저장된 실행 기록'}</p></div>${snapshotSelector(record,snapshot)}</header>${(snapshot.warnings||[]).map(w=>`<p class="rg-alert">${esc(w)}</p>`).join('')}${record.disconnected?'<p class="rg-alert" role="status">연결이 끊겼습니다. 마지막 조회 자료를 표시합니다.</p>':''}<div class="rg-tools">${diagramLinks&&snapshot.plan_id?`<a class="rg-export" href="/diagram-view.html?project=${encodeURIComponent(project)}&snapshot=${encodeURIComponent(snapshot.id)}&fingerprint=${encodeURIComponent(snapshot.fingerprint)}" target="_blank" rel="noopener">그림</a>`:''}<div role="group" aria-label="진행 보기">${button('그래프','graph',`aria-pressed="${v.mode==='graph'}"`)}${button('목록','list',`aria-pressed="${v.mode==='list'}"`)}</div>${v.mode==='graph'?`<div role="group" aria-label="그래프 탐색">${button('−','zoom-out','aria-label="축소"')}${button('+','zoom-in','aria-label="확대"')}${button('전체 보기','fit')}${button('이동','pan',`aria-pressed="${v.panMode}"`)}</div><output class="rg-zoom" aria-label="확대 비율">${Math.round(v.zoom*100)}%</output>`:''}</div><div class="rg-layout"><section class="rg-map" aria-label="관계 보기">${snapshot.nodes.length?v.mode==='graph'?graph(snapshot,v):list(snapshot,v):`<p class="rg-empty">${esc(snapshot.empty_reason||'저장된 역할이 없습니다. PM의 역할 제안을 확인하세요.')}</p>`}${v.mode==='graph'&&[...(v.routes?.values()||[])].some(r=>r.issue||!r.label)?'<p class="rg-alert">배치가 좁아 일부 선이나 이름표가 겹칠 수 있습니다. 노드를 벌리거나 목록에서 관계를 선택하세요.</p>':''}<p class="rg-small">실선: 업무 흐름 · 짧은 점선: 이관 · 긴 점선: 되돌아가는 관계<br>예정 관계는 ‘예정’으로 표시합니다.<br>표시 ${snapshot.edges.length}건${Number.isInteger(history.total)?` / 조회 대상 ${history.total}건`:''}${history.complete===false?' · 과거 이력 일부만 포함':''}. 위치는 실행 순서를 뜻하지 않습니다.</p><details class="rg-help" ${helpOpen?'open':''}><summary id="rg-help-toggle">사용법</summary><p>노드·선을 눌러 상세를 엽니다. 이동 모드를 켜면 화면과 노드를 끌 수 있습니다. 키보드는 방향키로 화면 이동, 노드에서 Alt+방향키로 배치 이동합니다. 목록에서도 같은 기록을 선택할 수 있습니다.</p></details><p class="rg-update" role="status">${newCount?`새 전달 ${newCount}건`:`조회 순서 ${record.data.cursor}`}</p></section>${detail(snapshot,v)}</div>`;
  }
  function render(overview,project){
   // A forced replacement (offline, navigation) must settle queued data before
@@ -244,7 +278,17 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
   if(!projects.has(project))ingest(overview,project);
   return `<section class="workspace-graph" data-rg-root data-project="${esc(project)}" data-snapshot="${esc(scope(project)?.id||'')}">${body(project)}</section>`;
  }
- function capture(container,project){const s=scope(project);if(!s)return;const graphRoot=container.matches?.('[data-rg-root]')?container:container.querySelector('[data-rg-root]');if(graphRoot?.dataset.project!==project||graphRoot?.dataset.snapshot!==s.id)return;const panel=graphRoot.querySelector('.rg-detail');if(!panel)return;const v=view(s);v.detailScroll=panel.scrollTop;v.detailOpen=[...panel.querySelectorAll('details')].filter(d=>d.open).map(d=>d.querySelector('summary')?.dataset.rgDetailKey).filter(Boolean);}
+ function capture(container,project){
+  const graphRoot=container.matches?.('[data-rg-root]')?container:container.querySelector('[data-rg-root]');
+  if(graphRoot?.dataset.project!==project)return;
+  const help=graphRoot.querySelector('.rg-help');if(help)helpOpen=help.open;
+  // Read the DOM's scope, which may precede a newly ingested or selected scope.
+  const s=projects.get(project)?.data.snapshots.find(s=>s.id===graphRoot.dataset.snapshot);if(!s)return;
+  const panel=graphRoot.querySelector('.rg-detail'),v=view(s),active=document.activeElement;
+  if(!panel||panel.dataset.rgDetailId!==(v.selection?.id||'')||panel.dataset.rgDetailKind!==(v.selection?.kind||''))return;
+  v.detailScroll=panel.scrollTop;v.detailOpen=[...panel.querySelectorAll('details')].filter(d=>d.open).map(d=>d.querySelector('summary')?.dataset.rgDetailKey).filter(Boolean);
+  v.focus=graphRoot.contains(active)?active.id||null:null;
+ }
  function mount(container,overview,project){
   disposeMount();resizeObserver?.disconnect();const root=container.querySelector('[data-rg-root]');if(!root)return;activeProject=project;
   const controller=new AbortController(),signal=controller.signal;
@@ -270,8 +314,9 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
    finishInteraction({cancelled:true,paint:false,notify:false});
    if(active)queueMicrotask(()=>onInteractionEnd({project,cancelled:true}));
   };
-  function restoreFocus(id,kind){if(!id)return;const attr=kind==='edge'?'data-rg-edge':'data-rg-node';[...root.querySelectorAll(`[${attr}]`)].find(el=>el.getAttribute(attr)===id)?.focus({preventScroll:true});}
+  function restoreFocus(id,kind){const attr=kind==='edge'?'data-rg-edge':'data-rg-node';const target=[...root.querySelectorAll(`[${attr}]`)].find(el=>el.getAttribute(attr)===id);(target||root.querySelector('.rg-viewport')||root.querySelector('[data-rg-snapshot]'))?.focus({preventScroll:true});}
   function redraw(focus){
+   capture(root,project);
    const active=document.activeElement,focusId=root.contains(active)?active.id:null;
    root.innerHTML=body(project);root.dataset.snapshot=scope(project)?.id||'';geometry();
    if(focus)restoreFocus(focus.id,focus.kind);
@@ -282,18 +327,40 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
    const s=scope(project),v=s&&view(s),scene=root.querySelector('.rg-scene');if(!v)return;
    const panel=root.querySelector('.rg-detail');
    if(panel){panel.querySelectorAll('details').forEach(d=>{d.open=v.detailOpen.includes(d.querySelector('summary')?.dataset.rgDetailKey);});panel.scrollTop=v.detailScroll;}
+   if(v.focus){const target=document.getElementById(v.focus);if(root.contains(target))target.focus({preventScroll:true});else if(v.selection)root.querySelector('#rg-detail-heading')?.focus({preventScroll:true});}
    if(!scene)return;
    canvasGeometry(v,scene);
    for(const el of root.querySelectorAll('.rg-node')){
     const p=v.positions[el.dataset.rgNode];el.style.left=p.x+'px';el.style.top=p.y+'px';el.style.width=v.nodeWidth+'px';el.style.height=v.nodeHeight+'px';
    }
-   if(v.adjustCamera){
-    const viewport=root.querySelector('.rg-viewport');
-    const selected=v.selection?.kind==='node'?v.positions[v.selection.id]:null,anchor=selected||v.positions[s.nodes[0]?.id];
-    if(viewport?.clientWidth>0&&anchor){
-     v.pan.x=viewport.clientWidth/2-(anchor.x+v.nodeWidth/2)*v.zoom;
-     v.adjustCamera=false;
+   const viewport=root.querySelector('.rg-viewport');
+   // A new DOM or media layout may settle after the first measurement. Keep
+   // the untouched reading camera centred at the actual width, while preserving
+   // deliberate pan/zoom. This width belongs to the run, not a particular mount.
+   if(viewport?.clientWidth>0&&viewport.clientWidth!==v.cameraWidth){
+    if(!v.cameraTouched)v.adjustCamera=true;
+    if(v.cameraWidth)v.revealSelection=true;
+    v.cameraWidth=viewport.clientWidth;
+   }
+   if(v.adjustCamera&&viewport?.clientWidth>0){
+    // Default reading view uses the role group, not distant routes or labels.
+    const main=s.nodes.filter(n=>!['document','artifact'].includes(n.kind));
+    const points=(main.length?main:s.nodes).map(n=>v.positions[n.id]);
+    if(points.length){
+     const left=Math.min(...points.map(p=>p.x)),right=Math.max(...points.map(p=>p.x+v.nodeWidth));
+     v.pan.x=viewport.clientWidth/2-(left+right)*v.zoom/2;
+     if(v.small!==null&&v.pan.y===0)v.pan.y=Math.max(0,16-Math.min(...points.map(p=>p.y))*v.zoom);
     }
+    v.adjustCamera=false;
+   }
+   if(v.revealSelection&&viewport){
+    const selected=v.selection?.kind==='node'?v.positions[v.selection.id]:null;
+    if(selected){
+     const x=selected.x*v.zoom+v.pan.x,y=selected.y*v.zoom+v.pan.y;
+     if(x<0||x+v.nodeWidth*v.zoom>viewport.clientWidth)v.pan.x=viewport.clientWidth/2-(selected.x+v.nodeWidth/2)*v.zoom;
+     if(y<0||y+v.nodeHeight*v.zoom>viewport.clientHeight)v.pan.y=16-selected.y*v.zoom;
+    }
+    v.revealSelection=false;
    }
    transform();
   }
@@ -302,16 +369,18 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
    const svg=scene.querySelector('.rg-lines');if(svg){svg.style.left=v.canvas.x+'px';svg.style.top=v.canvas.y+'px';svg.setAttribute('width',v.canvas.width);svg.setAttribute('height',v.canvas.height);svg.setAttribute('viewBox',`${v.canvas.x} ${v.canvas.y} ${v.canvas.width} ${v.canvas.height}`);}
   }
   function transform(){const s=scope(project),v=s&&view(s),scene=root.querySelector('.rg-scene');if(scene&&v){scene.style.transform=`translate(${v.pan.x}px,${v.pan.y}px) scale(${v.zoom})`;const o=root.querySelector('.rg-zoom');if(o)o.textContent=`${Math.round(v.zoom*100)}%`;}}
-  root.addEventListener('change',event=>{capture(root,project);if(event.target.matches('[data-rg-snapshot]')){projects.get(project).selected=event.target.value;redraw();root.querySelector('[data-rg-snapshot]')?.focus();}},{signal});
+  root.addEventListener('toggle',event=>{if(event.target.matches('.rg-help'))helpOpen=event.target.open;},{signal,capture:true});
+  root.addEventListener('change',event=>{capture(root,project);if(event.target.matches('[data-rg-snapshot]')){const p=projects.get(project);p.selected=event.target.value;p.lastSelected=p.selected;p.requestedRun=null;p.requestedSnapshot=p.selected;p.missingSelection=false;redraw();root.querySelector('[data-rg-snapshot]')?.focus();onScopeChange(scope(project));}},{signal});
   root.addEventListener('click',event=>{capture(root,project);if(suppressClick&&event.detail!==0){suppressClick=false;event.preventDefault();event.stopPropagation();return;}const n=event.target.closest('[data-rg-node]'),e=event.target.closest('[data-rg-edge],[data-rg-label]'),action=event.target.closest('[data-rg-action]')?.dataset.rgAction,s=scope(project);if(!s)return;const v=view(s);
    if(n||e){let edgeId=e?.dataset.rgLabel||e?.dataset.rgEdge;
     if(e?.matches('.rg-edge-hit')&&event.detail>0){const scene=root.querySelector('.rg-scene').getBoundingClientRect(),nearest=nearestGraphEdge(v.routes,{x:(event.clientX-scene.left)/v.zoom,y:(event.clientY-scene.top)/v.zoom});if(nearest.id&&nearest.distance<=22/v.zoom)edgeId=nearest.id;}
-    const next={kind:n?'node':'edge',id:n?n.dataset.rgNode:edgeId};if(v.selection?.id!==next.id||v.selection?.kind!==next.kind){v.detailScroll=0;v.detailOpen=[];}v.selection=next;redraw(v.selection);if(innerWidth<=700)root.querySelector('#rg-detail-heading')?.focus({preventScroll:true});return;}
+    const next={kind:n?'node':'edge',id:n?n.dataset.rgNode:edgeId};if(v.selection?.id!==next.id||v.selection?.kind!==next.kind){v.detailScroll=0;v.detailOpen=[];v.focus=null;}v.selection=next;redraw(v.selection);if(innerWidth<=700)root.querySelector('#rg-detail-heading')?.focus({preventScroll:true});return;}
    if(!action)return;
    if(['graph','list'].includes(action)){v.mode=action;redraw();root.querySelector(`[data-rg-action=${action}]`)?.focus();return;}
-   if(action==='clear'){const prior=v.selection;v.selection=null;v.detailScroll=0;v.detailOpen=[];redraw(prior);return;}
+   if(action==='clear'){const prior=v.selection;v.selection=null;v.detailScroll=0;v.detailOpen=[];v.focus=null;redraw(prior);return;}
    if(action==='pan'){v.panMode=!v.panMode;redraw();root.querySelector('[data-rg-action=pan]')?.focus();return;}
    const viewport=root.querySelector('.rg-viewport');if(!viewport)return;
+   v.cameraTouched=true;
    if(action==='fit'){v.zoom=clamp(Math.min((viewport.clientWidth-16)/v.canvas.width,(viewport.clientHeight-16)/v.canvas.height),.25,1);v.pan={x:(viewport.clientWidth-v.canvas.width*v.zoom)/2-v.canvas.x*v.zoom,y:8-v.canvas.y*v.zoom};}
    else {const old=v.zoom;v.zoom=clamp(old*(action==='zoom-in'?1.25:.8),.25,2.5);v.pan={x:viewport.clientWidth/2-(viewport.clientWidth/2-v.pan.x)*v.zoom/old,y:viewport.clientHeight/2-(viewport.clientHeight/2-v.pan.y)*v.zoom/old};}
    transform();
@@ -331,12 +400,12 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
    if(bounds.left>=frame.left+1&&bounds.right<=frame.right-1&&bounds.top>=frame.top+1&&bounds.bottom<=frame.bottom-1)return;
    // Only an actual Tab move reveals clipped targets. Polling focus restoration
    // leaves the camera untouched, and graph navigation never uses native scroll.
-   const v=view(s);
+   const v=view(s);v.cameraTouched=true;
    v.pan.x+=(frame.left+frame.right-bounds.left-bounds.right)/2;
    v.pan.y+=(frame.top+frame.bottom-bounds.top-bounds.bottom)/2;
    transform();
   },{signal});
-  root.addEventListener('keydown',event=>{capture(root,project);const n=event.target.closest('[data-rg-node]'),e=event.target.closest('[data-rg-edge]'),s=scope(project);if(!s)return;const v=view(s);if(event.key==='Escape'&&v.selection){event.preventDefault();const prior=v.selection;v.selection=null;v.detailScroll=0;v.detailOpen=[];redraw(prior);return;}if(e&&['Enter',' '].includes(event.key)){event.preventDefault();e.dispatchEvent(new MouseEvent('click',{bubbles:true}));return;}if(!event.key.startsWith('Arrow')||!event.target.closest('.rg-viewport'))return;event.preventDefault();const delta={ArrowLeft:[-24,0],ArrowRight:[24,0],ArrowUp:[0,-24],ArrowDown:[0,24]}[event.key];if(n&&event.altKey){const p=v.positions[n.dataset.rgNode];p.x=Math.max(0,p.x+delta[0]);p.y=Math.max(0,p.y+delta[1]);redraw({id:n.dataset.rgNode,kind:'node'});}else {v.pan.x+=delta[0];v.pan.y+=delta[1];transform();}},{signal});
+  root.addEventListener('keydown',event=>{capture(root,project);const n=event.target.closest('[data-rg-node]'),e=event.target.closest('[data-rg-edge]'),s=scope(project);if(!s)return;const v=view(s);if(event.key==='Escape'&&v.selection){event.preventDefault();const prior=v.selection;v.selection=null;v.detailScroll=0;v.detailOpen=[];v.focus=null;redraw(prior);return;}if(e&&['Enter',' '].includes(event.key)){event.preventDefault();e.dispatchEvent(new MouseEvent('click',{bubbles:true}));return;}if(!event.key.startsWith('Arrow')||!event.target.closest('.rg-viewport'))return;event.preventDefault();const delta={ArrowLeft:[-24,0],ArrowRight:[24,0],ArrowUp:[0,-24],ArrowDown:[0,24]}[event.key];if(n&&event.altKey){const p=v.positions[n.dataset.rgNode];p.x=Math.max(0,p.x+delta[0]);p.y=Math.max(0,p.y+delta[1]);redraw({id:n.dataset.rgNode,kind:'node'});}else {v.cameraTouched=true;v.pan.x+=delta[0];v.pan.y+=delta[1];transform();}},{signal});
   root.addEventListener('pointerdown',event=>{
    // A new physical gesture must never inherit the previous drag's click suppression.
    suppressClick=false;
@@ -365,7 +434,7 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
      label.setAttribute('visibility',value?'visible':'hidden');
      if(value){const leader=label.querySelector('line');for(const [key,val] of Object.entries({x1:value.anchor.x,y1:value.anchor.y,x2:value.x,y2:value.y}))leader.setAttribute(key,val);for(const [key,val] of Object.entries({x:value.left,y:value.top,width:value.width}))rect.setAttribute(key,val);text.setAttribute('x',value.x);text.setAttribute('y',value.y);text.textContent=value.text;}
     }
-   }else {v.pan={x:dragging.pan.x+dx,y:dragging.pan.y+dy};transform();}
+   }else {v.cameraTouched=true;v.pan={x:dragging.pan.x+dx,y:dragging.pan.y+dy};transform();}
   },{signal});
   function end(event){
    if(!dragging||event.pointerId!==dragging.pointer)return;
@@ -377,14 +446,14 @@ export function createWorkspaceGraph({esc,diagramLinks=false,label=v=>statusLabe
   }
   root.addEventListener('pointerup',end,{signal});root.addEventListener('pointercancel',end,{signal});root.addEventListener('lostpointercapture',end,{signal});
   geometry();
-  let lastSmall=innerWidth<=700;
+  let lastSmall=innerWidth<=700,lastWidth=root.querySelector('.rg-viewport')?.clientWidth;
   resizeObserver=new ResizeObserver(()=>{
    if(signal.aborted||!root.isConnected)return;
    const small=innerWidth<=700,current=scope(project);
    if(small!==lastSmall){lastSmall=small;if(!interaction)redraw();}
-   else if(!interaction&&current&&view(current).adjustCamera)geometry();
+   else if(!interaction&&current){const width=root.querySelector('.rg-viewport')?.clientWidth,v=view(current);if(width!==lastWidth){v.revealSelection=true;lastWidth=width;}if(v.adjustCamera||v.revealSelection)geometry();}
   });
   resizeObserver.observe(root);
  }
- return {ingest,render,mount,capture,isInteracting:project=>Boolean(interaction&&interaction.project===project),disconnect:project=>{const p=projects.get(project);if(p)p.disconnected=true;},reset:()=>{disposeMount();resizeObserver?.disconnect();projects.clear();views.clear();pendingEnvelope=null;interaction=null;activeProject='';}};
+ return {ingest,render,mount,capture,selectScope,getScope:scope,isInteracting:project=>Boolean(interaction&&interaction.project===project),disconnect:project=>{const p=projects.get(project);if(p)p.disconnected=true;},reset:()=>{disposeMount();resizeObserver?.disconnect();projects.clear();views.clear();pendingEnvelope=null;interaction=null;activeProject='';helpOpen=false;}};
 }

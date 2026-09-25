@@ -1,0 +1,177 @@
+{
+  "status": "PASS",
+  "baseline": "75227480d27d3eb1cd57fa43a07a0ab986be3eb5",
+  "browser": "153.0.8010.52",
+  "sandbox": true,
+  "source": "temporary actual ManagementHTTPServer/password login/SQLite; only public asset failure injected",
+  "cases": [
+    {
+      "case": "old-graph",
+      "stage": "explicit user recovery",
+      "errors": [],
+      "observations": [
+        {
+          "loaded": {
+            "app.js": "89874441e53980533f3bfc77556b9f0c5ce518f5b590299dc7c688d808589e4b",
+            "workspace-graph-ui.js": "8819bcb7bab374b71ad9037c8a8a0248f764f582ee4efecd432c24689d3643b5",
+            "report-ui.js": "1a7667777b931d2f30900bdb4ae8821ceaebdaa9da10f983083ac4bb0d5bdaaa"
+          },
+          "states": [
+            {
+              "cache": "ai-company-shell-v8",
+              "clients": 2
+            },
+            {
+              "cache": "ai-company-shell-v10",
+              "clients": 0
+            }
+          ],
+          "authenticated": true,
+          "project_api": true,
+          "http_cache_disabled": true
+        },
+        {
+          "business_writes": 0,
+          "other_tab_draft": "다른 기존 탭 · 미전송 초안",
+          "draft_storage": "혼합 모듈 검사 · 보내지 않은 내 목표",
+          "asset_failures": [
+            "workspace-graph-ui.js"
+          ]
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "case": "old-graph-report",
+      "stage": "explicit user recovery",
+      "errors": [],
+      "observations": [
+        {
+          "loaded": {
+            "app.js": "89874441e53980533f3bfc77556b9f0c5ce518f5b590299dc7c688d808589e4b",
+            "workspace-graph-ui.js": "8819bcb7bab374b71ad9037c8a8a0248f764f582ee4efecd432c24689d3643b5",
+            "report-ui.js": "2be6f1acd15a00633f66dbd3eae06ecd2f86a69751abd11a52fda3c8d80245be"
+          },
+          "states": [
+            {
+              "cache": "ai-company-shell-v8",
+              "clients": 2
+            },
+            {
+              "cache": "ai-company-shell-v10",
+              "clients": 0
+            }
+          ],
+          "authenticated": true,
+          "project_api": true,
+          "http_cache_disabled": true
+        },
+        {
+          "business_writes": 0,
+          "other_tab_draft": "다른 기존 탭 · 미전송 초안",
+          "draft_storage": "혼합 모듈 검사 · 보내지 않은 내 목표",
+          "asset_failures": [
+            "workspace-graph-ui.js",
+            "report-ui.js",
+            "workspace-graph-ui.js"
+          ]
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "case": "old-report",
+      "stage": "explicit user recovery",
+      "errors": [],
+      "observations": [
+        {
+          "loaded": {
+            "app.js": "89874441e53980533f3bfc77556b9f0c5ce518f5b590299dc7c688d808589e4b",
+            "workspace-graph-ui.js": "2706d60422eb9b1de99239762f9004afd2cd70ec80603f3ec225ee8f91a762eb",
+            "report-ui.js": "2be6f1acd15a00633f66dbd3eae06ecd2f86a69751abd11a52fda3c8d80245be"
+          },
+          "states": [
+            {
+              "cache": "ai-company-shell-v8",
+              "clients": 2
+            },
+            {
+              "cache": "ai-company-shell-v10",
+              "clients": 0
+            }
+          ],
+          "authenticated": true,
+          "project_api": true,
+          "http_cache_disabled": true
+        },
+        {
+          "business_writes": 0,
+          "other_tab_draft": "다른 기존 탭 · 미전송 초안",
+          "draft_storage": "혼합 모듈 검사 · 보내지 않은 내 목표",
+          "asset_failures": [
+            "workspace-graph-ui.js",
+            "report-ui.js",
+            "workspace-graph-ui.js",
+            "report-ui.js"
+          ]
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "case": "old-app-new-modules",
+      "stage": "authenticated selective module failure",
+      "errors": [],
+      "observations": [
+        {
+          "loaded": {
+            "app.js": "8a4e097b5c0815e9a75e65050ac577a03a91e59aaaaa80beb396a7d6887bab7b",
+            "workspace-graph-ui.js": "2706d60422eb9b1de99239762f9004afd2cd70ec80603f3ec225ee8f91a762eb",
+            "report-ui.js": "1a7667777b931d2f30900bdb4ae8821ceaebdaa9da10f983083ac4bb0d5bdaaa"
+          },
+          "states": [
+            {
+              "cache": "ai-company-shell-v8",
+              "clients": 2
+            },
+            {
+              "cache": "ai-company-shell-v10",
+              "clients": 0
+            }
+          ],
+          "authenticated": true,
+          "project_api": true,
+          "http_cache_disabled": true
+        },
+        {
+          "legacy": "old app supports project-scoped navigation only; exact new journey scope is not claimed retroactively"
+        },
+        {
+          "business_writes": 0,
+          "other_tab_draft": "다른 기존 탭 · 미전송 초안",
+          "draft_storage": "혼합 모듈 검사 · 보내지 않은 내 목표",
+          "asset_failures": [
+            "workspace-graph-ui.js",
+            "report-ui.js",
+            "workspace-graph-ui.js",
+            "report-ui.js"
+          ]
+        }
+      ],
+      "status": "PASS"
+    }
+  ],
+  "artifacts": [
+    "journey-mixed-old-graph-light-320.png",
+    "journey-mixed-old-graph-black-390.png",
+    "journey-mixed-old-graph-report-light-320.png",
+    "journey-mixed-old-graph-report-black-390.png",
+    "journey-mixed-old-report-light-320.png",
+    "journey-mixed-old-report-black-390.png"
+  ],
+  "limitations": [
+    "No physical APK, production, models or approval mutation",
+    "Legacy app retains its preexisting project-scoped navigation contract",
+    "Authentication fixture writes are excluded from business-table comparison"
+  ]
+}

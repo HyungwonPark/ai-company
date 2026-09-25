@@ -1,0 +1,162 @@
+{
+  "fixture": true,
+  "browser": "152.0.7977.82",
+  "sandbox": true,
+  "checks": [
+    {
+      "width": 1440,
+      "theme": "light",
+      "physicalPaths": [
+        "ind-edge-parallel-1",
+        "ind-edge-parallel-2",
+        "ind-edge-parallel-3",
+        "ind-edge-reverse",
+        "ind-edge-forward",
+        "ind-edge-self",
+        "ind-edge-return",
+        "ind-edge-backward"
+      ],
+      "physicalLabels": [
+        "ind-edge-parallel-1",
+        "ind-edge-parallel-2",
+        "ind-edge-parallel-3",
+        "ind-edge-reverse",
+        "ind-edge-forward",
+        "ind-edge-self",
+        "ind-edge-return",
+        "ind-edge-backward"
+      ],
+      "keyboard": "ind-edge-parallel-1"
+    },
+    {
+      "width": 1440,
+      "theme": "black",
+      "physicalPaths": [
+        "ind-edge-parallel-1",
+        "ind-edge-parallel-2",
+        "ind-edge-parallel-3",
+        "ind-edge-reverse",
+        "ind-edge-forward",
+        "ind-edge-self",
+        "ind-edge-return",
+        "ind-edge-backward"
+      ],
+      "physicalLabels": [
+        "ind-edge-parallel-1",
+        "ind-edge-parallel-2",
+        "ind-edge-parallel-3",
+        "ind-edge-reverse",
+        "ind-edge-forward",
+        "ind-edge-self",
+        "ind-edge-return",
+        "ind-edge-backward"
+      ],
+      "keyboard": "ind-edge-parallel-1"
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "physicalPaths": [
+        "ind-edge-parallel-1",
+        "ind-edge-parallel-2",
+        "ind-edge-parallel-3",
+        "ind-edge-reverse",
+        "ind-edge-forward",
+        "ind-edge-self",
+        "ind-edge-return",
+        "ind-edge-backward"
+      ],
+      "physicalLabels": [
+        "ind-edge-parallel-1",
+        "ind-edge-parallel-2",
+        "ind-edge-parallel-3",
+        "ind-edge-reverse",
+        "ind-edge-forward",
+        "ind-edge-self",
+        "ind-edge-return",
+        "ind-edge-backward"
+      ],
+      "keyboard": "ind-edge-parallel-1"
+    },
+    {
+      "width": 390,
+      "theme": "black",
+      "physicalPaths": [
+        "ind-edge-parallel-1",
+        "ind-edge-parallel-2",
+        "ind-edge-parallel-3",
+        "ind-edge-reverse",
+        "ind-edge-forward",
+        "ind-edge-self",
+        "ind-edge-return",
+        "ind-edge-backward"
+      ],
+      "physicalLabels": [
+        "ind-edge-parallel-1",
+        "ind-edge-parallel-2",
+        "ind-edge-parallel-3",
+        "ind-edge-reverse",
+        "ind-edge-forward",
+        "ind-edge-self",
+        "ind-edge-return",
+        "ind-edge-backward"
+      ],
+      "keyboard": "ind-edge-parallel-1"
+    },
+    {
+      "width": 320,
+      "theme": "light",
+      "physicalPaths": [
+        "ind-edge-parallel-1",
+        "ind-edge-parallel-2",
+        "ind-edge-parallel-3",
+        "ind-edge-reverse",
+        "ind-edge-forward",
+        "ind-edge-self",
+        "ind-edge-return",
+        "ind-edge-backward"
+      ],
+      "physicalLabels": [
+        "ind-edge-parallel-1",
+        "ind-edge-parallel-2",
+        "ind-edge-parallel-3",
+        "ind-edge-reverse",
+        "ind-edge-forward",
+        "ind-edge-self",
+        "ind-edge-return",
+        "ind-edge-backward"
+      ],
+      "keyboard": "ind-edge-parallel-1"
+    },
+    {
+      "width": 320,
+      "theme": "black",
+      "physicalPaths": [
+        "ind-edge-parallel-1",
+        "ind-edge-parallel-2",
+        "ind-edge-parallel-3",
+        "ind-edge-reverse",
+        "ind-edge-forward",
+        "ind-edge-self",
+        "ind-edge-return",
+        "ind-edge-backward"
+      ],
+      "physicalLabels": [
+        "ind-edge-parallel-1",
+        "ind-edge-parallel-2",
+        "ind-edge-parallel-3",
+        "ind-edge-reverse",
+        "ind-edge-forward",
+        "ind-edge-self",
+        "ind-edge-return",
+        "ind-edge-backward"
+      ],
+      "keyboard": "ind-edge-parallel-1"
+    }
+  ],
+  "drag": "natural poll preserves pointer, position, latest relation and pinned diagram target",
+  "writes": [
+    "/api/login",
+    "/api/password"
+  ]
+}

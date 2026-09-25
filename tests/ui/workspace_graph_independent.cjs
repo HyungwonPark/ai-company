@@ -43,7 +43,7 @@ const {createHash} = require('node:crypto');
   async function refresh() {
     const [response] = await Promise.all([
       page.waitForResponse(response => new URL(response.url()).pathname === `/api/projects/${fixtures.project_id}/overview`),
-      page.locator('.integrated-graph-refresh button[data-action="refresh"]').click(),
+      page.locator('.page-heading button[data-action="refresh"]').click(),
     ]);
     await response.finished();
   }
@@ -94,14 +94,14 @@ const {createHash} = require('node:crypto');
     await page.locator('.approval-reading').waitFor();
     assert.ok(page.url().includes('run=' + encodeURIComponent(old.run_id)));
     await page.locator('.nav a[aria-label="승인"]').click();
-    await page.waitForFunction(() => !location.hash.includes('run='));
+    await page.waitForFunction(id => new URLSearchParams(location.hash.split('?')[1]).get('run')===id,old.run_id);
     await go('#approvals?project=' + fixtures.project_id + '&run=' + current.run_id);
     await page.getByText('이 대상의 승인 요청 없음', {exact: true}).waitFor();
     await page.evaluate(hash=>{location.hash=hash;window.dispatchEvent(new Event('offline'));},'#progress?project=' + fixtures.other_project_id);
     await page.locator(`[data-rg-root][data-project="${fixtures.other_project_id}"]`).waitFor();
     assert.equal(await page.locator('.rg-node').count(), 0);
     assert.equal(await page.locator('.rg-reference-links a').count(), 0);
-    checks.push('Actual API: historical approval stays in its run; common navigation clears filter; empty project borrows no nodes/documents; synchronous old-view render cannot overwrite pending navigation');
+    checks.push('Actual API: historical approval stays in its run; journey navigation retains execution scope; empty project borrows no nodes/documents; synchronous old-view render cannot overwrite pending navigation');
 
     await go('#progress?project=' + fixtures.project_id);
     await page.locator(`[data-rg-root][data-project="${fixtures.project_id}"]`).waitFor();

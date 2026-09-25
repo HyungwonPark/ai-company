@@ -1,0 +1,11 @@
+{
+  "status": "FAIL",
+  "error": "page.waitForResponse: Timeout 12000ms exceeded while waiting for event \"response\"",
+  "active": {
+    "case": "old-graph",
+    "stage": "authenticated selective module failure",
+    "errors": [],
+    "observations": []
+  },
+  "completed": []
+}

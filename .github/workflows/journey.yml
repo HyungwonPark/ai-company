@@ -1,0 +1,79 @@
+name: Journey UI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  journey:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CHROME_CHANNEL: chrome
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12"
+      - name: Prepare existing test dependencies
+        run: |
+          python -m pip install uv==0.12.11
+          uv sync --frozen
+          npm install --prefix "$RUNNER_TEMP/journey-tooling" --no-audit --no-fund @playwright/test@1.63.0
+          echo "NODE_PATH=$RUNNER_TEMP/journey-tooling/node_modules" >> "$GITHUB_ENV"
+          echo "UI_OUTPUT=$RUNNER_TEMP/journey-evidence" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/journey-evidence" "$RUNNER_TEMP/journey-fonts" "$HOME/.local/share/fonts"
+          cd "$RUNNER_TEMP/journey-fonts"
+          apt-get download fonts-noto-cjk
+          for font_package in ./*.deb; do
+            dpkg-deb -x "$font_package" extracted
+          done
+          cp extracted/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc "$HOME/.local/share/fonts/"
+          fc-cache -f "$HOME/.local/share/fonts"
+          fc-match 'sans:lang=ko'
+          google-chrome --version
+      - name: Verify journey read flow against isolated API
+        run: |
+          node tests/ui/journey_scope_checks.mjs
+          node tests/ui/journey_navigation_checks.mjs
+          uv run --frozen python tests/ui/run_journey_workspace.py --scenario journey_workspace.cjs
+      - name: Verify exact execution status contracts
+        if: always()
+        run: node tests/ui/journey_status_checks.mjs
+      - name: Verify status projection through isolated API
+        if: always()
+        run: uv run --frozen python tests/ui/run_journey_workspace.py --scenario journey_status.cjs
+      - name: Verify graph camera, scope and interaction retention
+        if: always()
+        run: uv run --frozen python tests/ui/run_journey_workspace.py --scenario journey_graph.cjs
+      - name: Compare graph with the fixed journey baseline
+        if: always()
+        run: GRAPH_COMPARE_BASELINE=75227480d27d3eb1cd57fa43a07a0ab986be3eb5 UI_OUTPUT="$UI_OUTPUT/graph-baseline" node tests/ui/graph_edge_comparison.cjs
+      - name: Verify journey writes against isolated API
+        if: always()
+        run: uv run --frozen python tests/ui/run_journey_writes.py
+      - name: Verify self-contained preview with browser sandbox
+        if: always()
+        run: node tests/ui/journey_preview.cjs
+      - name: Verify shell update and rollback with browser sandbox
+        if: always()
+        run: node tests/ui/journey_service_worker.cjs
+      - name: Verify mixed module application boundaries
+        if: always()
+        run: node tests/ui/journey_module_compatibility_checks.mjs
+      - name: Verify authenticated mixed modules with browser sandbox
+        if: always()
+        run: uv run --frozen python tests/ui/run_journey_mixed_modules.py
+      - name: Preserve nonsecret validation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: journey-evidence
+          path: ${{ runner.temp }}/journey-evidence/
+          retention-days: 14
+          if-no-files-found: warn
