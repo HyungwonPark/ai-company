@@ -21,9 +21,10 @@ export function pmRequestDisplay(request) {
   const execution=request.execution||{};
   const status=String(execution.status||'');
   const activeWait=request.state==='running'&&(/^(WAITING_|NEEDS_)/.test(status)||['BLOCKED','RECONCILIATION_REQUIRED','FAILED','STOPPED'].includes(status));
+  const reason=activeWait?(execution.reason||request.wait_reason||request.reason||''):(request.wait_reason||request.reason||'');
   return {
     state:activeWait?status.toLowerCase():request.state,
-    reason:activeWait?(execution.reason||request.wait_reason||request.reason||''):(request.wait_reason||request.reason||''),
+    reason:request.state==='answer_needed'&&reason==='PM decision needed'?'':reason,
     resumeAt:activeWait?(execution.resume_at??request.resume_at??null):(request.resume_at??null),
   };
 }
@@ -66,7 +67,8 @@ export function createManagerUI({esc,badge,label,stamp,documents,planContent}) {
     const candidatePending=Boolean(run?.state==='awaiting_approval'&&candidate&&run.approval_id&&pending.some(item=>item.id===run.approval_id&&item.artifact_sha===candidate));
     const href=view=>`#${view}?project=${encodeURIComponent(project.id)}${run&&['progress','reports','approvals'].includes(view)?'&run='+encodeURIComponent(run.id):''}`;
     const needsSpec=Boolean(plan?.content?.execution_spec_proposal);
-    const stalePlan=!plan&&overview.plans?.at(-1)?.status==='stale'?overview.plans.at(-1):null;
+    const latestPlan=overview.plans?.at(-1);
+    const stalePlan=!plan&&latestPlan?.status==='stale'&&latestPlan.request_revision===project.request_revision?latestPlan:null;
     const needsFreshPlan=Boolean(stalePlan||project.execution_spec&&!plan&&!executionReferenceMatches(project,request));
     const freshPlanReason=stalePlan?.stale_reason||'실행 명세가 바뀌었습니다. 새 범위로 PM 계획을 다시 요청하세요.';
     const canReview=plan?.status==='proposed'&&!needsSpec;

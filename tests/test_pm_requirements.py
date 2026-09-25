@@ -165,6 +165,12 @@ class PMRequirementsTests(unittest.TestCase):
                     'requirements': [{'id': 'R1', 'source': 'master goal', 'acceptance': 'First project can start',
                         'verification': 'Run the first project flow', 'role_keys': ['impl']}]}
                 report['requirements_feedback'] = feedback
+            elif state['stage'] == 'pm':
+                outcome.result['structured_output']['plan']['requirements_review']['questions'] = [{
+                    'id': 'Q1', 'prompt': '첫 버전에서 맡길 대표 업무가 무엇인가요?',
+                    'reason': 'The first workflow depends on representative work',
+                    'status': 'answered', 'resolution': '웹사이트 제작',
+                    'answer_message_id': answer['id']}]
             return outcome
         self.h.execute = question_once
         self.h.worker.run_once()
@@ -179,7 +185,12 @@ class PMRequirementsTests(unittest.TestCase):
         self.assertEqual(self.h.worker.store.post_message(self.h.project['id'], {
             'content': '대표 업무는 웹사이트 제작입니다.', 'idempotency_key': 'material-answer-001'})['id'], answer['id'])
         plan = self.plan()
-        self.assertEqual(plan['content']['requirements_review']['questions'], [])
+        self.assertEqual(plan['content']['requirements_review']['questions'][0]['answer_message_id'], answer['id'])
+        incomplete = copy.deepcopy(plan)
+        incomplete['content']['requirements_review']['questions'] = []
+        with self.assertRaises(ManagementError) as error:
+            self.h.worker.store._requirements_ready(incomplete)
+        self.assertEqual(error.exception.code, 'answer_required')
         self.assertEqual(self.h.worker.store.run_records(), [])
 
     def test_review_quota_wait_recovers_without_duplicate_task(self):

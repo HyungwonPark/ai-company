@@ -577,6 +577,21 @@ class ManagementStore:
         if any(item.status == "open" for item in spec.questions):
             raise ManagementError("answer_required", "A material decision still needs an answer")
         if plan.get("pm_guidance_version") == "pm-requirements-v3":
+            request = self.get_pm_request(plan["request_id"])
+            prior = (request.get("conversation_context") or {}).get("previous_requirements_feedback") or {}
+            previous_questions = (prior.get("requirements") or {}).get("questions", [])
+            prior_row = self.db.execute("SELECT rowid FROM management_messages WHERE id=? AND project_id=?",
+                                        (prior.get("request_id"), plan["project_id"])).fetchone()
+            for previous in previous_questions:
+                if previous.get("status") != "open":
+                    continue
+                resolved = next((item for item in spec.questions if item.id == previous.get("id")), None)
+                if resolved is None or resolved.status != "answered" or not resolved.answer_message_id:
+                    raise ManagementError("answer_required", "A previous material question needs an explicit master answer")
+                answer_row = self.db.execute("SELECT rowid FROM management_messages WHERE id=? AND project_id=?",
+                                             (resolved.answer_message_id, plan["project_id"])).fetchone()
+                if prior_row is None or answer_row is None or answer_row[0] <= prior_row[0]:
+                    raise ManagementError("answer_required", "The answer must follow the recorded material question")
             for item in spec.questions:
                 if item.status == "assumed" or not item.answer_message_id:
                     raise ManagementError("answer_required", "A material decision needs a recorded master answer")
@@ -698,7 +713,7 @@ class ManagementStore:
             if request["mode"] == "live" and isinstance(evidence, dict) and (evidence.get("source") == "fixture" or evidence.get("scope") == "fixture"):
                 raise ManagementError("fixture_only", "Fixture PM evidence cannot produce a live proposal")
             if request.get("requirements_contract_version") == 2:
-                check = {"content": content, "contract_version": 2,
+                check = {"content": content, "contract_version": 2, "request_id": request_id,
                          "request_revision": request["request_revision"], "goal_digest": request["goal_digest"],
                          "project_id": request["project_id"], "pm_guidance_version": request.get("pm_guidance_version")}
                 self._requirements_ready(check)
