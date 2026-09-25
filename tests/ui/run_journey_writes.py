@@ -25,6 +25,7 @@ from ai_company.management_server import ManagementHTTPServer
 from ai_company.translations import TranslationStore, segments
 
 REPOSITORY = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPOSITORY))
 sys.path.insert(0, str(REPOSITORY / "tests"))
 from test_execution_specs import catalog_config  # Reuse a bounded nonoperational configuration.
 

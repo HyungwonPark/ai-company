@@ -45,7 +45,7 @@ const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
    await page.locator('#message-form').waitFor();
    assert.match(await page.locator('#main').textContent(),/계획 검토 중/);
    assert.equal(await page.locator('[data-action="review-plan"]').count(),0);
-   await page.locator('.manager-plan-detail summary').click();
+   await page.locator('.manager-plan-detail > summary').first().click();
    await page.getByText('요구사항 · 검증').click();
    assert.match(await page.locator('.manager-plan-detail').textContent(),/격리 브라우저에서 성공·실패 입력/);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
