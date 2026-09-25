@@ -17,6 +17,7 @@ import sys
 
 MODEL = 'claude-opus-5-5'
 APPLIED = {'model': MODEL, 'effort': 'xhigh', 'ultracode': True}
+REVIEW_TOOLS = 'Read,Grep,Glob,Workflow,Task,TaskOutput,TaskStop'
 CONTROL = Path(__file__).with_name('claude_control.py')
 if not CONTROL.exists():
     CONTROL = Path(__file__).resolve().parents[1] / 'src/ai_company/adapters/claude_control.py'
@@ -95,17 +96,31 @@ def complete_pr_patch(pr_number, head):
     merge_base = command('git', '-C', repo, 'merge-base', base, head).strip()
     if not re.fullmatch(r'[0-9a-f]{40}', merge_base):
         raise RuntimeError('PR merge base is invalid')
-    patch = command('git', '-C', repo, '-c', 'core.pager=cat', 'diff', '--no-ext-diff',
-                    '--no-textconv', '--binary', merge_base, head, '--')
+    result = subprocess.run(['git', '-C', repo, '-c', 'core.pager=cat', 'diff', '--no-ext-diff',
+                             '--no-textconv', '--binary', merge_base, head, '--'],
+                            capture_output=True, check=False)
+    if result.returncode:
+        raise RuntimeError('git failed while building the complete PR patch')
+    try:
+        patch = result.stdout.decode('utf-8')
+    except UnicodeDecodeError:
+        raise RuntimeError('PR patch is not UTF-8 and cannot be reviewed inline') from None
     return patch, base, merge_base
+
+
+def review_tool_args(repo, settings):
+    return ['--restricted', '--strict-mcp-config', '--permission-mode', 'dontAsk',
+            '--tools', REVIEW_TOOLS, '--allowedTools', REVIEW_TOOLS,
+            '--add-dir', str(repo), '--settings', json.dumps(settings),
+            '--no-session-persistence']
 
 
 def input_delivery_verified(directory, binding, exit_code):
     try:
         facts = [json.loads(line) for line in (directory / 'facts.jsonl').read_text().splitlines()]
         states = [item['state'] for item in facts]
-        patch = (directory / 'pr.diff').read_text()
-        prompt = (directory / 'prompt.txt').read_text()
+        patch = (directory / 'pr.diff').read_bytes().decode('utf-8')
+        prompt = (directory / 'prompt.txt').read_bytes().decode('utf-8')
         complete_patch = f'--- PATCH {binding["diff_sha256"]} BEGIN ---\n{patch}\n--- PATCH END ---'
         return (len(facts) >= 4 and states[0] == 'starting' and states[-1] == 'closed'
                 and states.count('prompt_delivery_started') == 1 and states.count('prompt_delivered') == 1
@@ -116,7 +131,7 @@ def input_delivery_verified(directory, binding, exit_code):
                 and complete_patch in prompt
                 and hashlib.sha256(patch.encode()).hexdigest() == binding['diff_sha256']
                 and hashlib.sha256(prompt.encode()).hexdigest() == binding['prompt_sha256'])
-    except (OSError, KeyError, ValueError, TypeError, json.JSONDecodeError):
+    except (OSError, KeyError, ValueError, TypeError, UnicodeDecodeError, json.JSONDecodeError):
         return False
 
 
@@ -375,10 +390,7 @@ def main():
                   'binding': binding,
                   'facts_path': str(directory / 'facts.jsonl'), 'environment': environment,
                   'expected_applied': APPLIED,
-                  'extra_args': ['--restricted', '--strict-mcp-config', '--permission-mode', 'dontAsk',
-                                 '--tools', 'Read,Grep,Glob,Workflow,Task,TaskOutput,TaskStop',
-                                 '--add-dir', str(repo), '--settings', json.dumps(settings),
-                                 '--no-session-persistence']}
+                  'extra_args': review_tool_args(repo, settings)}
         write_private(directory / 'config.json', json.dumps(config))
         events = [
             {'type': 'control_request', 'request_id': 'init', 'request': {'subtype': 'initialize'}},

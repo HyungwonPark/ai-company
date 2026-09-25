@@ -37,7 +37,7 @@ class ClaudePRReviewTests(unittest.TestCase):
             git('add', '.')
             git('commit', '-qm', 'base')
             base = git('rev-parse', 'HEAD')
-            (repo/'one.py').write_text('after\n')
+            (repo/'one.py').write_bytes(b'after\r\n')
             (repo/'two.py').write_text('second file\n')
             git('add', '.')
             git('commit', '-qm', 'head')
@@ -59,6 +59,7 @@ class ClaudePRReviewTests(unittest.TestCase):
                 complete, found_base, merge_base = REVIEW.complete_pr_patch(29, head)
                 self.assertIn('diff --git a/one.py b/one.py', complete)
                 self.assertIn('diff --git a/two.py b/two.py', complete)
+                self.assertIn('+after\r\n', complete)
                 self.assertEqual((found_base, merge_base), (base, base))
                 with self.assertRaises(RuntimeError):
                     REVIEW.complete_pr_patch(29, 'f' * 40)
@@ -76,6 +77,14 @@ class ClaudePRReviewTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             REVIEW.reviewable({**pr, 'statusCheckRollup': [
                 {'name': 'browser', 'workflowName': 'Console UI', 'conclusion': 'SUCCESS'}]}, 'abc')
+
+    def test_review_tools_are_read_only_and_permitted_in_dont_ask_mode(self):
+        args = REVIEW.review_tool_args(Path('/tmp/review-repo'), {'enableWorkflows': True})
+        self.assertEqual(args[args.index('--permission-mode') + 1], 'dontAsk')
+        self.assertEqual(args[args.index('--tools') + 1], args[args.index('--allowedTools') + 1])
+        self.assertEqual(set(args[args.index('--allowedTools') + 1].split(',')),
+                         {'Read', 'Grep', 'Glob', 'Workflow', 'Task', 'TaskOutput', 'TaskStop'})
+        self.assertIn('--restricted', args)
 
     def test_applied_settings_and_model_response_are_required(self):
         nonce = 'attempt'
@@ -166,7 +175,7 @@ class ClaudePRReviewTests(unittest.TestCase):
             self.assertFalse(REVIEW.binding_unchanged(29, 'abc'))
 
     def test_input_delivery_requires_bound_complete_patch_and_closed_relay(self):
-        patch_text = 'diff --git a/a.py b/a.py\n+safe\n'
+        patch_text = 'diff --git a/a.py b/a.py\n+safe\r\n'
         patch_sha = hashlib.sha256(patch_text.encode()).hexdigest()
         prompt = f'검수할 전체 PATCH\n--- PATCH {patch_sha} BEGIN ---\n{patch_text}\n--- PATCH END ---'
         binding = {'nonce': 'one', 'pr': 29, 'head': HEAD,
@@ -178,8 +187,8 @@ class ClaudePRReviewTests(unittest.TestCase):
                 {'state': 'closed', 'exit_code': 0}]
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
-            (directory/'pr.diff').write_text(patch_text)
-            (directory/'prompt.txt').write_text(prompt)
+            (directory/'pr.diff').write_bytes(patch_text.encode())
+            (directory/'prompt.txt').write_bytes(prompt.encode())
             facts = directory/'facts.jsonl'
             facts.write_text('\n'.join(json.dumps(row) for row in rows)+'\n')
             self.assertTrue(REVIEW.input_delivery_verified(directory, binding, 0))
