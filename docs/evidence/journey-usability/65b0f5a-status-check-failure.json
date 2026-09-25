@@ -1,0 +1,133 @@
+{
+  "status": "FAIL",
+  "case": {
+    "width": 320,
+    "theme": "black",
+    "case": "completed-operator"
+  },
+  "error": "locator.click: Timeout 10000ms exceeded.\nCall log:\n  - waiting for locator('.journey-result[data-result-run=\"journey-status-completed-operator\"]').getByText('원문 상태', { exact: true }).first()\n    - locator resolved to <summary>원문 상태</summary>\n  - attempting click action\n    2 × waiting for element to be visible, enabled and stable\n      - element is not visible\n    - retrying click action\n    - waiting 20ms\n    2 × waiting for element to be visible, enabled and stable\n      - element is not visible\n    - retrying click action\n      - waiting 100ms\n    19 × waiting for element to be visible, enabled and stable\n       - element is not visible\n     - retrying click action\n       - waiting 500ms\n",
+  "checks": [
+    {
+      "width": 320,
+      "theme": "light",
+      "case": "completed-operator",
+      "groups": {
+        "완료": 1,
+        "진행": 0,
+        "대기": 0,
+        "확인 필요": 1,
+        "미확인": 0
+      },
+      "title": "확인 필요",
+      "selector_text": "실행 3 · 대기 · 9월 25일 02:33",
+      "run_id": "journey-status-completed-operator"
+    },
+    {
+      "width": 320,
+      "theme": "light",
+      "case": "operator-handoff",
+      "groups": {
+        "완료": 0,
+        "진행": 0,
+        "대기": 0,
+        "확인 필요": 2,
+        "미확인": 0
+      },
+      "title": "확인 필요",
+      "selector_text": "실행 4 · 대기 · 9월 25일 02:33",
+      "run_id": "journey-status-operator-handoff"
+    },
+    {
+      "width": 320,
+      "theme": "light",
+      "case": "rejected",
+      "groups": {
+        "완료": 2,
+        "진행": 0,
+        "대기": 0,
+        "확인 필요": 0,
+        "미확인": 0
+      },
+      "title": "반려됨",
+      "selector_text": "실행 5 · 반려됨 · 9월 25일 02:33",
+      "run_id": "journey-status-rejected"
+    },
+    {
+      "width": 320,
+      "theme": "light",
+      "case": "running",
+      "groups": {
+        "완료": 0,
+        "진행": 2,
+        "대기": 0,
+        "확인 필요": 0,
+        "미확인": 0
+      },
+      "title": "작업 중",
+      "selector_text": "실행 6 · 처리 중 · 9월 25일 02:33",
+      "run_id": "journey-status-running"
+    },
+    {
+      "width": 320,
+      "theme": "light",
+      "case": "scheduled",
+      "groups": {
+        "완료": 0,
+        "진행": 0,
+        "대기": 2,
+        "확인 필요": 0,
+        "미확인": 0
+      },
+      "title": "대기",
+      "selector_text": "실행 7 · 대기 · 9월 25일 02:34",
+      "run_id": "journey-status-scheduled"
+    },
+    {
+      "width": 320,
+      "theme": "light",
+      "case": "unknown",
+      "groups": {
+        "완료": 0,
+        "진행": 0,
+        "대기": 0,
+        "확인 필요": 0,
+        "미확인": 2
+      },
+      "title": "상태 미확인",
+      "selector_text": "실행 8 · 대기 · 9월 25일 02:34",
+      "run_id": "journey-status-unknown"
+    },
+    {
+      "width": 320,
+      "theme": "light",
+      "case": "eligibility",
+      "groups": {
+        "완료": 0,
+        "진행": 1,
+        "대기": 0,
+        "확인 필요": 1,
+        "미확인": 0
+      },
+      "title": "확인 필요",
+      "selector_text": "실행 9 · 대기 · 9월 25일 02:34",
+      "run_id": "journey-status-eligibility"
+    },
+    {
+      "width": 320,
+      "theme": "light",
+      "case": "superseded",
+      "groups": {
+        "완료": 0,
+        "진행": 1,
+        "대기": 0,
+        "확인 필요": 1,
+        "미확인": 0
+      },
+      "title": "확인 필요",
+      "selector_text": "실행 10 · 대기 · 9월 25일 02:34",
+      "run_id": "journey-status-superseded"
+    }
+  ],
+  "errors": [],
+  "violations": []
+}

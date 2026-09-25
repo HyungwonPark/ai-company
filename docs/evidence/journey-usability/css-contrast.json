@@ -1,0 +1,26 @@
+{
+  "baseline": "ffb62c37e4822530f38f15f4b0f64781cdf40bc6",
+  "baseline_css_sha256": "85b78d7965456e2472726ebef22ad874d5b6fb59141bff0a91458475ff97cd73",
+  "candidate_css_sha256": "d3eed8dac693a555ed0bcf41d5ef6eb14e0ac8a318e087cfd844fde9a468daa8",
+  "baseline_preserved_prefix": true,
+  "contrast_ratios": {
+    "light": {
+      "progress": 6.17,
+      "complete": 6.33,
+      "waiting": 6.01,
+      "blocked": 6.14,
+      "muted": 5.71,
+      "focus": 4.1
+    },
+    "black": {
+      "progress": 7.67,
+      "complete": 7.65,
+      "waiting": 7.67,
+      "blocked": 7.46,
+      "muted": 6.53,
+      "focus": 9.37
+    }
+  },
+  "method": "WCAG relative luminance of declared CSS colors; does not replace rendered browser review",
+  "rendered_browser_review": "Chrome153 sandbox; final Journey UI36086876188 and linked screenshots"
+}

@@ -1,0 +1,1673 @@
+{
+  "status": "PASS",
+  "browser": "153.0.8010.52",
+  "sandbox": true,
+  "scope": "authenticated temporary real API + immutable packaged before/after; synthetic saved facts, no production/models/APK",
+  "checks": [
+    {
+      "width": 320,
+      "theme": "light",
+      "flow": "selected progress → exact result → empty selected approvals → project requests → exact old execution → result → real back",
+      "business_writes": 0
+    },
+    {
+      "width": 320,
+      "theme": "black",
+      "flow": "selected progress → exact result → empty selected approvals → project requests → exact old execution → result → real back",
+      "business_writes": 0
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "flow": "selected progress → exact result → empty selected approvals → project requests → exact old execution → result → real back",
+      "business_writes": 0
+    },
+    {
+      "width": 390,
+      "theme": "black",
+      "flow": "selected progress → exact result → empty selected approvals → project requests → exact old execution → result → real back",
+      "business_writes": 0
+    },
+    {
+      "width": 1440,
+      "theme": "light",
+      "flow": "selected progress → exact result → empty selected approvals → project requests → exact old execution → result → real back",
+      "business_writes": 0
+    },
+    {
+      "width": 1440,
+      "theme": "black",
+      "flow": "selected progress → exact result → empty selected approvals → project requests → exact old execution → result → real back",
+      "business_writes": 0
+    },
+    {
+      "keyboard": {
+        "tag": "BUTTON",
+        "text": "새로고침",
+        "outline": "solid",
+        "outlineWidth": "3px",
+        "shadow": "none"
+      },
+      "zoom": "actual Chrome visualViewport scale 2 through CDP; device pinch not tested"
+    },
+    {
+      "expiry": "before → exact-boundary/past timer → refresh",
+      "clock": "browser-only simulated at original API fixture deadline",
+      "confirmation": "opened before expiry; disabled automatically without submission",
+      "original_status": "pending",
+      "original_digest_preserved": true
+    }
+  ],
+  "comparisons": [
+    {
+      "version": "before",
+      "width": 320,
+      "theme": "light",
+      "view": "progress",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 2638,
+      "mainTop": 285.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 2,
+      "badges": [
+        {
+          "text": "",
+          "font": 10
+        },
+        {
+          "text": "",
+          "font": 10
+        },
+        {
+          "text": "",
+          "font": 10
+        },
+        {
+          "text": "",
+          "font": 10
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 320,
+      "theme": "light",
+      "view": "reports",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 4813,
+      "mainTop": 285.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "실행 기록 요약",
+          "font": 14
+        },
+        {
+          "text": "진행 중",
+          "font": 14
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 10
+        },
+        {
+          "text": "진행 중",
+          "font": 11
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 11
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 11
+        },
+        {
+          "text": "산출물 대기",
+          "font": 11
+        },
+        {
+          "text": "WORKER_UNCONFIRMED",
+          "font": 11
+        },
+        {
+          "text": "보고 없음",
+          "font": 10
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 320,
+      "theme": "light",
+      "view": "approvals",
+      "run": "7ba3b840de144b798a13a709fb2a8c14",
+      "details": "closed",
+      "height": 1813,
+      "mainTop": 285.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "만료",
+          "font": 11
+        },
+        {
+          "text": "한국어 원문",
+          "font": 11
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 320,
+      "theme": "black",
+      "view": "progress",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 2638,
+      "mainTop": 285.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 2,
+      "badges": [
+        {
+          "text": "",
+          "font": 10
+        },
+        {
+          "text": "",
+          "font": 10
+        },
+        {
+          "text": "",
+          "font": 10
+        },
+        {
+          "text": "",
+          "font": 10
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 320,
+      "theme": "black",
+      "view": "reports",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 4813,
+      "mainTop": 285.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "실행 기록 요약",
+          "font": 14
+        },
+        {
+          "text": "진행 중",
+          "font": 14
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 10
+        },
+        {
+          "text": "진행 중",
+          "font": 11
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 11
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 11
+        },
+        {
+          "text": "산출물 대기",
+          "font": 11
+        },
+        {
+          "text": "WORKER_UNCONFIRMED",
+          "font": 11
+        },
+        {
+          "text": "보고 없음",
+          "font": 10
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 320,
+      "theme": "black",
+      "view": "approvals",
+      "run": "7ba3b840de144b798a13a709fb2a8c14",
+      "details": "closed",
+      "height": 1813,
+      "mainTop": 285.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "만료",
+          "font": 11
+        },
+        {
+          "text": "한국어 원문",
+          "font": 11
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 390,
+      "theme": "light",
+      "view": "progress",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 2587,
+      "mainTop": 285.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 2,
+      "badges": [
+        {
+          "text": "",
+          "font": 10
+        },
+        {
+          "text": "",
+          "font": 10
+        },
+        {
+          "text": "",
+          "font": 10
+        },
+        {
+          "text": "",
+          "font": 10
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 390,
+      "theme": "light",
+      "view": "reports",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 4731,
+      "mainTop": 285.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "실행 기록 요약",
+          "font": 14
+        },
+        {
+          "text": "진행 중",
+          "font": 14
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 10
+        },
+        {
+          "text": "진행 중",
+          "font": 11
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 11
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 11
+        },
+        {
+          "text": "산출물 대기",
+          "font": 11
+        },
+        {
+          "text": "WORKER_UNCONFIRMED",
+          "font": 11
+        },
+        {
+          "text": "보고 없음",
+          "font": 10
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 390,
+      "theme": "light",
+      "view": "approvals",
+      "run": "7ba3b840de144b798a13a709fb2a8c14",
+      "details": "closed",
+      "height": 1764,
+      "mainTop": 285.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "만료",
+          "font": 11
+        },
+        {
+          "text": "한국어 원문",
+          "font": 11
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 390,
+      "theme": "black",
+      "view": "progress",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 2587,
+      "mainTop": 285.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 2,
+      "badges": [
+        {
+          "text": "",
+          "font": 10
+        },
+        {
+          "text": "",
+          "font": 10
+        },
+        {
+          "text": "",
+          "font": 10
+        },
+        {
+          "text": "",
+          "font": 10
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 390,
+      "theme": "black",
+      "view": "reports",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 4731,
+      "mainTop": 285.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "실행 기록 요약",
+          "font": 14
+        },
+        {
+          "text": "진행 중",
+          "font": 14
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 10
+        },
+        {
+          "text": "진행 중",
+          "font": 11
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 11
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 11
+        },
+        {
+          "text": "산출물 대기",
+          "font": 11
+        },
+        {
+          "text": "WORKER_UNCONFIRMED",
+          "font": 11
+        },
+        {
+          "text": "보고 없음",
+          "font": 10
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 390,
+      "theme": "black",
+      "view": "approvals",
+      "run": "7ba3b840de144b798a13a709fb2a8c14",
+      "details": "closed",
+      "height": 1764,
+      "mainTop": 285.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "만료",
+          "font": 11
+        },
+        {
+          "text": "한국어 원문",
+          "font": 11
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 1440,
+      "theme": "light",
+      "view": "progress",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 1951,
+      "mainTop": 262.78125,
+      "previewBannerHeight": 72.78125,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 2,
+      "badges": [
+        {
+          "text": "",
+          "font": 12
+        },
+        {
+          "text": "",
+          "font": 12
+        },
+        {
+          "text": "",
+          "font": 12
+        },
+        {
+          "text": "",
+          "font": 12
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 1440,
+      "theme": "light",
+      "view": "reports",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 4047,
+      "mainTop": 262.78125,
+      "previewBannerHeight": 72.78125,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "실행 기록 요약",
+          "font": 14
+        },
+        {
+          "text": "진행 중",
+          "font": 14
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 12
+        },
+        {
+          "text": "진행 중",
+          "font": 11
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 11
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 11
+        },
+        {
+          "text": "산출물 대기",
+          "font": 11
+        },
+        {
+          "text": "WORKER_UNCONFIRMED",
+          "font": 11
+        },
+        {
+          "text": "보고 없음",
+          "font": 12
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 1440,
+      "theme": "light",
+      "view": "approvals",
+      "run": "7ba3b840de144b798a13a709fb2a8c14",
+      "details": "closed",
+      "height": 1506,
+      "mainTop": 262.78125,
+      "previewBannerHeight": 72.78125,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "만료",
+          "font": 11
+        },
+        {
+          "text": "한국어 원문",
+          "font": 11
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 1440,
+      "theme": "black",
+      "view": "progress",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 1951,
+      "mainTop": 262.78125,
+      "previewBannerHeight": 72.78125,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 2,
+      "badges": [
+        {
+          "text": "",
+          "font": 12
+        },
+        {
+          "text": "",
+          "font": 12
+        },
+        {
+          "text": "",
+          "font": 12
+        },
+        {
+          "text": "",
+          "font": 12
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 1440,
+      "theme": "black",
+      "view": "reports",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 4047,
+      "mainTop": 262.78125,
+      "previewBannerHeight": 72.78125,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "실행 기록 요약",
+          "font": 14
+        },
+        {
+          "text": "진행 중",
+          "font": 14
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 12
+        },
+        {
+          "text": "진행 중",
+          "font": 11
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 11
+        },
+        {
+          "text": "후보 복귀 대기",
+          "font": 11
+        },
+        {
+          "text": "산출물 대기",
+          "font": 11
+        },
+        {
+          "text": "WORKER_UNCONFIRMED",
+          "font": 11
+        },
+        {
+          "text": "보고 없음",
+          "font": 12
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        },
+        {
+          "text": "시스템 집계",
+          "font": 11
+        },
+        {
+          "text": "번역 미설정",
+          "font": 11
+        }
+      ]
+    },
+    {
+      "version": "before",
+      "width": 1440,
+      "theme": "black",
+      "view": "approvals",
+      "run": "7ba3b840de144b798a13a709fb2a8c14",
+      "details": "closed",
+      "height": 1506,
+      "mainTop": 262.78125,
+      "previewBannerHeight": 72.78125,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "만료",
+          "font": 11
+        },
+        {
+          "text": "한국어 원문",
+          "font": 11
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 320,
+      "theme": "light",
+      "view": "progress",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 2546,
+      "mainTop": 267.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 320,
+      "theme": "light",
+      "view": "reports",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 2882,
+      "mainTop": 267.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 320,
+      "theme": "light",
+      "view": "approvals",
+      "run": "7ba3b840de144b798a13a709fb2a8c14",
+      "details": "closed",
+      "height": 1954,
+      "mainTop": 267.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "만료",
+          "font": 14
+        },
+        {
+          "text": "한국어 원문",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 320,
+      "theme": "black",
+      "view": "progress",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 2546,
+      "mainTop": 267.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 320,
+      "theme": "black",
+      "view": "reports",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 2882,
+      "mainTop": 267.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 320,
+      "theme": "black",
+      "view": "approvals",
+      "run": "7ba3b840de144b798a13a709fb2a8c14",
+      "details": "closed",
+      "height": 1954,
+      "mainTop": 267.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "만료",
+          "font": 14
+        },
+        {
+          "text": "한국어 원문",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 390,
+      "theme": "light",
+      "view": "progress",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 2471,
+      "mainTop": 267.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 390,
+      "theme": "light",
+      "view": "reports",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 2803,
+      "mainTop": 267.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 390,
+      "theme": "light",
+      "view": "approvals",
+      "run": "7ba3b840de144b798a13a709fb2a8c14",
+      "details": "closed",
+      "height": 1830,
+      "mainTop": 267.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "만료",
+          "font": 14
+        },
+        {
+          "text": "한국어 원문",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 390,
+      "theme": "black",
+      "view": "progress",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 2471,
+      "mainTop": 267.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 390,
+      "theme": "black",
+      "view": "reports",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 2803,
+      "mainTop": 267.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 390,
+      "theme": "black",
+      "view": "approvals",
+      "run": "7ba3b840de144b798a13a709fb2a8c14",
+      "details": "closed",
+      "height": 1830,
+      "mainTop": 267.5625,
+      "previewBannerHeight": 95.171875,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "만료",
+          "font": 14
+        },
+        {
+          "text": "한국어 원문",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 1440,
+      "theme": "light",
+      "view": "progress",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 1898,
+      "mainTop": 239.78125,
+      "previewBannerHeight": 72.78125,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 1440,
+      "theme": "light",
+      "view": "reports",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 2360,
+      "mainTop": 239.78125,
+      "previewBannerHeight": 72.78125,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 1440,
+      "theme": "light",
+      "view": "approvals",
+      "run": "7ba3b840de144b798a13a709fb2a8c14",
+      "details": "closed",
+      "height": 1556,
+      "mainTop": 239.78125,
+      "previewBannerHeight": 72.78125,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "만료",
+          "font": 14
+        },
+        {
+          "text": "한국어 원문",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 1440,
+      "theme": "black",
+      "view": "progress",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 1898,
+      "mainTop": 239.78125,
+      "previewBannerHeight": 72.78125,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 1440,
+      "theme": "black",
+      "view": "reports",
+      "run": "graph-fixture-new-run",
+      "details": "closed",
+      "height": 2360,
+      "mainTop": 239.78125,
+      "previewBannerHeight": 72.78125,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        },
+        {
+          "text": "시스템 집계",
+          "font": 14
+        },
+        {
+          "text": "번역 미설정",
+          "font": 14
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "width": 1440,
+      "theme": "black",
+      "view": "approvals",
+      "run": "7ba3b840de144b798a13a709fb2a8c14",
+      "details": "closed",
+      "height": 1556,
+      "mainTop": 239.78125,
+      "previewBannerHeight": 72.78125,
+      "mainHeadingCount": 1,
+      "visibleSelectors": 1,
+      "badges": [
+        {
+          "text": "만료",
+          "font": 14
+        },
+        {
+          "text": "한국어 원문",
+          "font": 14
+        }
+      ]
+    }
+  ],
+  "fixture_sha256": "dc62db6d283cfb4e07e8f79dccf7d8902b0199133809b1c18085cccfb5b47128",
+  "artifacts": [
+    "usability-api-light-320-progress-long.png",
+    "usability-api-light-320-result.png",
+    "usability-api-black-320-progress-long.png",
+    "usability-api-black-320-result.png",
+    "usability-api-light-390-progress-long.png",
+    "usability-api-light-390-result.png",
+    "usability-api-black-390-progress-long.png",
+    "usability-api-black-390-result.png",
+    "usability-api-light-1440-progress-long.png",
+    "usability-api-light-1440-result.png",
+    "usability-api-black-1440-progress-long.png",
+    "usability-api-black-1440-result.png",
+    "usability-keyboard.png",
+    "usability-pinch-zoom-200.png",
+    "usability-state-scheduled.png",
+    "usability-state-unknown.png",
+    "usability-state-rejected.png",
+    "usability-state-empty-error.png",
+    "usability-before-light-320-progress.png",
+    "usability-before-light-320-reports.png",
+    "usability-before-light-320-approvals.png",
+    "usability-before-black-320-progress.png",
+    "usability-before-black-320-reports.png",
+    "usability-before-black-320-approvals.png",
+    "usability-before-light-390-progress.png",
+    "usability-before-light-390-reports.png",
+    "usability-before-light-390-approvals.png",
+    "usability-before-black-390-progress.png",
+    "usability-before-black-390-reports.png",
+    "usability-before-black-390-approvals.png",
+    "usability-before-light-1440-progress.png",
+    "usability-before-light-1440-reports.png",
+    "usability-before-light-1440-approvals.png",
+    "usability-before-black-1440-progress.png",
+    "usability-before-black-1440-reports.png",
+    "usability-before-black-1440-approvals.png",
+    "usability-after-light-320-progress.png",
+    "usability-after-light-320-reports.png",
+    "usability-after-light-320-approvals.png",
+    "usability-after-black-320-progress.png",
+    "usability-after-black-320-reports.png",
+    "usability-after-black-320-approvals.png",
+    "usability-after-light-390-progress.png",
+    "usability-after-light-390-reports.png",
+    "usability-after-light-390-approvals.png",
+    "usability-after-black-390-progress.png",
+    "usability-after-black-390-reports.png",
+    "usability-after-black-390-approvals.png",
+    "usability-after-light-1440-progress.png",
+    "usability-after-light-1440-reports.png",
+    "usability-after-light-1440-approvals.png",
+    "usability-after-black-1440-progress.png",
+    "usability-after-black-1440-reports.png",
+    "usability-after-black-1440-approvals.png"
+  ],
+  "limitations": [
+    "Keyboard and CDP pinch zoom are desktop Chrome emulation; physical Android not tested",
+    "No approval decision submitted",
+    "Page height is observational, not acceptance score"
+  ]
+}

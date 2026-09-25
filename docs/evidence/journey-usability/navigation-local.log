@@ -1,0 +1,4 @@
+PASS 1: late PM request response final URL: #manager?project=p&run=old-run&snapshot=old-snapshot
+PASS 2: late confirmation response final URL: #manager?project=p&run=old-run&snapshot=old-snapshot
+PASS 3: render before pending hashchange: #progress?project=new-project&run=new-run
+PASS 4: PM response after away/back to the same settings URL: #project?project=p

@@ -1,0 +1,12 @@
+{
+  "status": "FAIL",
+  "case": {
+    "width": 320,
+    "theme": "light",
+    "case": "completed-operator"
+  },
+  "error": "locator.click: Error: strict mode violation: locator('.journey-result[data-result-run=\"journey-status-completed-operator\"]').locator('details').filter({ has: getByText('원문 상태', { exact: true }) }).first().locator('summary') resolved to 3 elements:\n    1) <summary>역할별 내역 2개</summary> aka getByText('역할별 내역 2개')\n    2) <summary>원문 상태</summary> aka getByRole('listitem').filter({ hasText: '개발검수 통과저장된 원문 상태와 실행 근거를 대조하세요.원문 상태MERGE_READY' }).locator('summary')\n    3) <summary>원문 상태</summary> aka getByRole('listitem').filter({ hasText: '검사상태 대조 필요저장된 원문 상태와 실행 근거를 대조하세요.운영자가 실행 사실과 저장 기록을 대조해야 합니다.원문 상태' }).locator('summary')\n\nCall log:\n  - waiting for locator('.journey-result[data-result-run=\"journey-status-completed-operator\"]').locator('details').filter({ has: getByText('원문 상태', { exact: true }) }).first().locator('summary')\n",
+  "checks": [],
+  "errors": [],
+  "violations": []
+}

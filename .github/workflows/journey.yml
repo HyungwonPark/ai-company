@@ -10,7 +10,7 @@ permissions:
 jobs:
   journey:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       CHROME_CHANNEL: chrome
     steps:
@@ -69,6 +69,11 @@ jobs:
       - name: Verify authenticated mixed modules with browser sandbox
         if: always()
         run: uv run --frozen python tests/ui/run_journey_mixed_modules.py
+      - name: Verify usability boundaries and before-after screens
+        if: always()
+        run: |
+          node tests/ui/journey_usability_checks.mjs
+          uv run --frozen python tests/ui/run_journey_usability.py
       - name: Preserve nonsecret validation evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
