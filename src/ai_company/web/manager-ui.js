@@ -8,7 +8,8 @@ export function executionReferenceMatches(project,record) {
 export function managerSnapshot(overview) {
   const {project={}, plans=[], pm_requests:requests=[], runs=[]} = overview;
   const current = plans.filter(plan => plan.status !== 'stale' && executionReferenceMatches(project,plan) && (project.request_revision == null || plan.request_revision === project.request_revision));
-  const plan = current.at(-1);
+  const latest = plans.filter(item => project.request_revision == null || item.request_revision === project.request_revision).at(-1);
+  const plan = latest?.status==='stale'?undefined:current.at(-1);
   const request = requests.filter(item => project.request_revision == null || item.request_revision === project.request_revision).at(-1);
   const run = plan ? runs.filter(item => item.plan_id === plan.id && item.plan_digest === plan.digest).at(-1) : undefined;
   const roles = plan?.content?.roles || [];

@@ -8,6 +8,8 @@ assert.equal(managerSnapshot(overview).run,undefined,'a success for a different 
 assert.equal(managerSnapshot(overview).independent,2,'dependency-bound review is not counted as an independent role');
 assert.equal(managerSnapshot({...overview,project:{id:'project',request_revision:3},pm_requests:[{request_revision:3,state:'waiting_quota'}]}).plan,undefined,'a new request cannot offer the old plan for confirmation');
 assert.equal(managerSnapshot({...overview,plans:[{...plan,status:'stale'}]}).plan,undefined);
+assert.equal(managerSnapshot({...overview,plans:[{...plan,id:'older',status:'needs_revision'},
+  {...plan,status:'stale'}]}).plan,undefined,'latest stale policy cannot reveal an older plan');
 const stalePolicy={...overview,plans:[{...plan,status:'stale',stale_reason:'검수 기준이 변경되어 새 계획이 필요합니다.'}],runs:[]};
 const esc=value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
 const ui=createManagerUI({esc,badge:esc,label:esc,stamp:String,documents:{text:(id,field,fallback)=>fallback,meta:()=>''},planContent:()=>'<p>Full original constraints</p>'});
