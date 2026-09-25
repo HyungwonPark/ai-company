@@ -35,6 +35,12 @@ def main():
             or incoming[0].get('request', {}).get('subtype') != 'initialize'
             or incoming[1].get('type') != 'user'):
         raise RuntimeError('controlled CLI requires initialize and one user message')
+    prompt_sha256 = config['binding'].get('prompt_sha256')
+    if prompt_sha256:
+        message = incoming[1].get('message', {})
+        prompt = message.get('content') if isinstance(message, dict) else None
+        if not isinstance(prompt, str) or hashlib.sha256(prompt.encode()).hexdigest() != prompt_sha256:
+            raise RuntimeError('controlled CLI prompt differs from the bound review input')
     before = config['binding']['nonce'] + '-before'
     after = config['binding']['nonce'] + '-after'
     facts_path = Path(config['facts_path'])
@@ -88,6 +94,8 @@ def main():
                         # never incorrectly claims that no model call occurred.
                         record({'state': 'prompt_delivery_started'})
                         send(incoming[1])
+                        if prompt_sha256:
+                            record({'state': 'prompt_delivered', 'prompt_sha256': prompt_sha256})
                         sent = True
                     else:
                         record({'state': 'configuration_refused'})

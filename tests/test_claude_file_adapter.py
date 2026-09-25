@@ -40,13 +40,15 @@ class ClaudeFileAdapterTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(); self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
 
-    def relay(self, effort, model='claude-opus-5', blocked=False):
+    def relay(self, effort, model='claude-opus-5', blocked=False, bound_prompt=False):
         directory = self.root / effort; directory.mkdir()
         native = directory / 'native'; native.write_text(NATIVE); native.chmod(0o700)
         config = {'cli_executable':str(native), 'cli_sha256':hashlib.sha256(native.read_bytes()).hexdigest(),
             'binding':{'nonce':'attempt-1'}, 'facts_path':str(directory/'facts.jsonl'), 'extra_args':[],
             'environment':{'PATH':os.environ['PATH'], 'EFFORT':effort, 'MODEL':model,
                            'MARKER':str(directory/'delivered')}}
+        if bound_prompt:
+            config['binding']['prompt_sha256'] = hashlib.sha256(b'task').hexdigest()
         if model != 'claude-opus-5':
             config['expected_applied'] = {'model':model, 'effort':'xhigh', 'ultracode':True}
         if blocked:
@@ -83,9 +85,11 @@ class ClaudeFileAdapterTests(unittest.TestCase):
         self.assertNotIn('PRIVATE_', result.stdout)
 
     def test_separate_pr_review_model_is_checked_before_prompt(self):
-        directory, _, facts = self.relay('xhigh', 'claude-opus-5-5')
+        directory, _, facts = self.relay('xhigh', 'claude-opus-5-5', bound_prompt=True)
         self.assertTrue((directory/'delivered').exists())
         self.assertEqual(facts[1]['applied']['model'], 'claude-opus-5-5')
+        self.assertEqual(facts[3]['state'], 'prompt_delivered')
+        self.assertEqual(facts[3]['prompt_sha256'], hashlib.sha256(b'task').hexdigest())
 
     def test_relay_and_native_unblock_inherited_signals(self):
         directory, _, _ = self.relay('xhigh', blocked=True)
