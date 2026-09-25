@@ -93,6 +93,33 @@ class ClaudePRReviewTests(unittest.TestCase):
             stop.assert_called_once_with(12345, signal.SIGTERM)
             self.assertEqual((Path(temporary)/'stderr.txt').read_text(), 'interrupted')
 
+    def test_killed_child_with_open_pipes_keeps_partial_evidence(self):
+        class Pipe:
+            def close(self):
+                pass
+
+        class Process:
+            pid = 12345
+            returncode = -9
+            stdin = None
+            stdout = stderr = Pipe()
+
+            def communicate(self, *_args, **_kwargs):
+                raise subprocess.TimeoutExpired('claude', 1, output=b'{"type":"assistant"}\n', stderr=b'partial')
+
+            def wait(self, **_kwargs):
+                return -9
+
+        with tempfile.TemporaryDirectory() as temporary:
+            with patch.object(REVIEW.subprocess, 'Popen', return_value=Process()), \
+                    patch.object(REVIEW.os, 'killpg') as stop:
+                code, events, reason = REVIEW.invoke(['claude'], '', Path(temporary), timeout_seconds=1)
+            self.assertEqual(code, -9)
+            self.assertEqual(reason, 'kill_timeout')
+            self.assertEqual(len(events), 1)
+            self.assertEqual(stop.call_count, 2)
+            self.assertEqual((Path(temporary)/'stderr.txt').read_text(), 'partial')
+
     def test_only_closed_attempt_without_prompt_can_be_retried(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)/'review'

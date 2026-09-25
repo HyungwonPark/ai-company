@@ -61,8 +61,10 @@ def reserve_attempt(directory, retry_unstarted):
     directory.mkdir(mode=0o700, exist_ok=False)
 
 
-def invoke(command_line, input_text, directory, timeout_seconds=900):
+def invoke(command_line, input_text, directory, timeout_seconds=1800):
     def interrupted(_number, _frame):
+        for number in signals:
+            signal.signal(number, signal.SIG_IGN)
         raise KeyboardInterrupt
     signals = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
     previous = {number: signal.getsignal(number) for number in signals}
@@ -91,7 +93,21 @@ def invoke(command_line, input_text, directory, timeout_seconds=900):
                     os.killpg(process.pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
-                stdout, stderr = process.communicate()
+                try:
+                    stdout, stderr = process.communicate(timeout=5)
+                except subprocess.TimeoutExpired as final:
+                    incomplete_reason = 'kill_timeout'
+                    stdout = final.stdout or ''
+                    stderr = final.stderr or ''
+                    stdout = stdout.decode(errors='replace') if isinstance(stdout, bytes) else stdout
+                    stderr = stderr.decode(errors='replace') if isinstance(stderr, bytes) else stderr
+                    for pipe in (process.stdout, process.stderr):
+                        if pipe:
+                            pipe.close()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        pass
         for number in signals:
             signal.signal(number, signal.SIG_IGN)
         write_private(directory / 'events.jsonl', stdout)
@@ -163,11 +179,10 @@ def summarize(events, nonce, exit_code, incomplete_reason=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('pr', type=int)
-    parser.add_argument('--max-budget-usd', type=float, default=1.0)
     parser.add_argument('--retry-unstarted', action='store_true', help='Archive a closed attempt that never sent a prompt')
     args = parser.parse_args()
-    if not 0 < args.max_budget_usd <= 10 or args.pr < 1:
-        parser.error('PR and budget must be positive; budget must be at most USD 10')
+    if args.pr < 1:
+        parser.error('PR must be positive')
     head = command('git', 'rev-parse', 'HEAD').strip()
     if command('git', 'status', '--porcelain').strip():
         raise RuntimeError('review checkout must be clean')
@@ -209,13 +224,12 @@ def main():
               'extra_args': ['--restricted', '--strict-mcp-config', '--permission-mode', 'dontAsk',
                              '--tools', 'Read,Grep,Glob,Workflow,Task,TaskOutput,TaskStop',
                              '--add-dir', str(repo), '--settings', json.dumps(settings),
-                             '--max-budget-usd', str(args.max_budget_usd), '--max-turns', '12',
                              '--no-session-persistence']}
     write_private(directory / 'config.json', json.dumps(config))
     prompt = (f'PR #{args.pr}, 최종 HEAD {head}를 읽기 전용으로 독립 검수하세요. '
               f'전체 패치는 {directory / "pr.diff"}에 있습니다. 현재 저장소 코드와 대조하세요. '
               '정확성·권한·재시작·회귀를 우선하고 실제 결함만 파일과 근거로 보고하세요. '
-              '검토하지 못한 파일과 비용·도구 제한을 명시하세요. 부분 검토를 PASS라고 하지 마세요. '
+              '검토하지 못한 파일과 도구 제한을 명시하세요. 부분 검토를 PASS라고 하지 마세요. '
               '테스트 실행이나 파일 수정은 하지 마세요. 보고서 첫 줄에 정확히 '
               '`판정: PASS`, `판정: REVISE`, `판정: INCOMPLETE` 중 하나만 한 번 쓰세요.')
     events = [
