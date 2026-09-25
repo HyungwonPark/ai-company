@@ -46,7 +46,7 @@ const path=require('node:path');
   await page.unroute('**'+endpoint);await page.reload();
   if(await page.locator('#message-content').inputValue()!==answer)await page.locator('#message-content').fill(answer);
   await page.locator('#message-form button[type=submit]').click();
-  await page.getByText('메시지를 저장했습니다.',{exact:false}).waitFor();
+  await page.locator('#toast').filter({hasText:'메시지를 저장했습니다.'}).waitFor();
   let after=await overview(pid);assert.equal(after.messages.filter(m=>m.role==='user'&&m.content===answer).length,1);
   assert.equal(after.pm_requests.length,before.pm_requests.length,'same idempotency key produces one answer request');
   await command('restart');checks.push('lost POST response, browser reload, same-key retry and worker restart keep one answer');
