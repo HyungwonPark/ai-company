@@ -191,6 +191,8 @@
 .journey-workspace.integrated-workspace .badge.complete{color:var(--success);background:var(--success-bg);border-color:var(--success-line);border-style:solid}
 .journey-workspace.integrated-workspace .badge.waiting{border-left:3px solid var(--warning)}
 .journey-workspace.integrated-workspace .badge.blocked{border-left:3px solid var(--danger)}
+.journey-workspace.integrated-workspace .approval-head>div{min-width:0;flex:1}
+.journey-workspace.integrated-workspace .approval-head>.badge{flex-shrink:0;white-space:nowrap;align-self:flex-start}
 .journey-workspace.integrated-workspace :is(.report-summary,.message-content,.discussion-message p,.manager-goal,.manager-next p,.summary-list strong,.summary-list p,.project-summary>p,.pm-report-summary>p,.approval-copy p,.detail-grid dd:not(.mono)){font-size:16px;line-height:1.75}
 .journey-workspace.integrated-workspace :is(.manager-agent .badge,.collab-node-select .badge){max-width:none;flex-shrink:0}
 .journey-workspace.integrated-workspace .summary-list :is(strong,p,small){overflow-wrap:anywhere}

@@ -37,7 +37,7 @@ const path=require('node:path');
     }
     assert.equal(await result.locator('a').filter({hasText:'승인 요청 확인'}).count(),0,'no unrelated approval borrowed');
     if(['completed-operator','operator-handoff','unknown','rejected','superseded'].includes(item.name)){
-     await result.locator('.result-role-details > summary').click();
+     if(!await result.locator('.result-role-details').evaluate(el=>el.open))await result.locator('.result-role-details > summary').click();
      await result.getByText('원문 상태',{exact:true}).first().click();
      await page.evaluate(()=>document.fonts.ready);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
      const name=`journey-status-${theme}-${width}-${item.name}.png`;await page.screenshot({path:path.join(out,name),fullPage:true});screens.push(name);
