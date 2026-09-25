@@ -50,3 +50,9 @@ for(const key of ['project_id','plan_id','plan_digest','run_id']){
  assert.match(html,/PM 작성 보고 없음/,'foreign reference '+key+' rejected');
 }
 console.log(JSON.stringify({status:'PASS',foreign_pm_boundaries:7}));
+// Integration/worker blockers may not exist on any role node. Compact mode must
+// retain that separate evidence inside the expandable system report.
+const aggregate={project_id:'project',plan_id:'plan',plan_digest:'digest',run_id:'old-run',goal:'동일 목표',digest:'original-report-digest',candidate_verified:false,completed:[],in_progress:[],blockers:[{title:'통합 검사',status:'WORKER_UNCONFIRMED',reason:'역할 노드에 없는 실행기 종료 확인 근거'}],decisions:[],completion_criteria:[],next_actions:[],pm_report_ids:[]};
+const aggregateBefore=JSON.stringify(aggregate),compact=ui.render({...overview,project_report:aggregate},{compact:true});
+assert.match(compact,/역할 노드에 없는 실행기 종료 확인 근거/,'compact summary retains distinct integration blockers');assert.match(compact,/original-report-digest/);assert.equal(JSON.stringify(aggregate),aggregateBefore);
+console.log(JSON.stringify({status:'PASS',compact_aggregate:'distinct blocker evidence and original digest retained'}));
