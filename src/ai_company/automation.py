@@ -173,33 +173,45 @@ class Automation:
         trusted = load_trusted_catalog(self.config.skill_catalog)
         assignments = {}
         unmatched = []
+        missing_by_role = {}
         candidates = [agent for agent in self.config.agents
                       if agent.agent_id in self.config.policy.candidates["developer"]]
         for role in plan.roles:
             linked = [item.id for item in plan.requirements_review.requirements
                       if role.key in item.role_keys] if plan.requirements_review else []
-            approved = []
+            eligible = []
             for skill_id, item in trusted.items():
                 entry = item["entry"]
-                matches = sorted(set(role.required_capabilities) & set(entry["capabilities"]))
+                matches = set(role.required_capabilities) & set(entry["capabilities"])
                 if not matches:
                     continue
                 compatible = (entry["status"] == "approved_document" and all(
                     agent.provider in entry["compatibility"]["providers"] and
                     "session_cli" in entry["compatibility"]["runners"] for agent in candidates))
                 if compatible:
-                    approved.append({"skill_id": skill_id, "reason": "필요한 역량: " + ", ".join(matches),
-                                     "requirements": linked, "selected": True})
-            assignments[role.key] = approved[:3]
-            if role.required_capabilities and not approved:
+                    eligible.append((skill_id, matches))
+            missing = set(role.required_capabilities)
+            approved = []
+            while missing and eligible and len(approved) < 3:
+                skill_id, matches = max(eligible, key=lambda item: (len(item[1] & missing), item[0]))
+                eligible = [item for item in eligible if item[0] != skill_id]
+                covered = matches & missing
+                if not covered:
+                    break
+                approved.append({"skill_id": skill_id, "reason": "필요한 역량: " + ", ".join(sorted(covered)),
+                                 "requirements": linked, "selected": True})
+                missing -= covered
+            assignments[role.key] = approved
+            if missing:
                 unmatched.append(role.key)
+                missing_by_role[role.key] = sorted(missing)
         external = []
         lookup_status = "lookup_not_configured"
         lookup_reason = ""
         search_matches = 0
         if unmatched and (self.config.skill_public_sources or self.config.skill_search_terms):
             key = research_key(capabilities=[cap for role in plan.roles if role.key in unmatched
-                                              for cap in role.required_capabilities],
+                                              for cap in missing_by_role[role.key]],
                                environment="session_cli:" + (plan.requirements_review.goal_digest if plan.requirements_review else "unknown"),
                                roles=unmatched,
                                catalog_version=catalog_version(trusted))
@@ -208,12 +220,12 @@ class Automation:
                 research = SkillResearchStore(self.root / "skill-research.sqlite", clock=self.clock)
                 existing = research.snapshot(key)
                 policy = existing["policy"] if existing else {
-                    "max_searches": 1, "max_fetches": 1, "max_bytes": 192 * 1024 + 128 * 1024,
-                    "max_elapsed_ms": 2_000, "max_model_calls": 0, "max_tokens": 0,
+                    "max_searches": 2, "max_fetches": 4, "max_bytes": 4 * 192 * 1024 + 2 * 128 * 1024,
+                    "max_elapsed_ms": 6_000, "max_model_calls": 0, "max_tokens": 0,
                     "max_cost_microusd": 0, "expires_at": self.clock() + 86400}
                 for index, url in enumerate(self.config.skill_public_sources[:1]):
                     try:
-                        result = research.run_fetch(key, "source-" + str(index), url, policy=policy, timeout=1)
+                        result = research.run_fetch(key, "source-" + digest(url)[:16], url, policy=policy, timeout=1)
                     except (SkillCatalogError, OSError, sqlite3.Error) as error:
                         lookup_status, lookup_reason = "lookup_failed", str(error)[:160]
                         break
@@ -226,10 +238,10 @@ class Automation:
                         lookup_reason = result.get("reason", "")[:160]
                 if not external and self.config.skill_search_terms:
                     terms = sorted({cap for role in plan.roles if role.key in unmatched
-                                    for cap in role.required_capabilities} & set(self.config.skill_search_terms))[:1]
+                                    for cap in missing_by_role[role.key]} & set(self.config.skill_search_terms))[:1]
                     for term in terms:
                         try:
-                            result = research.run_search(key, "search-" + term, term,
+                            result = research.run_search(key, "search-" + digest(term)[:16], term,
                                 allowed_terms=self.config.skill_search_terms, policy=policy,
                                 max_results=3, timeout=1)
                         except (SkillCatalogError, OSError, sqlite3.Error) as error:
@@ -248,9 +260,9 @@ class Automation:
                 if research is not None:
                     research.close()
             for role_key in unmatched:
-                assignments[role_key] = [{"skill_id": item["skill_id"],
+                assignments[role_key].extend({"skill_id": item["skill_id"],
                     "reason": "공개 자료 후보입니다. 내용과 권한 검토 전에는 전달하지 않습니다.",
-                    "requirements": [], "selected": False} for item in external[:3]]
+                    "requirements": [], "selected": False} for item in external[:3-len(assignments[role_key])])
         outcome = ("existing_sufficient" if not unmatched else
                    "review_pending" if external else "search_found_unpinned" if search_matches else lookup_status)
         required_missing = any(role.skill_required and role.key in unmatched for role in plan.roles)
@@ -271,7 +283,7 @@ class Automation:
             if not external:
                 raise
             for role_key in unmatched:
-                assignments[role_key] = []
+                assignments[role_key] = [item for item in assignments[role_key] if item["selected"]]
             lookup_reason = str(error)[:160]
             selection = selection_with([], "lookup_failed")
         return plan.model_copy(update={"skill_selection": selection})
@@ -362,6 +374,8 @@ class Automation:
         if record["status"] != "reviewing" or record.get("contract_version") != 2:
             return
         if not self.store.request_is_current(record["request_id"]):
+            self.store.note_plan_review_problem(record["project_id"], record["id"],
+                                                "검수 기준이나 목표가 변경되었습니다. 새 계획을 요청해 주세요.")
             return
         if record["configuration_digest"] != self.configuration_digest or record["mode"] != self.config.mode:
             return

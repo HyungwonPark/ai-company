@@ -1376,6 +1376,7 @@ class ManagementStore:
             request = requests_by_id.get(plan["request_id"])
             if plan["status"] == "proposed" and (request is None or not self._request_current(request, project)):
                 plan["status"] = "stale"
+                plan["stale_reason"] = "검수 기준이나 목표가 변경되었습니다. 새 계획을 요청해 주세요."
         # A linked real task is execution evidence, not proof of end-to-end readiness.
         readiness = {"mode": "fixture" if project["source"] == "fixture" else "unverified",
                      "pm": "awaiting_worker" if any(m["status"] == "awaiting_pm" for m in messages) else "unverified", "execution": "unverified"}

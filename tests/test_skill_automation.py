@@ -149,6 +149,22 @@ class SkillAutomationTests(unittest.TestCase):
         self.assertEqual(error.exception.code, "skill_required")
         self.assertEqual(self.h.worker.store.run_records(), [])
 
+    def test_partially_covered_required_capabilities_block_confirmation(self):
+        self.h.worker.close()
+        self.h.plan["roles"][0].update(
+            required_capabilities=["accessibility", "security"], skill_required=True)
+        self.h.worker = self.h.open()
+        for _ in range(5):
+            self.h.worker.run_once()
+        plan = self.h.worker.store.overview(self.h.project["id"])["plans"][-1]
+        selection = plan["content"]["skill_selection"]
+        self.assertEqual([item["skill_id"] for item in selection["roles"]["impl"]], ["review"])
+        self.assertFalse(selection["can_continue"])
+        with self.assertRaises(ManagementError) as error:
+            self.confirm(plan)
+        self.assertEqual(error.exception.code, "skill_required")
+        self.assertEqual(self.h.worker.store.run_records(), [])
+
     def test_generic_public_search_is_recorded_without_approving_unpinned_repository(self):
         self.h.worker.close()
         self.h.config = self.h.config.model_copy(update={"skill_catalog": (),

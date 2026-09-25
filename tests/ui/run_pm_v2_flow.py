@@ -3,7 +3,7 @@
 import json
 from hashlib import sha256
 import os
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from pathlib import Path
 import secrets
 import subprocess
@@ -67,9 +67,7 @@ class ControlHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
-class ControlServer(ThreadingHTTPServer):
-    daemon_threads = True
-
+class ControlServer(HTTPServer):
     def __init__(self, h):
         self.h = h
         self.lock = threading.Lock()
@@ -77,6 +75,7 @@ class ControlServer(ThreadingHTTPServer):
         self.target = None
         self.review_revised = False
         super().__init__(("127.0.0.1", 0), ControlHandler)
+        self.timeout = 0.5
 
     def snapshot(self):
         overview = self.h.worker.store.overview(self.target)
@@ -154,21 +153,29 @@ def main():
     h.execute = model_fixture
     application = ManagementHTTPServer(("127.0.0.1", 0), h.root / "state", password_login=True,
                                        web_root=REPOSITORY / "src" / "ai_company" / "web")
-    threads = [threading.Thread(target=server.serve_forever, daemon=True) for server in (application, controller)]
-    for thread in threads:
-        thread.start()
+    api_thread = threading.Thread(target=application.serve_forever, daemon=True)
+    api_thread.start()
+    browser = None
     try:
-        result = subprocess.run(["node", "tests/ui/pm_v2_flow.cjs"], cwd=REPOSITORY, timeout=420,
-                                env={**os.environ, "BASE_URL": f"http://127.0.0.1:{application.server_port}",
-                                     "CONTROL_URL": f"http://127.0.0.1:{controller.server_port}",
-                                     "CONTROL_TOKEN": controller.token, "TEST_PASSWORD": password})
-        return result.returncode
+        browser = subprocess.Popen(["node", "tests/ui/pm_v2_flow.cjs"], cwd=REPOSITORY,
+                                   env={**os.environ, "BASE_URL": f"http://127.0.0.1:{application.server_port}",
+                                        "CONTROL_URL": f"http://127.0.0.1:{controller.server_port}",
+                                        "CONTROL_TOKEN": controller.token, "TEST_PASSWORD": password})
+        deadline = time.monotonic() + 420
+        while browser.poll() is None and time.monotonic() < deadline:
+            controller.handle_request()  # Fixture worker and its SQLite connections stay on this thread.
+        if browser.poll() is None:
+            browser.kill()
+            raise TimeoutError("isolated PM browser flow exceeded 420 seconds")
+        return browser.returncode
     finally:
-        for server in (application, controller):
-            server.shutdown()
-            server.server_close()
-        for thread in threads:
-            thread.join(timeout=5)
+        if browser is not None and browser.poll() is None:
+            browser.kill()
+            browser.wait(timeout=5)
+        application.shutdown()
+        application.server_close()
+        controller.server_close()
+        api_thread.join(timeout=5)
         h.doCleanups()
 
 

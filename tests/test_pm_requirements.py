@@ -55,8 +55,24 @@ class PMRequirementsTests(unittest.TestCase):
         with patch.object(type(store), 'PM_GUIDANCE_VERSION', 'pm-requirements-v4'), \
              patch.object(type(store), 'PLAN_REVIEW_VERSION', 'plan-content-review-v3'):
             self.assertFalse(store.request_is_current(plan['request_id']))
+            projected = store.overview(self.h.project['id'])['plans'][-1]
+            self.assertEqual(projected['status'], 'stale')
+            self.assertIn('새 계획', projected['stale_reason'])
             with self.assertRaises(ManagementError):
                 self.confirm(plan)
+            self.assertEqual(store.run_records(), [])
+
+    def test_review_wait_reports_changed_policy_without_starting_new_review(self):
+        self.h.worker.run_once()
+        store = self.h.worker.store
+        plan = store.overview(self.h.project['id'])['plans'][-1]
+        self.assertEqual(plan['status'], 'reviewing')
+        with patch.object(type(store), 'PM_GUIDANCE_VERSION', 'pm-requirements-v4'), \
+             patch.object(type(store), 'PLAN_REVIEW_VERSION', 'plan-content-review-v3'):
+            self.h.worker.run_once()
+            waiting = store.overview(self.h.project['id'])['plans'][-1]
+            self.assertEqual(waiting['status'], 'reviewing')
+            self.assertIn('새 계획', waiting['review_problem'])
             self.assertEqual(store.run_records(), [])
 
     def test_confirmed_run_recovers_with_its_original_review_policy(self):
