@@ -27,6 +27,7 @@ const labelSource=app.match(/^const labels = .*;$/m)?.[0];assert.ok(labelSource)
 const badgeModule=await import('data:text/javascript;base64,'+Buffer.from(labelSource+'\nconst esc=value=>String(value);\n'+declaration('badge')+'\nexport {badge};').toString('base64'));
 for(const state of ['가동 신호','처리 중','중지','오류','미확인'])assert.ok(badgeModule.badge(state).includes('>'+state+'<'),'pretranslated worker state '+state+' retained');
 assert.match(badgeModule.badge('NEW_UNREGISTERED_STATE'),/상태 미확인/);
+for(const raw of ['NEW_RUNNING_STATE','WAITING_UNKNOWN','COMPLETED_UNKNOWN'])assert.doesNotMatch(badgeModule.badge(raw),/class="badge (running|complete|waiting)/,'unknown code does not inherit a known visual state');
 // A PM-authored report linked to an old execution remains a PM report even if
 // the current-plan aggregate belongs to another run.
 const reportSource=await readFile(new URL('../../src/ai_company/web/report-ui.js',import.meta.url),'utf8');
