@@ -1,0 +1,32 @@
+{
+  "status": "REPRODUCED",
+  "app_sha256": "f048a9d5f5826ccb8c40868e81256c3a652c0f3e62c3ac41196f1c7e563a0450",
+  "method": "Actual fixed app selectedScope/syncScope and unchanged baseline/candidate graph factories; unchanged v8 SW with deterministic selective module network failure/cache fallback; Node VM, no browser or live API",
+  "scenario": {
+    "app": "candidate network bytes",
+    "graph": "baseline cached bytes after only graph network failure",
+    "session": "authenticated=true API still reachable"
+  },
+  "rows": [
+    {
+      "name": "baseline graph",
+      "sha256": "8819bcb7bab374b71ad9037c8a8a0248f764f582ee4efecd432c24689d3643b5",
+      "getScope": "undefined",
+      "selectScope": "undefined",
+      "outcomes": {
+        "selectedScope()": "TypeError: workspaceGraph.getScope is not a function",
+        "syncScope()": "TypeError: workspaceGraph.selectScope is not a function"
+      }
+    },
+    {
+      "name": "candidate graph",
+      "sha256": "2706d60422eb9b1de99239762f9004afd2cd70ec80603f3ec225ee8f91a762eb",
+      "getScope": "function",
+      "selectScope": "function",
+      "outcomes": {
+        "selectedScope()": "PASS",
+        "syncScope()": "PASS"
+      }
+    }
+  ]
+}

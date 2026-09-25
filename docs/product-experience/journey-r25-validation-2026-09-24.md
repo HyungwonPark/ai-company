@@ -1,5 +1,7 @@
 # PR #25 R25 후속 검증
 
+> 후속: 인증 후 혼합 그래프 결함 R25-1b와 그 수정은 [2026-09-25 검증](journey-r25b-validation-2026-09-25.md)에 기록한다. 아래 원래 부팅·상태 분류 합격과 실패 이력은 보존한다. 공개 로그인 부팅을 인증 후 모든 조합의 성공으로 확대하지 않는다.
+
 2026-09-24 KST. 비운영 구현·검수·패키징 기록이다. 운영 배포·병합·PR #10 결정 변경·서명키 작업은 수행하지 않았다.
 
 ## 기준과 고정 후보
@@ -52,8 +54,8 @@
 
 ## 화면과 다운로드
 
-- [미리보기 ZIP](../previews/journey/AI-Company-journey-preview.zip), [열기·검사 안내](../previews/journey/README.md), [해시 목록](../previews/journey/SHA256SUMS).
-- 로그인 없이 다운로드: [공개 ZIP 원본](https://raw.githubusercontent.com/HyungwonPark/ai-company/feat/journey-product-integration/docs/previews/journey/AI-Company-journey-preview.zip). 브랜치 링크는 후속 변경될 수 있으므로 위 고정 SHA와 대조한다.
+- [미리보기 ZIP](https://github.com/HyungwonPark/ai-company/blob/0bcf8d7e93f2d1bab446503ab9da0e080182bd94/docs/previews/journey/AI-Company-journey-preview.zip), [열기·검사 안내](https://github.com/HyungwonPark/ai-company/blob/0bcf8d7e93f2d1bab446503ab9da0e080182bd94/docs/previews/journey/README.md), [해시 목록](https://github.com/HyungwonPark/ai-company/blob/0bcf8d7e93f2d1bab446503ab9da0e080182bd94/docs/previews/journey/SHA256SUMS).
+- 로그인 없이 다운로드: [공개 ZIP 원본](https://raw.githubusercontent.com/HyungwonPark/ai-company/0bcf8d7e93f2d1bab446503ab9da0e080182bd94/docs/previews/journey/AI-Company-journey-preview.zip). 브랜치 링크는 후속 변경될 수 있으므로 위 고정 SHA와 대조한다.
 - [320 Light 조치 필요](../evidence/journey-r25/screens/journey-status-light-320-completed-operator.png), [390 Black 미확인](../evidence/journey-r25/screens/journey-status-black-390-unknown.png), [390 Black 동일 실행 종합](../evidence/journey-r25/screens/journey-status-black-390-superseded.png).
 - [최초 부팅 실패](../evidence/journey-r25/screens/initial-journey-service-worker-failure.png) → [부분 갱신 offline 성공](../evidence/journey-r25/screens/journey-sw-upgrade-partial-offline.png) → [복구 offline 성공](../evidence/journey-r25/screens/journey-sw-rollback-offline.png).
 

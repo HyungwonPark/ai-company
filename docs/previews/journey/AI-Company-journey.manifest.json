@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "kind": "offline read-only product preview",
-  "source_commit": "82c794cd2d511950377a3caef71670e55877dc56",
+  "source_commit": "1459523445d0826d4d7a8de45e15be81ca00d209",
   "source_dirty": false,
   "sources_sha256": {
     "docs/previews/journey/fixture.json": "e84cad2748e99067635252184e8e04b3615b5f5eec175de87ad00bde95810d8c",
     "scripts/package_journey_preview.py": "db96f430c2cb4b5e45e329bfa2b3b7ff6044136cca2c56ec9b4cadb9f059d1d2",
-    "src/ai_company/web/app.js": "f048a9d5f5826ccb8c40868e81256c3a652c0f3e62c3ac41196f1c7e563a0450",
+    "src/ai_company/web/app.js": "89874441e53980533f3bfc77556b9f0c5ce518f5b590299dc7c688d808589e4b",
     "src/ai_company/web/collaboration-ui.js": "ac90dd73cc810c94c353e949e052a64f6df02b24944892722290841ae7816fe2",
     "src/ai_company/web/documents-ui.js": "139d9b5133835e35e533a3e6c8fc478beffd24b6b0f6aa410b1590eaf70a36f1",
     "src/ai_company/web/execution-ui.js": "1994cbaa6b5700471e0fd1894c421ce3a7269b000194bafc19118e5819ca8588",
@@ -48,5 +48,5 @@
     "no APK/service-worker/production verification",
     "frozen synthetic timestamps; original product expiry rules apply"
   ],
-  "html_sha256": "606e68539fead877274cd16173f62311614dde87bcfb5413664fb9f7141a4417"
+  "html_sha256": "9a380f843e390ddff3233e2627ccada40d65eb92e4938634fa91d02c0b2a4209"
 }

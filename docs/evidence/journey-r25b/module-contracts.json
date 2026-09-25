@@ -1,0 +1,120 @@
+{
+  "app.js": {
+    "old_imports": [
+      "import {createWorkspaceGraph} from './workspace-graph-ui.js';",
+      "import {createReportUI} from './report-ui.js';",
+      "import {createPlanUI} from './plan-ui.js';",
+      "import {createExecutionUI,currentExecutionProposal,executionMessage} from './execution-ui.js';",
+      "import {createDocumentUI} from './documents-ui.js';",
+      "import {createCollaborationUI} from './collaboration-ui.js';",
+      "import {createManagerUI,managerSnapshot,workspaceIcon,pmRequestDisplay,executionReferenceMatches} from './manager-ui.js';"
+    ],
+    "current_imports": [
+      "import {createWorkspaceGraph} from './workspace-graph-ui.js';",
+      "import {createReportUI} from './report-ui.js';",
+      "import {createPlanUI} from './plan-ui.js';",
+      "import {createExecutionUI,currentExecutionProposal,executionMessage} from './execution-ui.js';",
+      "import {createDocumentUI} from './documents-ui.js';",
+      "import {createCollaborationUI} from './collaboration-ui.js';",
+      "import {createManagerUI,managerSnapshot,workspaceIcon,pmRequestDisplay,executionReferenceMatches} from './manager-ui.js';"
+    ],
+    "old_exports": [],
+    "current_exports": []
+  },
+  "workspace-graph-ui.js": {
+    "old_imports": [],
+    "current_imports": [],
+    "old_exports": [
+      "graphLayout",
+      "placeGraphNodes",
+      "routeGraphEdges",
+      "edgeGeometry",
+      "nearestGraphEdge",
+      "graphKey",
+      "validateGraphEnvelope",
+      "createWorkspaceGraph"
+    ],
+    "current_exports": [
+      "graphLayout",
+      "placeGraphNodes",
+      "routeGraphEdges",
+      "edgeGeometry",
+      "nearestGraphEdge",
+      "graphKey",
+      "validateGraphEnvelope",
+      "createWorkspaceGraph"
+    ]
+  },
+  "report-ui.js": {
+    "old_imports": [],
+    "current_imports": [],
+    "old_exports": [
+      "createReportUI"
+    ],
+    "current_exports": [
+      "createReportUI"
+    ]
+  },
+  "manager-ui.js": {
+    "old_imports": [],
+    "current_imports": [],
+    "old_exports": [
+      "executionReferenceMatches",
+      "managerSnapshot",
+      "pmRequestDisplay",
+      "workspaceIcon",
+      "modelLabel",
+      "createManagerUI"
+    ],
+    "current_exports": [
+      "executionReferenceMatches",
+      "managerSnapshot",
+      "pmRequestDisplay",
+      "workspaceIcon",
+      "modelLabel",
+      "createManagerUI"
+    ]
+  },
+  "plan-ui.js": {
+    "old_imports": [],
+    "current_imports": [],
+    "old_exports": [
+      "createPlanUI"
+    ],
+    "current_exports": [
+      "createPlanUI"
+    ]
+  },
+  "execution-ui.js": {
+    "old_imports": [],
+    "current_imports": [],
+    "old_exports": [
+      "currentExecutionProposal",
+      "createExecutionUI"
+    ],
+    "current_exports": [
+      "currentExecutionProposal",
+      "createExecutionUI"
+    ]
+  },
+  "documents-ui.js": {
+    "old_imports": [],
+    "current_imports": [],
+    "old_exports": [
+      "createDocumentUI"
+    ],
+    "current_exports": [
+      "createDocumentUI"
+    ]
+  },
+  "collaboration-ui.js": {
+    "old_imports": [],
+    "current_imports": [],
+    "old_exports": [
+      "createCollaborationUI"
+    ],
+    "current_exports": [
+      "createCollaborationUI"
+    ]
+  }
+}

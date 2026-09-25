@@ -1,0 +1,115 @@
+{
+  "status": "PASS",
+  "baseline": "75227480d27d3eb1cd57fa43a07a0ab986be3eb5",
+  "browser": "153.0.8010.52",
+  "sandbox": true,
+  "origin": "isolated localhost only",
+  "checks": [
+    "baseline v8 controls two old tabs",
+    "waiting installation preserves old tab unsent login input; no forced activation or submission",
+    "new worker waits while old tabs remain usable",
+    "baseline offline login rerender clears its password field without submitting it; not a work-draft preservation claim",
+    "v8 controls two tabs during partial and complete online reload, then offline reload boots candidate public shell without new-module/import failure",
+    "closed old tabs; candidate activates with matching current app bytes",
+    "API and logout are not cached or replayed; offline reload has no private navigation",
+    "candidate controller with v8 waiting also boots baseline public shell through online and offline reload",
+    "rollback v8 removes candidate resources and restores baseline app bytes"
+  ],
+  "boundaries": [
+    {
+      "name": "upgrade-partial",
+      "active": "ai-company-shell-v8",
+      "waiting": "ai-company-shell-v10",
+      "controllers": [
+        {
+          "cache": "ai-company-shell-v8",
+          "clients": 2
+        },
+        {
+          "cache": "ai-company-shell-v10",
+          "clients": 0
+        }
+      ],
+      "app_sha256": "89874441e53980533f3bfc77556b9f0c5ce518f5b590299dc7c688d808589e4b",
+      "report_sha256": "2be6f1acd15a00633f66dbd3eae06ecd2f86a69751abd11a52fda3c8d80245be",
+      "public_login": true,
+      "private_navigation": 0,
+      "http_cache_disabled": true
+    },
+    {
+      "name": "upgrade-complete",
+      "active": "ai-company-shell-v8",
+      "waiting": "ai-company-shell-v10",
+      "controllers": [
+        {
+          "cache": "ai-company-shell-v8",
+          "clients": 2
+        },
+        {
+          "cache": "ai-company-shell-v10",
+          "clients": 0
+        }
+      ],
+      "app_sha256": "89874441e53980533f3bfc77556b9f0c5ce518f5b590299dc7c688d808589e4b",
+      "report_sha256": "1a7667777b931d2f30900bdb4ae8821ceaebdaa9da10f983083ac4bb0d5bdaaa",
+      "public_login": true,
+      "private_navigation": 0,
+      "http_cache_disabled": true
+    },
+    {
+      "name": "rollback",
+      "active": "ai-company-shell-v10",
+      "waiting": "ai-company-shell-v8",
+      "controllers": [
+        {
+          "cache": "ai-company-shell-v10",
+          "clients": 2
+        },
+        {
+          "cache": "ai-company-shell-v8",
+          "clients": 0
+        }
+      ],
+      "app_sha256": "8a4e097b5c0815e9a75e65050ac577a03a91e59aaaaa80beb396a7d6887bab7b",
+      "report_sha256": "2be6f1acd15a00633f66dbd3eae06ecd2f86a69751abd11a52fda3c8d80245be",
+      "public_login": true,
+      "private_navigation": 0,
+      "http_cache_disabled": true
+    }
+  ],
+  "failedRequests": [
+    {
+      "path": "/api/session",
+      "error": "net::ERR_INTERNET_DISCONNECTED"
+    },
+    {
+      "path": "/api/session",
+      "error": "net::ERR_INTERNET_DISCONNECTED"
+    },
+    {
+      "path": "/api/private",
+      "error": "net::ERR_INTERNET_DISCONNECTED"
+    },
+    {
+      "path": "/api/logout",
+      "error": "net::ERR_INTERNET_DISCONNECTED"
+    },
+    {
+      "path": "/api/session",
+      "error": "net::ERR_INTERNET_DISCONNECTED"
+    },
+    {
+      "path": "/api/session",
+      "error": "net::ERR_INTERNET_DISCONNECTED"
+    }
+  ],
+  "errors": [],
+  "hashes": {
+    "baseline_app": "8a4e097b5c0815e9a75e65050ac577a03a91e59aaaaa80beb396a7d6887bab7b",
+    "candidate_app": "89874441e53980533f3bfc77556b9f0c5ce518f5b590299dc7c688d808589e4b"
+  },
+  "limitations": [
+    "Synthetic unauthenticated API, not real login verification",
+    "No operational cache or physical APK was touched"
+  ]
+}
