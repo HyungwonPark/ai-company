@@ -59,41 +59,41 @@
       "recent_pm_request": null
     },
     {
-      "id": "0baf6a631e53484e891dfd9dfad4473e",
+      "id": "4d4362ff56654cbda1e8f37561751409",
       "name": "PM 질문 · 예시",
       "goal": "초보자가 목표를 말하면 AI가 일을 나누는 서비스",
       "status": "PLANNING",
       "harness_version": 1,
       "request_revision": 1,
       "source": "fixture",
-      "created_at": 1790316970.4479928,
-      "updated_at": 1790316970.4548526,
+      "created_at": 1790323325.1387935,
+      "updated_at": 1790323325.145559,
       "pending_approval_count": 0,
       "recent_run": null,
       "recent_pm_request": {
-        "id": "2ad6d0f6d2134a8e9f142e0869c3f267",
+        "id": "d127185611014029ae74a021b97e1299",
         "state": "answer_needed",
-        "created_at": 1790316970.45263,
+        "created_at": 1790323325.14338,
         "mode": null,
         "execution": null
       }
     },
     {
-      "id": "0f834fc9cf5644eb88599175288d89cf",
+      "id": "05b1dfdb689846ca898c6c1bfe5ae843",
       "name": "계획 검토 · 예시",
       "goal": "로그인 화면과 검사를 독립적으로 준비합니다.",
       "status": "PLANNING",
       "harness_version": 1,
       "request_revision": 1,
       "source": "fixture",
-      "created_at": 1790316970.4579527,
-      "updated_at": 1790316970.4978707,
+      "created_at": 1790323325.1491268,
+      "updated_at": 1790323325.216651,
       "pending_approval_count": 0,
       "recent_run": null,
       "recent_pm_request": {
-        "id": "a2e5a9e4ddfd4f1b84093f9da9939f98",
+        "id": "b0d9425ed2cc4ad8bd5a9c62139d4dc8",
         "state": "completed",
-        "created_at": 1790316970.46109,
+        "created_at": 1790323325.15247,
         "mode": "fixture",
         "execution": null
       }
@@ -4057,16 +4057,16 @@
         "fingerprint": "1f45fe8f60d533398784d834a4b59337e0f0f9a9d3d04c608c597b4c2a17c05d"
       }
     },
-    "0baf6a631e53484e891dfd9dfad4473e": {
+    "4d4362ff56654cbda1e8f37561751409": {
       "project": {
-        "id": "0baf6a631e53484e891dfd9dfad4473e",
+        "id": "4d4362ff56654cbda1e8f37561751409",
         "name": "PM 질문 · 예시",
         "goal": "초보자가 목표를 말하면 AI가 일을 나누는 서비스",
         "status": "PLANNING",
         "harness_version": 1,
         "request_revision": 1,
         "source": "fixture",
-        "created_at": 1790316970.4479928,
+        "created_at": 1790323325.1387935,
         "harness_content": "{\n  \"goal\": \"초보자가 목표를 말하면 AI가 일을 나누는 서비스\",\n  \"roles\": []\n}"
       },
       "roles": [],
@@ -4075,19 +4075,19 @@
       "approvals": [],
       "messages": [
         {
-          "id": "2ad6d0f6d2134a8e9f142e0869c3f267",
+          "id": "d127185611014029ae74a021b97e1299",
           "role": "user",
           "content": "첫 화면에서 그래프를 직접 연결하게 해 주세요.",
           "status": "awaiting_pm",
-          "created_at": 1790316970.4525278
+          "created_at": 1790323325.1432474
         },
         {
-          "id": "pm-feedback-2ad6d0f6d2134a8e9f142e0869c3f267",
+          "id": "pm-feedback-d127185611014029ae74a021b97e1299",
           "role": "assistant",
           "content": "목표 입력으로 시작하고 그래프는 진행 확인에 쓰는 구성을 권합니다.",
           "status": "answer_needed",
-          "request_id": "2ad6d0f6d2134a8e9f142e0869c3f267",
-          "created_at": 1790316971.4526258,
+          "request_id": "d127185611014029ae74a021b97e1299",
+          "created_at": 1790323326.1433814,
           "source": "fixture"
         }
       ],
@@ -4097,7 +4097,7 @@
           "status": "active",
           "content": "{\n  \"goal\": \"초보자가 목표를 말하면 AI가 일을 나누는 서비스\",\n  \"roles\": []\n}",
           "digest": "69687b8c64c35b67f2c01b55c99b47e1aaae1ea805eec188af37673a1ba8bb6f",
-          "created_at": 1790316970.4480138
+          "created_at": 1790323325.1388164
         }
       ],
       "readiness": {
@@ -4107,10 +4107,12 @@
       },
       "pm_requests": [
         {
-          "request_id": "2ad6d0f6d2134a8e9f142e0869c3f267",
-          "message_id": "2ad6d0f6d2134a8e9f142e0869c3f267",
-          "project_id": "0baf6a631e53484e891dfd9dfad4473e",
+          "request_id": "d127185611014029ae74a021b97e1299",
+          "message_id": "d127185611014029ae74a021b97e1299",
+          "project_id": "4d4362ff56654cbda1e8f37561751409",
           "requirements_contract_version": 2,
+          "pm_guidance_version": "pm-requirements-v3",
+          "plan_review_version": "plan-content-review-v2",
           "state": "answer_needed",
           "request_revision": 1,
           "base_harness_version": 1,
@@ -4125,8 +4127,8 @@
             "previous_requirements_feedback": null,
             "purpose": "discussion_only; a new plan requires a new explicit confirmation"
           },
-          "created_at": 1790316970.4526258,
-          "updated_at": 1790316970.4547844,
+          "created_at": 1790323325.1433814,
+          "updated_at": 1790323325.1454916,
           "execution": null,
           "plan_id": null,
           "configuration_digest": null,
@@ -4200,7 +4202,7 @@
       "project_report": {
         "source": "system",
         "scope": "current_plan",
-        "project_id": "0baf6a631e53484e891dfd9dfad4473e",
+        "project_id": "4d4362ff56654cbda1e8f37561751409",
         "goal": "초보자가 목표를 말하면 AI가 일을 나누는 서비스",
         "goal_digest": "a746f3d61fe1770855d0ce964d01878db23a641acaead1b5fa0bf564dd57d504",
         "request_revision": 1,
@@ -4235,41 +4237,41 @@
         "candidate_verified": false,
         "pm_report_ids": [],
         "candidate_sha": null,
-        "digest": "69c9751eaeb44d7eb0f70232490813817620b8bf723ee163e606e4e0f2f93f35"
+        "digest": "4064454fa00b51ae2b7c58ba1ceb9a69851ed51cc5cef6ffb2cb25317170f52e"
       },
       "documents": {
-        "message:pm-feedback-2ad6d0f6d2134a8e9f142e0869c3f267": {
-          "id": "message:pm-feedback-2ad6d0f6d2134a8e9f142e0869c3f267",
+        "message:pm-feedback-d127185611014029ae74a021b97e1299": {
+          "id": "message:pm-feedback-d127185611014029ae74a021b97e1299",
           "kind": "message",
-          "project_id": "0baf6a631e53484e891dfd9dfad4473e",
+          "project_id": "4d4362ff56654cbda1e8f37561751409",
           "source_version": "54f678ed079836cc4e2fd2e6a2e955fff107b5013460bd856cc7ae87086834d7",
           "author_role": "pm",
           "source_ref": {
-            "message_id": "pm-feedback-2ad6d0f6d2134a8e9f142e0869c3f267",
+            "message_id": "pm-feedback-d127185611014029ae74a021b97e1299",
             "plan_id": null
           },
           "fields": {
             "content": "목표 입력으로 시작하고 그래프는 진행 확인에 쓰는 구성을 권합니다."
           },
           "protected": {},
-          "source_digest": "a236c127152e6465dd93ef2ae88ce9876f61342901d696c02e60796679730b1a",
+          "source_digest": "fa329dcfca2441682bf1e09e61db196710724c26c300dd2ae31d38d4c2abf954",
           "original_language": "ko",
           "translation": null
         },
-        "project:0baf6a631e53484e891dfd9dfad4473e": {
-          "id": "project:0baf6a631e53484e891dfd9dfad4473e",
+        "project:4d4362ff56654cbda1e8f37561751409": {
+          "id": "project:4d4362ff56654cbda1e8f37561751409",
           "kind": "project",
-          "project_id": "0baf6a631e53484e891dfd9dfad4473e",
+          "project_id": "4d4362ff56654cbda1e8f37561751409",
           "source_version": "a746f3d61fe1770855d0ce964d01878db23a641acaead1b5fa0bf564dd57d504",
           "author_role": "master",
           "source_ref": {
-            "project_id": "0baf6a631e53484e891dfd9dfad4473e"
+            "project_id": "4d4362ff56654cbda1e8f37561751409"
           },
           "fields": {
             "goal": "초보자가 목표를 말하면 AI가 일을 나누는 서비스"
           },
           "protected": {},
-          "source_digest": "584da403f097f949e2104c93fc8a3ffb5fddd32c80f30916c58be804529a05f2",
+          "source_digest": "14160578c611bdf06449931ab8480b7b1380fdcf82088b5cb2583bd5f2457254",
           "original_language": "ko",
           "translation": null
         }
@@ -4296,7 +4298,7 @@
         "source": "fixture",
         "nodes": [
           {
-            "id": "pm:0baf6a631e53484e891dfd9dfad4473e",
+            "id": "pm:4d4362ff56654cbda1e8f37561751409",
             "name": "Astra Ultra PM",
             "kind": "pm",
             "responsibility": "목표·역할·완료 기준 제안",
@@ -4336,7 +4338,7 @@
             "active": true
           },
           {
-            "id": "translator:0baf6a631e53484e891dfd9dfad4473e",
+            "id": "translator:4d4362ff56654cbda1e8f37561751409",
             "name": "한글 번역",
             "kind": "translator",
             "responsibility": "원문을 보존하는 번역 전용 · 실행·승인 권한 없음",
@@ -4370,21 +4372,21 @@
       },
       "workspace_graph": {
         "schema_version": 1,
-        "project_id": "0baf6a631e53484e891dfd9dfad4473e",
+        "project_id": "4d4362ff56654cbda1e8f37561751409",
         "cursor": 3,
-        "observed_at": 1790316970.5148785,
-        "default_snapshot_id": "graph:fa3001b3fc400d5109fbe963",
+        "observed_at": 1790323325.2273104,
+        "default_snapshot_id": "graph:0f4925d9ea3ac284c8f2fc6f",
         "snapshots": [
           {
-            "id": "graph:fa3001b3fc400d5109fbe963",
-            "project_id": "0baf6a631e53484e891dfd9dfad4473e",
+            "id": "graph:0f4925d9ea3ac284c8f2fc6f",
+            "project_id": "4d4362ff56654cbda1e8f37561751409",
             "plan_id": null,
             "plan_digest": null,
             "run_id": null,
             "source": "fixture",
             "mode": "planned",
             "cursor": 3,
-            "observed_at": 1790316970.5148785,
+            "observed_at": 1790323325.2273104,
             "nodes": [],
             "edges": [],
             "report_refs": [],
@@ -4398,22 +4400,22 @@
               "planned": 0
             },
             "empty_reason": null,
-            "fingerprint": "a7eaee6370994352dab6b7cda5cecf182ee5757d13d2202500da35a68fe4427d"
+            "fingerprint": "508772d20867790dc15a8caa5e8aea22a35fdaed91c291b6e907c36254f48653"
           }
         ],
-        "fingerprint": "5779332790a93c7be62cf29ad4995a5a77174f08ecbba4bb16a3ab56f8189953"
+        "fingerprint": "2a02bbff4e04dd07f66d9eb8d1b25dd4af3750cb97029967e4fc322d36117861"
       }
     },
-    "0f834fc9cf5644eb88599175288d89cf": {
+    "05b1dfdb689846ca898c6c1bfe5ae843": {
       "project": {
-        "id": "0f834fc9cf5644eb88599175288d89cf",
+        "id": "05b1dfdb689846ca898c6c1bfe5ae843",
         "name": "계획 검토 · 예시",
         "goal": "로그인 화면과 검사를 독립적으로 준비합니다.",
         "status": "PLANNING",
         "harness_version": 1,
         "request_revision": 1,
         "source": "fixture",
-        "created_at": 1790316970.4579527,
+        "created_at": 1790323325.1491268,
         "harness_content": "{\n  \"goal\": \"로그인 화면과 검사를 독립적으로 준비합니다.\",\n  \"roles\": []\n}"
       },
       "roles": [],
@@ -4422,20 +4424,20 @@
       "approvals": [],
       "messages": [
         {
-          "id": "a2e5a9e4ddfd4f1b84093f9da9939f98",
+          "id": "b0d9425ed2cc4ad8bd5a9c62139d4dc8",
           "role": "user",
           "content": "로그인 화면과 검사를 병렬로 진행할 계획을 제안해 주세요.",
           "status": "completed",
-          "created_at": 1790316970.4610384
+          "created_at": 1790323325.1524093
         },
         {
-          "id": "8f7276bb9e6b4204b545843e209310a7",
+          "id": "6a5ded2a74dc4ebeb456edb739c96b20",
           "role": "assistant",
           "content": "화면과 검사를 분리하고 결과를 함께 확인합니다.",
           "status": "reviewing",
-          "plan_id": "9cf5736c736f4e108062d7627db6cd96",
-          "request_id": "a2e5a9e4ddfd4f1b84093f9da9939f98",
-          "created_at": 1790316970.4977531,
+          "plan_id": "22be2c4b392749949fe86b30e735a0d4",
+          "request_id": "b0d9425ed2cc4ad8bd5a9c62139d4dc8",
+          "created_at": 1790323325.216461,
           "evidence": {
             "source": "fixture",
             "session_id": "fixture-pm-plan",
@@ -4451,7 +4453,7 @@
           "status": "active",
           "content": "{\n  \"goal\": \"로그인 화면과 검사를 독립적으로 준비합니다.\",\n  \"roles\": []\n}",
           "digest": "d9565012c00dfead5c27b580706bcc006fb901d5aa30d721660ae365943bc370",
-          "created_at": 1790316970.4579682
+          "created_at": 1790323325.1491432
         }
       ],
       "readiness": {
@@ -4461,10 +4463,12 @@
       },
       "pm_requests": [
         {
-          "request_id": "a2e5a9e4ddfd4f1b84093f9da9939f98",
-          "message_id": "a2e5a9e4ddfd4f1b84093f9da9939f98",
-          "project_id": "0f834fc9cf5644eb88599175288d89cf",
+          "request_id": "b0d9425ed2cc4ad8bd5a9c62139d4dc8",
+          "message_id": "b0d9425ed2cc4ad8bd5a9c62139d4dc8",
+          "project_id": "05b1dfdb689846ca898c6c1bfe5ae843",
           "requirements_contract_version": 2,
+          "pm_guidance_version": "pm-requirements-v3",
+          "plan_review_version": "plan-content-review-v2",
           "state": "completed",
           "request_revision": 1,
           "base_harness_version": 1,
@@ -4479,19 +4483,19 @@
             "previous_requirements_feedback": null,
             "purpose": "discussion_only; a new plan requires a new explicit confirmation"
           },
-          "created_at": 1790316970.461094,
-          "updated_at": 1790316970.4976852,
+          "created_at": 1790323325.1524708,
+          "updated_at": 1790323325.216378,
           "execution": null,
-          "plan_id": "9cf5736c736f4e108062d7627db6cd96",
+          "plan_id": "22be2c4b392749949fe86b30e735a0d4",
           "configuration_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
           "mode": "fixture"
         }
       ],
       "plans": [
         {
-          "id": "9cf5736c736f4e108062d7627db6cd96",
-          "request_id": "a2e5a9e4ddfd4f1b84093f9da9939f98",
-          "project_id": "0f834fc9cf5644eb88599175288d89cf",
+          "id": "22be2c4b392749949fe86b30e735a0d4",
+          "request_id": "b0d9425ed2cc4ad8bd5a9c62139d4dc8",
+          "project_id": "05b1dfdb689846ca898c6c1bfe5ae843",
           "status": "reviewing",
           "content": {
             "summary": "화면과 검사를 분리하고 결과를 함께 확인합니다.",
@@ -4556,13 +4560,61 @@
                   ]
                 }
               ]
+            },
+            "skill_selection": {
+              "schema_version": 1,
+              "catalog_version": "7ac934d505d991951ef839cbb9dfaf8ce985081f035ce8a457d33b582e8d0f12",
+              "status": "selected",
+              "outcome": "existing_sufficient",
+              "reason": "",
+              "can_continue": true,
+              "roles": {
+                "tests": [],
+                "ui": [
+                  {
+                    "skill_id": "ui-preview",
+                    "name": "화면 점검 · 예시",
+                    "source_url": "https://example.invalid/skill-preview",
+                    "source_ref": "synthetic-v1",
+                    "version": "synthetic-v1",
+                    "bundle_sha256": "255ff89e126268fb67b509532fc3017d6ec9802331ee1aa43b86417f7ca0ee22",
+                    "files": {
+                      "SKILL.md": "d983b08e52de2f698f901dbabbcd60930e341e65970b782d819bda7081070ed8",
+                      "LICENSE": "267f7a2e19dfa9df99af774520985a0e521925293ea5b7e767ab06969d06bf91"
+                    },
+                    "license": {
+                      "id": "MIT",
+                      "path": "LICENSE",
+                      "redistribution": "internal_only"
+                    },
+                    "compatibility": {
+                      "providers": [
+                        "codex"
+                      ],
+                      "runners": [
+                        "session_cli"
+                      ]
+                    },
+                    "dependencies": [],
+                    "permissions": [],
+                    "status": "approved_document",
+                    "reason": "키보드 이동과 모바일 버튼을 확인합니다.",
+                    "requirements": [
+                      "R1"
+                    ],
+                    "selected": true,
+                    "delivery_id": null
+                  }
+                ]
+              },
+              "digest": "3d016cd2a3bbf63ccafa8b3d6929925e8c9a4eb8198ae65e20cfd96f02321e57"
             }
           },
           "request_revision": 1,
           "base_harness_version": 1,
           "base_harness_digest": "d9565012c00dfead5c27b580706bcc006fb901d5aa30d721660ae365943bc370",
           "goal_digest": "1d1e5b1463ed95ecf2ae90505102c43a6df4f66ea533729615f2d25c6861aa5a",
-          "created_at": 1790316970.4976218,
+          "created_at": 1790323325.2162137,
           "evidence": {
             "source": "fixture",
             "session_id": "fixture-pm-plan",
@@ -4573,9 +4625,9 @@
           "configuration_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
           "mode": "fixture",
           "contract_version": 2,
-          "pm_guidance_version": "pm-requirements-v2",
-          "plan_review_version": "plan-content-review-v1",
-          "digest": "6dceecaf26bf5c87f1c361dd50c777990d78934c7555ecb6dfb8d2f6cba5487d"
+          "pm_guidance_version": "pm-requirements-v3",
+          "plan_review_version": "plan-content-review-v2",
+          "digest": "211acf6eaa84084fbf05f9676e026ab1119bab33ee1e8de8e71790842b403d53"
         }
       ],
       "runs": [],
@@ -4592,12 +4644,12 @@
       "project_report": {
         "source": "system",
         "scope": "current_plan",
-        "project_id": "0f834fc9cf5644eb88599175288d89cf",
+        "project_id": "05b1dfdb689846ca898c6c1bfe5ae843",
         "goal": "로그인 화면과 검사를 독립적으로 준비합니다.",
         "goal_digest": "1d1e5b1463ed95ecf2ae90505102c43a6df4f66ea533729615f2d25c6861aa5a",
         "request_revision": 1,
-        "plan_id": "9cf5736c736f4e108062d7627db6cd96",
-        "plan_digest": "6dceecaf26bf5c87f1c361dd50c777990d78934c7555ecb6dfb8d2f6cba5487d",
+        "plan_id": "22be2c4b392749949fe86b30e735a0d4",
+        "plan_digest": "211acf6eaa84084fbf05f9676e026ab1119bab33ee1e8de8e71790842b403d53",
         "run_id": null,
         "mode": "fixture",
         "completed": [],
@@ -4641,53 +4693,53 @@
         "candidate_verified": false,
         "pm_report_ids": [],
         "candidate_sha": null,
-        "digest": "c02b5a8e223413fdff9c484eab5b097936927e442232aa008af6eecfe41e77f4"
+        "digest": "75c47dfb3eb1bccd5aa1ca070c7ddec76599474d049b5b45afd053e0a0b4ec6e"
       },
       "documents": {
-        "message:8f7276bb9e6b4204b545843e209310a7": {
-          "id": "message:8f7276bb9e6b4204b545843e209310a7",
+        "message:6a5ded2a74dc4ebeb456edb739c96b20": {
+          "id": "message:6a5ded2a74dc4ebeb456edb739c96b20",
           "kind": "message",
-          "project_id": "0f834fc9cf5644eb88599175288d89cf",
+          "project_id": "05b1dfdb689846ca898c6c1bfe5ae843",
           "source_version": "0e20d34f9c8b8eeedab10f4f30774eb02b05c35525b3032519ab058cb70ac3d8",
           "author_role": "pm",
           "source_ref": {
-            "message_id": "8f7276bb9e6b4204b545843e209310a7",
-            "plan_id": "9cf5736c736f4e108062d7627db6cd96"
+            "message_id": "6a5ded2a74dc4ebeb456edb739c96b20",
+            "plan_id": "22be2c4b392749949fe86b30e735a0d4"
           },
           "fields": {
             "content": "화면과 검사를 분리하고 결과를 함께 확인합니다."
           },
           "protected": {},
-          "source_digest": "83be9ccb9ccb253b4c41c41055aa6accc58a216220897962d6a67d32b1ee9bdd",
+          "source_digest": "a145abf4ac590ba4f8c23c58a7dba535c327cef93092c5e052c21af8f23b1400",
           "original_language": "ko",
           "translation": null
         },
-        "project:0f834fc9cf5644eb88599175288d89cf": {
-          "id": "project:0f834fc9cf5644eb88599175288d89cf",
+        "project:05b1dfdb689846ca898c6c1bfe5ae843": {
+          "id": "project:05b1dfdb689846ca898c6c1bfe5ae843",
           "kind": "project",
-          "project_id": "0f834fc9cf5644eb88599175288d89cf",
+          "project_id": "05b1dfdb689846ca898c6c1bfe5ae843",
           "source_version": "1d1e5b1463ed95ecf2ae90505102c43a6df4f66ea533729615f2d25c6861aa5a",
           "author_role": "master",
           "source_ref": {
-            "project_id": "0f834fc9cf5644eb88599175288d89cf"
+            "project_id": "05b1dfdb689846ca898c6c1bfe5ae843"
           },
           "fields": {
             "goal": "로그인 화면과 검사를 독립적으로 준비합니다."
           },
           "protected": {},
-          "source_digest": "9805b57a7d6ceba1fef04fec413f134e4c7e634b0ac4c413f16794466c539ab4",
+          "source_digest": "ec5c126276ac70d349d70ad2ba0f6191a22052d584444ce42cd918dd8c21fae1",
           "original_language": "ko",
           "translation": null
         },
-        "plan:9cf5736c736f4e108062d7627db6cd96": {
-          "id": "plan:9cf5736c736f4e108062d7627db6cd96",
+        "plan:22be2c4b392749949fe86b30e735a0d4": {
+          "id": "plan:22be2c4b392749949fe86b30e735a0d4",
           "kind": "plan",
-          "project_id": "0f834fc9cf5644eb88599175288d89cf",
-          "source_version": "6dceecaf26bf5c87f1c361dd50c777990d78934c7555ecb6dfb8d2f6cba5487d",
+          "project_id": "05b1dfdb689846ca898c6c1bfe5ae843",
+          "source_version": "211acf6eaa84084fbf05f9676e026ab1119bab33ee1e8de8e71790842b403d53",
           "author_role": "pm",
           "source_ref": {
-            "plan_id": "9cf5736c736f4e108062d7627db6cd96",
-            "plan_digest": "6dceecaf26bf5c87f1c361dd50c777990d78934c7555ecb6dfb8d2f6cba5487d"
+            "plan_id": "22be2c4b392749949fe86b30e735a0d4",
+            "plan_digest": "211acf6eaa84084fbf05f9676e026ab1119bab33ee1e8de8e71790842b403d53"
           },
           "fields": {
             "summary": "화면과 검사를 분리하고 결과를 함께 확인합니다.",
@@ -4702,7 +4754,7 @@
             "completion:0": "화면과 검사의 결과를 같은 후보에서 확인합니다."
           },
           "protected": {
-            "plan_digest": "6dceecaf26bf5c87f1c361dd50c777990d78934c7555ecb6dfb8d2f6cba5487d",
+            "plan_digest": "211acf6eaa84084fbf05f9676e026ab1119bab33ee1e8de8e71790842b403d53",
             "content": {
               "summary": "화면과 검사를 분리하고 결과를 함께 확인합니다.",
               "roles": [
@@ -4766,10 +4818,58 @@
                     ]
                   }
                 ]
+              },
+              "skill_selection": {
+                "schema_version": 1,
+                "catalog_version": "7ac934d505d991951ef839cbb9dfaf8ce985081f035ce8a457d33b582e8d0f12",
+                "status": "selected",
+                "outcome": "existing_sufficient",
+                "reason": "",
+                "can_continue": true,
+                "roles": {
+                  "tests": [],
+                  "ui": [
+                    {
+                      "skill_id": "ui-preview",
+                      "name": "화면 점검 · 예시",
+                      "source_url": "https://example.invalid/skill-preview",
+                      "source_ref": "synthetic-v1",
+                      "version": "synthetic-v1",
+                      "bundle_sha256": "255ff89e126268fb67b509532fc3017d6ec9802331ee1aa43b86417f7ca0ee22",
+                      "files": {
+                        "SKILL.md": "d983b08e52de2f698f901dbabbcd60930e341e65970b782d819bda7081070ed8",
+                        "LICENSE": "267f7a2e19dfa9df99af774520985a0e521925293ea5b7e767ab06969d06bf91"
+                      },
+                      "license": {
+                        "id": "MIT",
+                        "path": "LICENSE",
+                        "redistribution": "internal_only"
+                      },
+                      "compatibility": {
+                        "providers": [
+                          "codex"
+                        ],
+                        "runners": [
+                          "session_cli"
+                        ]
+                      },
+                      "dependencies": [],
+                      "permissions": [],
+                      "status": "approved_document",
+                      "reason": "키보드 이동과 모바일 버튼을 확인합니다.",
+                      "requirements": [
+                        "R1"
+                      ],
+                      "selected": true,
+                      "delivery_id": null
+                    }
+                  ]
+                },
+                "digest": "3d016cd2a3bbf63ccafa8b3d6929925e8c9a4eb8198ae65e20cfd96f02321e57"
               }
             }
           },
-          "source_digest": "5cda6dd7f16cb5223366f4e592e158af5e1c6609b149d5d794616540fc38a515",
+          "source_digest": "1dedd90280668ffca1592b3aeefa64148cd2a781388586f49baea896e4cc3a7e",
           "original_language": "ko",
           "translation": null
         }
@@ -4796,7 +4896,7 @@
         "source": "fixture",
         "nodes": [
           {
-            "id": "pm:0f834fc9cf5644eb88599175288d89cf",
+            "id": "pm:05b1dfdb689846ca898c6c1bfe5ae843",
             "name": "Astra Ultra PM",
             "kind": "pm",
             "responsibility": "목표·역할·완료 기준 제안",
@@ -4836,7 +4936,7 @@
             "active": true
           },
           {
-            "id": "translator:0f834fc9cf5644eb88599175288d89cf",
+            "id": "translator:05b1dfdb689846ca898c6c1bfe5ae843",
             "name": "한글 번역",
             "kind": "translator",
             "responsibility": "원문을 보존하는 번역 전용 · 실행·승인 권한 없음",
@@ -4870,27 +4970,27 @@
       },
       "workspace_graph": {
         "schema_version": 1,
-        "project_id": "0f834fc9cf5644eb88599175288d89cf",
+        "project_id": "05b1dfdb689846ca898c6c1bfe5ae843",
         "cursor": 7,
-        "observed_at": 1790316970.5156643,
-        "default_snapshot_id": "graph:78567e1ae8cad68130bed8c8",
+        "observed_at": 1790323325.2285452,
+        "default_snapshot_id": "graph:ffc835aa40e5ae9091d43842",
         "snapshots": [
           {
-            "id": "graph:78567e1ae8cad68130bed8c8",
-            "project_id": "0f834fc9cf5644eb88599175288d89cf",
-            "plan_id": "9cf5736c736f4e108062d7627db6cd96",
-            "plan_digest": "6dceecaf26bf5c87f1c361dd50c777990d78934c7555ecb6dfb8d2f6cba5487d",
+            "id": "graph:ffc835aa40e5ae9091d43842",
+            "project_id": "05b1dfdb689846ca898c6c1bfe5ae843",
+            "plan_id": "22be2c4b392749949fe86b30e735a0d4",
+            "plan_digest": "211acf6eaa84084fbf05f9676e026ab1119bab33ee1e8de8e71790842b403d53",
             "run_id": null,
             "source": "fixture",
             "mode": "planned",
             "cursor": 7,
-            "observed_at": 1790316970.5156643,
+            "observed_at": 1790323325.2285452,
             "nodes": [
               {
-                "id": "graph:78567e1ae8cad68130bed8c8:pm:0f834fc9cf5644eb88599175288d89cf",
-                "project_id": "0f834fc9cf5644eb88599175288d89cf",
-                "plan_id": "9cf5736c736f4e108062d7627db6cd96",
-                "plan_digest": "6dceecaf26bf5c87f1c361dd50c777990d78934c7555ecb6dfb8d2f6cba5487d",
+                "id": "graph:ffc835aa40e5ae9091d43842:pm:05b1dfdb689846ca898c6c1bfe5ae843",
+                "project_id": "05b1dfdb689846ca898c6c1bfe5ae843",
+                "plan_id": "22be2c4b392749949fe86b30e735a0d4",
+                "plan_digest": "211acf6eaa84084fbf05f9676e026ab1119bab33ee1e8de8e71790842b403d53",
                 "run_id": null,
                 "kind": "pm",
                 "name": "Astra Ultra PM",
@@ -4928,15 +5028,15 @@
                 "source": "fixture",
                 "reference": {
                   "table": "management_pm_requests",
-                  "id": "a2e5a9e4ddfd4f1b84093f9da9939f98"
+                  "id": "b0d9425ed2cc4ad8bd5a9c62139d4dc8"
                 },
                 "handoffs": []
               },
               {
-                "id": "graph:78567e1ae8cad68130bed8c8:planned:ui",
-                "project_id": "0f834fc9cf5644eb88599175288d89cf",
-                "plan_id": "9cf5736c736f4e108062d7627db6cd96",
-                "plan_digest": "6dceecaf26bf5c87f1c361dd50c777990d78934c7555ecb6dfb8d2f6cba5487d",
+                "id": "graph:ffc835aa40e5ae9091d43842:planned:ui",
+                "project_id": "05b1dfdb689846ca898c6c1bfe5ae843",
+                "plan_id": "22be2c4b392749949fe86b30e735a0d4",
+                "plan_digest": "211acf6eaa84084fbf05f9676e026ab1119bab33ee1e8de8e71790842b403d53",
                 "run_id": null,
                 "kind": "role",
                 "name": "화면",
@@ -4974,16 +5074,16 @@
                 "source": "fixture",
                 "reference": {
                   "table": "management_plans",
-                  "id": "9cf5736c736f4e108062d7627db6cd96",
+                  "id": "22be2c4b392749949fe86b30e735a0d4",
                   "role_key": "ui"
                 },
                 "handoffs": []
               },
               {
-                "id": "graph:78567e1ae8cad68130bed8c8:planned:tests",
-                "project_id": "0f834fc9cf5644eb88599175288d89cf",
-                "plan_id": "9cf5736c736f4e108062d7627db6cd96",
-                "plan_digest": "6dceecaf26bf5c87f1c361dd50c777990d78934c7555ecb6dfb8d2f6cba5487d",
+                "id": "graph:ffc835aa40e5ae9091d43842:planned:tests",
+                "project_id": "05b1dfdb689846ca898c6c1bfe5ae843",
+                "plan_id": "22be2c4b392749949fe86b30e735a0d4",
+                "plan_digest": "211acf6eaa84084fbf05f9676e026ab1119bab33ee1e8de8e71790842b403d53",
                 "run_id": null,
                 "kind": "role",
                 "name": "검사",
@@ -5021,7 +5121,7 @@
                 "source": "fixture",
                 "reference": {
                   "table": "management_plans",
-                  "id": "9cf5736c736f4e108062d7627db6cd96",
+                  "id": "22be2c4b392749949fe86b30e735a0d4",
                   "role_key": "tests"
                 },
                 "handoffs": []
@@ -5029,13 +5129,13 @@
             ],
             "edges": [
               {
-                "id": "graph:78567e1ae8cad68130bed8c8:specification:2a10de19e9dd20b0afdd",
-                "project_id": "0f834fc9cf5644eb88599175288d89cf",
-                "plan_id": "9cf5736c736f4e108062d7627db6cd96",
-                "plan_digest": "6dceecaf26bf5c87f1c361dd50c777990d78934c7555ecb6dfb8d2f6cba5487d",
+                "id": "graph:ffc835aa40e5ae9091d43842:specification:2a10de19e9dd20b0afdd",
+                "project_id": "05b1dfdb689846ca898c6c1bfe5ae843",
+                "plan_id": "22be2c4b392749949fe86b30e735a0d4",
+                "plan_digest": "211acf6eaa84084fbf05f9676e026ab1119bab33ee1e8de8e71790842b403d53",
                 "run_id": null,
-                "from": "graph:78567e1ae8cad68130bed8c8:pm:0f834fc9cf5644eb88599175288d89cf",
-                "to": "graph:78567e1ae8cad68130bed8c8:planned:ui",
+                "from": "graph:ffc835aa40e5ae9091d43842:pm:05b1dfdb689846ca898c6c1bfe5ae843",
+                "to": "graph:ffc835aa40e5ae9091d43842:planned:ui",
                 "kind": "planned_specification",
                 "status": "planned",
                 "title": "역할 제안",
@@ -5046,19 +5146,19 @@
                 "artifact_refs": [],
                 "reference": {
                   "table": "management_plans",
-                  "id": "9cf5736c736f4e108062d7627db6cd96",
-                  "plan_digest": "6dceecaf26bf5c87f1c361dd50c777990d78934c7555ecb6dfb8d2f6cba5487d",
+                  "id": "22be2c4b392749949fe86b30e735a0d4",
+                  "plan_digest": "211acf6eaa84084fbf05f9676e026ab1119bab33ee1e8de8e71790842b403d53",
                   "role_key": "ui"
                 }
               },
               {
-                "id": "graph:78567e1ae8cad68130bed8c8:specification:68f05093bc600659c0ae",
-                "project_id": "0f834fc9cf5644eb88599175288d89cf",
-                "plan_id": "9cf5736c736f4e108062d7627db6cd96",
-                "plan_digest": "6dceecaf26bf5c87f1c361dd50c777990d78934c7555ecb6dfb8d2f6cba5487d",
+                "id": "graph:ffc835aa40e5ae9091d43842:specification:68f05093bc600659c0ae",
+                "project_id": "05b1dfdb689846ca898c6c1bfe5ae843",
+                "plan_id": "22be2c4b392749949fe86b30e735a0d4",
+                "plan_digest": "211acf6eaa84084fbf05f9676e026ab1119bab33ee1e8de8e71790842b403d53",
                 "run_id": null,
-                "from": "graph:78567e1ae8cad68130bed8c8:pm:0f834fc9cf5644eb88599175288d89cf",
-                "to": "graph:78567e1ae8cad68130bed8c8:planned:tests",
+                "from": "graph:ffc835aa40e5ae9091d43842:pm:05b1dfdb689846ca898c6c1bfe5ae843",
+                "to": "graph:ffc835aa40e5ae9091d43842:planned:tests",
                 "kind": "planned_specification",
                 "status": "planned",
                 "title": "역할 제안",
@@ -5069,8 +5169,8 @@
                 "artifact_refs": [],
                 "reference": {
                   "table": "management_plans",
-                  "id": "9cf5736c736f4e108062d7627db6cd96",
-                  "plan_digest": "6dceecaf26bf5c87f1c361dd50c777990d78934c7555ecb6dfb8d2f6cba5487d",
+                  "id": "22be2c4b392749949fe86b30e735a0d4",
+                  "plan_digest": "211acf6eaa84084fbf05f9676e026ab1119bab33ee1e8de8e71790842b403d53",
                   "role_key": "tests"
                 }
               }
@@ -5086,10 +5186,10 @@
               "planned": 2
             },
             "empty_reason": null,
-            "fingerprint": "af1ec5cc5f86c95414a6b16de8393c56750cf83d0cf7c9f69542fa3b96885f65"
+            "fingerprint": "b02f0ce1feee2646ce3d3dc1b93ad431cea63b13e974396bf0305956c242b0aa"
           }
         ],
-        "fingerprint": "f2565298b95765d32b53abb0a712fa747f05c04f4afb576dc703dda8fa66e677"
+        "fingerprint": "7127dd444f704dccd8743945aaf0703a6a187c847437ac8e2b25081fc40553fa"
       }
     }
   },
