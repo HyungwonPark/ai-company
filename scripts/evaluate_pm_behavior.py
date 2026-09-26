@@ -199,10 +199,12 @@ def global_usage(root, shared_path):
 
 
 def resumable_second_repair(case_root, shared_path, plan):
-    """Prove that the current plan's second repair already spent its one repair slot."""
-    if plan.get('auto_revision_attempt') != MAX_REPAIRS - 1:
+    """Prove that this case's waiting repair already spent the global second slot."""
+    revision = plan.get('auto_revision_attempt', 0)
+    if type(revision) is not int or not 0 <= revision < MAX_REPAIRS or not plan.get('id'):
         return False
-    task_id = 'pm-revise-' + digest([plan['id'], MAX_REPAIRS])[:48]
+    attempt = revision + 1
+    task_id = 'pm-revise-' + digest([plan['id'], attempt])[:48]
     path = case_root / 'sessions' / 'sessions.sqlite'
     try:
         db = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
@@ -216,7 +218,7 @@ def resumable_second_repair(case_root, shared_path, plan):
                     ('WAITING_PM', 'WAITING_CAPACITY', 'READY', 'RUNNING')
                     or task['specification'].get('execution_scope') != 'planning'
                     or binding.get('source_plan_id') != plan['id']
-                    or binding.get('auto_revision_attempt') != MAX_REPAIRS
+                    or binding.get('auto_revision_attempt') != attempt
                     or any(key not in plan or binding.get(key) != plan[key]
                            for key in ('project_id', 'request_revision', 'goal_digest'))):
                 return False

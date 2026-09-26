@@ -172,6 +172,110 @@ class PMEValRunnerTests(unittest.TestCase):
         finally:
             worker.close()
 
+    def test_first_repair_in_next_case_resumes_as_global_second(self):
+        from ai_company.adapters.session_cli import SessionOutcome
+        from ai_company.automation import Automation
+        from ai_company.dispatcher import Dispatcher
+        from tests import test_automation as fixture
+
+        harness = fixture.CoordinatorTests()
+        harness.setUp()
+        self.addCleanup(harness.doCleanups)
+        root = harness.root / 'evaluation'
+        root.mkdir()
+        (root / 'cases.json').write_text(json.dumps({'common_project_goal': '두 결과를 검증합니다.'}))
+        ledger_path = harness.root / 'shared.db'
+        ledger = SharedCallLedger.initialize(ledger_path, [
+            (provider, provider, provider, 'AVAILABLE', None, None, 0, 0, 0, 0)
+            for provider in ('codex', 'claude')], clock=lambda: harness.now)
+        ledger.close()
+        original = harness.execute
+        reviews = {'E1': 0, 'E2': 0}
+        e2_sessions = []
+
+        def quota_on_e2_first_repair(agent, state, provider, worktree, prompt, session_id, **kwargs):
+            case_id = Path(worktree).relative_to(root).parts[0]
+            scope = state['specification']['execution_scope']
+            context = state['specification']['plan']
+            if case_id == 'E2' and scope == 'planning' and context.get('auto_revision_attempt') == 1:
+                e2_sessions.append(session_id)
+                if len(e2_sessions) == 1:
+                    return SessionOutcome('quota', session_id='fixture-e2-session',
+                        reset_at=harness.now + 30,
+                        result={'duration_seconds': 1, 'total_cost_usd': 0.01})
+            outcome = original(agent, state, provider, worktree, prompt, session_id, **kwargs)
+            report = outcome.result['structured_output']
+            if scope == 'plan_review':
+                reviews[case_id] += 1
+                if reviews[case_id] == 1:
+                    report.update(verdict='REVISE', revision_route='technical', findings=[{
+                        'finding_id': 'F-' + case_id, 'detail': '검증 방법을 구체화하세요.',
+                        'evidence': 'requirements_review.requirements[0].verification'}])
+            elif scope == 'planning' and context.get('source_plan_id'):
+                report['plan']['requirements_review']['requirements'][0]['verification'] = (
+                    '빈 값과 모든 분류를 독립 검사합니다.')
+            return outcome
+
+        def factory(case_root, config, *, shared_calls):
+            return Automation(case_root, config, clock=lambda: harness.now, shared_calls=shared_calls,
+                dispatcher_factory=lambda path, **kwargs: Dispatcher(path, verifier=harness,
+                    executor=quota_on_e2_first_repair, **kwargs))
+
+        e1 = {'id': 'E1', 'initial_message': '첫 번째 계획을 검토합니다.'}
+        e2 = {'id': 'E2', 'initial_message': '두 번째 계획을 검토합니다.',
+              'followup_message': '추가 결정은 없습니다.'}
+        with patch.object(EVALUATION, 'Automation', side_effect=factory), \
+             patch.object(EVALUATION.time, 'time', side_effect=lambda: harness.now), \
+             patch.object(EVALUATION.time, 'sleep'):
+            first = EVALUATION.run_case(root, e1, harness.config, ledger_path)
+            self.assertEqual(first['state'], 'plan_ready', first)
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path)[1], 1)
+            waiting = EVALUATION.run_case(root, e2, harness.config, ledger_path)
+            self.assertEqual(waiting['state'], 'provider_wait', waiting)
+            self.assertEqual(waiting['case_budget']['max_repairs'], 1)
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path)[1], 2)
+            worker = factory(root / 'E2', harness.config, shared_calls=ledger_path)
+            try:
+                repairs = [task for task in worker.dispatcher.tasks()
+                           if task['task_id'].startswith('pm-revise-')]
+                self.assertEqual(len(repairs), 1)
+                second = repairs[0]
+                self.assertEqual(second['specification']['plan']['auto_revision_attempt'], 1)
+                job_before = worker.dispatcher.queue.get(second['active']['job_id'])
+                self.assertEqual(job_before['status'], 'WAITING_QUOTA')
+                self.assertEqual(job_before['attempt_count'], 1)
+            finally:
+                worker.close()
+            harness.now = max(waiting['resume_at'], job_before['resume_at']) + 1
+            resumed = EVALUATION.run_case(root, e2, harness.config, ledger_path)
+        self.assertEqual(resumed['state'], 'plan_ready', resumed)
+        self.assertEqual(reviews, {'E1': 2, 'E2': 2})
+        self.assertEqual(e2_sessions, [None, 'fixture-e2-session'])
+        self.assertEqual(resumed['development_runs'], 0)
+        worker = factory(root / 'E2', harness.config, shared_calls=ledger_path)
+        try:
+            latest = next(task for task in worker.dispatcher.tasks()
+                          if task['task_id'] == second['task_id'])
+            job_after = worker.dispatcher.queue.get(latest['executions'][-1]['job_id'])
+            self.assertEqual(job_after['job_id'], job_before['job_id'])
+            self.assertEqual(job_after['session_id'], job_before['session_id'])
+            self.assertEqual(job_after['attempt_count'], 2)
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path)[1], 2)
+        finally:
+            worker.close()
+
+        store = Mock()
+        store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E2'}]
+        store.overview.return_value = {'pm_requests': [{'request_id': 'new-request', 'state': 'completed'}],
+            'plans': [{'id': 'new-plan', 'request_id': 'new-request', 'status': 'needs_revision',
+                       'revision_action': 'automatic', 'auto_revision_attempt': 0}], 'runs': []}
+        blocked_worker = Mock(store=store)
+        blocked_worker.dispatcher.tasks.return_value = []
+        with patch.object(EVALUATION, 'Automation', return_value=blocked_worker):
+            third = EVALUATION.run_case(root, e2, harness.config, ledger_path)
+        self.assertEqual(third['state'], 'budget_wait')
+        blocked_worker.run_once.assert_not_called()
+
     def test_idle_quota_wait_does_not_consume_runtime_budget(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
