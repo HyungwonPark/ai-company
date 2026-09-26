@@ -94,7 +94,8 @@ def _broker(path, binding, writable_paths, begin, end):
 
 def run_claude_files(provider, worktree, prompt, session_id, *, binding, writable_paths=(),
                      timeout_seconds=300, output_dir, on_spawn=None, model='claude-opus-5',
-                     reasoning_effort='xhigh', ultracode_enabled=True, output_schema=None, max_cost_usd=None):
+                     reasoning_effort='xhigh', ultracode_enabled=True, output_schema=None, max_cost_usd=None,
+                     shared_call_controlled=False):
     if (provider, model, reasoning_effort, ultracode_enabled) != ('claude', 'claude-opus-5', 'xhigh', True):
         raise ExecutionBlocked('file adapter requires the reviewed Claude configuration')
     if (binding.get('worktree') != str(Path(worktree).resolve())
@@ -153,7 +154,8 @@ def run_claude_files(provider, worktree, prompt, session_id, *, binding, writabl
         outcome = run_session(provider, worktree, prompt, session_id, timeout_seconds=remaining,
                               output_dir=directory, on_spawn=on_spawn, executable=str(directory / 'relay'),
                               model=model, reasoning_effort=reasoning_effort, ultracode_enabled=ultracode_enabled,
-                              output_schema=output_schema, capture_configuration=True, isolate_cgroup=True, max_cost_usd=cap)
+                              output_schema=output_schema, capture_configuration=True, isolate_cgroup=True,
+                              max_cost_usd=cap, shared_call_controlled=shared_call_controlled)
     finally:
         collector.close()
     ended_at = time.time()

@@ -3,6 +3,7 @@
 from contextlib import ExitStack
 import json
 import math
+import os
 import re
 from pathlib import Path
 import time
@@ -20,11 +21,14 @@ from ai_company.harness.prompts import stage_prompt
 from ai_company.runtime import ExecutionBlocked
 from ai_company.sessions import _git, SessionQueue, SessionSpec, execution_alive, repository_lock, repository_snapshot
 from ai_company.storage import controller_lock, suspended_lock
+from ai_company.shared_calls import CapacityUnavailable, SharedCallError, SharedCallLedger
 
 
 class Dispatcher:
-    def __init__(self, root: Path, *, clock=time.time, verifier=None, executor=None):
+    def __init__(self, root: Path, *, clock=time.time, verifier=None, executor=None, shared_calls=None):
         self.root, self.clock = root.resolve(), clock
+        self.shared_calls = (SharedCallLedger(shared_calls, clock=clock) if isinstance(shared_calls, (str, Path))
+                             else shared_calls)
         self.queue = SessionQueue(self.root / "sessions", clock=clock)
         self.db = self.queue.db
         self.verifier = verifier or Verifier(self.root)
@@ -47,6 +51,8 @@ class Dispatcher:
 
     def close(self):
         self.queue.close()
+        if self.shared_calls:
+            self.shared_calls.close()
 
     def get(self, task_id):
         row = self.db.execute("SELECT document FROM flow_tasks WHERE task_id=?", (task_id,)).fetchone()
@@ -82,6 +88,8 @@ class Dispatcher:
                     raise ExecutionBlocked("task already has an immutable policy; use explicit migration")
                 return state
             for agent in spec.agents:
+                if getattr(self, "shared_calls", None):
+                    self.shared_calls.account(agent.provider, agent.credential_ref, agent.quota_group)
                 row = self.db.execute("SELECT credential_ref,group_id FROM credential_groups WHERE provider=?",
                                       (agent.provider,)).fetchone()
                 if row and tuple(row) != (agent.credential_ref, agent.quota_group):
@@ -125,7 +133,11 @@ class Dispatcher:
                     or (spec.policy.max_cost_usd is not None and agent.provider != "claude")):
                 continue
             eligible.append(agent)
-            group = self.db.execute("SELECT state,resume_at FROM quota_groups WHERE group_id=?", (agent.quota_group,)).fetchone()
+            if self.shared_calls:
+                shared = self.shared_calls.account(agent.provider, agent.credential_ref, agent.quota_group)
+                group = (shared["state"], shared["resume_at"])
+            else:
+                group = self.db.execute("SELECT state,resume_at FROM quota_groups WHERE group_id=?", (agent.quota_group,)).fetchone()
             if name in exclude or (group and group[0] in ("DISABLED", "UNKNOWN")):
                 continue
             if group and group[0] == "COOLDOWN" and group[1] > self.clock():
@@ -268,6 +280,11 @@ class Dispatcher:
                     self._guidance_event(skill_record, "skill_process_started")
                 kwargs["on_spawn"] = skill_spawn
             def invoke(function, *args, **options):
+                if getattr(self, "shared_calls", None):
+                    job = self.queue.get(state["active"]["job_id"])
+                    reservation_id = self._shared_reservation_id(job)
+                    self.shared_calls.started(reservation_id, str(self.root),
+                        {"kind": "executor_invocation", "job_id": job["job_id"], "attempt": job["attempt_count"]})
                 if skill_record is not None:
                     self._guidance_event(skill_record, "skill_executor_invocation_started")
                 try:
@@ -299,6 +316,7 @@ class Dispatcher:
                     job = self.queue.get(state["active"]["job_id"])
                     binding, _ = persisted_attempt(self.db, job)
                     options = {"binding": binding, "writable_paths": spec.task.allowed_paths if state["stage"] == "developer" else ()}
+                options["shared_call_controlled"] = bool(self.shared_calls)
                 outcome = invoke(runner, provider, worktree, prompt, session_id, **kwargs, **options, model=agent.model,
                                    reasoning_effort=agent.reasoning_effort, ultracode_enabled=agent.ultracode_enabled, output_schema=report_type.model_json_schema(),
                                    max_cost_usd=min(cost_limits) if cost_limits else None)
@@ -307,6 +325,66 @@ class Dispatcher:
                 outcome = self._external(commit_contribution, spec, state, outcome, worktree, output_dir=kwargs["output_dir"])
             return outcome
         return execute
+
+    def _shared_reservation_id(self, job):
+        return digest([str(self.root), job["job_id"], job["attempt_count"]])
+
+    def _check_host_reservation_id(self, state):
+        return digest([str(self.root), state['task_id'], 'local-check', state.get('check_attempt_number', 0)])
+
+    def _settle_check_host(self, state):
+        if not self.shared_calls or not state.get('check_attempt_number') or state['verification'] is None:
+            return
+        reservation_id = self._check_host_reservation_id(state)
+        row = self.shared_calls.reservation(reservation_id)
+        if not row or row['state'] == 'SETTLED':
+            return
+        guard = {'job_id': 'flow-check-' + state['task_id'],
+                 'repository_snapshot': state['snapshot'], 'process': None}
+        if self.queue._read_guard(guard):
+            self.shared_calls.uncertain(reservation_id, str(self.root), 'local check guard is unresolved')
+            raise SharedCallError('local check host slot needs reconciliation')
+        evidence = state['verification']
+        self.shared_calls.settle(reservation_id, str(self.root),
+            digest([reservation_id, evidence]),
+            {'category': 'success' if evidence.get('passed') else 'test_failure',
+             'duration_seconds': evidence.get('runtime_seconds', 0), 'total_cost_usd': 0},
+            terminated=True)
+
+    def _settle_shared(self, job, spec, state):
+        if not self.shared_calls or job["attempt_count"] < 1:
+            return
+        reservation_id = self._shared_reservation_id(job)
+        row = self.shared_calls.reservation(reservation_id)
+        if row is None:
+            # A legacy execution predating shared control is not evidence of
+            # available capacity. Migration must inventory it separately.
+            raise SharedCallError("executed attempt has no shared reservation")
+        if job["status"] in ("READY", "RUNNING"):
+            return
+        if job["status"] == "NEEDS_RECONCILIATION":
+            self.shared_calls.uncertain(reservation_id, str(self.root), "session termination or effects are uncertain")
+            return
+        if row["state"] == "SETTLED":
+            return
+        if execution_alive(job["process"]) or self.queue._read_guard(job):
+            self.shared_calls.uncertain(reservation_id, str(self.root), "saved session retains a process or guard")
+            raise SharedCallError("shared reservation retains uncertain process")
+        category = job["last_category"]
+        if not category:
+            self.shared_calls.uncertain(reservation_id, str(self.root), "saved session has no outcome category")
+            raise SharedCallError("saved session has no outcome category")
+        result = job["result"] or {}
+        duration = result.get("duration_seconds")
+        if not isinstance(duration, (int, float)) or isinstance(duration, bool) or not math.isfinite(duration) or duration < 0:
+            duration = spec.policy.retry.execution_timeout_seconds
+        fact = {"category": category, "duration_seconds": duration,
+                "total_cost_usd": result.get("total_cost_usd")}
+        if category in ("quota", "rate_limit"):
+            fact["reset_at"] = job["resume_at"] or spec.policy.retry.next_time(
+                self.clock(), job["retry_count"], 0, job["reset_at"])[0]
+        event_id = digest([reservation_id, job["attempt_count"], job["last_category"], job["result"]])
+        self.shared_calls.settle(reservation_id, str(self.root), event_id, fact, terminated=True)
 
     def _consume(self, state, spec, job):
         active = state["active"]
@@ -465,6 +543,7 @@ class Dispatcher:
         active = state["active"]
         if active.get("waiting_observed_attempts", 0) >= job["attempt_count"]:
             return
+        self._settle_shared(job, spec, state)
         agent = next(a for a in spec.agents if a.agent_id == active["agent_id"])
         # Accounting, author attribution, shared cooldown and observation marker
         # share one transaction. A crash before commit leaves the fact pending.
@@ -506,6 +585,7 @@ class Dispatcher:
             self._save(state, "waiting_result_observed")
 
     def _handle_job(self, state, spec, job):
+        self._settle_shared(job, spec, state)
         active = state["active"]
         agent = next(a for a in spec.agents if a.agent_id == active["agent_id"])
         if job["status"] in ("WAITING_QUOTA", "WAITING_RETRY"):
@@ -562,6 +642,9 @@ class Dispatcher:
                 self._save(state, "integration_repair_wait")
             return True
         if state["status"] == "CHECK_RUNNING":
+            if self.shared_calls and state.get('check_attempt_number'):
+                self.shared_calls.uncertain(self._check_host_reservation_id(state), str(self.root),
+                                            'worker stopped during local checks')
             state.update(status="NEEDS_RECONCILIATION", resume_at=None, reason="worker stopped during local checks")
             with self.db:
                 self._save(state, "check_interrupted")
@@ -587,6 +670,7 @@ class Dispatcher:
                     self._save(state, "dependency_wait")
                 return False
         if state["stage"] in ("check", "gate"):
+            self._settle_check_host(state)
             if _git(Path(spec.worktree), "status", "--porcelain=v1", "--untracked-files=all").strip():
                 raise ExecutionBlocked("checks and final gate require a clean candidate worktree")
             if repository_snapshot(Path(spec.worktree)) != state["snapshot"]:
@@ -617,10 +701,27 @@ class Dispatcher:
                     if not self._reserve_project_budget(state, spec, {
                             "job_id": "check-" + state["task_id"], "attempt_count": 0}, checking=True):
                         return False
+                    if self.shared_calls:
+                        next_number = state.get('check_attempt_number', 0) + 1
+                        reservation_id = digest([str(self.root), state['task_id'], 'local-check', next_number])
+                        try:
+                            self.shared_calls.reserve_host(reservation_id, str(self.root))
+                        except CapacityUnavailable as exc:
+                            state.pop('project_reservation', None)
+                            state.update(status='WAITING_CAPACITY', resume_at=exc.resume_at or self.clock() + 30,
+                                         reason=exc.reason)
+                            with self.db:
+                                self._save(state, 'shared_check_wait')
+                            return False
+                        state['check_attempt_number'] = next_number
                     state["status"] = "CHECK_RUNNING"
                     with self.db:
                         self._save(state, "check_started")
                     self.queue._write_guard(guard)
+                    if self.shared_calls:
+                        self.shared_calls.started(reservation_id, str(self.root),
+                            {'kind': 'local_check_invocation', 'task_id': state['task_id'],
+                             'number': state['check_attempt_number']})
                     state["verification"] = self._external(self.verifier.check, spec, state)
                     state["usage"]["runtime_seconds"] += state["verification"].get("runtime_seconds", 0)
                     state.pop("project_reservation", None)
@@ -628,6 +729,7 @@ class Dispatcher:
                     with self.db:
                         self._save(state, "check_completed")
                     self.queue._clear_guard(guard)
+                    self._settle_check_host(state)
                 evidence = state["verification"]
                 if (evidence.get("head_sha") != state["snapshot"]["head_commit"]
                         or evidence.get("task_digest") != digest(spec.task)
@@ -690,8 +792,12 @@ class Dispatcher:
                 # A transient retry keeps its owner, but another task may have
                 # exhausted or disabled the same account while it was waiting.
                 agent = next(a for a in spec.agents if a.agent_id == active["agent_id"])
-                group = self.db.execute("SELECT state,resume_at FROM quota_groups WHERE group_id=?",
-                                        (agent.quota_group,)).fetchone()
+                if self.shared_calls:
+                    shared = self.shared_calls.account(agent.provider, agent.credential_ref, agent.quota_group)
+                    group = (shared["state"], shared["resume_at"])
+                else:
+                    group = self.db.execute("SELECT state,resume_at FROM quota_groups WHERE group_id=?",
+                                            (agent.quota_group,)).fetchone()
                 wake = (group[1] if group and group[0] == "COOLDOWN" and group[1] > self.clock()
                         else self.clock() + spec.policy.retry.backoff_max_seconds)
                 state.update(status="WAITING_CAPACITY", resume_at=max(job["resume_at"] or self.clock(), wake),
@@ -715,12 +821,38 @@ class Dispatcher:
                 return False
         if not self._reserve_project_budget(state, spec, job):
             return False
+        if self.shared_calls:
+            agent = next(a for a in spec.agents if a.agent_id == active["agent_id"])
+            reservation_id = digest([str(self.root), job["job_id"], job["attempt_count"] + 1])
+            try:
+                self.shared_calls.reserve(reservation_id, str(self.root), agent.provider,
+                                          agent.credential_ref, agent.quota_group)
+            except CapacityUnavailable as exc:
+                # No queue attempt was claimed. Do not let a global account
+                # wait consume this project's unrelated local parallel budget.
+                if state.get("project_reservation", {}).get("attempt_count") == job["attempt_count"] + 1:
+                    state.pop("project_reservation")
+                state.update(status="WAITING_CAPACITY", resume_at=exc.resume_at or self.clock() + 30,
+                             reason=exc.reason)
+                with self.db:
+                    self._save(state, "shared_call_wait")
+                return False
         result = self.queue.run_once(executor=self._executor(spec, state), job_id=active["job_id"])
         if result["status"] in ("IDLE", "BUSY"):
             # Queue recovery may have changed a RUNNING fact to reconciliation.
             saved = self.queue.get(active["job_id"])
             if saved["status"] == "NEEDS_RECONCILIATION":
                 self._handle_job(state, spec, saved)
+            elif self.shared_calls and saved["attempt_count"] == job["attempt_count"]:
+                if execution_alive(saved["process"]) or self.queue._read_guard(saved):
+                    self.shared_calls.uncertain(reservation_id, str(self.root), "unclaimed queue attempt has unresolved guard")
+                else:
+                    self.shared_calls.cancel_unstarted(reservation_id, str(self.root),
+                        evidence="queue_unclaimed_no_guard_no_process")
+                    if state.get("project_reservation", {}).get("attempt_count") == job["attempt_count"] + 1:
+                        state.pop("project_reservation")
+                        with self.db:
+                            self._save(state, "unclaimed_shared_call_cancelled")
             return False
         self._handle_job(state, spec, result)
         return True
@@ -883,6 +1015,8 @@ class Dispatcher:
         return occupied
 
     def run_once(self, *, task_ids=None):
+        if os.environ.get('AI_COMPANY_REQUIRE_SHARED_CALLS') == '1' and self.shared_calls is None:
+            raise ExecutionBlocked('live Dispatcher requires the reviewed shared account reservation')
         allowed_task_ids = None if task_ids is None else frozenset(task_ids)
         with controller_lock(self.root / "dispatcher", blocking=True) as scheduler_lock:
             self._scheduler_lock = scheduler_lock

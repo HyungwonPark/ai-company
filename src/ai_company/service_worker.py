@@ -130,21 +130,26 @@ def serve(root, component, configuration_digest, tick, *, configuration=None, po
             heartbeat.close(final)
 
 
-def translation_tick(root, config):
+def translation_tick(root, config, shared_call_ledger=None):
     from ai_company.adapters.translation_cli import TranslationCLI
     from ai_company.collaboration import document_sources
     from ai_company.management import ManagementStore
     from ai_company.translation_worker import run_once
     from ai_company.translations import TranslationStore
+    from ai_company.shared_calls import SharedCallLedger
     management = ManagementStore(root)
+    shared = SharedCallLedger(shared_call_ledger) if shared_call_ledger else None
     try:
-        store = TranslationStore(management.db)
+        store = TranslationStore(management.db, shared_calls=shared,
+                                 queue_id=str(Path(root).resolve() / 'translation') if shared else None)
         for project in management.list_projects():
             if project['source'] == 'fixture':
                 continue
             store.sync(project['id'], document_sources(management.overview(project['id'])), config)
         return run_once(store, TranslationCLI(Path(root) / 'translation-runtime'))
     finally:
+        if shared:
+            shared.close()
         management.close()
 
 
@@ -154,6 +159,8 @@ def main(argv=None):
     parser.add_argument('--state-dir', type=Path, required=True)
     parser.add_argument('--config', type=Path, required=True)
     parser.add_argument('--execution-catalog', type=Path, help='trusted local project execution catalog; automation only')
+    parser.add_argument('--shared-call-ledger', type=Path,
+                        help='existing reviewed common account/host reservation database')
     parser.add_argument('--poll-seconds', type=float, default=5)
     parser.add_argument('--execute-translations', action='store_true')
     args = parser.parse_args(argv)
@@ -175,7 +182,8 @@ def main(argv=None):
             config = AutomationConfig.model_validate(config)
             from ai_company.execution_specs import ExecutionCatalog
             catalog = ExecutionCatalog.load(args.execution_catalog) if args.execution_catalog is not None else None
-            worker = Automation(root, config, execution_catalog=catalog)
+            worker = Automation(root, config, execution_catalog=catalog,
+                                shared_calls=args.shared_call_ledger)
             tick = worker.run_once
         else:
             from ai_company.translations import configuration
@@ -183,7 +191,7 @@ def main(argv=None):
             config = configuration(config)
             if not args.execute_translations or not TranslationCLI(root / 'translation-runtime').ready(config):
                 parser.error('explicit verified lightweight translation configuration and execution flag required')
-            tick = lambda: translation_tick(root, config)
+            tick = lambda: translation_tick(root, config, args.shared_call_ledger)
         serve(root, args.component, digest(config), tick, configuration=config, poll_seconds=args.poll_seconds, stop=stop)
     finally:
         if worker:

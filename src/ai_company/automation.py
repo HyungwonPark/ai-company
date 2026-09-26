@@ -24,15 +24,19 @@ from ai_company.storage import controller_lock
 class Automation:
     def __init__(self, root: Path, config: AutomationConfig, *, clock=time.time,
                  git=None, dispatcher_factory=Dispatcher, execution_catalog=None,
-                 project_context=None):
+                 project_context=None, shared_calls=None):
         from ai_company.automation_git import AutomationGit
         self.root, self.config, self.clock = Path(root).resolve(), config, clock
         self.configuration_digest = digest(config)
         self.execution_catalog = execution_catalog
         self.project_context = project_context
         self.store = ManagementStore(self.root, clock=clock, execution_catalog=execution_catalog)
-        self.dispatcher_factory = dispatcher_factory
-        self.dispatcher = dispatcher_factory(self.root, clock=clock)
+        if shared_calls is not None:
+            self.dispatcher_factory = lambda path, *, clock: dispatcher_factory(
+                path, clock=clock, shared_calls=shared_calls)
+        else:
+            self.dispatcher_factory = dispatcher_factory
+        self.dispatcher = self.dispatcher_factory(self.root, clock=clock)
         git_root = self.root / "automation-git"
         if project_context:
             git_root = git_root / project_context[0] / digest(project_context[1])

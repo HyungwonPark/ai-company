@@ -7,6 +7,7 @@ import time
 from uuid import uuid4
 
 from ai_company.contracts import digest
+from ai_company.shared_calls import CapacityUnavailable, SharedCallError
 
 SOURCE_KEYS = ('id', 'kind', 'project_id', 'source_version', 'author_role', 'source_ref', 'fields', 'protected')
 DEFAULT_CONFIG = dict(provider='codex', model='gpt-5.6-luna', model_version='0.154.0',
@@ -168,8 +169,11 @@ def validate_fields(job, translated):
 
 
 class TranslationStore:
-    def __init__(self, db, *, clock=time.time):
+    def __init__(self, db, *, clock=time.time, shared_calls=None, queue_id=None):
         self.db, self.clock = db, clock
+        self.shared_calls, self.queue_id = shared_calls, queue_id
+        if shared_calls and not queue_id:
+            raise SharedCallError('translation queue needs a stable shared reservation owner')
 
     def _save(self, job):
         job['updated_at'] = self.clock()
@@ -465,6 +469,16 @@ class TranslationStore:
             observed_configuration=observed, resume_at=min(waiting) if waiting else None, reason=reason)
 
     def _quota(self, config):
+        if self.shared_calls:
+            try:
+                account = self.shared_calls.account(config['provider'], config['credential_ref'], config['quota_group'])
+            except SharedCallError:
+                return 'blocked', None, 'shared_credential_group_mismatch'
+            if account['state'] in ('DISABLED', 'UNKNOWN'):
+                return 'blocked', None, 'shared_credential_unavailable'
+            if account['state'] == 'COOLDOWN' and (account['resume_at'] is None or account['resume_at'] > self.clock()):
+                return 'waiting_quota', account['resume_at'], account['reason'] or 'shared_account_quota'
+            return None
         tables = {r[0] for r in self.db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         if not {'quota_groups', 'credential_groups'} <= tables:
             return 'blocked', None, 'shared_credential_group_not_registered'
@@ -492,11 +506,41 @@ class TranslationStore:
                 job = json.loads(row[0])
                 if job['status'] != 'running' or job['lease_expires_at'] > self.clock():
                     continue
+                if self.shared_calls:
+                    reservation_id = job.get('shared_reservation_id')
+                    reservation = self.shared_calls.reservation(reservation_id) if reservation_id else None
+                    if reservation is None:
+                        job['reason'] = 'shared_reservation_missing'
+                        self._save(job)
+                        continue
+                    if reservation['state'] == 'SETTLED':
+                        # The common usage fact is final, but translation fields
+                        # may not have committed locally. Never call the model
+                        # again merely because this local transaction was lost.
+                        job.update(status='blocked', lease_token=None, lease_expires_at=None,
+                                   reason='shared_result_requires_local_reconciliation')
+                        self._save(job)
+                        continue
+                    if reservation['state'] != 'RESERVED' and not job['execution_started']:
+                        self.shared_calls.uncertain(reservation_id, self.queue_id,
+                            'translation started before local checkpoint')
+                        job['reason'] = 'shared_execution_requires_reconciliation'
+                        self._save(job)
+                        continue
                 # Lease expiry alone never authorizes replay of a model call.
                 probe_key = (job['id'], job['lease_token'], digest(job.get('execution_identity')))
                 if job['execution_started'] and probes.get(probe_key) is not False:
                     job['reason'] = 'execution_termination_unconfirmed'
                 else:
+                    if self.shared_calls:
+                        if job['execution_started']:
+                            self.shared_calls.uncertain(reservation_id, self.queue_id,
+                                'translation ended without a durable result')
+                            job['reason'] = 'shared_result_requires_reconciliation'
+                            self._save(job)
+                            continue
+                        self.shared_calls.cancel_unstarted(reservation_id, self.queue_id,
+                            evidence='queue_unclaimed_no_guard_no_process')
                     job['spent_seconds'] += job['config']['timeout_seconds'] if job['execution_started'] else 0
                     job.update(status='waiting_retry', resume_at=self.clock(), lease_token=None,
                                reason='worker_interrupted_after_confirmed_termination')
@@ -535,6 +579,17 @@ class TranslationStore:
                 elif (quota := self._quota(config)):
                     job.update(status=quota[0], resume_at=quota[1], reason=quota[2])
                 else:
+                    if self.shared_calls:
+                        reservation_id = digest([self.queue_id, job['id'], job['attempts'] + 1])
+                        try:
+                            self.shared_calls.reserve(reservation_id, self.queue_id, config['provider'],
+                                                      config['credential_ref'], config['quota_group'])
+                        except CapacityUnavailable as exc:
+                            job.update(status='waiting_quota', resume_at=exc.resume_at or self.clock() + 30,
+                                       reason=exc.reason)
+                            self._save(job)
+                            continue
+                        job['shared_reservation_id'] = reservation_id
                     job.update(status='running', lease_token=uuid4().hex, worker_id=worker_id,
                         lease_expires_at=self.clock()+config['timeout_seconds']+30, started_at=self.clock(),
                         execution_started=False, execution_identity=None, reason=None, resume_at=None)
@@ -551,6 +606,10 @@ class TranslationStore:
             job = self._get(job_id)
             if not job or job['status'] != 'running' or job['lease_token'] != lease_token:
                 return False
+            if self.shared_calls:
+                self.shared_calls.started(job['shared_reservation_id'], self.queue_id,
+                    execution_identity or {'kind': 'executor_invocation', 'job_id': job_id,
+                                           'attempt': job['attempts']})
             job.update(execution_started=True, execution_identity=copy.deepcopy(execution_identity))
             self._save(job)
             return True
@@ -561,6 +620,25 @@ class TranslationStore:
             job = self._get(job_id)
             if not job or job['status'] != 'running' or job['lease_token'] != lease_token:
                 return False
+            if self.shared_calls:
+                reservation_id = job['shared_reservation_id']
+                if job['execution_started']:
+                    if result.get('cgroup_stopped') is not True:
+                        self.shared_calls.uncertain(reservation_id, self.queue_id,
+                                                    'translation child termination unconfirmed')
+                        return False
+                    category = result.get('category') or 'unknown'
+                    elapsed = max(0, self.clock()-job['started_at'])
+                    fact = {'category': category, 'duration_seconds': elapsed,
+                            'total_cost_usd': result.get('total_cost_usd')}
+                    if category in ('quota', 'rate_limit'):
+                        reset = result.get('reset_at')
+                        fact['reset_at'] = max(self.clock() + 30, reset) if isinstance(reset, (int, float)) and not isinstance(reset, bool) and math.isfinite(reset) else self.clock() + 60
+                    self.shared_calls.settle(reservation_id, self.queue_id,
+                        digest([reservation_id, job['attempts'], result]), fact, terminated=True)
+                else:
+                    self.shared_calls.cancel_unstarted(reservation_id, self.queue_id,
+                        evidence='queue_unclaimed_no_guard_no_process')
             elapsed = max(0, self.clock()-job['started_at'])
             job['spent_seconds'] += elapsed
             category = result.get('category')
