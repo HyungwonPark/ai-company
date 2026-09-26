@@ -11,6 +11,7 @@ import math
 from pathlib import Path
 import sqlite3
 import time
+from uuid import uuid4
 
 
 class SharedCallError(RuntimeError):
@@ -93,7 +94,8 @@ class SharedCallLedger:
                 provider, credential, group, state, resume, reason, calls, seconds, cost, unknown = item
                 if (not all(isinstance(value, str) and value for value in (provider, credential, group))
                         or state not in ("AVAILABLE", "COOLDOWN", "DISABLED", "UNKNOWN")
-                        or (state == "COOLDOWN" and (not isinstance(resume, (int, float)) or not math.isfinite(resume)))
+                        or (state == "COOLDOWN" and (isinstance(resume, bool)
+                            or not isinstance(resume, (int, float)) or not math.isfinite(resume) or resume <= 0))
                         or not isinstance(calls, int) or isinstance(calls, bool) or calls < 0
                         or any(isinstance(value, bool) or not isinstance(value, (int, float))
                                or not math.isfinite(value) or value < 0 for value in (seconds, cost))
@@ -110,7 +112,7 @@ class SharedCallLedger:
                 if (not isinstance(receipt_sha, str) or len(receipt_sha) != 64
                         or any(char not in '0123456789abcdef' for char in receipt_sha)
                         or group not in groups or isinstance(reset, bool)
-                        or not isinstance(reset, (int, float)) or not math.isfinite(reset)):
+                        or not isinstance(reset, (int, float)) or not math.isfinite(reset) or reset <= 0):
                     raise SharedCallError('legacy review import is incomplete or unregistered')
                 connection.execute('INSERT INTO legacy_review_imports VALUES (?,?,?)',
                                    (receipt_sha, group, reset))
@@ -160,6 +162,19 @@ class SharedCallLedger:
                               (receipt_sha256,)).fetchone()
         return bool(row and row == (group_id, reset_at))
 
+    def _reopen_cancelled(self, reservation_id):
+        """Archive the proven-unstarted cancellation before reusing its stable ID."""
+        archived_id = reservation_id + ':cancel:' + uuid4().hex
+        self.db.execute("""INSERT INTO reservations
+            (reservation_id,owner,group_id,state,created_at,started_at,process_identity,event_id,result,closed_at)
+            SELECT ?,owner,group_id,state,created_at,started_at,process_identity,event_id,?,closed_at
+            FROM reservations WHERE reservation_id=? AND state='CANCELLED'""",
+            (archived_id, json.dumps({'original_reservation_id': reservation_id,
+                                      'evidence': 'queue_unclaimed_no_guard_no_process'}), reservation_id))
+        self.db.execute("""UPDATE reservations SET state='RESERVED',created_at=?,closed_at=NULL
+            WHERE reservation_id=? AND state='CANCELLED'""", (self.clock(), reservation_id))
+        return self.reservation(reservation_id)
+
     def reserve(self, reservation_id, owner, provider, credential_ref, group_id):
         """Atomically reserve one account and one of two host slots.
 
@@ -174,7 +189,8 @@ class SharedCallLedger:
             if existing:
                 if existing["owner"] != owner or existing["group_id"] != group_id:
                     raise SharedCallError("reservation identity was reused")
-                return existing
+                if existing['state'] != 'CANCELLED':
+                    return existing
             account = self.account(provider, credential_ref, group_id)
             if account["state"] in ("UNKNOWN", "DISABLED"):
                 raise CapacityUnavailable("shared account requires reconciliation")
@@ -185,6 +201,8 @@ class SharedCallLedger:
             occupied = self.db.execute("SELECT count(*) FROM reservations WHERE state IN ('RESERVED','STARTED','UNKNOWN')").fetchone()[0]
             if occupied >= 2:
                 raise CapacityUnavailable("all host slots are reserved")
+            if existing:
+                return self._reopen_cancelled(reservation_id)
             self.db.execute("INSERT INTO reservations(reservation_id,owner,group_id,state,created_at) VALUES (?,?,?,?,?)",
                             (reservation_id, owner, group_id, "RESERVED", self.clock()))
             return self.reservation(reservation_id)
@@ -201,10 +219,13 @@ class SharedCallLedger:
             if existing:
                 if existing['owner'] != owner or existing['group_id'] != '@host-only':
                     raise SharedCallError('host reservation identity was reused')
-                return existing
+                if existing['state'] != 'CANCELLED':
+                    return existing
             occupied = self.db.execute("SELECT count(*) FROM reservations WHERE state IN ('RESERVED','STARTED','UNKNOWN')").fetchone()[0]
             if occupied >= 2:
                 raise CapacityUnavailable('all host slots are reserved')
+            if existing:
+                return self._reopen_cancelled(reservation_id)
             self.db.execute("INSERT INTO reservations(reservation_id,owner,group_id,state,created_at) VALUES (?,?,?,?,?)",
                             (reservation_id, owner, '@host-only', 'RESERVED', self.clock()))
             return self.reservation(reservation_id)
@@ -271,7 +292,8 @@ class SharedCallLedger:
             state, resume, reason = "AVAILABLE", None, None
             if category in ("quota", "rate_limit"):
                 state, resume, reason = "COOLDOWN", result.get("reset_at"), category
-                if isinstance(resume, bool) or not isinstance(resume, (int, float)) or not math.isfinite(resume):
+                if (isinstance(resume, bool) or not isinstance(resume, (int, float))
+                        or not math.isfinite(resume) or resume <= 0):
                     raise SharedCallError("quota settlement needs a verified reset time")
                 resume = max(self.clock(), resume)
             elif category == "authentication":

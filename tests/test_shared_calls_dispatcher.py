@@ -2,6 +2,7 @@
 
 from ai_company.dispatcher import Dispatcher
 from ai_company.shared_calls import SharedCallLedger
+from ai_company.storage import controller_lock
 from tests.test_dispatcher import FlowFixture, Crash
 
 
@@ -31,6 +32,18 @@ class SharedDispatcherTests(FlowFixture):
         self.assertEqual((group['state'], group['calls']), ('COOLDOWN', 1))
         self.restart()
         self.tick()
+        self.assertEqual(self.dispatcher.shared_calls.account('codex', 'codex-account', 'codex-shared')['calls'], 1)
+
+    def test_busy_session_worker_cancellation_retries_same_attempt_once(self):
+        self.submit()
+        with controller_lock(self.dispatcher.queue.root / 'session-worker'):
+            self.tick()
+        self.assertEqual(len(self.calls), 0)
+        self.assertEqual(self.dispatcher.shared_calls.db.execute(
+            "SELECT state FROM reservations").fetchone()[0], 'CANCELLED')
+        self.restart()
+        self.tick()
+        self.assertEqual(len(self.calls), 1)
         self.assertEqual(self.dispatcher.shared_calls.account('codex', 'codex-account', 'codex-shared')['calls'], 1)
 
     def test_crash_after_shared_reserve_retains_capacity_until_recovery(self):

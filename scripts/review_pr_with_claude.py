@@ -5,6 +5,7 @@ from contextlib import contextmanager
 import fcntl
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -101,17 +102,23 @@ def terminal_children_stopped(events):
             and isinstance(stats.get('refused'), dict) and not any(stats['refused'].values()))
 
 
-def rejected_quota_reset(events):
+def rejected_quota_reset(events, *, min_reset=0):
     terminal = [event for event in events if event.get('type') == 'result']
-    rejected = [event.get('rate_limit_info', {}) for event in events
-                if event.get('type') == 'rate_limit_event'
-                and event.get('rate_limit_info', {}).get('status') == 'rejected']
+    rejected = rejected_quota_events(events)
     resets = [item.get('resetsAt') for item in rejected]
     if (not terminal_children_stopped(events) or not rejected
-            or not all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in resets)
+            or not all(isinstance(value, (int, float)) and not isinstance(value, bool)
+                       and math.isfinite(value) and value > min_reset for value in resets)
             or terminal[0].get('is_error') is not True or terminal[0].get('terminal_reason') != 'api_error'):
         return None
     return max(resets)
+
+
+def rejected_quota_events(events):
+    """Provider refusal is a fact even when its retry time cannot be verified."""
+    return [info for event in events if event.get('type') == 'rate_limit_event'
+            for info in [event.get('rate_limit_info')]
+            if isinstance(info, dict) and info.get('status') == 'rejected']
 
 
 def quota_resume_verified(directory, *, pr_number, pr_url, head, base, diff_sha256,
@@ -548,13 +555,17 @@ def main():
         delivered = input_delivery_verified(directory, binding, code)
         summary = summarize(output, nonce, code, incomplete_reason, input_verified=delivered,
                             head=head, diff_sha256=diff_sha256)
-        reset = rejected_quota_reset(output)
+        rejected_quota = bool(rejected_quota_events(output))
+        # A stale positive timestamp is not proof of a future provider reset.
+        # Five minutes covers normal delivery/clock skew without accepting 1970 sentinels.
+        reset = rejected_quota_reset(output, min_reset=time.time() - 300)
         terminal = next((event for event in output if event.get('type') == 'result'), {})
         elapsed_ms = terminal.get('duration_ms')
         elapsed = elapsed_ms / 1000 if isinstance(elapsed_ms, (int, float)) and not isinstance(elapsed_ms, bool) and elapsed_ms >= 0 else 1800
         settlement_event = None
         if incomplete_reason is None and terminal_children_stopped(output):
-            category = 'quota' if reset is not None else 'success' if summary['completion_verified'] else 'blocked'
+            category = ('quota' if reset is not None else 'reconciliation' if rejected_quota
+                        else 'success' if summary['completion_verified'] else 'blocked')
             fact = {'category': category, 'duration_seconds': elapsed,
                     'total_cost_usd': summary['cost_usd_estimate']}
             if category == 'quota':
@@ -565,6 +576,9 @@ def main():
                           fact, terminated=True)
         else:
             shared.uncertain(reservation_id, str(directory), incomplete_reason or 'terminal_or_children_unverified')
+        summary['provider_quota_rejected'] = rejected_quota
+        summary['quota_reset_verified'] = reset is not None
+        summary['shared_settlement_category'] = category if settlement_event else None
         summary['binding_unchanged_after_review'] = binding_unchanged(args.pr, head, base)
         if not summary['binding_unchanged_after_review']:
             summary['completion_verified'] = False

@@ -1,6 +1,7 @@
 """Two queue roots sharing one credential and two host slots."""
 
 from concurrent.futures import ThreadPoolExecutor
+import json
 import tempfile
 from pathlib import Path
 import unittest
@@ -72,6 +73,19 @@ class SharedCallTests(unittest.TestCase):
         with self.assertRaises(SharedCallError):
             recovered.settle("attempt", "queue-a", "different-event", result, terminated=True)
 
+    def test_invalid_quota_reset_cannot_release_account(self):
+        ledger = self.open()
+        ledger.reserve('attempt', 'queue-a', 'codex', 'primary', 'account-a')
+        ledger.started('attempt', 'queue-a', {'pid': 1})
+        with self.assertRaisesRegex(SharedCallError, 'verified reset'):
+            ledger.settle('attempt', 'queue-a', 'event', {'category': 'quota',
+                'reset_at': 0, 'duration_seconds': 1}, terminated=True)
+        self.assertEqual(ledger.reservation('attempt')['state'], 'STARTED')
+        self.assertEqual(ledger.account('codex', 'primary', 'account-a')['calls'], 0)
+        with self.assertRaisesRegex(SharedCallError, 'inventory'):
+            SharedCallLedger.initialize(Path(self.temp.name) / 'bad-reset.db', [
+                ('codex', 'primary', 'account-a', 'COOLDOWN', 0, 'quota', 0, 0, 0, 0)])
+
     def test_unstarted_cancellation_requires_proof_and_never_clears_started(self):
         ledger = self.open()
         ledger.reserve("attempt", "queue-a", "codex", "primary", "account-a")
@@ -82,6 +96,31 @@ class SharedCallTests(unittest.TestCase):
         ledger.started("second", "queue-b", {"pid": 1})
         with self.assertRaises(SharedCallError):
             ledger.cancel_unstarted("second", "queue-b", evidence="queue_unclaimed_no_guard_no_process")
+
+    def test_cancelled_retry_rechecks_account_and_host_capacity_and_keeps_history(self):
+        ledger = self.open()
+        ledger.reserve('retry', 'queue-a', 'codex', 'primary', 'account-a')
+        ledger.cancel_unstarted('retry', 'queue-a', evidence='queue_unclaimed_no_guard_no_process')
+        ledger.close()
+        recovered = self.open()
+        recovered.reserve('other', 'queue-b', 'codex', 'alias', 'account-a')
+        with self.assertRaises(CapacityUnavailable):
+            recovered.reserve('retry', 'queue-a', 'codex', 'primary', 'account-a')
+        recovered.cancel_unstarted('other', 'queue-b', evidence='queue_unclaimed_no_guard_no_process')
+        recovered.reserve_host('host-a', 'queue-b')
+        recovered.reserve_host('host-b', 'queue-c')
+        with self.assertRaises(CapacityUnavailable):
+            recovered.reserve('retry', 'queue-a', 'codex', 'primary', 'account-a')
+        recovered.cancel_unstarted('host-b', 'queue-c', evidence='queue_unclaimed_no_guard_no_process')
+        self.assertEqual(recovered.reserve('retry', 'queue-a', 'codex', 'primary', 'account-a')['state'], 'RESERVED')
+        recovered.started('retry', 'queue-a', {'pid': 1})
+        recovered.settle('retry', 'queue-a', 'event', {'category': 'success', 'duration_seconds': 1}, terminated=True)
+        self.assertEqual(recovered.account('codex', 'primary', 'account-a')['calls'], 1)
+        archive = recovered.db.execute("SELECT state,result,closed_at FROM reservations "
+                                       "WHERE reservation_id LIKE 'retry:cancel:%'").fetchone()
+        self.assertEqual(archive[0], 'CANCELLED')
+        self.assertEqual(json.loads(archive[1])['original_reservation_id'], 'retry')
+        self.assertIsNotNone(archive[2])
 
     def test_local_checks_consume_same_two_host_slots_as_model_calls(self):
         ledger = self.open()

@@ -9,7 +9,7 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from ai_company.shared_calls import SharedCallLedger
+from ai_company.shared_calls import CapacityUnavailable, SharedCallLedger
 
 
 PATH = Path(__file__).resolve().parents[1] / 'scripts/review_pr_with_claude.py'
@@ -23,6 +23,94 @@ PASS_REPORT = (f'판정: PASS\n대상 HEAD: {HEAD}\n패치 SHA-256: {DIFF_SHA}\n
 
 
 class ClaudePRReviewTests(unittest.TestCase):
+    def test_rejected_quota_without_verified_reset_never_releases_shared_account(self):
+        for reset in (9999999999, None, 'not-a-time', 0, -1, 1):
+            with self.subTest(reset=reset), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                cli = root / 'claude'
+                cli.write_text('fake-cli')
+                relay = root / 'relay'
+                relay.write_text('fake-relay')
+                ledger_path = root / 'shared.db'
+                ledger = SharedCallLedger.initialize(ledger_path, [
+                    ('claude', 'review', 'account', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+                self.addCleanup(ledger.close)
+                pr = {'url': 'https://github.com/example/repo/pull/31', 'headRefOid': HEAD}
+
+                def command(*args):
+                    if args == ('git', 'rev-parse', 'HEAD'):
+                        return HEAD
+                    if args == ('git', 'status', '--porcelain'):
+                        return ''
+                    if args == ('git', 'rev-parse', '--show-toplevel'):
+                        return str(root)
+                    if args[0] == 'gh':
+                        return json.dumps(pr)
+                    if args[-1] == '--version':
+                        return '2.1.280'
+                    raise AssertionError(args)
+
+                info = {'status': 'rejected'}
+                if reset is not None:
+                    info['resetsAt'] = reset
+                events = [
+                    {'type': 'rate_limit_event', 'rate_limit_info': info},
+                    {'type': 'result', 'is_error': True, 'terminal_reason': 'api_error',
+                     'queued_turn_count': 0, 'duration_ms': 1000,
+                     'subagent_stats': {'spawned': 0, 'completed': 0, 'failed': 0,
+                                        'killed': {}, 'refused': {}}},
+                ]
+                def invoke(_cmd, _prompt, directory):
+                    (directory / 'events.jsonl').write_text(''.join(json.dumps(event) + '\n' for event in events))
+                    return 1, events, None
+                argv = ['review', '31', '--shared-call-ledger', str(ledger_path),
+                        '--credential-ref', 'review', '--quota-group', 'account',
+                        '--adoption-receipt', str(root / 'adoption.json')]
+                with patch('sys.argv', argv), patch.object(Path, 'home', return_value=root), \
+                     patch.object(REVIEW, 'SharedCallLedger', return_value=ledger), \
+                     patch.object(REVIEW, 'shared_adoption_verified', return_value=True), \
+                     patch.object(REVIEW, 'command', side_effect=command), \
+                     patch.object(REVIEW, 'reviewable', return_value=[]), \
+                     patch.object(REVIEW.shutil, 'which', return_value=str(cli)), \
+                     patch.object(REVIEW, 'CONTROL', relay), \
+                     patch.object(REVIEW, 'complete_pr_patch', return_value=('diff --git a/a b/a\n+x\n', 'b'*40, 'b'*40)), \
+                     patch.object(REVIEW, 'invoke', side_effect=invoke), \
+                     patch.object(REVIEW, 'input_delivery_verified', return_value=True), \
+                     patch.object(REVIEW, 'binding_unchanged', return_value=True):
+                    self.assertEqual(REVIEW.main(), 1)
+                account = ledger.account('claude', 'review', 'account')
+                self.assertEqual(account['calls'], 1)
+                verified = reset == 9999999999
+                self.assertEqual(account['state'], 'COOLDOWN' if verified else 'UNKNOWN')
+                directory = root / '.local/state/ai-company/claude-pr-reviews' / f'pr-31-{HEAD}'
+                receipt = json.loads((directory / 'receipt.json').read_text())
+                self.assertTrue(receipt['provider_quota_rejected'])
+                self.assertEqual(receipt['quota_reset_verified'], verified)
+                self.assertEqual(json.loads((directory / 'events.jsonl').read_text().splitlines()[0]), events[0])
+                reservation = ledger.reservation(receipt['shared_reservation_id'])
+                self.assertFalse(ledger.settle(receipt['shared_reservation_id'], str(directory),
+                                               receipt['shared_settlement_event'], json.loads(reservation['result']),
+                                               terminated=True))
+                self.assertEqual(ledger.account('claude', 'review', 'account')['calls'], 1)
+                reopened = SharedCallLedger(ledger_path)
+                try:
+                    self.assertEqual(reopened.account('claude', 'review', 'account')['state'], account['state'])
+                    self.assertEqual(reopened.account('claude', 'review', 'account')['calls'], 1)
+                finally:
+                    reopened.close()
+                if not verified:
+                    with self.assertRaises(CapacityUnavailable):
+                        ledger.reserve('other-worker', 'other-queue', 'claude', 'review', 'account')
+
+    def test_nonfinite_quota_reset_needs_reconciliation(self):
+        events = [{'type': 'rate_limit_event', 'rate_limit_info': {'status': 'rejected', 'resetsAt': float('nan')}},
+                  {'type': 'result', 'is_error': True, 'terminal_reason': 'api_error',
+                   'queued_turn_count': 0,
+                   'subagent_stats': {'spawned': 0, 'completed': 0, 'failed': 0,
+                                      'killed': {}, 'refused': {}}}]
+        self.assertEqual(len(REVIEW.rejected_quota_events(events)), 1)
+        self.assertIsNone(REVIEW.rejected_quota_reset(events))
+
     def test_quota_resume_requires_bound_terminal_limit_and_stopped_children(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary) / 'attempt'
