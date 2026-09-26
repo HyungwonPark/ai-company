@@ -86,6 +86,13 @@ class SharedCallTests(unittest.TestCase):
             SharedCallLedger.initialize(Path(self.temp.name) / 'bad-reset.db', [
                 ('codex', 'primary', 'account-a', 'COOLDOWN', 0, 'quota', 0, 0, 0, 0)])
 
+    def test_corrupt_account_state_cannot_reserve(self):
+        ledger = self.open()
+        ledger.db.execute("UPDATE accounts SET state='BOGUS' WHERE group_id='account-a'")
+        with self.assertRaisesRegex(SharedCallError, 'state is invalid'):
+            ledger.reserve('corrupt', 'queue-a', 'codex', 'primary', 'account-a')
+        self.assertIsNone(ledger.reservation('corrupt'))
+
     def test_unstarted_cancellation_requires_proof_and_never_clears_started(self):
         ledger = self.open()
         ledger.reserve("attempt", "queue-a", "codex", "primary", "account-a")

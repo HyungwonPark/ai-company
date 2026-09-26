@@ -40,6 +40,9 @@ class SharedCallLedger:
             version = self.db.execute("SELECT value FROM shared_meta WHERE key='schema_version'").fetchone()
             if version != ("2",):
                 raise SharedCallError("shared call ledger schema is unknown")
+        except SharedCallError:
+            self.db.close()
+            raise
         except sqlite3.Error as exc:
             self.db.close()
             raise SharedCallError("shared call ledger cannot be read") from exc
@@ -137,6 +140,8 @@ class SharedCallLedger:
             raise SharedCallError("shared account cannot be read") from exc
         if not row or row[0] != group_id:
             raise SharedCallError("credential is absent or mapped to a different shared group")
+        if row[1] not in ("AVAILABLE", "COOLDOWN", "DISABLED", "UNKNOWN"):
+            raise SharedCallError("shared account state is invalid; reconciliation is required")
         aliases = self.db.execute("SELECT state,resume_at,reason,calls,runtime_seconds,cost_usd,cost_unknown "
                                   "FROM accounts WHERE group_id=?", (group_id,)).fetchall()
         if any(alias != row[1:] for alias in aliases):

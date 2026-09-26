@@ -14,6 +14,12 @@ from ai_company.translations import segments, protected_literals, REPAIR_PARSER,
 from ai_company.adapters.session_cli import service_alive, stop_service, _read_outcome
 
 HAIKU = 'claude-haiku-4-5-20251001'
+CLI_VERSION = '2.1.270'
+DEFAULT_CLI = '/home/edward/.local/bin/claude'
+CLI_FLAGS = ('--print', '--restricted', '--safe-mode', '--tools', '--disallowedTools',
+    '--strict-mcp-config', '--mcp-config', '--disable-slash-commands', '--no-chrome',
+    '--permission-mode', '--input-format', '--output-format', '--verbose',
+    '--no-session-persistence', '--model', '--effort', '--max-budget-usd', '--settings')
 REASON = 'Luna remains blocked until Codex can enforce an empty tool catalog; explicitly selected lightweight Haiku uses the existing Claude login.'
 PARSER_VERSION = 'translation-json-v2'
 
@@ -21,38 +27,81 @@ PARSER_VERSION = 'translation-json-v2'
 class TranslationCLI:
     reason = 'tool_free_execution_not_verified'
 
-    def __init__(self, runtime_root=None):
+    def __init__(self, runtime_root=None, *, cli_executable=None, cli_sha256=None):
         self.runtime_root = Path(runtime_root).resolve() if runtime_root else None
         self.available = self.runtime_root is not None
-        self._version_ok = None
+        self.cli_executable = (cli_executable if cli_executable is not None else
+                               os.environ.get('AI_COMPANY_TRANSLATION_CLI_PATH', DEFAULT_CLI))
+        self.cli_sha256 = (cli_sha256 if cli_sha256 is not None else
+                           os.environ.get('AI_COMPANY_TRANSLATION_CLI_SHA256'))
+        self._explicit_profile = (cli_executable is not None or cli_sha256 is not None
+                                  or 'AI_COMPANY_TRANSLATION_CLI_PATH' in os.environ
+                                  or 'AI_COMPANY_TRANSLATION_CLI_SHA256' in os.environ)
+        self._verified_cli = None
+        self._checked_cli = None
+
+    @staticmethod
+    def _sha256(path):
+        with path.open('rb') as stream:
+            value = hashlib.sha256()
+            for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                value.update(chunk)
+            return value.hexdigest()
+
+    def readiness(self, config):
+        if not self.available or not isinstance(config, dict) or (
+                config.get('provider'), config.get('model'), config.get('model_version')) != (
+                'claude', HAIKU, CLI_VERSION):
+            return False, self.reason
+        if (self._explicit_profile and (not isinstance(self.cli_executable, str)
+                or not Path(self.cli_executable).is_absolute()
+                or not isinstance(self.cli_sha256, str)
+                or not re.fullmatch(r'[0-9a-f]{64}', self.cli_sha256))):
+            return False, 'translation_cli_unverified'
+        try:
+            path = Path(self.cli_executable).resolve(strict=True)
+            if not path.is_file() or not os.access(path, os.X_OK):
+                return False, 'translation_cli_missing'
+            fingerprint = self._sha256(path)
+            if (self.cli_sha256 and fingerprint != self.cli_sha256
+                    or self._verified_cli and self._verified_cli != (str(path), fingerprint)):
+                return False, 'translation_cli_unverified'
+            if self._checked_cli != (str(path), fingerprint):
+                version = subprocess.run([str(path), '--version'], capture_output=True, text=True, timeout=10)
+                if version.returncode != 0 or version.stdout.strip() != f'{CLI_VERSION} (Claude Code)':
+                    return False, 'translation_cli_unverified'
+                help_result = subprocess.run([str(path), '--help'], capture_output=True, text=True, timeout=10)
+                if help_result.returncode != 0 or any(flag not in help_result.stdout for flag in CLI_FLAGS):
+                    return False, 'translation_cli_options_unverified'
+                self._checked_cli = (str(path), fingerprint)
+            self._verified_cli = (str(path), fingerprint)
+            return True, None
+        except subprocess.TimeoutExpired:
+            return False, 'translation_cli_unverified'
+        except OSError:
+            return False, 'translation_cli_missing'
 
     def ready(self, config):
-        if not self.available or (config['provider'], config['model'], config['model_version']) != ('claude', HAIKU, '2.1.270'):
-            return False
-        if self._version_ok is None:
-            try:
-                output = subprocess.run(['/home/edward/.local/bin/claude', '--version'],
-                    capture_output=True, text=True, timeout=10)
-                self._version_ok = output.returncode == 0 and output.stdout.strip() == '2.1.270 (Claude Code)'
-            except (OSError, subprocess.TimeoutExpired):
-                self._version_ok = False
-        return self._version_ok
+        return self.readiness(config)[0]
 
     def command_spec(self, config, schema_path=None):
         """Exact invocation for review, without starting any process."""
         if config['provider'] == 'codex':
             return dict(argv=[], executable=False, reason=self.reason, tools_verified=False)
-        argv = ['/home/edward/.local/bin/claude', '-p', '--restricted', '--safe-mode', '--tools', '',
+        ready, reason = self.readiness(config)
+        argv = [self._verified_cli[0] if ready else self.cli_executable, '-p', '--restricted', '--safe-mode', '--tools', '',
             '--disallowedTools', '*', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
             '--disable-slash-commands', '--no-chrome', '--permission-mode', 'dontAsk',
             '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose',
             '--no-session-persistence', '--model', HAIKU, '--effort', 'low', '--max-budget-usd', '0.05',
             '--settings', '{"disableAllHooks":true,"fallbackModel":[],"alwaysThinkingEnabled":false,"ultracode":false,"disableWorkflows":true}']
-        return dict(argv=argv, executable=self.available, reason=REASON, timeout_seconds=min(60, config['timeout_seconds']),
+        return dict(argv=argv, executable=ready, reason=reason or REASON,
+            timeout_seconds=min(60, config['timeout_seconds']),
             max_output_bytes=65536, max_attempts=1, max_budget_usd=0.05, stdin_only=True,
             workspace='new_empty_non_git_directory', model_transport='existing_subscription_cli_only',
             tools_verified='enforced_by_cli_flags; runtime_empty_catalog_required_for_success',
-            requested_effort='low', observed_effort=None, candidate_model='gpt-5.6-luna')
+            requested_effort='low', observed_effort=None, candidate_model='gpt-5.6-luna',
+            cli_version=CLI_VERSION, cli_sha256=self._verified_cli[1] if ready else None)
 
     @staticmethod
     def prompt(job):
@@ -167,15 +216,27 @@ class TranslationCLI:
             total_cost_usd=final.get('total_cost_usd'), effective_tools=[])
 
     def execute(self, job, on_start):
-        if not self.available or not self.ready(job['config']):
-            return dict(category='blocked', reason=self.reason, tool_calls=[], observed_configuration=None)
+        ready, reason = self.readiness(job['config'] if self.available else None)
+        if not ready:
+            return dict(category='blocked', reason=reason, tool_calls=[], observed_configuration=None,
+                        execution_not_started=True)
+        spec = self.command_spec(job['config'])
+        if not spec['executable']:
+            return dict(category='blocked', reason=spec['reason'], tool_calls=[], observed_configuration=None,
+                        execution_not_started=True)
+        try:
+            unchanged = self._sha256(Path(spec['argv'][0])) == spec['cli_sha256']
+        except OSError:
+            unchanged = False
+        if not unchanged:
+            return dict(category='blocked', reason='translation_cli_unverified', tool_calls=[],
+                        observed_configuration=None, execution_not_started=True)
         self.runtime_root.mkdir(parents=True, exist_ok=True, mode=0o700)
         directory = Path(tempfile.mkdtemp(prefix='translation-', dir=self.runtime_root))
         cwd = directory / 'cwd'
         cwd.mkdir(mode=0o700)
         unit = 'ai-company-run-' + uuid4().hex + '.service'
         request = 'translation-init-' + uuid4().hex
-        spec = self.command_spec(job['config'])
         # The durable execution identity precedes Popen, including its failure boundary.
         on_start({'systemd_unit': unit, 'evidence_dir': str(directory)})
         env = {'HOME': '/home/edward', 'USER': 'edward', 'LOGNAME': 'edward', 'LANG': 'C.UTF-8',
@@ -244,5 +305,11 @@ class TranslationCLI:
                 outcome=dict(category='code_error',reason='invalid_translation_cli_events')
         outcome['cgroup_stopped']=True
         outcome['evidence_dir']=str(directory)
+        if isinstance(outcome.get('observed_configuration'), dict):
+            outcome['observed_configuration'].update(cli_version=spec['cli_version'],
+                                                      cli_sha256=spec['cli_sha256'])
+        outcome['cli_evidence'] = dict(cli_version=spec['cli_version'], executable_path=spec['argv'][0],
+                                       executable_sha256=spec['cli_sha256'],
+                                       scope='verified_version_help_hash_and_selected_command')
         (directory/'outcome.json').write_text(json.dumps(outcome,ensure_ascii=False,indent=2))
         return outcome
