@@ -16,6 +16,11 @@ DEFAULT_CONFIG = dict(provider='codex', model='gpt-5.6-luna', model_version='0.1
     quota_group=None, credential_ref=None, max_attempts=2, timeout_seconds=60,
     max_total_seconds=120, max_chars=12000, max_output_chars=24000)
 ACTIVE = ('pending', 'waiting_quota', 'waiting_retry')
+RETRYABLE_ADAPTER_REASONS = frozenset(('tool_free_execution_not_verified', 'translation_cli_missing',
+    'translation_cli_unverified', 'translation_cli_options_unverified'))
+RECHECKABLE_BLOCK_REASONS = RETRYABLE_ADAPTER_REASONS | {'shared_credential_unavailable'}
+EXECUTION_FACT_KEYS = ('attempts', 'spent_seconds', 'started_at', 'execution_started',
+    'execution_identity', 'execution_result', 'observed_configuration', 'worker_id', 'shared_reservation_id')
 PART_BOUNDARY = r'(?<=[.!?])(?=\s)|(?<=\n)|(?<=[가-힣]:)(?=\s)'
 
 
@@ -33,6 +38,15 @@ def initialize(db):
 
 def source_digest(document):
     return digest({key: document[key] for key in SOURCE_KEYS})
+
+
+def _restore_unstarted_execution(job):
+    if '_preclaim_execution' not in job:
+        raise ValueError('unstarted execution has no durable prior snapshot')
+    previous = job.pop('_preclaim_execution')
+    for key in EXECUTION_FACT_KEYS:
+        job.pop(key, None)
+    job.update(previous)
 
 
 def configuration(value=None):
@@ -521,6 +535,21 @@ class TranslationStore:
                                    reason='shared_result_requires_local_reconciliation')
                         self._save(job)
                         continue
+                    if reservation['state'] == 'CANCELLED' and not job['execution_started']:
+                        # The shared cancellation may commit just before the
+                        # local finish transaction is interrupted. It proves
+                        # this attempt never crossed the process-start guard.
+                        if (reservation['owner'] != self.queue_id
+                                or '_preclaim_execution' not in job):
+                            job.update(status='blocked', lease_token=None, lease_expires_at=None,
+                                       resume_at=None, reason='unstarted_snapshot_missing_requires_reconciliation')
+                        else:
+                            _restore_unstarted_execution(job)
+                            job.update(status='waiting_retry', resume_at=self.clock(), lease_token=None,
+                                       lease_expires_at=None, reason='worker_interrupted_before_start')
+                            recovered += 1
+                        self._save(job)
+                        continue
                     if reservation['state'] != 'RESERVED' and not job['execution_started']:
                         self.shared_calls.uncertain(reservation_id, self.queue_id,
                             'translation started before local checkpoint')
@@ -541,7 +570,17 @@ class TranslationStore:
                             continue
                         self.shared_calls.cancel_unstarted(reservation_id, self.queue_id,
                             evidence='queue_unclaimed_no_guard_no_process')
-                    job['spent_seconds'] += job['config']['timeout_seconds'] if job['execution_started'] else 0
+                    if not job['execution_started'] and '_preclaim_execution' not in job:
+                        # Pre-migration claims did not preserve their prior
+                        # execution facts. Never invent a restored attempt.
+                        job.update(status='blocked', lease_token=None, lease_expires_at=None,
+                                   resume_at=None, reason='unstarted_snapshot_missing_requires_reconciliation')
+                        self._save(job)
+                        continue
+                    if job['execution_started']:
+                        job['spent_seconds'] += job['config']['timeout_seconds']
+                    elif '_preclaim_execution' in job:
+                        _restore_unstarted_execution(job)
                     job.update(status='waiting_retry', resume_at=self.clock(), lease_token=None,
                                reason='worker_interrupted_after_confirmed_termination')
                     recovered += 1
@@ -559,26 +598,32 @@ class TranslationStore:
             for config in configs:
                 key = digest(config)
                 if key not in prepared_ready:
-                    prepared_ready[key] = adapter_ready(copy.deepcopy(config)) is True
+                    probe = adapter_ready(copy.deepcopy(config))
+                    prepared_ready[key] = probe if isinstance(probe, tuple) else (
+                        probe is True, 'tool_free_execution_not_verified')
         with self.db:
             self.db.execute('BEGIN IMMEDIATE')
             jobs = [json.loads(r[0]) for r in self.db.execute('SELECT document FROM translation_jobs ORDER BY rowid')]
             if any(j['status'] == 'running' for j in jobs):
                 return None
             for job in jobs:
-                ready = prepared_ready.get(digest(job['config']), False) if callable(adapter_ready) else adapter_ready
+                ready, adapter_reason = (prepared_ready.get(digest(job['config']),
+                    (False, 'tool_free_execution_not_verified')) if callable(adapter_ready) else
+                    (adapter_ready, 'tool_free_execution_not_verified'))
                 eligible = job['status'] in ACTIVE or (ready and job['status'] == 'blocked'
-                    and job['reason'] == 'tool_free_execution_not_verified')
+                    and job['reason'] in RECHECKABLE_BLOCK_REASONS)
                 if not eligible or (job['resume_at'] is not None and job['resume_at'] > self.clock()):
                     continue
                 config = job['config']
                 if job['attempts'] >= config['max_attempts'] or job['spent_seconds'] + config['timeout_seconds'] > config['max_total_seconds']:
                     job.update(status='failed', reason='translation_budget_exhausted')
                 elif not ready:
-                    job.update(status='blocked', reason='tool_free_execution_not_verified')
+                    job.update(status='blocked', reason=adapter_reason if adapter_reason in RETRYABLE_ADAPTER_REASONS
+                               else 'tool_free_execution_not_verified')
                 elif (quota := self._quota(config)):
                     job.update(status=quota[0], resume_at=quota[1], reason=quota[2])
                 else:
+                    previous = {key: copy.deepcopy(job[key]) for key in EXECUTION_FACT_KEYS if key in job}
                     if self.shared_calls:
                         reservation_id = digest([self.queue_id, job['id'], job['attempts'] + 1])
                         try:
@@ -590,10 +635,10 @@ class TranslationStore:
                             self._save(job)
                             continue
                         job['shared_reservation_id'] = reservation_id
+                    job['_preclaim_execution'] = previous
                     job.update(status='running', lease_token=uuid4().hex, worker_id=worker_id,
-                        lease_expires_at=self.clock()+config['timeout_seconds']+30, started_at=self.clock(),
-                        execution_started=False, execution_identity=None, reason=None, resume_at=None)
-                    job['observed_configuration'] = None
+                        lease_expires_at=self.clock()+config['timeout_seconds']+30, execution_started=False,
+                        started_at=self.clock(), reason=None, resume_at=None)
                     job['attempts'] += 1
                     self._save(job)
                     return copy.deepcopy(job)
@@ -610,7 +655,11 @@ class TranslationStore:
                 self.shared_calls.started(job['shared_reservation_id'], self.queue_id,
                     execution_identity or {'kind': 'executor_invocation', 'job_id': job_id,
                                            'attempt': job['attempts']})
+            previous = job.pop('_preclaim_execution', {})
+            if previous.get('execution_result'):
+                job.setdefault('execution_history', []).append(previous)
             job.update(execution_started=True, execution_identity=copy.deepcopy(execution_identity))
+            job['observed_configuration'] = None
             self._save(job)
             return True
 
@@ -640,17 +689,29 @@ class TranslationStore:
                     self.shared_calls.cancel_unstarted(reservation_id, self.queue_id,
                         evidence='queue_unclaimed_no_guard_no_process')
             elapsed = max(0, self.clock()-job['started_at'])
-            job['spent_seconds'] += elapsed
+            unstarted_cli_block = (job['execution_started'] is False
+                and result.get('execution_not_started') is True
+                and result.get('category') == 'blocked'
+                and result.get('reason') in RETRYABLE_ADAPTER_REASONS)
+            if unstarted_cli_block:
+                _restore_unstarted_execution(job)
+            else:
+                job.pop('_preclaim_execution', None)
+                job['spent_seconds'] += elapsed
             category = result.get('category')
-            job['execution_result'] = {key: copy.deepcopy(result[key]) for key in
-                ('category', 'reason', 'session_id', 'cgroup_stopped', 'evidence_dir', 'total_cost_usd',
-                 'effective_tools', 'requested_configuration', 'substitution_reason') if key in result}
-            if result.get('reprocessing'):
-                job['execution_result']['reprocessing'] = copy.deepcopy(result['reprocessing'])
-            if isinstance(result.get('observed_configuration'), dict):
-                job['observed_configuration'] = {key: copy.deepcopy(result['observed_configuration'][key]) for key in
-                    ('provider', 'model', 'reasoning_effort', 'source', 'scope', 'status', 'backend_model_verified')
-                    if key in result['observed_configuration']}
+            if not unstarted_cli_block:
+                if not job['execution_started']:
+                    job['observed_configuration'] = None
+                job['execution_result'] = {key: copy.deepcopy(result[key]) for key in
+                    ('category', 'reason', 'session_id', 'cgroup_stopped', 'evidence_dir', 'total_cost_usd',
+                     'effective_tools', 'requested_configuration', 'substitution_reason', 'cli_evidence') if key in result}
+                if result.get('reprocessing'):
+                    job['execution_result']['reprocessing'] = copy.deepcopy(result['reprocessing'])
+                if isinstance(result.get('observed_configuration'), dict):
+                    job['observed_configuration'] = {key: copy.deepcopy(result['observed_configuration'][key]) for key in
+                        ('provider', 'model', 'reasoning_effort', 'source', 'scope', 'status', 'backend_model_verified',
+                         'cli_version', 'cli_sha256')
+                        if key in result['observed_configuration']}
             job.update(lease_token=None, lease_expires_at=None, resume_at=None)
             if category == 'success':
                 try:
@@ -661,7 +722,8 @@ class TranslationStore:
                     if observed is not None:
                         if not isinstance(observed, dict):
                             raise ValueError('invalid observed configuration')
-                        observed = {k: observed[k] for k in ('provider', 'model', 'reasoning_effort', 'source', 'scope', 'status', 'backend_model_verified') if k in observed}
+                        observed = {k: observed[k] for k in ('provider', 'model', 'reasoning_effort', 'source', 'scope', 'status',
+                                                            'backend_model_verified', 'cli_version', 'cli_sha256') if k in observed}
                     job.update(status='completed', reason=None, observed_configuration=observed)
                 except (ValueError, TypeError) as exc:
                     job.update(status='failed', reason=str(exc))

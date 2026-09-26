@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import sqlite3
 import tempfile
 import unittest
@@ -164,7 +165,15 @@ class TranslationTests(unittest.TestCase):
         from ai_company.translations import configuration
         cfg=configuration(dict(provider='claude',model='claude-haiku-4-5-20251001',
             model_version='2.1.270',max_attempts=1,quota_group='shared',credential_ref='existing-login'))
-        adapter=TranslationCLI(Path(self.tmp.name)/'runtime');adapter._version_ok=True
+        cli=Path(self.tmp.name)/'verified-claude'
+        from ai_company.adapters.translation_cli import CLI_FLAGS
+        cli.write_text('#!'+sys.executable+'\nimport sys\n'
+            'if "--version" in sys.argv: print("2.1.270 (Claude Code)")\n'
+            'elif "--help" in sys.argv: print('+repr(' '.join(CLI_FLAGS))+')\n')
+        cli.chmod(0o700)
+        adapter=TranslationCLI(Path(self.tmp.name)/'runtime', cli_executable=str(cli),
+            cli_sha256=hashlib.sha256(cli.read_bytes()).hexdigest())
+        self.assertTrue(adapter.ready(cfg))
         identities=[];captured=[]
         original_popen=subprocess.Popen
         def fake_popen(argv,**kwargs):

@@ -10,31 +10,42 @@ from ai_company.adapters.translation_cli import TranslationCLI
 from ai_company.translations import TranslationStore, initialize
 
 
-def run_once(store, adapter=None, *, execution_alive=None):
+def run_once(store, adapter=None, *, execution_alive=None, adapter_readiness=None):
     if os.environ.get('AI_COMPANY_REQUIRE_SHARED_CALLS') == '1' and store.shared_calls is None:
         raise RuntimeError('translation worker requires the reviewed shared account reservation')
     adapter = adapter or TranslationCLI()
     # Readiness is provided by the trusted adapter implementation, never HTTP or model output.
-    readiness = adapter.ready if adapter.available else False
+    readiness = adapter_readiness or (getattr(adapter, 'readiness', adapter.ready) if adapter.available else False)
     probe = execution_alive or getattr(adapter, 'execution_alive', None)
     job = store.claim(uuid4().hex, adapter_ready=readiness, execution_alive=probe)
     if job is None:
         return None
-    if not adapter.ready(job['config']):
-        store.finish(job['id'], job['lease_token'], {'category': 'blocked', 'reason': 'tool_free_execution_not_verified'})
+    verdict = readiness(job['config']) if callable(readiness) else readiness
+    ready, reason = verdict if isinstance(verdict, tuple) else (verdict, None)
+    if ready is not True:
+        store.finish(job['id'], job['lease_token'], {'category': 'blocked',
+            'reason': reason or 'tool_free_execution_not_verified', 'execution_not_started': True})
         return store._public(store._get(job['id']))
+    started = False
     def on_start(identity):
+        nonlocal started
         if not store.started(job['id'], job['lease_token'], identity):
             raise RuntimeError('translation lease was superseded before execution')
+        started = True
     try:
-        # Persist the uncertainty boundary before handing control to any adapter.
-        on_start(None)
         outcome = adapter.execute(job, on_start)
     except Exception:
         # An adapter exception cannot prove child termination. Keep the lease and
         # require the adapter's recovery probe before another model invocation.
+        if not started:
+            on_start(None)
         return {'id': job['id'], 'status': 'running', 'reason': 'adapter_termination_unconfirmed'}
-    store.finish(job['id'], job['lease_token'], outcome)
+    if not started and not (isinstance(outcome, dict) and outcome.get('category') == 'blocked'
+                            and outcome.get('execution_not_started') is True):
+        on_start(None)
+        return {'id': job['id'], 'status': 'running', 'reason': 'adapter_termination_unconfirmed'}
+    if not store.finish(job['id'], job['lease_token'], outcome):
+        return {'id': job['id'], 'status': 'running', 'reason': 'adapter_termination_unconfirmed'}
     return store._public(store._get(job['id']))
 
 
