@@ -72,6 +72,106 @@ class PMEValRunnerTests(unittest.TestCase):
         self.assertEqual(reviews['count'], 2)
         self.assertEqual(result['development_runs'], 0)
 
+    def test_second_repair_quota_resumes_same_job_in_real_automation(self):
+        from ai_company.adapters.session_cli import SessionOutcome
+        from ai_company.automation import Automation
+        from ai_company.dispatcher import Dispatcher
+        from tests import test_automation as fixture
+
+        harness = fixture.CoordinatorTests()
+        harness.setUp()
+        self.addCleanup(harness.doCleanups)
+        root = harness.root / 'evaluation'
+        root.mkdir()
+        (root / 'cases.json').write_text(json.dumps({'common_project_goal': '두 결과를 검증합니다.'}))
+        ledger_path = harness.root / 'shared.db'
+        ledger = SharedCallLedger.initialize(ledger_path, [
+            (provider, provider, provider, 'AVAILABLE', None, None, 0, 0, 0, 0)
+            for provider in ('codex', 'claude')], clock=lambda: harness.now)
+        ledger.close()
+        original = harness.execute
+        reviews = {'count': 0}
+        second_sessions = []
+
+        def quota_on_second(agent, state, provider, worktree, prompt, session_id, **kwargs):
+            scope = state['specification']['execution_scope']
+            context = state['specification']['plan']
+            if scope == 'planning' and context.get('auto_revision_attempt') == 2:
+                second_sessions.append(session_id)
+                if len(second_sessions) == 1:
+                    return SessionOutcome('quota', session_id='fixture-second-session',
+                        reset_at=harness.now + 30,
+                        result={'duration_seconds': 1, 'total_cost_usd': 0.01})
+            outcome = original(agent, state, provider, worktree, prompt, session_id, **kwargs)
+            report = outcome.result['structured_output']
+            if scope == 'plan_review':
+                reviews['count'] += 1
+                if reviews['count'] <= 2:
+                    report.update(verdict='REVISE', revision_route='technical', findings=[{
+                        'finding_id': 'F-' + str(reviews['count']),
+                        'detail': '검증 방법을 구체화하세요.',
+                        'evidence': 'requirements_review.requirements[0].verification'}])
+            elif scope == 'planning' and context.get('source_plan_id'):
+                report['plan']['requirements_review']['requirements'][0]['verification'] = (
+                    '빈 값과 모든 분류를 독립 검사합니다. 수정 ' + str(context['auto_revision_attempt']))
+            return outcome
+
+        def factory(case_root, config, *, shared_calls):
+            return Automation(case_root, config, clock=lambda: harness.now, shared_calls=shared_calls,
+                dispatcher_factory=lambda path, **kwargs: Dispatcher(path, verifier=harness,
+                    executor=quota_on_second, **kwargs))
+
+        with patch.object(EVALUATION, 'Automation', side_effect=factory), \
+             patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget), \
+             patch.object(EVALUATION.time, 'time', side_effect=lambda: harness.now), \
+             patch.object(EVALUATION.time, 'sleep'):
+            waiting = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': '계획을 검토합니다.'},
+                                          harness.config, ledger_path)
+            self.assertEqual(waiting['state'], 'provider_wait', waiting)
+            case_root = root / 'E1'
+            worker = factory(case_root, harness.config, shared_calls=ledger_path)
+            try:
+                repairs = [task for task in worker.dispatcher.tasks()
+                           if task['task_id'].startswith('pm-revise-')]
+                self.assertEqual(len(repairs), 2)
+                second = next(task for task in repairs
+                              if task['specification']['plan']['auto_revision_attempt'] == 2)
+                job_before = worker.dispatcher.queue.get(second['active']['job_id'])
+                self.assertEqual(job_before['status'], 'WAITING_QUOTA')
+                self.assertEqual(job_before['attempt_count'], 1)
+                self.assertEqual(EVALUATION.global_usage(root, ledger_path)[1], 2)
+                # Crash after shared settlement, before the task's local usage commit.
+                interrupted = json.loads(json.dumps(second))
+                interrupted['usage']['executions'] = 0
+                interrupted['active'].update(accounted_attempts=0, session_id=None,
+                                             waiting_observed_attempts=0)
+                interrupted['status'] = 'READY'
+                with worker.dispatcher.db:
+                    worker.dispatcher.db.execute('UPDATE flow_tasks SET document=? WHERE task_id=?',
+                        (json.dumps(interrupted), second['task_id']))
+                self.assertEqual(EVALUATION.global_usage(root, ledger_path)[1], 2)
+            finally:
+                worker.close()
+            harness.now = max(waiting['resume_at'], job_before['resume_at']) + 1
+            resumed = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': '계획을 검토합니다.'},
+                                          harness.config, ledger_path)
+        self.assertEqual(resumed['state'], 'plan_ready', resumed)
+        self.assertEqual(reviews['count'], 3)
+        self.assertEqual(second_sessions, [None, 'fixture-second-session'])
+        self.assertEqual(resumed['development_runs'], 0)
+        worker = factory(root / 'E1', harness.config, shared_calls=ledger_path)
+        try:
+            tasks = [task for task in worker.dispatcher.tasks() if task['task_id'].startswith('pm-revise-')]
+            self.assertEqual(len(tasks), 2)
+            latest = next(task for task in tasks if task['task_id'] == second['task_id'])
+            job_after = worker.dispatcher.queue.get(latest['executions'][-1]['job_id'])
+            self.assertEqual(job_after['job_id'], job_before['job_id'])
+            self.assertEqual(job_after['session_id'], job_before['session_id'])
+            self.assertEqual(job_after['attempt_count'], 2)
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path)[1], 2)
+        finally:
+            worker.close()
+
     def test_idle_quota_wait_does_not_consume_runtime_budget(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -244,6 +344,140 @@ class PMEValRunnerTests(unittest.TestCase):
                                                      config, root / 'unused.db')
                 self.assertEqual(exhausted['state'], 'budget_wait')
                 worker.run_once.assert_not_called()
+
+    def test_started_second_repair_resumes_after_quota_without_permitting_third(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / 'trial'
+            case_root = root / 'E1'
+            session_db = case_root / 'sessions' / 'sessions.sqlite'
+            session_db.parent.mkdir(parents=True)
+            (root / 'cases.json').write_text(json.dumps({'common_project_goal': 'fixture'}))
+            ledger_path = Path(temporary) / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            source = {'id': 'source', 'request_id': 'request', 'project_id': 'project',
+                      'request_revision': 1, 'goal_digest': 'goal', 'status': 'needs_revision',
+                      'revision_action': 'automatic', 'auto_revision_attempt': 1}
+            second_id = 'pm-revise-' + digest([source['id'], 2])[:48]
+            job_id = 'second-job'
+            session_id = 'fixture-session'
+            db = sqlite3.connect(session_db)
+            db.execute('CREATE TABLE flow_tasks(task_id TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            db.execute('CREATE TABLE session_jobs(job_id TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            task = {'task_id': second_id, 'status': 'WAITING_PM', 'resume_at': 0,
+                    'usage': {'executions': 1, 'repairs': 0}, 'executions': [],
+                    'active': {'job_id': job_id, 'session_id': session_id, 'accounted_attempts': 1},
+                    'specification': {'execution_scope': 'planning', 'plan': {
+                        'source_plan_id': source['id'], 'auto_revision_attempt': 2,
+                        'project_id': source['project_id'], 'request_revision': 1,
+                        'goal_digest': source['goal_digest']}}}
+            job = {'job_id': job_id, 'task_id': second_id, 'status': 'WAITING_QUOTA',
+                   'session_id': session_id, 'attempt_count': 1, 'last_category': 'quota',
+                   'resume_at': 0}
+            db.execute('INSERT INTO flow_tasks VALUES (?,?)', (second_id, json.dumps(task)))
+            db.execute('INSERT INTO session_jobs VALUES (?,?)', (job_id, json.dumps(job)))
+            db.commit()
+            first_owner = str(case_root)
+            first_id = digest([first_owner, 'first-job', 1])
+            ledger.reserve(first_id, first_owner, 'codex', 'fixture', 'group')
+            ledger.started(first_id, first_owner, {'kind': 'fixture'})
+            ledger.settle(first_id, first_owner, 'first-result', {'category': 'success',
+                'duration_seconds': 1, 'total_cost_usd': 0}, terminated=True)
+            reservation_id = digest([str(case_root), job_id, 1])
+            ledger.reserve(reservation_id, str(case_root), 'codex', 'fixture', 'group')
+            ledger.started(reservation_id, str(case_root), {'kind': 'fixture'})
+            ledger.settle(reservation_id, str(case_root), 'quota-result', {'category': 'quota',
+                'duration_seconds': 1, 'total_cost_usd': 0, 'reset_at': 1}, terminated=True)
+            ledger.close()
+            # The first completed repair also has a durable task and job fact.
+            first_task = {'task_id': 'pm-revise-first', 'usage': {'executions': 1, 'repairs': 0},
+                          'executions': [{'job_id': 'first-job'}], 'active': None}
+            db.execute('INSERT INTO flow_tasks VALUES (?,?)',
+                       (first_task['task_id'], json.dumps(first_task)))
+            db.execute('INSERT INTO session_jobs VALUES (?,?)', ('first-job',
+                       json.dumps({'job_id': 'first-job', 'attempt_count': 1})))
+            db.commit(); db.close()
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path), (2, 2))
+
+            store = Mock()
+            store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E1'}]
+            automatic = {'pm_requests': [{'request_id': 'request', 'state': 'completed'}],
+                         'plans': [source], 'runs': []}
+            proposed = {'pm_requests': automatic['pm_requests'], 'plans': [source,
+                        {'request_id': 'request', 'status': 'proposed'}], 'runs': []}
+            store.overview.side_effect = [automatic, proposed]
+            worker = Mock(store=store)
+            worker.dispatcher.tasks.return_value = [task]
+            worker.dispatcher.queue.get.return_value = job
+            config = SimpleNamespace(pm_timeout_seconds=30, poll_seconds=1,
+                                     policy=SimpleNamespace(retry=SimpleNamespace(execution_timeout_seconds=60)))
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget), \
+                 patch.object(EVALUATION.time, 'sleep'):
+                result = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'},
+                                             config, ledger_path)
+            self.assertEqual(result['state'], 'plan_ready')
+            worker.run_once.assert_called_once()
+
+            worker.run_once.reset_mock()
+            store.overview.side_effect = None
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget):
+                def state_for(plan):
+                    store.overview.return_value = {'pm_requests': automatic['pm_requests'],
+                                                   'plans': [plan], 'runs': []}
+                    return EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'},
+                                               config, ledger_path)
+
+                third = state_for({**source, 'auto_revision_attempt': 2})
+                self.assertEqual(third['state'], 'budget_wait')
+                worker.dispatcher.tasks.return_value = [{**task, 'resume_at': time.time() + 3600}]
+                self.assertEqual(state_for(source)['state'], 'provider_wait')
+                worker.dispatcher.tasks.return_value = [task]
+
+                altered = json.loads(json.dumps(task))
+                altered['specification']['plan']['source_plan_id'] = 'another-plan'
+                db = sqlite3.connect(session_db)
+                db.execute('UPDATE flow_tasks SET document=? WHERE task_id=?',
+                           (json.dumps(altered), second_id))
+                db.commit(); db.close()
+                self.assertEqual(state_for(source)['state'], 'budget_wait')
+                db = sqlite3.connect(session_db)
+                db.execute('UPDATE flow_tasks SET document=? WHERE task_id=?',
+                           (json.dumps(task), second_id))
+                db.commit(); db.close()
+
+                db = sqlite3.connect(session_db)
+                db.execute('UPDATE session_jobs SET document=? WHERE job_id=?',
+                           (json.dumps({**job, 'session_id': 'another-session'}), job_id))
+                db.commit(); db.close()
+                self.assertEqual(state_for(source)['state'], 'budget_wait')
+                db = sqlite3.connect(session_db)
+                db.execute('UPDATE session_jobs SET document=? WHERE job_id=?',
+                           (json.dumps(job), job_id))
+                db.commit(); db.close()
+
+                db = sqlite3.connect(session_db)
+                db.execute('UPDATE session_jobs SET document=? WHERE job_id=?',
+                           (json.dumps({**job, 'status': 'WAITING_RETRY'}), job_id))
+                db.commit(); db.close()
+                self.assertEqual(state_for(source)['state'], 'budget_wait')
+                db = sqlite3.connect(session_db)
+                db.execute('UPDATE session_jobs SET document=? WHERE job_id=?',
+                           (json.dumps(job), job_id))
+                db.commit(); db.close()
+
+                with patch.object(EVALUATION, 'global_usage', return_value=(24, 2)):
+                    self.assertEqual(state_for(source)['state'], 'budget_wait')
+                with patch.object(EVALUATION, 'execution_usage', return_value=(1800, 0)):
+                    self.assertEqual(state_for(source)['state'], 'budget_wait')
+                ledger = SharedCallLedger(ledger_path)
+                ledger.db.execute("UPDATE reservations SET state='UNKNOWN' WHERE reservation_id=?",
+                                  (reservation_id,))
+                ledger.close()
+                self.assertEqual(state_for(source)['state'], 'reconciliation_wait')
+            worker.run_once.assert_not_called()
 
     def test_planning_uses_actual_shorter_timeout_before_global_budget_wait(self):
         with tempfile.TemporaryDirectory() as temporary:

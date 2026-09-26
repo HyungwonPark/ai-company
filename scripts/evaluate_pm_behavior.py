@@ -170,8 +170,8 @@ def global_usage(root, shared_path):
         for path in root.glob('E*/sessions/sessions.sqlite'):
             db = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
             try:
-                row = db.execute("SELECT sum(json_extract(document,'$.usage.repairs')) FROM flow_tasks").fetchone()
-                repairs += row[0] or 0
+                # A plan-review REVISE also increments flow usage.repairs; only
+                # a started pm-revise task spends this evaluation's PM repair cap.
                 for (document,) in db.execute("SELECT document FROM flow_tasks WHERE task_id LIKE 'pm-revise-%'"):
                     task = json.loads(document)
                     executions = [*task.get('executions', []), task.get('active') or {}]
@@ -194,6 +194,63 @@ def global_usage(root, shared_path):
             finally:
                 db.close()
         return calls, repairs
+    finally:
+        ledger.close()
+
+
+def resumable_second_repair(case_root, shared_path, plan):
+    """Prove that the current plan's second repair already spent its one repair slot."""
+    if plan.get('auto_revision_attempt') != MAX_REPAIRS - 1:
+        return False
+    task_id = 'pm-revise-' + digest([plan['id'], MAX_REPAIRS])[:48]
+    path = case_root / 'sessions' / 'sessions.sqlite'
+    try:
+        db = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
+        try:
+            row = db.execute('SELECT document FROM flow_tasks WHERE task_id=?', (task_id,)).fetchone()
+            if not row:
+                return False
+            task = json.loads(row[0])
+            binding = task.get('specification', {}).get('plan', {})
+            if (task.get('task_id') != task_id or task.get('status') not in
+                    ('WAITING_PM', 'WAITING_CAPACITY', 'READY', 'RUNNING')
+                    or task['specification'].get('execution_scope') != 'planning'
+                    or binding.get('source_plan_id') != plan['id']
+                    or binding.get('auto_revision_attempt') != MAX_REPAIRS
+                    or any(key not in plan or binding.get(key) != plan[key]
+                           for key in ('project_id', 'request_revision', 'goal_digest'))):
+                return False
+            active = task.get('active') or {}
+            row = db.execute('SELECT document FROM session_jobs WHERE job_id=?',
+                             (active.get('job_id'),)).fetchone()
+            if not row:
+                return False
+            job = json.loads(row[0])
+            waiting_categories = {'WAITING_QUOTA': ('quota', 'rate_limit'),
+                                  'WAITING_RETRY': ('transient_network',)}
+            accounted = active.get('accounted_attempts', 0)
+            if (job.get('job_id') != active.get('job_id') or job.get('task_id') != task_id
+                    or job.get('last_category') not in waiting_categories.get(job.get('status'), ())
+                    or not job.get('session_id') or active.get('session_id') not in (None, job['session_id'])
+                    or job.get('attempt_count', 0) < 1 or not isinstance(accounted, int)
+                    or accounted < 0 or accounted > job['attempt_count']
+                    or (accounted == job['attempt_count'] and task.get('usage', {}).get('executions', 0) < 1)
+                    or (accounted < job['attempt_count'] and
+                        active.get('waiting_observed_attempts', 0) >= job['attempt_count'])):
+                return False
+        finally:
+            db.close()
+    except (sqlite3.Error, KeyError, TypeError, ValueError):
+        return False
+    ledger = SharedCallLedger(shared_path)
+    try:
+        fact = ledger.reservation(digest([str(case_root.resolve()), job['job_id'], job['attempt_count']]))
+        try:
+            return bool(fact and fact['owner'] == str(case_root.resolve())
+                and fact['state'] == 'SETTLED' and fact['process_identity'] and fact['event_id']
+                and json.loads(fact['result'])['category'] == job['last_category'])
+        except (KeyError, TypeError, ValueError):
+            return False
     finally:
         ledger.close()
 
@@ -332,7 +389,10 @@ def run_case(root, case, config, shared_path, _legacy_deadline=None):
                 effective.policy.retry.execution_timeout_seconds)
             next_timeout = min(timeout, MAX_SECONDS - seconds,
                                effective.policy.max_runtime_seconds - case_seconds)
-            if calls >= MAX_CALLS or needs_repair and repairs >= MAX_REPAIRS or next_timeout <= 0:
+            repair_exhausted = needs_repair and repairs >= MAX_REPAIRS
+            if repair_exhausted and repairs == MAX_REPAIRS:
+                repair_exhausted = not resumable_second_repair(case_root, shared_path, current)
+            if calls >= MAX_CALLS or repair_exhausted or next_timeout <= 0:
                 return {'case': case['id'], 'state': 'budget_wait', **evidence, 'calls': calls,
                         'repairs': repairs, 'reserved_seconds': seconds,
                         'next_call_timeout_seconds': max(0, next_timeout)}
