@@ -386,6 +386,36 @@ class QuotaCheckpointTests(unittest.TestCase):
             (attempt / 'checkpoint.json').write_text(json.dumps(forged))
             self.assertEqual(tick.inspect(manifest, review, ledger, now=200)['state'], 'NEEDS_RECONCILIATION')
             review.replace_private(attempt / 'checkpoint.json', checkpoint)
+            # Current-format attempt: the immutable interpretation and
+            # checkpoint were written before evidence-based settlement.
+            old_interpretation = (attempt / 'interpretation.json').read_text()
+            current_checkpoint = review.checkpoint_from_events(rows, binding=binding,
+                base=receipt['base'], files=['a.py'], reservation_id='r',
+                events_sha256=receipt['events_sha256'], repo=root)
+            review.replace_private(attempt / 'checkpoint.json', current_checkpoint)
+            current_receipt = {**receipt, 'shared_settlement_event': None,
+                'checkpoint_sha256': hashlib.sha256((attempt / 'checkpoint.json').read_bytes()).hexdigest()}
+            (attempt / 'receipt.json').write_text(json.dumps(current_receipt))
+            (attempt / 'interpretation.json').write_text(json.dumps({
+                'events_sha256': receipt['events_sha256'],
+                'checkpoint_sha256': current_receipt['checkpoint_sha256'],
+                'reservation_id': 'r', 'settlement_event': None}))
+            original_bytes = {name: (attempt / name).read_bytes() for name in
+                ('receipt.json', 'interpretation.json', 'checkpoint.json', 'events.jsonl')}
+            current_sidecar = {'source_receipt_sha256': hashlib.sha256(
+                original_bytes['receipt.json']).hexdigest(),
+                'source_events_sha256': receipt['events_sha256'],
+                'shared_reservation_id': 'r', 'shared_settlement_event': event_id,
+                'category': 'quota', 'reset_at': 200}
+            self.assertEqual(tick.inspect(manifest, review, ledger, now=200)['state'],
+                             'NEEDS_RECONCILIATION')
+            (attempt / 'reconciliation.json').write_text(json.dumps(current_sidecar))
+            self.assertEqual(tick.inspect(manifest, review, ledger, now=200)['state'], 'READY')
+            self.assertEqual({name: (attempt / name).read_bytes() for name in original_bytes}, original_bytes)
+            (attempt / 'reconciliation.json').unlink()
+            (attempt / 'receipt.json').write_text(json.dumps(receipt))
+            (attempt / 'interpretation.json').write_text(old_interpretation)
+            review.replace_private(attempt / 'checkpoint.json', checkpoint)
             unreconciled = {**receipt, 'shared_settlement_event': None}
             unreconciled.pop('events_sha256')
             unreconciled.pop('checkpoint_sha256')

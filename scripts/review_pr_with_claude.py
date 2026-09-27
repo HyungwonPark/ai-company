@@ -536,9 +536,10 @@ def effective_receipt(directory):
     """Bind a later reviewed settlement without rewriting the failed receipt."""
     raw = (directory / 'receipt.json').read_bytes()
     receipt = json.loads(raw)
+    source_event = receipt.get('shared_settlement_event')
     sidecar = directory / 'reconciliation.json'
     if not sidecar.exists():
-        return receipt
+        return {**receipt, 'source_settlement_event': source_event}
     if receipt.get('shared_settlement_event') is not None:
         raise ValueError('settlement sidecar conflicts with original receipt')
     recovery = json.loads(sidecar.read_text())
@@ -554,7 +555,8 @@ def effective_receipt(directory):
             or not isinstance(recovery['reset_at'], (int, float))
             or not math.isfinite(recovery['reset_at']) or recovery['reset_at'] <= 0):
         raise ValueError('settlement sidecar is not bound to immutable evidence')
-    return {**receipt, 'shared_settlement_event': recovery['shared_settlement_event'],
+    return {**receipt, 'source_settlement_event': source_event,
+            'shared_settlement_event': recovery['shared_settlement_event'],
             'reconciled_reset_at': recovery['reset_at']}
 
 
@@ -588,7 +590,7 @@ def quota_resume_verified(directory, *, pr_number, pr_url, head, base, diff_sha2
             if (normalized.get('events_sha256') != event_sha
                     or normalized.get('checkpoint_sha256') != receipt['checkpoint_sha256']
                     or normalized.get('reservation_id') != receipt.get('shared_reservation_id')
-                    or normalized.get('settlement_event') != receipt.get('shared_settlement_event')):
+                    or normalized.get('settlement_event') != receipt.get('source_settlement_event')):
                 return False
         events = [json.loads(line) for line in event_bytes.splitlines()]
         if (receipt.get('pr') != pr_number or receipt.get('url') != pr_url

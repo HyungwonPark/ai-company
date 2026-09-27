@@ -16,7 +16,8 @@ from tests.test_claude_quota_checkpoint import review, tick
 
 class QuotaIntegrationTests(unittest.TestCase):
     def scenario(self, outcomes, *, capacity_race=False, changed_target=False,
-                 archive_crash=False, orphan_reservation=False, stale_mtime=False):
+                 archive_crash=False, orphan_reservation=False, stale_mtime=False,
+                 post_settlement=False):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             repo = root / 'repo'
@@ -101,7 +102,35 @@ class QuotaIntegrationTests(unittest.TestCase):
                     terminal.update(subtype='success', terminal_reason='completed',
                         stop_reason='end_turn', result=(f'판정: {verdict}\n대상 HEAD: {head}\n'
                         f'패치 SHA-256: {diff_sha}\n검토 범위: a.py, b.py\n미검토: 없음'))
-                events += [terminal, {'type': 'control_response', 'response': {
+                if post_settlement and index == 0:
+                    # Stored manual attempt: primary completed, Workflow hit
+                    # quota, but the old interpreter left this reservation UNKNOWN.
+                    primary = {**terminal, 'uuid': 'primary', 'result_index': 0,
+                        'is_error': False, 'subtype': 'success', 'stop_reason': 'end_turn',
+                        'terminal_reason': 'completed', 'total_cost_usd': 1,
+                        'modelUsage': {review.MODEL: {
+                            'inputTokens': 1, 'outputTokens': 1, 'cacheReadInputTokens': 1,
+                            'cacheCreationInputTokens': 1, 'thinkingTokens': 1, 'costUSD': 1}}}
+                    primary.pop('api_error_status')
+                    final = {**terminal, 'uuid': 'final', 'result_index': 1,
+                        'origin': {'kind': 'task-notification'}, 'total_cost_usd': 2,
+                        'modelUsage': {review.MODEL: {
+                            'inputTokens': 2, 'outputTokens': 2, 'cacheReadInputTokens': 2,
+                            'cacheCreationInputTokens': 2, 'thinkingTokens': 2, 'costUSD': 2}}}
+                    events += [
+                        {'type': 'system', 'subtype': 'task_started', 'task_id': 'workflow-1'},
+                        primary,
+                        {'type': 'system', 'subtype': 'background_tasks_changed', 'tasks': []},
+                        {'type': 'system', 'subtype': 'task_notification',
+                         'task_id': 'workflow-1', 'status': 'completed'},
+                        {'type': 'rate_limit_event', 'rate_limit_info': {
+                            'status': 'rejected', 'resetsAt': now - 1}},
+                        {'type': 'assistant', 'is_api_error_message': True,
+                         'error': 'rate_limit', 'message': {'model': '<synthetic>'}},
+                        final]
+                else:
+                    events.append(terminal)
+                events += [{'type': 'control_response', 'response': {
                     'request_id': binding['nonce'] + '-after', 'response': settings}}]
                 stream = ''.join(json.dumps(event) + '\n' for event in events)
                 (directory / 'events.jsonl').write_text(stream)
@@ -125,12 +154,84 @@ class QuotaIntegrationTests(unittest.TestCase):
                                side_effect=lambda *_: (remote['patch'], remote['base'], remote['base'])),
                   patch.object(review, 'invoke', side_effect=invoke),
                   patch.object(Path, 'home', return_value=root)):
-                with patch.object(sys, 'argv', initial), contextlib.redirect_stdout(io.StringIO()):
+                with patch.object(sys, 'argv', initial), contextlib.redirect_stdout(io.StringIO()), \
+                     (patch.object(review, 'terminal_children_stopped', return_value=False)
+                      if post_settlement else contextlib.nullcontext()):
                     self.assertEqual(review.main(), 1)
                 ledger = review.SharedCallLedger(ledger_path)
                 try:
+                    preserved = None
+                    if post_settlement:
+                        receipt = json.loads((attempt / 'receipt.json').read_text())
+                        reservation = receipt['shared_reservation_id']
+                        self.assertEqual(ledger.reservation(reservation)['state'], 'UNKNOWN')
+                        self.assertEqual(ledger.account('claude', 'review', 'group')['state'], 'UNKNOWN')
+                        self.assertEqual(tick.inspect(manifest, review, ledger,
+                            now=time.time() + 1)['state'], 'NEEDS_RECONCILIATION')
+                        preserved = {name: (attempt / name).read_bytes() for name in
+                            ('receipt.json', 'interpretation.json', 'checkpoint.json',
+                             'events.jsonl', 'events.live.jsonl')}
+                        event_id = 'e' * 64
+                        reset = next(x['rate_limit_info']['resetsAt'] for x in
+                            map(json.loads, preserved['events.jsonl'].splitlines())
+                            if x.get('type') == 'rate_limit_event'
+                            and x['rate_limit_info']['status'] == 'rejected')
+                        fact = {'category': 'quota', 'reset_at': reset,
+                                'duration_seconds': 3, 'total_cost_usd': 2}
+                        self.assertTrue(ledger.settle(reservation, str(attempt), event_id,
+                                                      fact, terminated=True))
+                        self.assertFalse(ledger.settle(reservation, str(attempt), event_id,
+                                                       fact, terminated=True))
+                        sidecar = {'source_receipt_sha256': hashlib.sha256(
+                            preserved['receipt.json']).hexdigest(),
+                            'source_events_sha256': hashlib.sha256(
+                            preserved['events.jsonl']).hexdigest(),
+                            'shared_reservation_id': reservation,
+                            'shared_settlement_event': event_id,
+                            'category': 'quota', 'reset_at': reset}
+                        review.replace_private(attempt / 'reconciliation.json', sidecar)
+                        self.assertEqual(tick.inspect(manifest, review, ledger,
+                            now=time.time() + 1)['state'], 'NEEDS_RECONCILIATION')
+                        self.assertTrue(ledger.reconcile_settled_quota(
+                            reservation, 'claude', 'review', 'group', event_id))
+                        self.assertFalse(ledger.reconcile_settled_quota(
+                            reservation, 'claude', 'review', 'group', event_id))
                     status = tick.inspect(manifest, review, ledger, now=time.time() + 1)
                     self.assertEqual(status['state'], 'READY')
+                    if post_settlement:
+                        self.assertEqual({name: (attempt / name).read_bytes()
+                                          for name in preserved}, preserved)
+                        for changed in ({'source_receipt_sha256': '0' * 64},
+                                        {'shared_reservation_id': 'other'},
+                                        {'shared_settlement_event': 'f' * 64},
+                                        {'reset_at': reset + 1}):
+                            review.replace_private(attempt / 'reconciliation.json',
+                                                   {**sidecar, **changed})
+                            self.assertEqual(tick.inspect(manifest, review, ledger,
+                                now=time.time() + 1)['state'], 'NEEDS_RECONCILIATION')
+                        review.replace_private(attempt / 'reconciliation.json', sidecar)
+                        original_interpretation = (attempt / 'interpretation.json').read_bytes()
+                        (attempt / 'interpretation.json').write_text('{}')
+                        self.assertEqual(tick.inspect(manifest, review, ledger,
+                            now=time.time() + 1)['state'], 'NEEDS_RECONCILIATION')
+                        (attempt / 'interpretation.json').write_bytes(original_interpretation)
+                        original_checkpoint = (attempt / 'checkpoint.json').read_bytes()
+                        (attempt / 'checkpoint.json').write_text('{}')
+                        self.assertEqual(tick.inspect(manifest, review, ledger,
+                            now=time.time() + 1)['state'], 'NEEDS_RECONCILIATION')
+                        (attempt / 'checkpoint.json').write_bytes(original_checkpoint)
+                        ledger.db.execute("UPDATE accounts SET state='UNKNOWN',reason='new_restriction' "
+                                          "WHERE group_id='group'")
+                        self.assertEqual(tick.inspect(manifest, review, ledger,
+                            now=time.time() + 1)['state'], 'NEEDS_RECONCILIATION')
+                        ledger.db.execute("UPDATE accounts SET state='COOLDOWN',reason='quota',"
+                                          "resume_at=? WHERE group_id='group'", (time.time() + 3600,))
+                        self.assertEqual(tick.inspect(manifest, review, ledger,
+                            now=time.time() + 1)['state'], 'WAITING_QUOTA')
+                        ledger.db.execute("UPDATE accounts SET resume_at=? WHERE group_id='group'",
+                                          (reset,))
+                        self.assertEqual(tick.inspect(manifest, review, ledger,
+                            now=time.time() + 1)['state'], 'READY')
                     if changed_target:
                         command_line = tick.resume_command(Path('runner.py'), manifest, status)
                         if changed_target == 'head':
@@ -206,6 +307,11 @@ class QuotaIntegrationTests(unittest.TestCase):
                         diff_sha256=diff_sha, files=['a.py', 'b.py'], repo=repo)
                     self.assertEqual(len(checkpoint['lineage']), len(outcomes))
                     self.assertEqual(ledger.account('claude', 'review', 'group')['calls'], len(outcomes))
+                    if post_settlement:
+                        self.assertEqual(ledger.account('claude', 'review', 'group')['cost_usd'], 3)
+                        archived = next(attempt.parent.glob(attempt.name + '-quota-*'))
+                        self.assertEqual({name: (archived / name).read_bytes()
+                                          for name in preserved}, preserved)
                     if outcomes[-1] == 'revise':
                         self.assertEqual(checkpoint['findings'][0]['status'], 'open')
                 finally:
@@ -213,6 +319,9 @@ class QuotaIntegrationTests(unittest.TestCase):
 
     def test_quota_then_pass_replays_saved_checkpoint(self):
         self.scenario(['quota', 'pass'])
+
+    def test_unknown_current_attempt_settles_once_then_resumes_one_bound_job(self):
+        self.scenario(['quota', 'pass'], post_settlement=True)
 
     def test_quota_then_quota_then_revise_preserves_lineage_and_finding(self):
         self.scenario(['quota', 'quota', 'revise'])
