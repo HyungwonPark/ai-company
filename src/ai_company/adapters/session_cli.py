@@ -548,6 +548,7 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
         metadata["output_schema_sha256"] = schema_digest
     process = None
     failure = None
+    termination_cause = "normal_exit"
     with os.fdopen(out_fd, "wb") as stdout, os.fdopen(err_fd, "wb") as stderr, tempfile.TemporaryFile() as stdin:
         if provider == "claude" and capture_configuration:
             records = [{"type": "control_request", "request_id": configuration_request, "request": {"subtype": "initialize"}},
@@ -573,18 +574,22 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
             process.wait(timeout=timeout_seconds)
             if any(p["pgid"] == process.pid for p in _processes()):
                 stopped = _terminate_group(process, process.pid)
+                termination_cause = "live_descendants"
                 failure = SessionOutcome("reconciliation", session_id=session_id,
                                          message=f"CLI exited with live descendants; stopped={stopped}")
         except subprocess.TimeoutExpired:
             stopped = _terminate_group(process, process.pid)
+            termination_cause = "timeout"
             failure = SessionOutcome("reconciliation", session_id=session_id,
                                      message=f"CLI timed out; process group stopped={stopped}")
         except (OSError, RuntimeError) as exc:
             if process is not None:
                 stopped = _terminate_group(process, process.pid)
+                termination_cause = "supervision_failure"
                 failure = SessionOutcome("reconciliation", session_id=session_id,
                                          message=f"CLI supervision failed ({type(exc).__name__}); stopped={stopped}")
             else:
+                termination_cause = "start_failure"
                 category = "permission" if isinstance(exc, PermissionError) else "code_error"
                 failure = SessionOutcome(category, session_id=session_id,
                                          message=f"CLI could not start ({type(exc).__name__})")
@@ -594,6 +599,7 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
             raise
         finally:
             if unit and not stop_service(unit):
+                termination_cause = "cgroup_unconfirmed"
                 failure = SessionOutcome("reconciliation", session_id=session_id, message="CLI cgroup termination unconfirmed")
             stdout.flush()
             stderr.flush()
@@ -604,6 +610,8 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
         metadata["cgroup_stopped"] = not service_alive(unit)
     metadata["exit_code"] = None if process is None else process.returncode
     metadata["duration_seconds"] = time.monotonic() - started
+    metadata["termination_cause"] = termination_cause
+    metadata["effective_timeout_seconds"] = timeout_seconds
     observed = _read_outcome(provider, Path(out_name), session_id,
                              process.returncode if process is not None else -1)
     outcome = failure or observed
