@@ -50,8 +50,11 @@ def _output_facts(path, root):
     data = path.read_bytes()
     events = [json.loads(line) for line in data.splitlines()]
     types = [event.get('type') for event in events]
+    sessions = sorted({event.get('thread_id') or event.get('session_id')
+                       for event in events if event.get('type') == 'thread.started'})
     return {'sha256': _sha(data), 'bytes': len(data), 'turn_started': 'turn.started' in types,
-            'turn_completed': 'turn.completed' in types, 'thread_started': 'thread.started' in types}
+            'turn_completed': 'turn.completed' in types, 'thread_started': 'thread.started' in types,
+            'sessions': sessions}
 
 
 def _ledger_history_preserved(current_path, baseline_path):
@@ -202,6 +205,7 @@ def diagnose(case_root, ledger_path, baseline_path, job_id):
             and request.get('content') == case['followup_message']
             and job.get('session_id') and job.get('attempt_count') == 1
             and job.get('status') == 'NEEDS_RECONCILIATION'
+            and job.get('reason') == 'non-retryable session outcome: reconciliation'
             and job.get('last_category') == 'reconciliation'
             and row['state'] == 'UNKNOWN' and row['owner'] == str(root)
             and isinstance(row['process_identity'], str)
@@ -210,6 +214,7 @@ def diagnose(case_root, ledger_path, baseline_path, job_id):
             and json.loads(row['process_identity']).get('attempt') == job['attempt_count']
             and row['event_id'] is None and row['result'] is None)
     safe = (tied and stopped and owned_guard and repo_same and stdout['thread_started']
+            and stdout['sessions'] == [job['session_id']]
             and stdout['turn_started'] and not stdout['turn_completed']
             and result.get('termination_cause') == 'timeout'
             and result.get('effective_timeout_seconds') == job['specification']['retry_policy']['execution_timeout_seconds']
@@ -237,7 +242,8 @@ def diagnose(case_root, ledger_path, baseline_path, job_id):
             'result_sha256': _sha(_canonical(result)),
             'decision': ('same_session_retry_preparable' if safe else
                          'saved_terminal_needs_contract_review' if tied and stopped and
-                         stdout['turn_completed'] and repo_same else 'hold_unknown'),
+                         stdout['turn_completed'] and stdout['sessions'] == [job['session_id']]
+                         and repo_same else 'hold_unknown'),
             'checks': {'attempt_tied': bool(tied), 'terminated': bool(stopped),
                        'guard_owned': bool(owned_guard), 'repository_unchanged': bool(repo_same),
                        'timeout_cause_recorded': result.get('termination_cause') == 'timeout',

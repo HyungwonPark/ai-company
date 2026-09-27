@@ -1,4 +1,5 @@
 import json
+import multiprocessing
 from pathlib import Path
 import sqlite3
 import subprocess
@@ -11,6 +12,15 @@ from ai_company.adapters.session_cli import run_session
 from ai_company.sessions import RetryPolicy, SessionQueue, repository_snapshot
 from ai_company.shared_calls import SharedCallLedger
 from ai_company.timeout_recovery import diagnose, apply_in_stopped_environment
+
+
+def _simultaneous_recovery(case_root, ledger, baseline, job_id, digest_value, gate, output):
+    gate.wait()
+    try:
+        value = apply_in_stopped_environment(case_root, ledger, baseline, job_id, digest_value)
+        output.put(value['state'])
+    except Exception as exc:
+        output.put(type(exc).__name__)
 
 
 class TimeoutRecoveryTests(unittest.TestCase):
@@ -39,12 +49,14 @@ class TimeoutRecoveryTests(unittest.TestCase):
         logs = self.root / 'sessions/session-logs/job-e2'
         logs.mkdir(parents=True)
         self.stdout = logs / 'stdout.jsonl'
-        self.stdout.write_text('\n'.join(json.dumps({'type': item}) for item in
-                               ('thread.started', 'turn.started', 'item.completed')) + '\n')
+        self.stdout.write_text(json.dumps({'type': 'thread.started', 'thread_id': 'session-e2'})
+                               + '\n' + json.dumps({'type': 'turn.started'}) + '\n'
+                               + json.dumps({'type': 'item.completed'}) + '\n')
         self.stderr = logs / 'stderr.log'
         self.stderr.write_text('')
         self.job = {'job_id': self.job_id, 'task_id': self.task_id, 'session_id': 'session-e2',
                     'attempt_count': 1, 'status': 'NEEDS_RECONCILIATION',
+                    'reason': 'non-retryable session outcome: reconciliation',
                     'last_category': 'reconciliation', 'worktree': str(self.clone),
                     'retry_count': 0, 'cycle_retries': 0,
                     'specification': {'retry_policy': RetryPolicy(execution_timeout_seconds=240).model_dump(mode='json')},
@@ -157,6 +169,24 @@ class TimeoutRecoveryTests(unittest.TestCase):
                 self.assertEqual(ledger.db.execute('SELECT count(*) FROM settlement_events').fetchone()[0], 1)
                 ledger.close()
 
+    def test_two_recovery_processes_never_double_settle(self):
+        plan = self.plan()
+        context = multiprocessing.get_context('fork')
+        gate, output = context.Event(), context.Queue()
+        arguments = (self.root, self.ledger_path, self.baseline,
+                     self.job_id, plan['digest'], gate, output)
+        workers = [context.Process(target=_simultaneous_recovery, args=arguments) for _ in range(2)]
+        for worker in workers: worker.start()
+        gate.set()
+        for worker in workers:
+            worker.join(timeout=10)
+            self.assertEqual(worker.exitcode, 0)
+        self.assertIn('done', [output.get(timeout=2) for _ in workers])
+        ledger = SharedCallLedger(self.ledger_path)
+        self.assertEqual(ledger.account('codex', 'credential', 'group')['calls'], 8)
+        self.assertEqual(ledger.db.execute('SELECT count(*) FROM settlement_events').fetchone()[0], 1)
+        ledger.close()
+
     def test_changed_guard_terminal_or_other_reservation_keeps_unknown(self):
         cases = ('guard', 'terminal', 'other')
         for case in cases:
@@ -253,6 +283,20 @@ class TimeoutRecoveryTests(unittest.TestCase):
                         job['result']['termination_cause'] = cause
                     db.execute('UPDATE session_jobs SET document=?', (json.dumps(job),))
                 self.assertEqual(self.plan()['decision'], 'hold_unknown')
+
+    def test_another_session_or_late_output_never_reuses_frozen_evidence(self):
+        self.stdout.write_text(json.dumps({'type': 'thread.started',
+                                           'thread_id': 'another-session'}) + '\n'
+                               + json.dumps({'type': 'turn.started'}) + '\n')
+        self.assertEqual(self.plan()['decision'], 'hold_unknown')
+        self.stdout.write_text(json.dumps({'type': 'thread.started',
+                                           'thread_id': 'session-e2'}) + '\n'
+                               + json.dumps({'type': 'turn.started'}) + '\n')
+        plan = self.plan()
+        with self.stdout.open('a') as stream:
+            stream.write(json.dumps({'type': 'item.completed'}) + '\n')
+        with self.assertRaisesRegex(ValueError, 'recovery evidence changed'):
+            self.apply(plan['digest'])
 
     def test_unstarted_reservation_only_points_to_existing_cancel_contract(self):
         self.guard.unlink()
