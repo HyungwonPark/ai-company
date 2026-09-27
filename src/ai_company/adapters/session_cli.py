@@ -449,7 +449,8 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
                 executable: str | None = None, model: str | None = None,
                 reasoning_effort: str | None = None, ultracode_enabled: bool = False, output_schema: dict | None = None,
                 permission: str | None = None, capture_configuration: bool = False, isolate_cgroup: bool = False,
-                max_cost_usd: float | None = None, shared_call_controlled: bool = False) -> SessionOutcome:
+                max_cost_usd: float | None = None, shared_call_controlled: bool = False,
+                expected_codex_cli: dict | None = None) -> SessionOutcome:
     """Run once and return; never sleep for quota reset or retry a session here."""
     if provider not in {"codex", "claude"}:
         raise ValueError("provider must be codex or claude")
@@ -461,6 +462,16 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
         raise ValueError("Invalid explicit session ID")
     if ultracode_enabled and (provider != "claude" or reasoning_effort != "xhigh"):
         raise ValueError("Ultracode requires Claude with xhigh reasoning")
+    def verify_codex_executable():
+        if expected_codex_cli is None:
+            return
+        if provider != "codex" or executable != expected_codex_cli.get("path"):
+            raise RuntimeError("Codex executable differs from the pre-reservation identity")
+        from ai_company.adapters.configuration_evidence import codex_cli_identity
+        current, reason = codex_cli_identity(executable, session_id=session_id)
+        if reason or current != expected_codex_cli:
+            raise RuntimeError("Codex executable changed after pre-reservation verification: " + (reason or "codex_cli_changed"))
+    verify_codex_executable()
     started_at = time.time()
     started = time.monotonic()
     output_dir = Path(output_dir)
@@ -547,6 +558,7 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
             stdin.write(prompt.encode("utf-8"))
         stdin.seek(0)
         try:
+            verify_codex_executable()
             process = subprocess.Popen(argv, cwd=worktree, shell=False, stdin=stdin,
                                        stdout=stdout, stderr=stderr, start_new_session=True)
             identity = _proc_info(process.pid)

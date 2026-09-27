@@ -5,7 +5,6 @@ Historical events describe deliveries; current task rows alone describe ownershi
 """
 import copy
 import json
-import math
 import re
 
 from ai_company.contracts import digest
@@ -97,7 +96,9 @@ def observed_configuration(db, job):
     if not job:
         return unknown
     result = job.get("result") or {}
-    evidence = result.get("configuration_evidence") or {}
+    evidence = result.get("configuration_evidence")
+    if not isinstance(evidence, dict):
+        evidence = {}
     # A model's structured text is deliberately not consulted here.
     if evidence.get("source") == "claude_cli_request_v1":
         from ai_company.adapters.claude_observation import persisted_attempt, validate_claude_result
@@ -114,23 +115,17 @@ def observed_configuration(db, job):
                 "evidence": {"job_id": job["job_id"], "session_id": job["session_id"], "attempt": job["attempt_count"],
                              "applied": copy.deepcopy(evidence["applied"]), "backend_model_verified": False,
                              "task_api_requests": sum(r["attributes"].get("query_source") == "sdk" for r in evidence["api_requests"])}}
-    if (evidence.get("source") == "codex_rollout" and evidence.get("scope") == "cli_turn_configuration"
-            and evidence.get("status") == "observed" and evidence.get("cli_version") == "0.154.0"
-            and evidence.get("backend_model_verified") is False and evidence.get("session_id") == job.get("session_id")
-            and re.fullmatch(r"[0-9a-f-]{36}", str(job.get("session_id")))):
-        contexts = evidence.get("contexts")
+    if job.get("provider") == "codex":
+        from ai_company.adapters.configuration_evidence import codex_configuration_reason
         start = db.execute("""SELECT occurred_at FROM session_events WHERE job_id=?
             AND json_extract(document,'$.attempt_count')=? AND json_extract(document,'$.status')='RUNNING'
             ORDER BY sequence LIMIT 1""", (job["job_id"], job.get("attempt_count"))).fetchone()
-        if (start and isinstance(contexts, list) and 1 <= len(contexts) <= 128
-                and all(isinstance(c, dict) and isinstance(c.get("recorded_at"), (int, float))
-                        and not isinstance(c["recorded_at"], bool) and math.isfinite(c["recorded_at"])
-                        and start[0] <= c["recorded_at"] <= job.get("updated_at", 0)
-                        and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}", str(c.get("turn_id")))
-                        and isinstance(c.get("model"), str) and isinstance(c.get("reasoning_effort"), str) for c in contexts)):
-            models = {c["model"] for c in contexts}
-            efforts = {c["reasoning_effort"] for c in contexts}
-            if len(models) == len(efforts) == 1:
+        if start and codex_configuration_reason(evidence, session_id=job.get("session_id"),
+                started_at=start[0], ended_at=job.get("updated_at", 0)) is None:
+            contexts = evidence["contexts"]
+            models = {c["model"] for c in contexts}; efforts = {c["reasoning_effort"] for c in contexts}
+            if (result.get("observed_models") in (None, [], [next(iter(models))])
+                    and result.get("observed_efforts") in (None, [], [next(iter(efforts))])):
                 return {**unknown, "status": "observed", "model": next(iter(models)), "reasoning_effort": next(iter(efforts)),
                         "source": evidence["source"], "scope": evidence["scope"], "evidence": copy.deepcopy(evidence)}
     # CLI runtime observations can confirm a model without confirming its effort.

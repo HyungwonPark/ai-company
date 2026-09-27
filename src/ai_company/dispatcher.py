@@ -13,6 +13,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langsmith.run_helpers import tracing_context
 
 from ai_company.adapters.session_cli import run_session
+from ai_company.adapters.configuration_evidence import codex_cli_identity, codex_configuration_reason
 from ai_company.contracts import Finding, digest
 from ai_company.flow_contracts import AgentProfile, ContributionStageReport, FlowSpec, PMPlanStageReport, PlanReviewStageReport, StageReport, budget_available
 from ai_company.flow_evidence import Verifier, allowed, handoff
@@ -233,7 +234,7 @@ class Dispatcher:
         outcome.result = {**(outcome.result or {}), "guidance_receipt": delivered}
         return outcome
 
-    def _executor(self, spec, state):
+    def _executor(self, spec, state, *, codex_identity=None):
         scope = getattr(spec, "execution_scope", "full")
         agent = next(a for a in spec.agents if a.agent_id == state["active"]["agent_id"])
         file_tools = spec.policy.configuration_evidence == "cli_configuration_v2" and agent.provider == "claude"
@@ -309,6 +310,8 @@ class Dispatcher:
                 runner = run_session
                 options = {"permission": "workspace-write" if state["stage"] == "developer" else "read-only",
                            "isolate_cgroup": True, "capture_configuration": True}
+                if provider == "codex" and codex_identity is not None:
+                    options.update(executable=codex_identity["path"], expected_codex_cli=codex_identity)
                 if file_tools:
                     from ai_company.adapters.claude_files import run_claude_files
                     from ai_company.adapters.claude_observation import persisted_attempt
@@ -422,30 +425,22 @@ class Dispatcher:
 
     def _validate_cli_configuration(self, agent, job, result):
         evidence = result.get("configuration_evidence")
-        if (agent.provider != "codex" or agent.ultracode_enabled or not isinstance(evidence, dict)
-                or evidence.get("source") != "codex_rollout" or evidence.get("scope") != "cli_turn_configuration"
-                or evidence.get("status") != "observed" or evidence.get("cli_version") != "0.154.0"
-                or evidence.get("backend_model_verified") is not False
-                or evidence.get("session_id") != job["session_id"]
-                or not re.fullmatch(r"[0-9a-f-]{36}", str(job["session_id"]))):
+        if agent.provider != "codex" or agent.ultracode_enabled:
             raise ExecutionBlocked("assigned Codex CLI turn configuration is missing or unbound")
-        contexts = evidence.get("contexts")
-        if not isinstance(contexts, list) or not 1 <= len(contexts) <= 128:
-            raise ExecutionBlocked("Codex configuration requires bounded nonempty turn contexts")
         claimed = self.db.execute("""SELECT occurred_at FROM session_events WHERE job_id=?
             AND json_extract(document,'$.attempt_count')=? AND json_extract(document,'$.status')='RUNNING'
             ORDER BY sequence LIMIT 1""", (job["job_id"], job["attempt_count"])).fetchone()
         if not claimed:
             raise ExecutionBlocked("Codex configuration has no matching persisted execution window")
-        started, ended = claimed[0], job["updated_at"]
-        for context in contexts:
-            at = context.get("recorded_at") if isinstance(context, dict) else None
-            if (not isinstance(context, dict) or not isinstance(context.get("turn_id"), str)
-                    or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,199}", context["turn_id"])
-                    or (context.get("model"), context.get("reasoning_effort")) != (agent.model, agent.reasoning_effort)
-                    or isinstance(at, bool) or not isinstance(at, (int, float)) or not math.isfinite(at)
-                    or not started <= at <= ended):
-                raise ExecutionBlocked("Codex turn model/effort/time differs from the assigned execution")
+        reason = codex_configuration_reason(evidence, session_id=job["session_id"],
+            started_at=claimed[0], ended_at=job["updated_at"],
+            model=agent.model, reasoning_effort=agent.reasoning_effort)
+        if reason:
+            raise ExecutionBlocked("Codex 설정 근거 검증 실패(" + reason + "): " + {
+                "unsupported_cli_version": "지원 버전의 실행·rollout 근거를 확인하세요.",
+                "missing_configuration_evidence": "저장된 실행 기록과 turn 설정을 확인하세요.",
+                "configuration_mismatch": "세션·시간·모델·추론 설정의 일치를 확인하세요.",
+            }[reason])
         # CLI settings are a narrower, explicit policy choice. Contrary backend
         # telemetry remains a failure; settings never manufacture verified_* data.
         if (result.get("observed_models") not in (None, [], [agent.model])
@@ -824,6 +819,7 @@ class Dispatcher:
                 return False
         # A locally invalid Codex response contract must not claim a queue or
         # shared-account attempt. It is a persistent request problem, not quota.
+        codex_identity = None
         if spec.mode == "live" and self.executor is None:
             agent = next(a for a in spec.agents if a.agent_id == active["agent_id"])
             if agent.provider == "codex":
@@ -839,6 +835,14 @@ class Dispatcher:
                                  request_schema_input_sha256=digest(source_schema))
                     with self.db:
                         self._save(state, "request_schema_preflight_failed")
+                    return False
+                codex_identity, cli_reason = codex_cli_identity(session_id=job["session_id"])
+                if cli_reason:
+                    state.update(status="BLOCKED", resume_at=None,
+                                 reason="Codex 실행 전 설정 확인 실패(" + cli_reason
+                                        + "): 서비스 실행 파일·버전과 세션 기록을 확인하세요.")
+                    with self.db:
+                        self._save(state, "codex_cli_preflight_failed")
                     return False
         if not self._reserve_project_budget(state, spec, job):
             return False
@@ -858,7 +862,7 @@ class Dispatcher:
                 with self.db:
                     self._save(state, "shared_call_wait")
                 return False
-        result = self.queue.run_once(executor=self._executor(spec, state), job_id=active["job_id"])
+        result = self.queue.run_once(executor=self._executor(spec, state, codex_identity=codex_identity), job_id=active["job_id"])
         if result["status"] in ("IDLE", "BUSY"):
             # Queue recovery may have changed a RUNNING fact to reconciliation.
             saved = self.queue.get(active["job_id"])

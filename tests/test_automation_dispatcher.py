@@ -161,6 +161,42 @@ class AutomationDispatcherTests(FlowFixture):
         profiles, _, _ = self.dispatcher._candidates(verified_spec, {"stage": "developer", "authors": []})
         self.assertEqual([a.provider for a in profiles], ["codex"])
 
+    def test_unsupported_worker_cli_blocks_before_queue_claim_or_model_call(self):
+        from ai_company.shared_calls import SharedCallLedger
+        spec = self.cli_spec().model_copy(update={"mode": "live"})
+        self.dispatcher.executor = None
+        self.dispatcher.shared_calls = SharedCallLedger.initialize(self.root / 'shared.sqlite', [
+            ('codex', 'codex-account', 'codex-shared', 'AVAILABLE', None, None, 0, 0, 0, 0),
+            ('claude', 'claude-account', 'claude-shared', 'UNKNOWN', None, None, 0, 0, 0, 0)])
+        self.submit(spec)
+        with patch('ai_company.dispatcher.codex_cli_identity', return_value=(None, 'unsupported_cli_version')):
+            result = self.tick()
+        self.assertEqual(result['status'], 'BLOCKED')
+        self.assertIn('unsupported_cli_version', result['reason'])
+        job = self.dispatcher.queue.get(result['active']['job_id'])
+        self.assertEqual(job['attempt_count'], 0)
+        self.assertEqual(job['status'], 'READY')
+        self.assertEqual(self.calls, [])
+        self.assertEqual(result['usage']['executions'], 0)
+        self.assertEqual(self.dispatcher.shared_calls.db.execute(
+            'SELECT count(*) FROM reservations').fetchone()[0], 0)
+
+    def test_0157_evidence_has_same_acceptance_and_display_verdict(self):
+        from ai_company.collaboration import observed_configuration
+        self.submit(self.cli_spec())
+        self.evidence_mutation = lambda result: result['configuration_evidence'].update(
+            cli_version='0.157.0', profile='codex-0.157-turn-context-v1')
+        result = self.tick()
+        self.assertEqual(result['status'], 'PLAN_READY')
+        job = self.dispatcher.queue.get(result['executions'][-1]['job_id'])
+        display = observed_configuration(self.dispatcher.db, job)
+        self.assertEqual(display['status'], 'observed')
+        self.assertEqual(display['model'], 'gpt-6-astra')
+        self.assertFalse(display['backend_model_verified'])
+        # A stored unverified result stays unavailable even after adding a profile.
+        job['result']['configuration_evidence']['status'] = 'unavailable'
+        self.assertEqual(observed_configuration(self.dispatcher.db, job)['status'], 'unavailable')
+
     def test_strict_default_still_rejects_missing_runtime_metadata(self):
         self.submit(self.spec.model_copy(update={"execution_scope": "planning", "approved_plan": False}))
         self.script = ["missing_model"]

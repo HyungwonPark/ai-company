@@ -937,6 +937,77 @@ class PMEValRunnerTests(unittest.TestCase):
             self.assertFalse(EVALUATION.canary_verified(root, ledger_path, marker))
             db.close(); ledger.close()
 
+    def test_recovered_canary_requires_derived_revision_and_original_settlement(self):
+        import sqlite3
+        from ai_company import pm_evidence_recovery
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary); root = base / 'trial'
+            db_path = root / 'E1' / 'sessions' / 'sessions.sqlite'
+            db_path.parent.mkdir(parents=True)
+            db = sqlite3.connect(db_path)
+            for name, key in (('management_plans', 'id'), ('management_pm_requests', 'message_id'),
+                              ('flow_tasks', 'task_id')):
+                db.execute(f'CREATE TABLE {name}({key} TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            plan = {'id': 'plan', 'request_id': 'request', 'project_id': 'project',
+                    'status': 'reviewing', 'evidence': {'original_job_id': 'job'}}
+            request = {'request_id': 'request', 'project_id': 'project', 'state': 'completed', 'plan_id': 'plan'}
+            db.execute('INSERT INTO management_plans VALUES (?,?)', ('plan', json.dumps(plan)))
+            db.execute('INSERT INTO management_pm_requests VALUES (?,?)', ('request', json.dumps(request)))
+            db.execute('INSERT INTO flow_tasks VALUES (?,?)', ('pm-request', json.dumps({'executions': []})))
+            db.commit()
+            ledger_path = base / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            reservation_id = digest([str(root / 'E1'), 'job', 1])
+            ledger.reserve(reservation_id, str(root / 'E1'), 'codex', 'fixture', 'group')
+            ledger.started(reservation_id, str(root / 'E1'), {'kind': 'test', 'pid': 1})
+            ledger.settle(reservation_id, str(root / 'E1'), 'pm-result', {
+                'category': 'success', 'duration_seconds': 1}, terminated=True)
+            fact = ledger.reservation(reservation_id)
+            marker = {'case': 'E1', 'state': 'canary_pm_ready', 'model_calls': 1,
+                      'plan_id': 'plan', 'last_reservation_id': reservation_id,
+                      'last_event_id': fact['event_id'],
+                      'last_result_sha256': EVALUATION.hashlib.sha256(fact['result'].encode()).hexdigest(),
+                      'recovery_revision_id': 'revision', 'recovery_validator_commit': 'a' * 40,
+                      'recovery_config_path': str(base / 'config.json'),
+                      'recovery_codex_home': str(base / 'codex'),
+                      'recovery_evidence_manifest': str(base / 'manifest.json')}
+            recovery = SimpleNamespace(job_id='job')
+            verified = {'revision_id': 'revision', 'plan_id': 'plan', 'reservation_id': reservation_id}
+            with patch.object(pm_evidence_recovery, 'diagnose', return_value=recovery), \
+                 patch.object(pm_evidence_recovery, 'verify_saved_recovery', return_value=verified) as saved_check:
+                self.assertTrue(EVALUATION.canary_verified(root, ledger_path, marker))
+                saved_check.assert_called_with(recovery, allow_review_progress=True)
+                second = digest([str(root / 'E1'), 'review-job', 1])
+                ledger.reserve(second, str(root / 'E1'), 'codex', 'fixture', 'group')
+                ledger.started(second, str(root / 'E1'), {'kind': 'test', 'pid': 2})
+                ledger.settle(second, str(root / 'E1'), 'review-result', {
+                    'category': 'success', 'duration_seconds': 1}, terminated=True)
+                db.execute('UPDATE management_plans SET document=? WHERE id=?',
+                           (json.dumps({**plan, 'status': 'proposed'}), 'plan'))
+                db.commit()
+                self.assertTrue(EVALUATION.canary_verified(root, ledger_path, marker))
+                self.assertFalse(EVALUATION.canary_verified(root, ledger_path,
+                    {**marker, 'recovery_revision_id': 'other'}))
+                db.execute('UPDATE management_pm_requests SET document=? WHERE message_id=?',
+                           (json.dumps({**request, 'state': 'blocked'}), 'request'))
+                db.commit()
+                self.assertFalse(EVALUATION.canary_verified(root, ledger_path, marker))
+            db.close(); ledger.close()
+
+    def test_recovered_canary_write_is_atomic_private_and_repairs_torn_file(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'canary-result.json'
+            marker = {'state': 'canary_pm_ready', 'recovery_revision_id': 'revision'}
+            path.write_text('{"state":')
+            EVALUATION.record_recovered_canary(path, marker)
+            self.assertEqual(json.loads(path.read_text()), marker)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(len(list(path.parent.glob('canary-result.json.torn-*'))), 1)
+            EVALUATION.record_recovered_canary(path, marker)
+            with self.assertRaises(ValueError):
+                EVALUATION.record_recovered_canary(path, {**marker, 'recovery_revision_id': 'other'})
+
     def test_provider_request_error_stops_and_survives_restart(self):
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
