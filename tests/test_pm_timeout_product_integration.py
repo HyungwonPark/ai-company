@@ -19,7 +19,7 @@ from ai_company.contracts import digest
 from ai_company.dispatcher import Dispatcher
 from ai_company.shared_calls import SharedCallLedger
 from ai_company.sessions import SessionQueue
-from ai_company.timeout_recovery import diagnose, apply_in_stopped_environment
+from ai_company.timeout_recovery import diagnose, review_settled_resume, apply_in_stopped_environment
 from scripts import evaluate_pm_behavior as evaluation
 from tests import test_automation as automation_fixture
 
@@ -219,6 +219,40 @@ class ProductTimeoutRecoveryTests(unittest.TestCase):
         self.advance(lambda: any(p['status'] == 'proposed'
             for p in self.worker.store.overview(self.project['id'])['plans']))
         self.assertEqual(self.calls[-1], (2, 2, self.session_id))
+
+    def test_wait_added_after_settlement_expires_then_same_product_job_resumes(self):
+        job, _ = self.prepare_timeout()
+        plan = diagnose(self.root, self.ledger_path, self.base / 'baseline.sqlite', job['job_id'])
+        with self.assertRaisesRegex(RuntimeError, 'injected stop'):
+            apply_in_stopped_environment(self.root, self.ledger_path,
+                self.base / 'baseline.sqlite', job['job_id'], plan['digest'], fail_after='settlement')
+        future = time.time() + 0.4
+        with sqlite3.connect(self.ledger_path) as db:
+            db.execute("UPDATE accounts SET resume_at=? WHERE group_id='codex'", (future,))
+        blocked = review_settled_resume(self.root, self.ledger_path,
+            self.base / 'baseline.sqlite', job['job_id'])
+        self.assertEqual(blocked['decision'], 'hold_wait')
+        before = len(self.calls)
+        self.worker.run_once()
+        self.assertEqual(len(self.calls), before)
+        self.assertFalse(evaluation.case_can_advance('E2',
+            evaluation.case_progress(self.worker.store.overview(self.project['id']))))
+        time.sleep(max(0, future - time.time()) + 0.02)
+        review = review_settled_resume(self.root, self.ledger_path,
+            self.base / 'baseline.sqlite', job['job_id'])
+        self.assertEqual(review['decision'], 'same_session_resume_preparable')
+        self.assertEqual(apply_in_stopped_environment(self.root, self.ledger_path,
+            self.base / 'baseline.sqlite', job['job_id'], plan['digest'],
+            expected_resume_digest=review['digest'])['state'], 'done')
+        self.worker.close(); self.worker = self.open()
+        self.advance(lambda: any(p['status'] == 'proposed'
+            for p in self.worker.store.overview(self.project['id'])['plans']))
+        self.assertEqual(self.calls[-1], (2, 2, self.session_id))
+        self.assertEqual(len(self.worker.store.overview(self.project['id'])['plans']), 1)
+        ledger = SharedCallLedger(self.ledger_path)
+        self.assertEqual(ledger.account('codex', 'codex', 'codex')['calls'], 11)
+        self.assertEqual(ledger.account('claude', 'claude', 'claude')['state'], 'UNKNOWN')
+        ledger.close()
 
     def test_two_dispatchers_reacquire_only_one_attempt(self):
         job, _ = self.prepare_timeout()

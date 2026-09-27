@@ -136,6 +136,34 @@ def _account_rows(db, group):
     return rows
 
 
+def _account_full_rows(db, group):
+    rows = [list(row) for row in db.execute(
+        'SELECT provider,credential_ref,group_id,state,resume_at,reason,calls,'
+        'runtime_seconds,cost_usd,cost_unknown FROM accounts WHERE group_id=? '
+        'ORDER BY provider,credential_ref', (group,))]
+    for row in rows:
+        if isinstance(row[4], bytes):
+            row[4] = {'invalid_blob_sha256': _sha(row[4])}
+    return rows
+
+
+def _settled_full_rows(plan):
+    rows = [row.copy() for row in plan['account_full_rows']]
+    for row in rows:
+        row[3], row[5] = 'UNKNOWN', 'reconciliation'
+        row[6] += 1
+        row[7] += plan['duration_seconds']
+        row[9] = 1
+    return rows
+
+
+def _settled_usage_matches(actual, expected):
+    return len(actual) == len(expected) and all(
+        row[:4] == frozen[:4] and row[5:7] == frozen[5:7]
+        and math.isclose(row[7], frozen[7], rel_tol=0, abs_tol=1e-6)
+        and row[8:] == frozen[8:] for row, frozen in zip(actual, expected))
+
+
 def _account_restriction(rows, now):
     if not rows:
         return 'missing_account'
@@ -153,6 +181,14 @@ def _account_restriction(rows, now):
     return 'ready'
 
 
+def _settled_restriction(rows, now):
+    if any(row[2] != 'UNKNOWN' or row[4] != 'reconciliation' for row in rows):
+        return 'other_account_block'
+    return _account_restriction(
+        [row[:2] + ['UNKNOWN', row[3], 'session termination or effects are uncertain']
+         for row in rows], now)
+
+
 def _expected_account_rows(plan, *, settled=False, released=False):
     rows = [row.copy() for row in plan['account_rows']]
     for row in rows:
@@ -161,6 +197,98 @@ def _expected_account_rows(plan, *, settled=False, released=False):
         elif settled:
             row[2], row[4] = 'UNKNOWN', 'reconciliation'
     return rows
+
+
+def _latest_resume_review(db, job_id):
+    if not db.execute("SELECT 1 FROM sqlite_master WHERE name='timeout_recovery_resume_reviews'").fetchone():
+        return None
+    row = db.execute('SELECT decision FROM timeout_recovery_resume_reviews WHERE job_id=? '
+                     'ORDER BY rowid DESC LIMIT 1', (job_id,)).fetchone()
+    return json.loads(row[0]) if row else None
+
+
+def review_settled_resume(case_root, ledger_path, baseline_path, job_id):
+    """Read-only new decision for an already-settled, operator-approved recovery."""
+    root, shared = Path(case_root).resolve(), Path(ledger_path).resolve()
+    if os.path.samefile(shared, baseline_path):
+        raise ValueError('baseline ledger aliases the current ledger')
+    with closing(sqlite3.connect(f'file:{root / "sessions/sessions.sqlite"}?mode=ro', uri=True)) as db:
+        saved = db.execute('SELECT plan,phase,prepared_hashes FROM timeout_recoveries WHERE job_id=?',
+                           (job_id,)).fetchone()
+        if not saved:
+            raise ValueError('original recovery decision is absent')
+        plan, phase, prepared_hashes = json.loads(saved[0]), saved[1], saved[2]
+        if (phase not in ('pinned', 'settled', 'prepared', 'guard_release_pending', 'guard_cleared')
+                or plan['decision'] != 'same_session_retry_preparable'
+                or plan['job_id'] != job_id or plan['case_root'] != str(root)
+                or plan['ledger_path'] != str(shared)
+                or _sha(_canonical({k: v for k, v in plan.items() if k != 'digest'})) != plan['digest']
+                or plan['baseline_logical_sha256'] != _ledger_snapshot_digest(baseline_path)):
+            raise ValueError('original recovery decision or target changed')
+        hashes = []
+        for table, key, value in (('session_jobs', 'job_id', job_id),
+                                  ('flow_tasks', 'task_id', plan['task_id']),
+                                  ('management_pm_requests', 'message_id', plan['request_id'])):
+            _, raw = _document(db, table, key, value)
+            hashes.append(_sha(raw.encode()))
+        expected = ([plan['job_sha256'], plan['task_sha256'], plan['request_sha256']]
+                    if phase in ('pinned', 'settled') else json.loads(prepared_hashes) if prepared_hashes else None)
+        if hashes != expected:
+            raise ValueError('queue, task or request changed since the frozen phase')
+        first = db.execute("SELECT document FROM management_pm_requests WHERE project_id=? "
+                           "AND json_extract(document,'$.request_revision')=1",
+                           (json.loads(db.execute('SELECT original_request FROM timeout_recoveries '
+                                                  'WHERE job_id=?', (job_id,)).fetchone()[0])['project_id'],)).fetchall()
+        previous = _latest_resume_review(db, job_id)
+    if (len(first) != 1 or _sha(first[0][0].encode()) != plan['first_request_sha256']
+            or _sha((root.parent / 'cases.json').read_bytes()) != plan['cases_sha256']
+            or repository_snapshot(Path(plan['repository_snapshot']['worktree'])) != plan['repository_snapshot']
+            or execution_alive(plan['process']) or service_alive(plan['process']['systemd_unit'])
+            or _output_facts(plan['stdout_path'], root) != plan['stdout']
+            or _sha(Path(plan['stderr_path']).read_bytes()) != plan['stderr_sha256']
+            or not _ledger_history_preserved(shared, baseline_path)):
+        raise ValueError('original execution or cumulative evidence changed')
+    guard = _guard(plan['guard_path'])
+    owned = (guard is not None and guard.get('job_id') == job_id
+             and guard.get('queue_root') == str(root / 'sessions')
+             and guard.get('process') == plan['process'])
+    if ((phase in ('pinned', 'settled', 'prepared') and not owned)
+            or phase == 'guard_release_pending' and guard is not None and not owned
+            or phase == 'guard_cleared' and guard is not None):
+        raise ValueError('repository guard changed since the frozen phase')
+    ledger = SharedCallLedger(shared)
+    try:
+        event_id = _sha(_canonical(['timeout-recovery', plan['digest'], plan['reservation_id']]))
+        fact = {'category': 'reconciliation', 'duration_seconds': plan['duration_seconds'],
+                'total_cost_usd': None, 'recovery_kind': 'confirmed_incomplete_timeout',
+                'original_result_sha256': plan['result_sha256']}
+        reservation = ledger.reservation(plan['reservation_id'])
+        if (reservation is None or reservation['owner'] != str(root)
+                or reservation['group_id'] != plan['group_id'] or reservation['state'] != 'SETTLED'
+                or reservation['event_id'] != event_id
+                or reservation['result'] != json.dumps(fact, sort_keys=True, ensure_ascii=False)):
+            raise ValueError('original settlement changed')
+        rows = _account_rows(ledger.db, plan['group_id'])
+        full_rows = _account_full_rows(ledger.db, plan['group_id'])
+        usage_same = _settled_usage_matches(full_rows, _settled_full_rows(plan))
+        other_live = ledger.db.execute("SELECT count(*) FROM reservations WHERE group_id=? "
+            "AND reservation_id!=? AND state IN ('RESERVED','STARTED','UNKNOWN')",
+            (plan['group_id'], plan['reservation_id'])).fetchone()[0]
+    finally:
+        ledger.close()
+    restriction = _settled_restriction(rows, time.time())
+    safe = usage_same and not other_live and restriction == 'ready'
+    review = {'schema_version': 1, 'original_plan_digest': plan['digest'],
+              'parent_digest': previous['digest'] if previous else plan['digest'],
+              'job_id': job_id, 'reservation_id': plan['reservation_id'],
+              'session_id': plan['session_id'], 'phase_at_review': phase,
+              'account_rows': rows, 'account_full_rows': full_rows,
+              'decision': ('same_session_resume_preparable' if safe else
+                           'hold_wait' if restriction == 'future_wait' else 'hold_unknown'),
+              'checks': {'account_restriction': restriction, 'usage_unchanged': usage_same,
+                         'other_live_reservations': other_live}}
+    review['digest'] = _sha(_canonical(review))
+    return review
 
 
 def diagnose(case_root, ledger_path, baseline_path, job_id):
@@ -302,7 +430,7 @@ def diagnose(case_root, ledger_path, baseline_path, job_id):
 
 
 def apply_in_stopped_environment(case_root, ledger_path, baseline_path, job_id, expected_digest,
-                                 *, fail_after=None):
+                                 *, expected_resume_digest=None, fail_after=None):
     """Operator-only mutation. Keep workers stopped; use a private state copy for tests."""
     root = Path(case_root).resolve()
     shared = Path(ledger_path).resolve()
@@ -389,12 +517,44 @@ def apply_in_stopped_environment(case_root, ledger_path, baseline_path, job_id, 
                         raise ValueError('recovered settlement changed')
                 reservation = ledger.reservation(plan['reservation_id'])
                 current_accounts = _account_rows(ledger.db, plan['group_id'])
-                expected_accounts = _expected_account_rows(
-                    plan, settled=reservation['state'] == 'SETTLED')
+                resume = _latest_resume_review(db, job_id)
+                if resume and (_sha(_canonical({k: v for k, v in resume.items() if k != 'digest'}))
+                               != resume['digest'] or resume['original_plan_digest'] != plan['digest']):
+                    raise ValueError('stored resume review changed')
+                expected_accounts = (resume['account_rows'] if resume else _expected_account_rows(
+                    plan, settled=reservation['state'] == 'SETTLED'))
                 already_released = (phase in ('guard_cleared', 'done')
                                     and current_accounts == _expected_account_rows(plan, released=True))
                 if current_accounts != expected_accounts and not already_released:
-                    raise ValueError('account restriction changed since the frozen decision')
+                    if (phase == 'pinned' and reservation['state'] != 'SETTLED') or not expected_resume_digest:
+                        raise ValueError('account restriction changed since the frozen decision')
+                    fresh = review_settled_resume(root, shared, baseline_path, job_id)
+                    if (fresh['decision'] != 'same_session_resume_preparable'
+                            or fresh['digest'] != expected_resume_digest):
+                        raise ValueError('account restriction changed since the reviewed resume decision')
+                    db.execute('BEGIN IMMEDIATE')
+                    try:
+                        db.execute('CREATE TABLE IF NOT EXISTS timeout_recovery_resume_reviews('
+                                   'job_id TEXT NOT NULL,digest TEXT NOT NULL PRIMARY KEY,'
+                                   'parent_digest TEXT NOT NULL,decision TEXT NOT NULL,created_at REAL NOT NULL)')
+                        db.execute('INSERT INTO timeout_recovery_resume_reviews VALUES (?,?,?,?,?)',
+                                   (job_id, fresh['digest'], fresh['parent_digest'],
+                                    json.dumps(fresh, ensure_ascii=False), time.time()))
+                        db.commit()
+                    except BaseException:
+                        db.rollback()
+                        raise
+                    resume, expected_accounts = fresh, fresh['account_rows']
+                    if fail_after == 'resume_review':
+                        raise RuntimeError('injected stop after resume review')
+                elif (expected_resume_digest is not None
+                      and (resume is None or resume['digest'] != expected_resume_digest)):
+                    raise ValueError('resume review digest does not match the stored decision')
+                expected_full = resume['account_full_rows'] if resume else (
+                    plan['account_full_rows'] if reservation['state'] == 'UNKNOWN'
+                    else _settled_full_rows(plan))
+                if not already_released and _account_full_rows(ledger.db, plan['group_id']) != expected_full:
+                    raise ValueError('account restriction or usage changed since the reviewed decision')
                 if not already_released and _account_restriction(
                         [row[:2] + ['UNKNOWN', row[3],
                          'session termination or effects are uncertain'] for row in current_accounts],
@@ -423,6 +583,8 @@ def apply_in_stopped_environment(case_root, ledger_path, baseline_path, job_id, 
                     ledger.settle(plan['reservation_id'], str(root), event_id, fact, terminated=True,
                                   expected_accounts=plan['account_full_rows']
                                   if current['state'] == 'UNKNOWN' else None)
+                    expected_accounts = resume['account_rows'] if resume else _expected_account_rows(plan, settled=True)
+                    expected_full = resume['account_full_rows'] if resume else _settled_full_rows(plan)
                     db.execute("UPDATE timeout_recoveries SET phase='settled' WHERE job_id=?", (job_id,))
                     phase = 'settled'
                     if fail_after == 'settlement': raise RuntimeError('injected stop after settlement')
@@ -494,7 +656,8 @@ def apply_in_stopped_environment(case_root, ledger_path, baseline_path, job_id, 
                         accounts = _account_rows(ledger.db, plan['group_id'])
                         if accounts == _expected_account_rows(plan, released=True):
                             return
-                        if accounts != _expected_account_rows(plan, settled=True):
+                        if accounts != expected_accounts or _account_full_rows(
+                                ledger.db, plan['group_id']) != expected_full:
                             raise SharedCallError('account restriction changed since the frozen decision')
                         if _account_restriction(
                                 [row[:2] + ['UNKNOWN', row[3],

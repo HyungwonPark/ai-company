@@ -12,7 +12,7 @@ from ai_company.contracts import digest
 from ai_company.adapters.session_cli import run_session
 from ai_company.sessions import RetryPolicy, SessionQueue, repository_snapshot
 from ai_company.shared_calls import SharedCallLedger
-from ai_company.timeout_recovery import diagnose, apply_in_stopped_environment
+from ai_company.timeout_recovery import diagnose, review_settled_resume, apply_in_stopped_environment
 
 
 def _simultaneous_recovery(case_root, ledger, baseline, job_id, digest_value, gate, output):
@@ -265,6 +265,126 @@ class TimeoutRecoveryTests(unittest.TestCase):
         self.assertEqual(ledger.account('codex', 'credential', 'group')['calls'], 8)
         self.assertEqual(ledger.db.execute('SELECT count(*) FROM settlement_events').fetchone()[0], 1)
         ledger.close()
+
+    def test_expired_wait_after_settlement_requires_new_frozen_review(self):
+        plan = self.plan()
+        with self.assertRaisesRegex(RuntimeError, 'injected stop'):
+            self.apply(plan['digest'], fail_after='settlement')
+        with sqlite3.connect(self.db_path) as db:
+            original_plan = db.execute('SELECT plan FROM timeout_recoveries').fetchone()[0]
+        future = time.time() + 3600
+        with sqlite3.connect(self.ledger_path) as db:
+            original_settlement = db.execute('SELECT * FROM settlement_events').fetchall()
+            db.execute("UPDATE accounts SET resume_at=? WHERE group_id='group'", (future,))
+        with patch('ai_company.timeout_recovery.time.time', return_value=future - 1):
+            self.assertEqual(review_settled_resume(self.root, self.ledger_path,
+                self.baseline, self.job_id)['decision'], 'hold_wait')
+        with patch('ai_company.timeout_recovery.time.time', return_value=future + 1):
+            review = review_settled_resume(self.root, self.ledger_path,
+                self.baseline, self.job_id)
+            self.assertEqual(review['decision'], 'same_session_resume_preparable')
+            with self.assertRaisesRegex(ValueError, 'account restriction changed'):
+                self.apply(plan['digest'])
+            self.assertEqual(self.apply(plan['digest'], expected_resume_digest=review['digest'])['state'], 'done')
+        with sqlite3.connect(self.db_path) as db:
+            self.assertEqual(db.execute('SELECT plan FROM timeout_recoveries').fetchone()[0], original_plan)
+            saved = db.execute('SELECT parent_digest,decision FROM timeout_recovery_resume_reviews').fetchone()
+            self.assertEqual(saved, (plan['digest'], json.dumps(review, ensure_ascii=False)))
+        with sqlite3.connect(self.ledger_path) as db:
+            self.assertEqual(db.execute('SELECT * FROM settlement_events').fetchall(), original_settlement)
+            self.assertEqual(db.execute("SELECT calls FROM accounts WHERE group_id='group'").fetchone()[0], 8)
+
+    def test_settlement_commit_before_phase_write_can_resume_after_wait(self):
+        plan = self.plan()
+        original_settle = SharedCallLedger.settle
+        def commit_then_stop(ledger, *args, **kwargs):
+            original_settle(ledger, *args, **kwargs)
+            raise RuntimeError('injected stop between settlement and phase write')
+        with patch.object(SharedCallLedger, 'settle', commit_then_stop):
+            with self.assertRaisesRegex(RuntimeError, 'between settlement and phase write'):
+                self.apply(plan['digest'])
+        with sqlite3.connect(self.db_path) as db:
+            self.assertEqual(db.execute('SELECT phase FROM timeout_recoveries').fetchone()[0], 'pinned')
+        future = time.time() + 3600
+        with sqlite3.connect(self.ledger_path) as db:
+            db.execute("UPDATE accounts SET resume_at=? WHERE group_id='group'", (future,))
+        with patch('ai_company.timeout_recovery.time.time', return_value=future + 1):
+            review = review_settled_resume(self.root, self.ledger_path, self.baseline, self.job_id)
+            self.assertEqual(review['decision'], 'same_session_resume_preparable')
+            self.assertEqual(self.apply(plan['digest'], expected_resume_digest=review['digest'])['state'], 'done')
+        ledger = SharedCallLedger(self.ledger_path)
+        self.assertEqual(ledger.account('codex', 'credential', 'group')['calls'], 8)
+        self.assertEqual(ledger.db.execute('SELECT count(*) FROM settlement_events').fetchone()[0], 1)
+        ledger.close()
+
+    def test_second_wait_requires_second_review_and_preserves_auth_blocks(self):
+        plan = self.plan()
+        with self.assertRaisesRegex(RuntimeError, 'injected stop'):
+            self.apply(plan['digest'], fail_after='guard')
+        first_wait = time.time() + 3600
+        with sqlite3.connect(self.ledger_path) as db:
+            db.execute("UPDATE accounts SET resume_at=? WHERE group_id='group'", (first_wait,))
+        with patch('ai_company.timeout_recovery.time.time', return_value=first_wait + 1):
+            first = review_settled_resume(self.root, self.ledger_path, self.baseline, self.job_id)
+            with self.assertRaisesRegex(RuntimeError, 'injected stop'):
+                self.apply(plan['digest'], expected_resume_digest=first['digest'], fail_after='resume_review')
+        second_wait = first_wait + 3600
+        with sqlite3.connect(self.ledger_path) as db:
+            db.execute("UPDATE accounts SET resume_at=? WHERE group_id='group'", (second_wait,))
+        with patch('ai_company.timeout_recovery.time.time', return_value=second_wait - 1):
+            self.assertEqual(review_settled_resume(self.root, self.ledger_path,
+                self.baseline, self.job_id)['decision'], 'hold_wait')
+            with self.assertRaisesRegex(ValueError, 'account restriction changed'):
+                self.apply(plan['digest'], expected_resume_digest=first['digest'])
+        with patch('ai_company.timeout_recovery.time.time', return_value=second_wait + 1):
+            second = review_settled_resume(self.root, self.ledger_path, self.baseline, self.job_id)
+            self.assertEqual(second['parent_digest'], first['digest'])
+            self.assertEqual(self.apply(plan['digest'], expected_resume_digest=second['digest'])['state'], 'done')
+        with sqlite3.connect(self.db_path) as db:
+            self.assertEqual(db.execute('SELECT count(*) FROM timeout_recovery_resume_reviews').fetchone()[0], 2)
+        ledger = SharedCallLedger(self.ledger_path)
+        self.assertEqual(ledger.account('codex', 'credential', 'group')['calls'], 8)
+        self.assertEqual(ledger.db.execute('SELECT count(*) FROM settlement_events').fetchone()[0], 1)
+        ledger.close()
+
+    def test_expired_wait_never_overrides_changed_reason_or_alias(self):
+        for change in ('authentication', 'alias'):
+            with self.subTest(change=change):
+                self.setUp()
+                plan = self.plan()
+                with self.assertRaisesRegex(RuntimeError, 'injected stop'):
+                    self.apply(plan['digest'], fail_after='settlement')
+                expired = time.time() - 1
+                with sqlite3.connect(self.ledger_path) as db:
+                    if change == 'authentication':
+                        db.execute("UPDATE accounts SET resume_at=?,reason='authentication' WHERE group_id='group'", (expired,))
+                    else:
+                        db.execute("INSERT INTO accounts SELECT 'codex','alias',group_id,state,?,reason,"
+                                   "calls,runtime_seconds,cost_usd,cost_unknown FROM accounts WHERE group_id='group'", (expired,))
+                if change == 'alias':
+                    with self.assertRaises(ValueError):
+                        review_settled_resume(self.root, self.ledger_path, self.baseline, self.job_id)
+                else:
+                    self.assertNotEqual(review_settled_resume(self.root, self.ledger_path,
+                        self.baseline, self.job_id)['decision'], 'same_session_resume_preparable')
+                with self.assertRaises(ValueError):
+                    self.apply(plan['digest'])
+
+    def test_uninterpretable_wait_after_settlement_is_a_durable_hold(self):
+        plan = self.plan()
+        with self.assertRaisesRegex(RuntimeError, 'injected stop'):
+            self.apply(plan['digest'], fail_after='settlement')
+        for value in ('not-a-time', b'\x01\x02'):
+            with self.subTest(value=value):
+                with sqlite3.connect(self.ledger_path) as db:
+                    db.execute("UPDATE accounts SET resume_at=? WHERE group_id='group'", (value,))
+                review = review_settled_resume(self.root, self.ledger_path,
+                    self.baseline, self.job_id)
+                self.assertEqual((review['decision'], review['checks']['account_restriction']),
+                                 ('hold_unknown', 'invalid_wait'))
+                self.assertEqual(len(review['digest']), 64)
+                with self.assertRaises(ValueError):
+                    self.apply(plan['digest'], expected_resume_digest=review['digest'])
 
     def test_wait_inserted_after_guard_release_is_not_erased(self):
         plan = self.plan()
