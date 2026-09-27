@@ -3,6 +3,7 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+import shutil
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -265,6 +266,15 @@ class QuotaCheckpointTests(unittest.TestCase):
                         'credential_ref': 'review', 'quota_group': 'group'}
             self.assertEqual(tick.inspect(manifest, review, ledger, now=199)['state'], 'WAITING_QUOTA')
             self.assertEqual(tick.inspect(manifest, review, ledger, now=200)['state'], 'READY')
+            archived = attempt.with_name(attempt.name + '-quota-restarted')
+            attempt.rename(archived)
+            self.assertEqual(tick.inspect(manifest, review, ledger, now=200)['state'], 'READY')
+            duplicate = attempt.with_name(attempt.name + '-quota-duplicate')
+            shutil.copytree(archived, duplicate)
+            self.assertEqual(tick.inspect(manifest, review, ledger, now=200)['state'],
+                             'NEEDS_RECONCILIATION')
+            shutil.rmtree(duplicate)
+            attempt = archived.rename(attempt)
             checkpoint = review.previous_checkpoint(attempt, head=receipt['head'],
                 base=receipt['base'], diff_sha256=diff_sha, files=['a.py'], repo=root)
             forged = {**checkpoint, 'reviewed_files': ['a.py'], 'remaining_files': []}

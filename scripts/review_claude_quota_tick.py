@@ -14,7 +14,7 @@ import secrets
 
 
 TRUSTED_HASHES = {
-    'runner.py': 'dce6e923d3ffed872d3de52f86f86bb9879fb7fe6befeb2b8d35276b30679166',
+    'runner.py': '4c38942343d0fa6136115c6edcb4bf701602a8602d11b49569847235b4c8385b',
     'claude_control.py': 'a010b4bb33ff684a46414070596c29b7a99c85d85f550885cfb9d7ae6fe9ff07',
     'shared_calls.py': '0eac176791c85b24173a79204335a869883f2047f751b9f442e65d3253cbcaf9',
 }
@@ -27,11 +27,10 @@ def load_runner(path):
     return module
 
 
-def current_attempt(root):
+def current_attempt(root, runner, *, repo):
     if root.exists():
         return root
-    archives = list(root.parent.glob(root.name + '-quota-*'))
-    return max(archives, key=lambda item: item.stat().st_mtime_ns) if archives else None
+    return runner.latest_quota_archive(root, repo=repo)
 
 
 def recover_unstarted(manifest, ledger):
@@ -80,10 +79,10 @@ def recover_unstarted(manifest, ledger):
 
 def inspect(manifest, runner, ledger, *, now):
     root = Path(manifest['attempt_dir'])
-    attempt = current_attempt(root)
-    if not attempt or not (attempt / 'receipt.json').is_file():
-        return {'state': 'NEEDS_RECONCILIATION', 'reason': 'attempt_receipt_missing'}
     try:
+        attempt = current_attempt(root, runner, repo=manifest['checkout'])
+        if not attempt or not (attempt / 'receipt.json').is_file():
+            return {'state': 'NEEDS_RECONCILIATION', 'reason': 'attempt_receipt_missing'}
         receipt = runner.effective_receipt(attempt)
         if (receipt.get('pr') != manifest['pr'] or receipt.get('head') != manifest['head']
                 or receipt.get('base') != manifest['base']
@@ -91,7 +90,10 @@ def inspect(manifest, runner, ledger, *, now):
             raise ValueError('review binding changed')
         reservation_id = receipt['shared_reservation_id']
         row = ledger.reservation(reservation_id)
-        if (not row or row['owner'] != str(attempt) or row['group_id'] != manifest['quota_group']):
+        if (attempt != root and (attempt.parent != root.parent
+                or not attempt.name.startswith(root.name + '-quota-'))):
+            raise ValueError('archived review is outside the pinned attempt')
+        if (not row or row['owner'] != str(root) or row['group_id'] != manifest['quota_group']):
             raise ValueError('shared reservation differs from attempt')
         if receipt.get('completion_verified'):
             if not runner.completed_review_verified(attempt, receipt, row,
@@ -138,6 +140,17 @@ def inspect(manifest, runner, ledger, *, now):
         return {'state': 'NEEDS_RECONCILIATION', 'reason': type(exc).__name__}
 
 
+def resume_command(runner_file, manifest, status):
+    return [sys.executable, '-I', '-B', str(runner_file), str(manifest['pr']), '--resume-quota',
+            '--shared-call-ledger', manifest['ledger'], '--credential-ref', manifest['credential_ref'],
+            '--quota-group', manifest['quota_group'], '--adoption-receipt', manifest['adoption_receipt'],
+            '--expected-head', manifest['head'], '--expected-base', manifest['base'],
+            '--expected-diff-sha256', manifest['diff_sha256'], '--expected-pr-url', manifest['pr_url'],
+            '--expected-attempt-dir', manifest['attempt_dir'],
+            '--expected-previous-attempt', status['attempt'],
+            '--expected-previous-reservation-id', status['reservation_id']]
+
+
 def main():
     if len(sys.argv) != 2:
         raise SystemExit('usage: review_claude_quota_tick.py MANIFEST')
@@ -182,9 +195,7 @@ def main():
         if status['state'] == 'READY':
             running = status
             runner.replace_private(state_file, {**status, 'state': 'RUNNING', 'at': time.time()})
-            argv = [sys.executable, '-I', '-B', str(runner_file), str(manifest['pr']), '--resume-quota',
-                    '--shared-call-ledger', manifest['ledger'], '--credential-ref', manifest['credential_ref'],
-                    '--quota-group', manifest['quota_group'], '--adoption-receipt', manifest['adoption_receipt']]
+            argv = resume_command(runner_file, manifest, status)
             # The runner owns its 30-minute child timeout and process-group
             # cleanup. The systemd unit owns the outer cgroup timeout.
             subprocess.run(argv, cwd=manifest['checkout'], check=False,
