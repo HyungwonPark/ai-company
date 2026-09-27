@@ -380,6 +380,9 @@ class Dispatcher:
             duration = spec.policy.retry.execution_timeout_seconds
         fact = {"category": category, "duration_seconds": duration,
                 "total_cost_usd": result.get("total_cost_usd")}
+        schema_sha = result.get("output_schema_sha256")
+        if isinstance(schema_sha, str) and re.fullmatch(r"[0-9a-f]{64}", schema_sha):
+            fact["output_schema_sha256"] = schema_sha
         if category in ("quota", "rate_limit"):
             fact["reset_at"] = job["resume_at"] or spec.policy.retry.next_time(
                 self.clock(), job["retry_count"], 0, job["reset_at"])[0]
@@ -819,6 +822,24 @@ class Dispatcher:
                 with self.db:
                     self._save(state, "capacity_wait")
                 return False
+        # A locally invalid Codex response contract must not claim a queue or
+        # shared-account attempt. It is a persistent request problem, not quota.
+        if spec.mode == "live" and self.executor is None:
+            agent = next(a for a in spec.agents if a.agent_id == active["agent_id"])
+            if agent.provider == "codex":
+                from ai_company.adapters.session_cli import codex_output_schema
+                report_type = {"planning": PMPlanStageReport, "plan_review": PlanReviewStageReport,
+                               "contribution": ContributionStageReport}.get(spec.execution_scope, StageReport)
+                source_schema = report_type.model_json_schema()
+                try:
+                    codex_output_schema(source_schema)
+                except ValueError as exc:
+                    state.update(status="BLOCKED", resume_at=None,
+                                 reason="요청 스키마 사전 검사 실패: " + str(exc),
+                                 request_schema_input_sha256=digest(source_schema))
+                    with self.db:
+                        self._save(state, "request_schema_preflight_failed")
+                    return False
         if not self._reserve_project_budget(state, spec, job):
             return False
         if self.shared_calls:

@@ -1,4 +1,6 @@
 import importlib.util
+import contextlib
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -805,6 +807,244 @@ class PMEValRunnerTests(unittest.TestCase):
             self.assertTrue(EVALUATION.adoption_verified(receipt, ledger_path, 'a' * 40))
             self.assertFalse(EVALUATION.adoption_verified(receipt, ledger_path, 'b' * 40))
             self.assertEqual(EVALUATION.global_usage(root, ledger_path), (0, 0))
+
+    def test_revision_includes_six_settled_predecessor_calls_and_refuses_fresh_root(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            old, new = base / 'old-trial', base / 'new-trial'
+            old.mkdir(); new.mkdir()
+            manifest = old / 'evaluation-bindings.json'
+            manifest.write_text(json.dumps({'case_bindings': {case: {'message_sha256': case}
+                for case in ('E1', 'E2', 'E3', 'E4', 'E5', 'E6')}}))
+            bindings = {case: {'message_sha256': case}
+                        for case in ('E1', 'E2', 'E3', 'E4', 'E5', 'E6')}
+            ledger_path = base / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            for number in range(1, 7):
+                owner = str(old / f'E{number}')
+                reservation = f'old-{number}'
+                ledger.reserve(reservation, owner, 'codex', 'fixture', 'group')
+                ledger.started(reservation, owner, {'kind': 'test', 'pid': number})
+                ledger.settle(reservation, owner, f'old-result-{number}', {
+                    'category': 'code_error', 'duration_seconds': 2, 'total_cost_usd': None}, terminated=True)
+            before = manifest.read_bytes()
+            with self.assertRaisesRegex(ValueError, 'missing from the lineage'):
+                EVALUATION.assert_lineage_covers_ledger(new, ledger_path, bindings)
+            rejected = base / 'rejected'; rejected.mkdir()
+            with self.assertRaisesRegex(ValueError, 'configuration changed'):
+                EVALUATION.bind_prior_trial(rejected, old, ledger_path, {
+                    **bindings, 'E1': {'message_sha256': 'E1', 'configuration_sha256': 'changed'}})
+            self.assertFalse((rejected / 'evaluation-lineage.json').exists())
+            EVALUATION.bind_prior_trial(new, old, ledger_path)
+            EVALUATION.assert_lineage_covers_ledger(new, ledger_path, bindings)
+            EVALUATION.assert_lineage_bindings(new, ledger_path, bindings)
+            with self.assertRaisesRegex(ValueError, 'configuration changed'):
+                EVALUATION.assert_lineage_bindings(new, ledger_path, {
+                    **bindings, 'E1': {'message_sha256': 'E1', 'configuration_sha256': 'changed'}})
+            self.assertEqual(EVALUATION.global_usage(new, ledger_path), (6, 0))
+            self.assertEqual(EVALUATION.execution_usage(new, ledger_path, 60), (12, 0))
+            schema_file = old / 'E1' / 'sessions' / 'session-logs' / 'attempt' / 'schema-old.json'
+            schema_file.parent.mkdir(parents=True)
+            schema_file.write_text('{"type":"object"}')
+            old_hash = EVALUATION.hashlib.sha256(schema_file.read_bytes()).hexdigest()
+            with self.assertRaisesRegex(ValueError, 'unchanged'):
+                EVALUATION.assert_repaired_prior_schema(new, ledger_path, old_hash)
+            EVALUATION.assert_repaired_prior_schema(new, ledger_path, 'a' * 64)
+            self.assertEqual(manifest.read_bytes(), before)
+            ledger.close()
+
+    def test_one_call_canary_stops_before_plan_review(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            root = base / 'trial'; root.mkdir()
+            (root / 'cases.json').write_text(json.dumps({'common_project_goal': 'fixture'}))
+            ledger_path = base / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            store = Mock()
+            store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E1'}]
+            request = {'request_id': 'request', 'state': 'pending'}
+            store.overview.side_effect = [
+                {'pm_requests': [request], 'plans': [], 'runs': []},
+                {'pm_requests': [{**request, 'state': 'completed'}],
+                 'plans': [{'id': 'plan', 'request_id': 'request', 'status': 'reviewing'}], 'runs': []}]
+            worker = Mock(store=store)
+            worker.dispatcher.tasks.return_value = []
+
+            def first_pm_only():
+                owner = str(root / 'E1')
+                ledger.reserve('pm-call', owner, 'codex', 'fixture', 'group')
+                ledger.started('pm-call', owner, {'kind': 'test', 'pid': 1})
+                ledger.settle('pm-call', owner, 'pm-result', {'category': 'success',
+                    'duration_seconds': 4, 'total_cost_usd': 0}, terminated=True)
+
+            worker.run_once.side_effect = first_pm_only
+            config = SimpleNamespace(policy=SimpleNamespace(retry=SimpleNamespace(execution_timeout_seconds=60)),
+                                     poll_seconds=1)
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget), \
+                 patch.object(EVALUATION.time, 'sleep'):
+                result = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'},
+                    config, ledger_path, stop_after_first_pm=True)
+            self.assertEqual(result['state'], 'canary_pm_ready')
+            self.assertEqual(result['plan_id'], 'plan')
+            worker.run_once.assert_called_once()
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path), (1, 0))
+            ledger.close()
+
+    def test_canary_continuation_rechecks_settlement_and_stored_plan(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary); root = base / 'trial'
+            db_path = root / 'E1' / 'sessions' / 'sessions.sqlite'
+            db_path.parent.mkdir(parents=True)
+            db = sqlite3.connect(db_path)
+            db.execute('CREATE TABLE management_plans(id TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            db.execute('CREATE TABLE management_pm_requests(message_id TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            db.execute('CREATE TABLE flow_tasks(task_id TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            db.execute('CREATE TABLE session_jobs(job_id TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            reservation_id = digest([str(root / 'E1'), 'job', 1])
+            plan = {'id': 'plan', 'request_id': 'request', 'project_id': 'project', 'status': 'reviewing',
+                    'evidence': {'task_id': 'pm-request', 'session_id': 'session'}}
+            request = {'request_id': 'request', 'project_id': 'project', 'state': 'completed', 'plan_id': 'plan'}
+            db.execute('INSERT INTO management_plans VALUES (?,?)', ('plan', json.dumps(plan)))
+            db.execute('INSERT INTO management_pm_requests VALUES (?,?)', ('request', json.dumps(request)))
+            db.execute('INSERT INTO flow_tasks VALUES (?,?)', ('pm-request', json.dumps({
+                'executions': [{'job_id': 'job'}]})))
+            db.execute('INSERT INTO session_jobs VALUES (?,?)', ('job', json.dumps({
+                'job_id': 'job', 'task_id': 'pm-request', 'session_id': 'session',
+                'attempt_count': 1, 'last_category': 'success'})))
+            db.commit()
+            ledger_path = base / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            ledger.reserve(reservation_id, str(root / 'E1'), 'codex', 'fixture', 'group')
+            ledger.started(reservation_id, str(root / 'E1'), {'kind': 'test', 'pid': 1})
+            ledger.settle(reservation_id, str(root / 'E1'), 'pm-result', {
+                'category': 'success', 'duration_seconds': 1, 'total_cost_usd': 0}, terminated=True)
+            fact = ledger.reservation(reservation_id)
+            marker = {'case': 'E1', 'state': 'canary_pm_ready', 'model_calls': 1, 'plan_id': 'plan',
+                      'last_reservation_id': reservation_id, 'last_event_id': fact['event_id'],
+                      'last_result_sha256': EVALUATION.hashlib.sha256(fact['result'].encode()).hexdigest()}
+            self.assertTrue(EVALUATION.canary_verified(root, ledger_path, marker))
+            self.assertFalse(EVALUATION.canary_verified(root, ledger_path, {**marker, 'model_calls': 2}))
+            self.assertFalse(EVALUATION.canary_verified(root, ledger_path, {**marker,
+                'last_result_sha256': '0' * 64}))
+            db.execute('UPDATE management_pm_requests SET document=? WHERE message_id=?',
+                       (json.dumps({**request, 'state': 'blocked'}), 'request'))
+            db.commit()
+            self.assertFalse(EVALUATION.canary_verified(root, ledger_path, marker))
+            db.close(); ledger.close()
+
+    def test_provider_request_error_stops_and_survives_restart(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            root = base / 'trial'; root.mkdir()
+            (root / 'cases.json').write_text(json.dumps({'common_project_goal': 'fixture'}))
+            ledger_path = base / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            store = Mock()
+            store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E1'}]
+            store.overview.return_value = {'pm_requests': [{'request_id': 'request', 'state': 'pending'}],
+                                          'plans': [], 'runs': []}
+            worker = Mock(store=store)
+            worker.dispatcher.tasks.return_value = []
+
+            def reject_once():
+                owner = str(root / 'E1')
+                ledger.reserve('first', owner, 'codex', 'fixture', 'group')
+                ledger.started('first', owner, {'kind': 'test', 'pid': 1})
+                ledger.settle('first', owner, 'rejected', {'category': 'request_schema_error',
+                    'output_schema_sha256': 'a' * 64, 'duration_seconds': 2,
+                    'total_cost_usd': None}, terminated=True)
+
+            worker.run_once.side_effect = reject_once
+            config = SimpleNamespace(policy=SimpleNamespace(retry=SimpleNamespace(execution_timeout_seconds=60)),
+                                     poll_seconds=1)
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget), \
+                 patch.object(EVALUATION.time, 'sleep'):
+                first = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'}, config, ledger_path)
+                second = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'}, config, ledger_path)
+            self.assertEqual(first['state'], 'request_error_wait')
+            self.assertEqual(second['state'], 'request_error_wait')
+            self.assertEqual(json.loads((root / 'request-error-hold.json').read_text())['first_fact']
+                             ['output_schema_sha256'], 'a' * 64)
+            worker.run_once.assert_called_once()
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path), (1, 0))
+            (root / 'evaluation-bindings.json').write_text('{}')
+            (root / 'request-error-hold.json').unlink()
+            successor = base / 'successor'; successor.mkdir()
+            EVALUATION.bind_prior_trial(successor, root, ledger_path)
+            with self.assertRaisesRegex(ValueError, 'unchanged'):
+                EVALUATION.assert_repaired_prior_schema(successor, ledger_path, 'a' * 64)
+            ledger.close()
+
+    def test_quota_canary_does_not_resume_a_second_model_call(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary); root = base / 'trial'; root.mkdir()
+            (root / 'cases.json').write_text(json.dumps({'common_project_goal': 'fixture'}))
+            ledger_path = base / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            owner = str(root / 'E1')
+            ledger.reserve('quota', owner, 'codex', 'fixture', 'group')
+            ledger.started('quota', owner, {'kind': 'test', 'pid': 1})
+            ledger.settle('quota', owner, 'quota-result', {'category': 'quota',
+                'reset_at': time.time() - 1, 'duration_seconds': 1, 'total_cost_usd': None}, terminated=True)
+            store = Mock()
+            store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E1'}]
+            store.overview.return_value = {'pm_requests': [{'request_id': 'request', 'state': 'running'}],
+                                          'plans': [], 'runs': []}
+            worker = Mock(store=store)
+            worker.dispatcher.tasks.return_value = []
+            config = SimpleNamespace(policy=SimpleNamespace(retry=SimpleNamespace(execution_timeout_seconds=60)),
+                                     poll_seconds=1)
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget):
+                result = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'},
+                    config, ledger_path, stop_after_first_pm=True)
+            self.assertEqual(result['state'], 'provider_wait')
+            worker.run_once.assert_not_called()
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path), (1, 0))
+            ledger.close()
+
+    def test_continuation_stops_other_cases_after_first_common_request_error(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            source = base / 'source'; source.mkdir()
+            cases_path = base / 'cases.json'
+            cases_path.write_text('{}')
+            config_path = base / 'config.json'
+            config_path.write_text('{}')
+            ledger_path = base / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            ledger.close()
+            root = base / 'trial'; root.mkdir()
+            (root / 'canary-result.json').write_text(json.dumps({'state': 'canary_pm_ready'}))
+            cases = {'cases': [{'id': f'E{number}'} for number in range(1, 7)]}
+            config = SimpleNamespace(source_clone=str(source), base_sha='a' * 40)
+            bindings = {case['id']: {'message_sha256': case['id'], 'configuration_sha256': 'fixed'}
+                        for case in cases['cases']}
+            subprocess_results = [SimpleNamespace(returncode=0, stdout='a' * 40, stderr=''),
+                                 SimpleNamespace(returncode=0, stdout='', stderr='')]
+            argv = ['--cases', str(cases_path), '--config', str(config_path),
+                    '--shared-call-ledger', str(ledger_path), '--trial-root', str(root),
+                    '--execute', '--continue-after-canary', '--adoption-receipt', str(base / 'receipt')]
+            with patch.object(EVALUATION, 'load_inputs', return_value=(cases, config)), \
+                 patch.object(EVALUATION, 'evaluation_bindings', return_value=bindings), \
+                 patch.object(EVALUATION, 'adoption_verified', return_value=True), \
+                 patch.object(EVALUATION, 'canary_verified', return_value=True), \
+                 patch.object(EVALUATION.subprocess, 'run', side_effect=subprocess_results), \
+                 patch.object(EVALUATION, 'run_case', side_effect=[
+                     {'case': 'E1', 'state': 'plan_ready'},
+                     {'case': 'E2', 'state': 'request_error_wait'}]) as run_case, \
+                 contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(EVALUATION.main(argv), 0)
+            self.assertEqual(run_case.call_count, 2)
 
 
 if __name__ == '__main__':

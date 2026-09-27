@@ -1,5 +1,6 @@
 """Deterministic PR #4 scenarios: private repositories/queues and an adjustable clock."""
 import copy
+import json
 from pathlib import Path
 import subprocess
 import tempfile
@@ -12,6 +13,7 @@ from ai_company.dispatcher import Dispatcher
 from ai_company.flow_contracts import AgentProfile, CheckCommand, FlowPolicy, FlowSpec
 from ai_company.runtime import ExecutionBlocked
 from ai_company.sessions import repository_snapshot
+from ai_company.shared_calls import SharedCallLedger
 
 
 class Crash(BaseException):
@@ -115,6 +117,46 @@ class FlowFixture(unittest.TestCase):
 
 
 class DispatcherTests(FlowFixture):
+    def test_live_schema_preflight_blocks_before_queue_or_shared_reservation(self):
+        path = self.root / 'shared-calls.sqlite'
+        ledger = SharedCallLedger.initialize(path, [
+            ('codex', 'codex-account', 'codex-shared', 'AVAILABLE', None, None, 0, 0, 0, 0),
+            ('claude', 'claude-account', 'claude-shared', 'AVAILABLE', None, None, 0, 0, 0, 0),
+        ], clock=lambda: self.now)
+        self.addCleanup(ledger.close)
+        self.dispatcher.shared_calls = ledger
+        self.dispatcher.executor = None
+        spec = self.spec.model_copy(update={'mode': 'live', 'execution_scope': 'planning', 'approved_plan': False})
+        self.submit(spec)
+        with patch('ai_company.adapters.session_cli.codex_output_schema',
+                   side_effect=ValueError('missing additionalProperties')):
+            state = self.tick()
+        self.assertEqual(state['status'], 'BLOCKED')
+        self.assertIn('missing additionalProperties', state['reason'])
+        self.assertEqual(self.dispatcher.queue.get(state['active']['job_id'])['attempt_count'], 0)
+        self.assertEqual(ledger.db.execute('SELECT count(*) FROM reservations').fetchone()[0], 0)
+        self.restart()
+        self.assertEqual(self.tick()['status'], 'BLOCKED')
+
+    def test_provider_schema_rejection_settles_with_wire_schema_hash(self):
+        ledger = SharedCallLedger.initialize(self.root / 'shared-calls.sqlite', [
+            ('codex', 'codex-account', 'codex-shared', 'AVAILABLE', None, None, 0, 0, 0, 0),
+            ('claude', 'claude-account', 'claude-shared', 'AVAILABLE', None, None, 0, 0, 0, 0),
+        ], clock=lambda: self.now)
+        self.addCleanup(ledger.close)
+        self.dispatcher.shared_calls = ledger
+        schema_sha = 'a' * 64
+        self.dispatcher.executor = lambda *args, **kwargs: SessionOutcome(
+            'request_schema_error', result={'duration_seconds': 1,
+                                            'output_schema_sha256': schema_sha})
+        self.submit()
+        state = self.tick()
+        self.assertEqual(state['status'], 'BLOCKED')
+        rows = ledger.db.execute("SELECT state,result FROM reservations").fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0], 'SETTLED')
+        self.assertEqual(json.loads(rows[0][1])['output_schema_sha256'], schema_sha)
+
     def test_01_codex_to_claude_cancels_old_reservation(self):
         self.submit(); self.script=[self.quota()]; s=self.tick()
         self.assertEqual(s['active']['agent_id'],'claude'); old=s['executions'][0]
@@ -205,7 +247,7 @@ class DispatcherTests(FlowFixture):
         self.assertEqual(self.tick()['active']['agent_id'],'claude')
 
     def test_13_auth_permission_sandbox_billing_do_not_failover(self):
-        for category in ('authentication','permission','sandbox','billing','approval','code_error'):
+        for category in ('authentication','permission','sandbox','billing','approval','code_error','request_schema_error'):
             with self.subTest(category=category):
                 task=self.task.model_copy(update={'task_id':category})
                 self.dispatcher.submit(self.spec.model_copy(update={'task':task}))
