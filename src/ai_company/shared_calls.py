@@ -283,15 +283,15 @@ class SharedCallLedger:
             row = self.reservation(reservation_id)
             if not row or row["owner"] != owner:
                 raise SharedCallError("settlement ownership mismatch")
+            if row["state"] == "SETTLED":
+                if row["event_id"] != event_id or row["result"] != encoded:
+                    raise SharedCallError("settlement differs from committed fact")
+                return False
             if expected_accounts is not None and [list(item) for item in self.db.execute(
                     'SELECT provider,credential_ref,group_id,state,resume_at,reason,calls,'
                     'runtime_seconds,cost_usd,cost_unknown FROM accounts WHERE group_id=? '
                     'ORDER BY provider,credential_ref', (row['group_id'],))] != expected_accounts:
                 raise SharedCallError('account restriction or usage changed before settlement')
-            if row["state"] == "SETTLED":
-                if row["event_id"] != event_id or row["result"] != encoded:
-                    raise SharedCallError("settlement differs from committed fact")
-                return False
             if self.db.execute("SELECT 1 FROM settlement_events WHERE event_id=?", (event_id,)).fetchone():
                 raise SharedCallError("settlement event ID belongs to another reservation")
             if row["state"] not in ("STARTED", "UNKNOWN"):
@@ -322,6 +322,36 @@ class SharedCallLedger:
             return self._transaction(apply)
         except sqlite3.Error as exc:
             raise SharedCallError("shared settlement failed closed") from exc
+
+    def reconcile_settled_quota(self, reservation_id, provider, credential_ref, group_id, event_id):
+        """Release only a settled quota attempt from UNKNOWN to its recorded wait.
+
+        This never changes usage or shortens a newer cooldown. A separate
+        review must first establish that the UNKNOWN terminal actually ended.
+        """
+        def apply():
+            row = self.reservation(reservation_id)
+            if (not row or row['group_id'] != group_id or row['state'] != 'SETTLED'
+                    or row['event_id'] != event_id or not row['result']):
+                raise SharedCallError('quota reconciliation has no exact settlement')
+            result = json.loads(row['result'])
+            reset = result.get('reset_at')
+            if (result.get('category') != 'quota' or isinstance(reset, bool)
+                    or not isinstance(reset, (int, float)) or not math.isfinite(reset) or reset <= 0):
+                raise SharedCallError('settlement is not a verified quota wait')
+            account = self.account(provider, credential_ref, group_id)
+            if self.db.execute("SELECT 1 FROM reservations WHERE group_id=? AND state IN ('RESERVED','STARTED','UNKNOWN')", (group_id,)).fetchone():
+                raise SharedCallError('another account call is unresolved')
+            if account['state'] == 'COOLDOWN' and account['reason'] == 'quota' and account['resume_at'] >= reset:
+                return False
+            if (account['state'] != 'UNKNOWN' or account['reason'] != 'quota'
+                    or account['resume_at'] is None or account['resume_at'] < reset):
+                raise SharedCallError('new account restriction or usage needs review')
+            changed = self.db.execute("UPDATE accounts SET state='COOLDOWN' WHERE group_id=? AND state='UNKNOWN' AND reason='quota' AND resume_at>=?", (group_id, reset)).rowcount
+            if changed < 1:
+                raise SharedCallError('account restriction changed during reconciliation')
+            return True
+        return self._transaction(apply)
 
     def cancel_unstarted(self, reservation_id, owner, *, evidence):
         """Release only with a caller's durable proof that no attempt was claimed."""

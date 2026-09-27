@@ -24,6 +24,15 @@ for line in sys.stdin:
     event=json.loads(line)
     if event['type']=='user':
         open(os.environ['MARKER'],'w').write('delivered')
+        if os.environ.get('WORKFLOW'):
+            for item in [
+                {'type':'system','subtype':'task_started','task_id':'task-1'},
+                {'type':'result','session_id':'native-session','result_index':0,'result':'first'},
+                {'type':'system','subtype':'background_tasks_changed','tasks':[]},
+                {'type':'system','subtype':'task_notification','task_id':'task-1','status':'completed'},
+                {'type':'result','session_id':'native-session','result_index':1,'origin':{'kind':'task-notification'},'result':'final'}]:
+                print(json.dumps(item),flush=True)
+            continue
         print(json.dumps({'type':'result','session_id':'native-session','result':'done'}),flush=True)
         continue
     req=event['request_id']
@@ -40,7 +49,8 @@ class ClaudeFileAdapterTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(); self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
 
-    def relay(self, effort, model='claude-opus-5', blocked=False, bound_prompt=False):
+    def relay(self, effort, model='claude-opus-5', blocked=False, bound_prompt=False,
+              journal=False, workflow=False):
         directory = self.root / effort; directory.mkdir()
         native = directory / 'native'; native.write_text(NATIVE); native.chmod(0o700)
         config = {'cli_executable':str(native), 'cli_sha256':hashlib.sha256(native.read_bytes()).hexdigest(),
@@ -49,6 +59,10 @@ class ClaudeFileAdapterTests(unittest.TestCase):
                            'MARKER':str(directory/'delivered')}}
         if bound_prompt:
             config['binding']['prompt_sha256'] = hashlib.sha256(b'task').hexdigest()
+        if journal:
+            config['events_path'] = str(directory/'events.live.jsonl')
+        if workflow:
+            config['environment']['WORKFLOW'] = '1'
         if model != 'claude-opus-5':
             config['expected_applied'] = {'model':model, 'effort':'xhigh', 'ultracode':True}
         if blocked:
@@ -90,6 +104,23 @@ class ClaudeFileAdapterTests(unittest.TestCase):
         self.assertEqual(facts[1]['applied']['model'], 'claude-opus-5-5')
         self.assertEqual(facts[3]['state'], 'prompt_delivered')
         self.assertEqual(facts[3]['prompt_sha256'], hashlib.sha256(b'task').hexdigest())
+
+    def test_live_journal_matches_sanitized_stream_before_runner_receipt(self):
+        directory, result, facts = self.relay('xhigh', journal=True)
+        live = (directory/'events.live.jsonl').read_text()
+        self.assertEqual(live, result.stdout)
+        self.assertEqual(facts[-1]['state'], 'closed')
+        self.assertNotIn('PRIVATE_', live)
+
+    def test_after_settings_waits_for_workflow_notification_result(self):
+        _, result, facts = self.relay('xhigh', workflow=True)
+        rows = [json.loads(line) for line in result.stdout.splitlines()]
+        last_result = max(index for index, item in enumerate(rows) if item.get('type') == 'result')
+        after = next(index for index, item in enumerate(rows)
+                     if item.get('type') == 'control_response'
+                     and item.get('response', {}).get('request_id') == 'attempt-1-after')
+        self.assertGreater(after, last_result)
+        self.assertEqual(facts[-1]['state'], 'closed')
 
     def test_relay_and_native_unblock_inherited_signals(self):
         directory, _, _ = self.relay('xhigh', blocked=True)
