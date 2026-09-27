@@ -206,6 +206,46 @@ class PMPlanStageReport(StageReport):
     plan: dict | None
     requirements_feedback: dict | None = None
 
+    @model_validator(mode="before")
+    @classmethod
+    def decode_wire_plan(cls, value):
+        """Decode the closed Codex wire shape without changing stored v1 plans."""
+        if not isinstance(value, dict) or not isinstance(value.get("plan"), dict):
+            return value
+        plan = value["plan"]
+        if plan.get("wire_contract") != "pm-plan-wire-v1":
+            return value
+        if plan.get("skill_selection") is not None:
+            raise ValueError("PM cannot supply the server-owned skill selection")
+
+        def ordered_map(items, key, values):
+            if not isinstance(items, list):
+                raise ValueError("PM wire roles must be an array")
+            result = {}
+            for item in items:
+                if not isinstance(item, dict) or set(item) != {key, values} or not isinstance(item[key], str):
+                    raise ValueError("PM wire role entry is malformed")
+                if item[key] in result:
+                    raise ValueError("PM wire role entries must be unique")
+                result[item[key]] = item[values]
+            return result
+
+        plan = dict(plan)
+        plan.pop("wire_contract")
+        plan.pop("skill_selection")
+        plan["skill_recommendations"] = ordered_map(
+            plan.get("skill_recommendations"), "role_key", "skill_ids")
+        proposal = plan.get("execution_spec_proposal")
+        if proposal is not None:
+            if not isinstance(proposal, dict):
+                raise ValueError("PM execution proposal is malformed")
+            proposal = dict(proposal)
+            proposal["candidates"] = ordered_map(proposal.get("candidates"), "role", "agent_ids")
+            proposal["role_candidates"] = ordered_map(
+                proposal.get("role_candidates"), "role_key", "agent_ids")
+            plan["execution_spec_proposal"] = proposal
+        return {**value, "plan": plan}
+
     @field_validator("plan")
     @classmethod
     def typed_plan(cls, value):
@@ -241,10 +281,29 @@ class PMPlanStageReport(StageReport):
 
     @classmethod
     def model_json_schema(cls, *args, **kwargs):
-        from ai_company.automation_contracts import PMPlanContent
+        from ai_company.automation_contracts import PMPlanContent, PMRequirements
+        from ai_company.execution_specs import ExecutionSpecSelection
         schema = super().model_json_schema(*args, **kwargs)
         plan_schema = PMPlanContent.model_json_schema()
         schema.setdefault("$defs", {}).update(plan_schema.pop("$defs", {}))
+        selection = ExecutionSpecSelection.model_json_schema()
+        schema["$defs"].update(selection.pop("$defs", {}))
+        def role_entries(key, values, *, role_schema):
+            return {"type": "array", "items": {"type": "object", "properties": {
+                key: role_schema, values: {"type": "array", "items": {"type": "string"}}}}}
+        selection["properties"]["candidates"] = role_entries(
+            "role", "agent_ids", role_schema={"enum": ["pm", "developer", "reviewer", "final"], "type": "string"})
+        selection["properties"]["role_candidates"] = role_entries(
+            "role_key", "agent_ids", role_schema={"type": "string"})
+        plan_schema["properties"]["execution_spec_proposal"] = {
+            "anyOf": [selection, {"type": "null"}]}
+        plan_schema["properties"]["skill_selection"] = {"type": "null"}
+        plan_schema["properties"]["skill_recommendations"] = role_entries(
+            "role_key", "skill_ids", role_schema={"type": "string"})
+        plan_schema["properties"]["wire_contract"] = {"const": "pm-plan-wire-v1", "type": "string"}
+        feedback = PMRequirements.model_json_schema()
+        schema["$defs"].update(feedback.pop("$defs", {}))
+        schema["properties"]["requirements_feedback"] = {"anyOf": [feedback, {"type": "null"}]}
         schema["properties"]["plan"] = {"anyOf": [plan_schema, {"type": "null"}]}
         return schema
 

@@ -270,7 +270,7 @@ class SharedCallLedger:
         category = result.get("category")
         if category not in ("success", "quota", "rate_limit", "transient_network", "authentication", "blocked",
                             "reconciliation", "context_exhausted", "permission", "approval_required", "test_failure",
-                            "code_error", "unknown"):
+                            "code_error", "request_schema_error", "unknown"):
             raise SharedCallError("result category is not recognized")
         duration = result.get("duration_seconds", 0)
         cost = result.get("total_cost_usd")

@@ -18,7 +18,10 @@ import time
 
 from ai_company.automation import Automation
 from ai_company.automation_contracts import AutomationConfig
+from ai_company.adapters.session_cli import codex_output_schema_digest
 from ai_company.contracts import digest
+from ai_company.flow_contracts import (ContributionStageReport, PMPlanStageReport,
+                                       PlanReviewStageReport, StageReport)
 from ai_company.shared_calls import SharedCallError, SharedCallLedger
 from ai_company.storage import controller_lock
 
@@ -146,6 +149,13 @@ def evaluation_bindings(cases, config):
     } for case in cases['cases']}
 
 
+def evaluation_schema_digests():
+    """The same final wire serializer used by run_session, for every dispatcher report."""
+    return {name: codex_output_schema_digest(report.model_json_schema()) for name, report in {
+        'planning': PMPlanStageReport, 'plan_review': PlanReviewStageReport,
+        'contribution': ContributionStageReport, 'default': StageReport}.items()}
+
+
 def adoption_verified(path, shared_path, expected_commit):
     if path is None or not path.is_file():
         return False
@@ -159,15 +169,229 @@ def adoption_verified(path, shared_path, expected_commit):
         return False
 
 
+def lineage_roots(root, shared_path):
+    """Read immutable parent manifests; never let a new directory reset a trial budget."""
+    roots, seen = [], set()
+    current = root.resolve()
+    while True:
+        if current in seen:
+            raise ValueError('evaluation lineage contains a cycle')
+        seen.add(current)
+        roots.append(current)
+        link = current / 'evaluation-lineage.json'
+        if not link.exists():
+            break
+        record = json.loads(link.read_text())
+        prior = Path(record['prior_trial_root']).resolve()
+        manifest = prior / 'evaluation-bindings.json'
+        if (record.get('schema_version') != 1
+                or record.get('shared_call_ledger') != str(shared_path.resolve())
+                or prior == current or prior.is_relative_to(current) or current.is_relative_to(prior)
+                or not manifest.is_file()
+                or record.get('prior_manifest_sha256') != hashlib.sha256(manifest.read_bytes()).hexdigest()):
+            raise ValueError('evaluation lineage or prior manifest changed')
+        current = prior
+    return roots
+
+
+def bind_prior_trial(root, prior, shared_path, bindings=None):
+    path = root / 'evaluation-lineage.json'
+    if prior is None:
+        if path.exists():
+            raise ValueError('existing evaluation lineage needs its explicit prior trial root')
+        return
+    prior = prior.resolve()
+    manifest = prior / 'evaluation-bindings.json'
+    if not manifest.is_file():
+        raise ValueError('prior evaluation manifest is absent')
+    if root.resolve() in lineage_roots(prior, shared_path):
+        raise ValueError('evaluation lineage contains a cycle')
+    if bindings is not None and json.loads(manifest.read_text()).get('case_bindings') != bindings:
+        raise ValueError('prior evaluation case messages or configuration changed')
+    record = {'schema_version': 1, 'prior_trial_root': str(prior),
+              'prior_manifest_sha256': hashlib.sha256(manifest.read_bytes()).hexdigest(),
+              'shared_call_ledger': str(shared_path.resolve())}
+    if path.exists():
+        if json.loads(path.read_text()) != record:
+            raise ValueError('existing evaluation lineage changed')
+    else:
+        with path.open('x') as stream:
+            json.dump(record, stream, sort_keys=True)
+        path.chmod(0o600)
+    lineage_roots(root, shared_path)
+
+
+def _owned_by_lineage(owner, roots):
+    return any(owner == str(root) or owner.startswith(str(root) + '/') for root in roots)
+
+
+def trial_reservations(root, shared_path):
+    """Return this revision's facts, excluding ancestral usage already accounted for."""
+    ledger = SharedCallLedger(shared_path)
+    try:
+        rows = ledger.db.execute("""SELECT reservation_id,owner,state,event_id,result FROM reservations
+            WHERE state!='CANCELLED' AND group_id!='@host-only' ORDER BY rowid""").fetchall()
+    finally:
+        ledger.close()
+    return [row for row in rows if _owned_by_lineage(row[1], [root.resolve()])]
+
+
+def request_error_hold(root, shared_path):
+    """Persist a provider request failure before another case can be dispatched."""
+    facts = []
+    if shared_path.is_file():
+        for reservation_id, owner, state, event_id, result in trial_reservations(root, shared_path):
+            outcome = json.loads(result) if state == 'SETTLED' and result else {}
+            if outcome.get('category') == 'request_schema_error':
+                facts.append({'reservation_id': reservation_id, 'event_id': event_id,
+                              'result_sha256': hashlib.sha256(result.encode()).hexdigest(),
+                              'output_schema_sha256': outcome.get('output_schema_sha256')})
+    marker = root / 'request-error-hold.json'
+    if not facts and not marker.exists():
+        return None
+    if marker.exists():
+        record = json.loads(marker.read_text())
+        manifest = root / 'evaluation-bindings.json'
+        expected_manifest = hashlib.sha256(manifest.read_bytes()).hexdigest() if manifest.exists() else None
+        if (not facts or record.get('first_fact') != facts[0]
+                or record.get('manifest_sha256') != expected_manifest):
+            raise ValueError('request error hold differs from the shared settlement')
+    else:
+        manifest = root / 'evaluation-bindings.json'
+        record = {'schema_version': 1, 'category': 'request_schema_error',
+                  'first_fact': facts[0], 'manifest_sha256': hashlib.sha256(manifest.read_bytes()).hexdigest()
+                  if manifest.exists() else None}
+        with marker.open('x') as stream:
+            json.dump(record, stream, sort_keys=True)
+        marker.chmod(0o600)
+    return {'state': 'request_error_wait', 'reason': 'common provider request schema rejection',
+            'reservation_id': record['first_fact']['reservation_id']}
+
+
+def assert_lineage_covers_ledger(root, shared_path, bindings):
+    """A registered E1-E6 trial cannot be omitted by choosing another root."""
+    roots = set(lineage_roots(root, shared_path))
+    expected = {key: value['message_sha256'] for key, value in bindings.items()}
+    ledger = SharedCallLedger(shared_path)
+    try:
+        owners = [row[0] for row in ledger.db.execute(
+            "SELECT DISTINCT owner FROM reservations WHERE state!='CANCELLED' AND group_id!='@host-only'")]
+    finally:
+        ledger.close()
+    for owner in owners:
+        path = Path(owner).resolve()
+        candidate = path.parent if path.name in {'E1', 'E2', 'E3', 'E4', 'E5', 'E6'} else path
+        if candidate in roots:
+            continue
+        manifest = candidate / 'evaluation-bindings.json'
+        if manifest.exists() and {key: value['message_sha256'] for key, value in
+                json.loads(manifest.read_text())['case_bindings'].items()} == expected:
+            raise ValueError('prior evaluation reservations are missing from the lineage')
+
+
+def assert_lineage_bindings(root, shared_path, bindings):
+    for prior in lineage_roots(root, shared_path)[1:]:
+        manifest = json.loads((prior / 'evaluation-bindings.json').read_text())
+        if manifest['case_bindings'] != bindings:
+            raise ValueError('prior evaluation case messages or configuration changed')
+
+
+def assert_repaired_prior_schema(root, shared_path, current_pm_schema):
+    """A new root is not an escape hatch for the same rejected request contract."""
+    for prior in lineage_roots(root, shared_path)[1:]:
+        marker = prior / 'request-error-hold.json'
+        recorded = json.loads(marker.read_text())['first_fact'].get('output_schema_sha256') if marker.exists() else None
+        facts = trial_reservations(prior, shared_path)
+        results = [json.loads(result) for _, _, state, _, result in facts if state == 'SETTLED' and result]
+        categories = [result.get('category') for result in results]
+        rejected = [result for result in results if result.get('category') == 'request_schema_error']
+        suspected_legacy = bool(categories) and all(category in ('unknown', 'code_error')
+                                                    for category in categories)
+        if marker.exists() and not recorded:
+            raise ValueError('prior request error has no schema hash; reconciliation is required')
+        if recorded is not None and (not isinstance(recorded, str) or len(recorded) != 64
+                                     or any(char not in '0123456789abcdef' for char in recorded)):
+            raise ValueError('prior request error schema hash is malformed')
+        hashes = {recorded} if recorded else set()
+        hashes.update(result.get('output_schema_sha256') for result in rejected
+                      if result.get('output_schema_sha256'))
+        if rejected and any(not isinstance(value, str) or len(value) != 64 or
+                            any(char not in '0123456789abcdef' for char in value) for value in hashes):
+            raise ValueError('prior request error schema hash is malformed')
+        if suspected_legacy or rejected and not hashes:
+            hashes.update(hashlib.sha256(path.read_bytes()).hexdigest() for path in
+                          prior.glob('E*/sessions/session-logs/**/schema-*.json'))
+        if (suspected_legacy or rejected) and not hashes:
+            raise ValueError('prior request failures need schema reconciliation')
+        if current_pm_schema in hashes:
+            raise ValueError('rejected PM request schema is unchanged across evaluation revisions')
+
+
+def canary_verified(root, shared_path, marker):
+    """Tie an operator's continuation to the settled PM call and persisted plan."""
+    try:
+        if marker.get('state') != 'canary_pm_ready' or marker.get('case') != 'E1':
+            return False
+        count = marker['model_calls']
+        facts = trial_reservations(root, shared_path)
+        if type(count) is not int or count != 1 or len(facts) < count:
+            return False
+        relevant = facts[:count]
+        if any(owner != str((root / 'E1').resolve()) or state != 'SETTLED'
+               for _, owner, state, _, _ in relevant):
+            return False
+        reservation_id, _, _, event_id, result = relevant[-1]
+        if (reservation_id != marker.get('last_reservation_id')
+                or event_id != marker.get('last_event_id')
+                or hashlib.sha256(result.encode()).hexdigest() != marker.get('last_result_sha256')
+                or json.loads(result).get('category') != 'success'):
+            return False
+        db = sqlite3.connect(f'file:{root / "E1" / "sessions" / "sessions.sqlite"}?mode=ro', uri=True)
+        try:
+            row = db.execute('SELECT document FROM management_plans WHERE id=?',
+                             (marker.get('plan_id'),)).fetchone()
+            if not row:
+                return False
+            plan = json.loads(row[0])
+            request_row = db.execute('SELECT document FROM management_pm_requests WHERE message_id=?',
+                                     (plan['request_id'],)).fetchone()
+            if not request_row:
+                return False
+            request = json.loads(request_row[0])
+            task_id = 'pm-' + request['request_id']
+            task_row = db.execute('SELECT document FROM flow_tasks WHERE task_id=?', (task_id,)).fetchone()
+            if not task_row:
+                return False
+            task = json.loads(task_row[0])
+            attempts = task.get('executions') or []
+            if not attempts or not attempts[-1].get('job_id'):
+                return False
+            job_id = attempts[-1]['job_id']
+            job_row = db.execute('SELECT document FROM session_jobs WHERE job_id=?', (job_id,)).fetchone()
+            if not job_row:
+                return False
+            job = json.loads(job_row[0])
+            evidence = plan.get('evidence') or {}
+            return (plan['project_id'] == request['project_id'] and request['state'] == 'completed'
+                    and request['plan_id'] == plan['id'] and plan['id'] == marker['plan_id']
+                    and evidence.get('task_id') == task_id and evidence.get('session_id') == job.get('session_id')
+                    and job.get('last_category') == 'success' and job.get('task_id') == task_id
+                    and reservation_id == digest([str((root / 'E1').resolve()), job_id, job['attempt_count']]))
+        finally:
+            db.close()
+    except (KeyError, TypeError, ValueError, sqlite3.Error, OSError):
+        return False
+
+
 def global_usage(root, shared_path):
     ledger = SharedCallLedger(shared_path)
     try:
         # Reservations, not only settled results, consume the evaluation cap.
-        prefix = str(root.resolve()) + '/'
-        calls = ledger.db.execute("SELECT count(*) FROM reservations WHERE (owner=? OR substr(owner,1,?)=?) AND state!='CANCELLED'",
-                                  (str(root.resolve()), len(prefix), prefix)).fetchone()[0]
+        roots = lineage_roots(root, shared_path)
+        calls = sum(_owned_by_lineage(owner, roots) for (owner,) in ledger.db.execute(
+            "SELECT owner FROM reservations WHERE state!='CANCELLED' AND group_id!='@host-only'"))
         repairs = 0
-        for path in root.glob('E*/sessions/sessions.sqlite'):
+        for path in (path for trial in roots for path in trial.glob('E*/sessions/sessions.sqlite')):
             db = sqlite3.connect(f'file:{path}?mode=ro', uri=True)
             try:
                 # A plan-review REVISE also increments flow usage.repairs; only
@@ -261,10 +485,10 @@ def execution_usage(root, shared_path, timeout):
     """Count settled process time and reserve one timeout for each unresolved call."""
     ledger = SharedCallLedger(shared_path)
     try:
-        prefix = str(root.resolve()) + '/'
-        rows = ledger.db.execute('''SELECT state,result FROM reservations
-            WHERE (owner=? OR substr(owner,1,?)=?) AND state!='CANCELLED' ''',
-            (str(root.resolve()), len(prefix), prefix)).fetchall()
+        roots = lineage_roots(root, shared_path)
+        rows = [(state, result) for owner, state, result in ledger.db.execute(
+            "SELECT owner,state,result FROM reservations WHERE state!='CANCELLED' AND group_id!='@host-only'")
+            if _owned_by_lineage(owner, roots)]
     finally:
         ledger.close()
     elapsed = 0
@@ -336,7 +560,7 @@ def stage_timeout(config, overview):
     return timeout
 
 
-def run_case(root, case, config, shared_path, _legacy_deadline=None):
+def run_case(root, case, config, shared_path, _legacy_deadline=None, *, stop_after_first_pm=False):
     case_root = root / case['id']
     case_root.mkdir(mode=0o700, parents=True, exist_ok=True)
     effective, budget = case_budget_config(root, case['id'], config, shared_path)
@@ -360,6 +584,36 @@ def run_case(root, case, config, shared_path, _legacy_deadline=None):
             worker.reconcile()
             overview = worker.store.overview(project['id'])
             requests = overview['pm_requests']
+            common_error = request_error_hold(root, shared_path)
+            if common_error:
+                return {'case': case['id'], **common_error, **evidence}
+            if stop_after_first_pm:
+                facts = trial_reservations(root, shared_path)
+                if facts:
+                    if len(facts) != 1:
+                        raise ValueError('E1 canary is limited to one total model reservation')
+                    if any(owner != str(case_root.resolve()) for _, owner, *_ in facts):
+                        raise ValueError('canary stage contains a different case reservation')
+                    reservation_id, _, fact_state, event_id, result = facts[-1]
+                    if fact_state != 'SETTLED':
+                        return {'case': case['id'], 'state': 'reconciliation_wait', **evidence}
+                    outcome = json.loads(result or '{}')
+                    plans = [plan for plan in overview['plans'] if requests and
+                             plan.get('request_id') == requests[-1]['request_id']]
+                    successful = (outcome.get('category') == 'success' and requests[-1]['state'] == 'completed'
+                                  and bool(plans) and plans[-1]['status'] in ('reviewing', 'proposed'))
+                    if successful:
+                        return {'case': case['id'], 'state': 'canary_pm_ready', 'plan_id': plans[-1]['id'],
+                                'model_calls': len(facts), 'last_reservation_id': reservation_id,
+                                'last_event_id': event_id,
+                                'last_result_sha256': hashlib.sha256(result.encode()).hexdigest(), **evidence}
+                    if outcome.get('category') in ('quota', 'rate_limit', 'transient_network'):
+                        wait = case_wait(worker, overview) if requests else None
+                        return {'case': case['id'], **(wait or {'state': 'provider_wait'}),
+                                'model_calls': 1, **evidence}
+                    else:
+                        return {'case': case['id'], 'state': 'canary_call_failed',
+                                'model_calls': len(facts), 'category': outcome.get('category'), **evidence}
             if case['id'] == 'E2' and requests and not any(
                     item.get('content') == case['followup_message'] for item in requests):
                 if requests[-1]['state'] == 'answer_needed':
@@ -413,13 +667,19 @@ def main(argv=None):
     parser.add_argument('--trial-root', type=Path, required=True)
     parser.add_argument('--execute', action='store_true', help='actually call the configured product PM')
     parser.add_argument('--adoption-receipt', type=Path, help='private operator confirmation of every caller path')
+    parser.add_argument('--prior-trial-root', type=Path, help='immutable predecessor with the same fixed E1-E6 cases')
+    parser.add_argument('--canary-one-call', action='store_true', help='stop after one E1 PM reservation and parse')
+    parser.add_argument('--continue-after-canary', action='store_true', help='resume only after verified E1 PM canary')
     args = parser.parse_args(argv)
+    if args.canary_one_call and args.continue_after_canary:
+        parser.error('canary and continuation are separate evaluation stages')
     cases, config = load_inputs(args.cases, args.config, args.shared_call_ledger)
     hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in (args.cases, args.config)}
     bindings = evaluation_bindings(cases, config)
+    schema_digests = evaluation_schema_digests()
     if not args.execute:
         print(json.dumps({'status': 'prepared_only', 'cases': [item['id'] for item in cases['cases']],
-            'input_sha256': hashes, 'case_bindings': bindings,
+            'input_sha256': hashes, 'case_bindings': bindings, 'output_schema_sha256': schema_digests,
             'public_research_E5': {'terms': ['python', 'testing'], 'sources': []},
             'actual_model_calls': 0, 'master_confirmations': 0}, ensure_ascii=False))
         return 0
@@ -438,10 +698,16 @@ def main(argv=None):
             or shared == root or shared.is_relative_to(root)):
         raise SystemExit('trial state must be separate from the source clone and shared ledger')
     root.mkdir(mode=0o700, parents=True, exist_ok=True)
-    # The whole trial, including its budget snapshot and every model tick, has one owner.
-    with controller_lock(root / 'evaluation-runner'):
+    # The ledger-level lock prevents two revision roots from racing for the same budget.
+    with (controller_lock(shared.with_name(shared.name + '-evaluation-runner')),
+          controller_lock(root / 'evaluation-runner')):
+        bind_prior_trial(root, args.prior_trial_root, shared, bindings)
+        assert_lineage_bindings(root, shared, bindings)
+        assert_lineage_covers_ledger(root, shared, bindings)
+        assert_repaired_prior_schema(root, shared, schema_digests['planning'])
         manifest = root / 'evaluation-bindings.json'
-        exact = {'input_sha256': hashes, 'case_bindings': bindings, 'product_commit': config.base_sha}
+        exact = {'input_sha256': hashes, 'case_bindings': bindings, 'product_commit': config.base_sha,
+                 'output_schema_sha256': schema_digests, 'evaluator_commit': head.stdout.strip()}
         if manifest.exists() and json.loads(manifest.read_text()) != exact:
             raise SystemExit('evaluation inputs or configuration changed after trial start')
         if not manifest.exists():
@@ -459,14 +725,47 @@ def main(argv=None):
         if not started.exists():
             with started.open('x') as stream:
                 json.dump({'at': time.time()}, stream)
+        hold = request_error_hold(root, shared)
+        if hold:
+            print(json.dumps({'status': 'request_error_wait', 'hold': hold,
+                'actual_model_calls_this_invocation': 0}, ensure_ascii=False))
+            return 0
+        canary = root / 'canary-result.json'
+        if args.continue_after_canary:
+            if not canary.is_file() or not canary_verified(root, shared, json.loads(canary.read_text())):
+                raise SystemExit('verified E1 one-call PM canary is required before continuation')
+        elif not args.canary_one_call:
+            raise SystemExit('start with --canary-one-call; continuation requires --continue-after-canary')
+        elif canary.exists():
+            saved = json.loads(canary.read_text())
+            if not canary_verified(root, shared, saved):
+                raise ValueError('saved E1 PM canary differs from settled call or plan')
+            print(json.dumps({'status': 'canary_recorded', 'results': [saved],
+                'actual_model_calls_this_invocation': 0, 'master_confirmations': 0}, ensure_ascii=False))
+            return 0
+        calls_before = len(trial_reservations(root, shared))
         results = []
-        for case in cases['cases']:
-            result = run_case(root, case, config, args.shared_call_ledger)
+        sequence = cases['cases'][:1] if args.canary_one_call else cases['cases']
+        for case in sequence:
+            result = run_case(root, case, config, args.shared_call_ledger,
+                              stop_after_first_pm=args.canary_one_call)
             results.append(result)
+            if args.canary_one_call:
+                if result['state'] == 'canary_pm_ready':
+                    if not canary_verified(root, shared, result):
+                        raise ValueError('E1 PM canary does not match the settled job and saved plan')
+                    with canary.open('x') as stream:
+                        json.dump(result, stream, ensure_ascii=False, sort_keys=True)
+                    canary.chmod(0o600)
+                break
             if result['state'] not in ('plan_ready', 'answer_needed', 'master_decision_wait', 'revision_limit', 'environment_problem'):
                 break
-        print(json.dumps({'status': 'raw_evaluation_recorded', 'results': results,
+        status = ('canary_recorded' if results[-1]['state'] == 'canary_pm_ready' else 'canary_incomplete') \
+            if args.canary_one_call else 'raw_evaluation_recorded'
+        print(json.dumps({'status': status,
+            'results': results,
             'input_sha256': hashes, 'case_bindings': bindings,
+            'actual_model_calls_this_invocation': len(trial_reservations(root, shared)) - calls_before,
             'model_content_assessment': 'requires independent review',
             'master_confirmations': 0}, ensure_ascii=False))
     return 0

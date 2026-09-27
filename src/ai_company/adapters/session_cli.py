@@ -20,6 +20,7 @@ from typing import Callable
 from uuid import uuid4
 import shutil
 import copy
+from hashlib import sha256
 
 
 @dataclass
@@ -41,6 +42,8 @@ def codex_output_schema(schema: dict) -> dict:
     def visit(node):
         if isinstance(node, dict):
             if node.get("type") == "object" and "properties" in node:
+                if node.get("additionalProperties") not in (None, False):
+                    raise ValueError("Codex output schema cannot discard dynamic object keys")
                 node["required"] = list(node["properties"])
                 node["additionalProperties"] = False
             node.pop("default", None)
@@ -50,11 +53,89 @@ def codex_output_schema(schema: dict) -> dict:
             for value in node:
                 visit(value)
     visit(result)
+    validate_codex_output_schema(result)
     return result
+
+
+def validate_codex_output_schema(schema: dict) -> None:
+    """Reject malformed final CLI schemas before a model process can start."""
+    if not isinstance(schema, dict) or schema.get("type") != "object" or "anyOf" in schema:
+        raise ValueError("Codex output schema root must be an object")
+    definitions = schema.get("$defs", {})
+    if not isinstance(definitions, dict):
+        raise ValueError("Codex output schema definitions are malformed")
+    unsupported = {"allOf", "oneOf", "not", "if", "then", "else", "dependentRequired",
+                   "dependentSchemas", "patternProperties", "unevaluatedProperties"}
+    allowed = {"$defs", "$ref", "type", "properties", "required", "additionalProperties",
+               "items", "anyOf", "enum", "const", "title", "description", "minLength",
+               "maxLength", "pattern", "format", "minimum", "maximum", "exclusiveMinimum",
+               "exclusiveMaximum", "multipleOf", "minItems", "maxItems"}
+    def check(node, path):
+        if not isinstance(node, dict):
+            raise ValueError(f"Codex output schema node is malformed at {path}")
+        if unsupported.intersection(node):
+            raise ValueError(f"Codex output schema uses unsupported composition at {path}")
+        if set(node) - allowed:
+            raise ValueError(f"Codex output schema uses unsupported keywords at {path}")
+        reference = node.get("$ref")
+        if reference is not None:
+            if not isinstance(reference, str) or not reference.startswith("#/$defs/") or reference[8:] not in definitions:
+                raise ValueError(f"Codex output schema has unresolved reference at {path}")
+            if set(node) - {"$ref", "title", "description"}:
+                raise ValueError(f"Codex output schema reference has unchecked siblings at {path}")
+            return
+        kind = node.get("type")
+        kinds = kind if isinstance(kind, list) else [kind]
+        valid_types = {"object", "array", "string", "integer", "number", "boolean", "null"}
+        if kind is not None and (not kinds or len(kinds) != len(set(kinds))
+                                 or any(item not in valid_types for item in kinds)
+                                 or (len(kinds) > 1 and (len(kinds) != 2 or "null" not in kinds))):
+            raise ValueError(f"Codex output schema has unsupported type at {path}")
+        shape = next((item for item in kinds if item != "null"), kind)
+        branches = node.get("anyOf")
+        if branches is not None:
+            if not isinstance(branches, list) or not branches:
+                raise ValueError(f"Codex output schema has empty anyOf at {path}")
+            for index, branch in enumerate(branches):
+                check(branch, f"{path}/anyOf/{index}")
+        if shape == "object":
+            properties = node.get("properties")
+            required = node.get("required")
+            if (not isinstance(properties, dict) or node.get("additionalProperties") is not False
+                    or not isinstance(required, list) or len(required) != len(properties)
+                    or any(not isinstance(name, str) for name in required)
+                    or set(required) != set(properties)):
+                raise ValueError(f"Codex output schema object is not closed and required at {path}")
+            for key, child in properties.items():
+                check(child, f"{path}/properties/{key}")
+        elif "properties" in node or "additionalProperties" in node or "required" in node:
+            raise ValueError(f"Codex output schema has object keywords outside object at {path}")
+        if shape == "array":
+            check(node.get("items"), f"{path}/items")
+        elif "items" in node:
+            raise ValueError(f"Codex output schema has array items outside array at {path}")
+        if kind is None and branches is None and "enum" not in node and "const" not in node:
+            raise ValueError(f"Codex output schema lacks a supported type at {path}")
+    check(schema, "$")
+    for name, definition in definitions.items():
+        check(definition, f"$defs/{name}")
+
+
+def codex_output_schema_digest(schema: dict) -> str:
+    """Hash the exact UTF-8 bytes written to Codex's --output-schema file."""
+    strict = codex_output_schema(schema)
+    return sha256(json.dumps(strict, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def validate_codex_output_schema_file(path: Path) -> str:
+    data = Path(path).read_bytes()
+    validate_codex_output_schema(json.loads(data))
+    return sha256(data).hexdigest()
 
 
 # Structured provider codes, not arbitrary strings found in command output.
 _ERROR_CODES = {
+    "invalid_json_schema": "request_schema_error",
     "usage_limit_reached": "quota", "insufficient_quota": "authentication",
     "rate_limit_exceeded": "rate_limit", "rate_limit_error": "rate_limit",
     "rate_limit": "rate_limit", "too_many_requests": "rate_limit",
@@ -112,6 +193,23 @@ def _error_outcome(error: object, provider: str) -> SessionOutcome:
         code = error.get(key)
         if isinstance(code, str) and code in _ERROR_CODES:
             return SessionOutcome(_ERROR_CODES[code], reset_at=reset, message=message)
+    if provider == "codex" and message.startswith("Invalid schema for response_format 'codex_output_schema': "):
+        return SessionOutcome("request_schema_error", reset_at=reset, message=message)
+    if provider == "codex" and message.startswith("{"):
+        # Codex CLI 2.1.x wraps the provider's JSON error envelope as the
+        # message of both error and turn.failed events. Parse that exact shape,
+        # never arbitrary model output or stderr.
+        try:
+            wrapped = json.loads(message)
+        except ValueError:
+            wrapped = None
+        if isinstance(wrapped, dict) and wrapped.get("type") == "error":
+            inner = wrapped.get("error")
+            if (isinstance(inner, dict) and inner.get("type") == "invalid_request_error"
+                    and inner.get("code") == "invalid_json_schema"
+                    and isinstance(inner.get("message"), str)
+                    and inner["message"].startswith("Invalid schema for response_format 'codex_output_schema': ")):
+                return SessionOutcome("request_schema_error", reset_at=reset, message=message)
     category = "unknown"
     if provider == "codex":
         # These messages occur in the CLI's error envelope, not agent_message.
@@ -368,10 +466,19 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     schema_path = None
+    schema_digest = None
     if output_schema is not None:
         fd, schema_path = tempfile.mkstemp(prefix="schema-", suffix=".json", dir=output_dir)
-        with os.fdopen(fd, "w") as schema_file:
-            json.dump(codex_output_schema(output_schema) if provider == "codex" else output_schema, schema_file)
+        try:
+            with os.fdopen(fd, "wb") as schema_file:
+                final_schema = codex_output_schema(output_schema) if provider == "codex" else output_schema
+                data = json.dumps(final_schema, sort_keys=True, separators=(",", ":")).encode()
+                schema_file.write(data)
+            if provider == "codex":
+                schema_digest = validate_codex_output_schema_file(Path(schema_path))
+        except BaseException:
+            Path(schema_path).unlink(missing_ok=True)
+            raise
     configuration_request = "configuration-" + uuid4().hex
     argv = [executable or provider]
     if provider == "codex":
@@ -426,6 +533,8 @@ def run_session(provider: str, worktree: Path, prompt: str, session_id: str | No
     out_fd, out_name = tempfile.mkstemp(prefix="stdout-", suffix=".jsonl", dir=output_dir)
     err_fd, err_name = tempfile.mkstemp(prefix="stderr-", suffix=".log", dir=output_dir)
     metadata = {"stdout_path": out_name, "stderr_path": err_name, "executable_path": resolved_executable}
+    if schema_digest is not None:
+        metadata["output_schema_sha256"] = schema_digest
     process = None
     failure = None
     with os.fdopen(out_fd, "wb") as stdout, os.fdopen(err_fd, "wb") as stderr, tempfile.TemporaryFile() as stdin:

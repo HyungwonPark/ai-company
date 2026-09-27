@@ -240,6 +240,32 @@ class SessionCliTests(unittest.TestCase):
                 self.fixture([{"type": "turn.failed", "error": {"message": message}}], exit_code=1)
                 self.assertEqual(self.run_cli().category, expected)
 
+    def test_provider_schema_rejection_is_distinct_and_model_text_does_not_classify(self):
+        message = "Invalid schema for response_format 'codex_output_schema': In context=('properties', 'plan'), 'additionalProperties' is required"
+        wrapped = json.dumps({"type": "error", "error": {"type": "invalid_request_error",
+            "code": "invalid_json_schema", "message": message}})
+        for error in ({"code": "invalid_json_schema", "message": "schema rejected"},
+                      {"message": message}, {"message": wrapped}):
+            with self.subTest(error=error):
+                self.fixture([{"type": "error", "message": message},
+                              {"type": "turn.failed", "error": error}], exit_code=1)
+                self.assertEqual(self.run_cli().category, "request_schema_error")
+        for fake in ({"type": "error", "error": {"code": "invalid_json_schema", "message": message}},
+                     {"type": "error", "error": {"type": "invalid_request_error",
+                      "code": "invalid_json_schema", "message": "not a schema rejection"}}):
+            self.fixture([{"type": "turn.failed", "error": {"message": json.dumps(fake)}}], exit_code=1)
+            self.assertEqual(self.run_cli().category, "unknown")
+        self.fixture([{"type": "item.completed", "item": {"type": "agent_message", "text": wrapped}},
+                      {"type": "turn.completed"}], extra=f"sys.stderr.write({wrapped!r})")
+        self.assertEqual(self.run_cli().category, "success")
+
+    def test_invalid_final_schema_cannot_spawn_cli(self):
+        self.fixture([{"type": "turn.completed"}])
+        with self.assertRaises(ValueError):
+            self.run_cli(output_schema={"type": "object", "properties": {
+                "plan": {"type": "object", "additionalProperties": True}}})
+        self.assertFalse((self.worktree / "invocation.json").exists())
+
     def test_stream_wrapper_does_not_make_auth_or_sandbox_errors_retryable(self):
         for detail in ("authentication failed", "sandbox error: denied", "unknown failure"):
             with self.subTest(detail=detail):
@@ -336,7 +362,29 @@ class SessionCliTests(unittest.TestCase):
             self.assertIn('model_reasoning_effort="high"',argv)
             self.assertEqual(argv[argv.index('--model')+1],'gpt-6-astra')
             self.assertTrue(Path(argv[argv.index('--output-schema')+1]).is_file())
+            from hashlib import sha256
+            self.assertEqual(outcome.result['output_schema_sha256'],
+                             sha256(Path(argv[argv.index('--output-schema')+1]).read_bytes()).hexdigest())
             self.assertEqual(outcome.result['observed_efforts'],[])
+
+    def test_every_dispatcher_report_writes_the_checked_final_schema_file(self):
+        from ai_company.adapters.session_cli import validate_codex_output_schema_file
+        from ai_company.flow_contracts import (StageReport, PMPlanStageReport,
+                                               PlanReviewStageReport, ContributionStageReport)
+        self.fixture([{'type': 'thread.started', 'thread_id': 'session-1'},
+                      {'type': 'turn.completed'}])
+        for report_type in (PMPlanStageReport, PlanReviewStageReport,
+                            ContributionStageReport, StageReport):
+            with self.subTest(report=report_type.__name__):
+                outcome = self.run_cli(output_schema=report_type.model_json_schema())
+                argv = json.loads((self.worktree / 'invocation.json').read_text())['argv']
+                path = Path(argv[argv.index('--output-schema') + 1])
+                self.assertEqual(outcome.result['output_schema_sha256'],
+                                 validate_codex_output_schema_file(path))
+                if report_type is PMPlanStageReport:
+                    schema = json.loads(path.read_text())
+                    self.assertEqual(schema['properties']['plan']['anyOf'][0]['properties']
+                                     ['skill_recommendations']['type'], 'array')
 
     def test_unknown_or_active_workflow_cgroup_prevents_termination_claim(self):
         from unittest.mock import patch

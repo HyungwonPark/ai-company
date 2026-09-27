@@ -86,6 +86,18 @@ class SharedCallTests(unittest.TestCase):
             SharedCallLedger.initialize(Path(self.temp.name) / 'bad-reset.db', [
                 ('codex', 'primary', 'account-a', 'COOLDOWN', 0, 'quota', 0, 0, 0, 0)])
 
+    def test_request_schema_error_settles_once_without_cooldown(self):
+        ledger = self.open()
+        ledger.reserve('schema-attempt', 'queue-a', 'codex', 'primary', 'account-a')
+        ledger.started('schema-attempt', 'queue-a', {'pid': 1})
+        result = {'category': 'request_schema_error', 'duration_seconds': 1}
+        self.assertTrue(ledger.settle('schema-attempt', 'queue-a', 'schema-event', result, terminated=True))
+        self.assertFalse(ledger.settle('schema-attempt', 'queue-a', 'schema-event', result, terminated=True))
+        self.assertEqual(ledger.reservation('schema-attempt')['state'], 'SETTLED')
+        account = ledger.account('codex', 'primary', 'account-a')
+        self.assertEqual((account['state'], account['calls'], account['runtime_seconds']),
+                         ('AVAILABLE', 1, 1))
+
     def test_corrupt_account_state_cannot_reserve(self):
         ledger = self.open()
         ledger.db.execute("UPDATE accounts SET state='BOGUS' WHERE group_id='account-a'")
