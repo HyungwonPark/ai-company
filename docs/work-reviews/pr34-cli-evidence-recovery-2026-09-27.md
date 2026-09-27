@@ -1,5 +1,7 @@
 # E1 CLI 증거 호환과 정산 응답 복구 후보
 
+> 이 문서는 최초 `d7bbe0a` 후보의 기록이다. R34-1·R34-2 보완 후 제품·archive·적용안은 [PR #34 후속 제출](pr34-r34-followup-2026-09-27.md)에 고정했다.
+
 2026-09-27 KST · [Work PM A~F 지시서](https://github.com/HyungwonPark/ai-company/blob/38ba22d42f2254eb2b428989ba66dd30dd10d332/docs/work-reviews/pr33-cli-evidence-recovery-2026-09-27.md)의 **비운영 제출**. 기준은 PR #33 제출 HEAD `7f7bf3cee48a2ecc8f38c6b19a036b3956e88146`, 제품 `364a5145d4eb00815937cdf696680143038c3751`이다. 후속 제품은 `d7bbe0a272ef7b17de54f4657e87ab3d3a9774b1`이며 [초안 PR #34](https://github.com/HyungwonPark/ai-company/pull/34)에 있다. 운영 원문·인증·DB·개인 승인 내용과 내부 접속 경로는 이 문서에 싣지 않는다.
 
 ## 결과와 근거의 종류
