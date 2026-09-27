@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from contextlib import ExitStack
 import signal
 import subprocess
 import sys
@@ -44,12 +45,28 @@ def main():
     before = config['binding']['nonce'] + '-before'
     after = config['binding']['nonce'] + '-after'
     facts_path = Path(config['facts_path'])
+    events_path = Path(config['events_path']) if config.get('events_path') else None
+    if events_path is not None and events_path.parent != facts_path.parent:
+        raise RuntimeError('live event journal must remain in this attempt directory')
     fd = os.open(facts_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, 'w') as facts:
+    with ExitStack() as stack:
+        facts = stack.enter_context(os.fdopen(fd, 'w'))
+        journal = None
+        if events_path is not None:
+            journal_fd = os.open(events_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            journal = stack.enter_context(os.fdopen(journal_fd, 'w'))
         def record(value):
             facts.write(json.dumps({'at': time.time(), **value}) + '\n')
             facts.flush()
             os.fsync(facts.fileno())
+        def emit(event):
+            line = json.dumps(event)
+            if journal is not None:
+                journal.write(line + '\n')
+                journal.flush()
+                if event.get('type') in ('assistant', 'user', 'result', 'control_response') or event.get('subtype') == 'task_notification':
+                    os.fsync(journal.fileno())
+            print(line, flush=True)
         record({'state': 'starting', 'binding': config['binding']})
         child = subprocess.Popen([str(native), *sys.argv[2:], *config['extra_args']],
                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stderr,
@@ -59,6 +76,8 @@ def main():
             child.stdin.flush()
         sent = closed = False
         queried_before = queried_after = False
+        active_tasks = set()
+        background_tasks = []
         send(incoming[0])
         try:
             while line := child.stdout.readline(2_000_001):
@@ -83,7 +102,14 @@ def main():
                         # control acknowledgement is needed by this contract.
                         event = {'type': 'control_response', 'response': {'request_id': ident,
                                  'subtype': response.get('subtype'), 'response': {}}}
-                print(json.dumps(event), flush=True)
+                emit(event)
+                if event.get('type') == 'system':
+                    if event.get('subtype') == 'task_started' and event.get('task_id'):
+                        active_tasks.add(event['task_id'])
+                    elif event.get('subtype') == 'task_notification' and event.get('task_id'):
+                        active_tasks.discard(event['task_id'])
+                    elif event.get('subtype') == 'background_tasks_changed' and isinstance(event.get('tasks'), list):
+                        background_tasks = event['tasks']
                 if event.get('type') == 'control_response' and ident == incoming[0]['request_id'] and not queried_before:
                     queried_before = True
                     send({'type': 'control_request', 'request_id': before, 'request': {'subtype': 'get_settings'}})
@@ -101,7 +127,7 @@ def main():
                         record({'state': 'configuration_refused'})
                         child.stdin.close()
                         closed = True
-                elif event.get('type') == 'result' and not queried_after:
+                elif event.get('type') == 'result' and not queried_after and not active_tasks and not background_tasks:
                     queried_after = True
                     send({'type': 'control_request', 'request_id': after, 'request': {'subtype': 'get_settings'}})
                 elif event.get('type') == 'control_response' and ident == after:

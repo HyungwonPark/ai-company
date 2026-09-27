@@ -89,12 +89,348 @@ def write_private(path, content):
         target.write(content)
 
 
-def terminal_children_stopped(events):
-    terminal = [event for event in events if event.get('type') == 'result']
-    if len(terminal) != 1:
+def replace_private(path, value):
+    """Replace only this attempt's private derived record, never source events."""
+    temporary = path.with_name(path.name + '.' + secrets.token_hex(8) + '.tmp')
+    write_private(temporary, json.dumps(value, ensure_ascii=False, sort_keys=True) + '\n')
+    with temporary.open('rb') as source:
+        os.fsync(source.fileno())
+    os.replace(temporary, path)
+    parent = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(parent)
+    finally:
+        os.close(parent)
+
+
+def patch_files(patch):
+    # Git's quoted names and renames require a dedicated parser; fail closed.
+    names = []
+    for line in patch.splitlines():
+        if not line.startswith('diff --git '):
+            continue
+        match = re.fullmatch(r'diff --git a/([^\s]+) b/([^\s]+)', line)
+        if not match:
+            raise RuntimeError('patch contains a path requiring separate review')
+        names.append(match.group(2))
+    if not names or len(names) != len(set(names)):
+        raise RuntimeError('patch file list is empty or ambiguous')
+    return names
+
+
+def checkpoint_from_events(events, *, binding, base, files, reservation_id,
+                           settlement_event=None, previous=None, events_sha256=None, repo=None):
+    """Keep observed tool work separate from model-claimed completed review."""
+    all_files = set(files)
+    calls = {}
+    observed = set()
+    claims = []
+    sessions = set()
+    for event in events:
+        if event.get('session_id'):
+            sessions.add(event['session_id'])
+        if event.get('type') == 'assistant':
+            message = event.get('message', {})
+            if not isinstance(message, dict):
+                continue
+            for item in message.get('content', []):
+                if not isinstance(item, dict):
+                    continue
+                if item.get('type') == 'tool_use' and item.get('name') == 'Read':
+                    path = item.get('input', {}).get('file_path')
+                    if isinstance(path, str):
+                        calls[item.get('id')] = path
+                if item.get('type') == 'text' and isinstance(item.get('text'), str):
+                    for line in item['text'].splitlines():
+                        if len(line) <= 10_000 and line.startswith('REVIEW_PROGRESS_JSON: '):
+                            try:
+                                claims.append((json.loads(line.split(': ', 1)[1]), set(observed)))
+                            except json.JSONDecodeError:
+                                continue
+        if event.get('type') == 'user':
+            message = event.get('message', {})
+            if not isinstance(message, dict):
+                continue
+            for item in message.get('content', []):
+                if not isinstance(item, dict) or item.get('type') != 'tool_result' or item.get('is_error') is True:
+                    continue
+                path = calls.get(item.get('tool_use_id'))
+                if path:
+                    if repo is not None:
+                        try:
+                            if not Path(path).is_absolute():
+                                continue
+                            relative = str(Path(path).resolve().relative_to(Path(repo).resolve()))
+                        except ValueError:
+                            continue
+                        if relative in all_files:
+                            observed.add(relative)
+                    else:
+                        matches = [name for name in files if path == name or path.endswith('/' + name)]
+                        if matches:
+                            observed.add(max(matches, key=len))
+    settings = {}
+    models = set()
+    for event in events:
+        if event.get('type') == 'control_response':
+            response = event.get('response', {})
+            if response.get('request_id') in (binding['nonce'] + '-before', binding['nonce'] + '-after'):
+                settings[response['request_id']] = response.get('response', {})
+        elif event.get('type') == 'assistant':
+            message = event.get('message', {})
+            if isinstance(message, dict) and isinstance(message.get('model'), str):
+                models.add(message['model'])
+    observed_configuration = {
+        'before': settings.get(binding['nonce'] + '-before'),
+        'after': settings.get(binding['nonce'] + '-after'),
+        'response_models': sorted(models),
+    }
+    observed_configuration['verified'] = (all(isinstance(item, dict)
+        and item.get('applied') == APPLIED and item.get('has_errors') is False
+        for item in (observed_configuration['before'], observed_configuration['after']))
+        and models == {MODEL})
+    reviewed, requirements = set(), []
+    findings_by_id = {}
+    lineage = []
+    if previous:
+        if (previous.get('head') != binding['head'] or previous.get('base') != base
+                or previous.get('patch_sha256') != binding['diff_sha256']
+                or set(previous.get('all_files', [])) != all_files):
+            raise RuntimeError('previous checkpoint belongs to a different patch')
+        reviewed |= set(previous.get('reviewed_files', [])) & all_files
+        requirements = list(previous.get('requirements', []))
+        findings_by_id = {item['id']: dict(item) for item in previous.get('findings', [])}
+        lineage = list(previous.get('lineage', []))
+    reviewed_current = set()
+    if observed_configuration['verified']:
+        for claim, already_read in claims:
+            if (not isinstance(claim, dict) or claim.get('head') != binding['head']
+                    or claim.get('patch_sha256') != binding['diff_sha256']):
+                continue
+            paths = claim.get('reviewed_files')
+            if not isinstance(paths, list) or not all(isinstance(path, str) and path in all_files for path in paths):
+                continue
+            reviewed_current.update(set(paths) & already_read)
+            if isinstance(claim.get('requirements'), list):
+                requirements.extend(item for item in claim['requirements'] if isinstance(item, str))
+            for item in claim.get('findings', []) if isinstance(claim.get('findings'), list) else []:
+                if (not isinstance(item, dict) or item.get('file') not in already_read
+                        or not isinstance(item.get('evidence'), str) or not item['evidence']):
+                    continue
+                identity = item.get('id') or hashlib.sha256(
+                    (item['file'] + '\0' + item['evidence']).encode()).hexdigest()[:16]
+                if not isinstance(identity, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}', identity):
+                    continue
+                found = {'id': identity, 'file': item['file'], 'evidence': item['evidence'],
+                         'status': 'open'}
+                if identity not in findings_by_id or findings_by_id[identity]['file'] == found['file'] and findings_by_id[identity]['evidence'] == found['evidence']:
+                    findings_by_id[identity] = found
+            for item in claim.get('resolved_findings', []) if isinstance(claim.get('resolved_findings'), list) else []:
+                if (not isinstance(item, dict) or item.get('id') not in findings_by_id
+                        or findings_by_id[item['id']]['file'] not in already_read
+                        or not isinstance(item.get('reason'), str) or not item['reason'].strip()
+                        or len(item['reason']) > 1000):
+                    continue
+                findings_by_id[item['id']]['status'] = 'resolved'
+                findings_by_id[item['id']]['resolution'] = item['reason']
+    reviewed |= reviewed_current
+    observed |= set(previous.get('observed_reads', [])) & all_files if previous else set()
+    findings = list(findings_by_id.values())
+    open_findings = [item for item in findings if item['status'] == 'open']
+    lineage.append({'attempt_nonce': binding['nonce'], 'sessions': sorted(sessions),
+                    'reservation_id': reservation_id, 'settlement_event': settlement_event,
+                    'events_sha256': events_sha256, 'configuration_observed': observed_configuration,
+                    'reviewed_files': sorted(reviewed_current)})
+    remaining = sorted(all_files - reviewed)
+    next_action = ('review remaining files' if remaining else
+                   'resolve or report findings' if open_findings else 'produce final bound report')
+    return {'schema_version': 1, 'pr': binding['pr'], 'head': binding['head'], 'base': base,
+            'patch_sha256': binding['diff_sha256'], 'all_files': files,
+            'observed_reads': sorted(observed), 'reviewed_files': sorted(reviewed),
+            'remaining_files': remaining, 'requirements': list(dict.fromkeys(requirements)),
+            'findings': findings, 'next_action': next_action,
+            'lineage': lineage, 'configuration_observed': observed_configuration,
+            'scope_verified': not remaining}
+
+
+def previous_checkpoint(directory, *, head, base, diff_sha256, files, repo=None):
+    receipt = json.loads((directory / 'receipt.json').read_text())
+    if (receipt.get('head') != head or receipt.get('base') != base
+            or receipt.get('diff_sha256') != diff_sha256
+            or hashlib.sha256((directory / 'pr.diff').read_bytes()).hexdigest() != diff_sha256):
+        raise RuntimeError('previous review evidence differs from the current patch')
+    raw = (directory / 'events.jsonl').read_bytes()
+    events = [json.loads(line) for line in raw.splitlines()]
+    facts = [json.loads(line) for line in (directory / 'facts.jsonl').read_text().splitlines()]
+    binding = facts[0]['binding']
+    if not input_delivery_verified(directory, binding, facts[-1]['exit_code']):
+        raise RuntimeError('previous checkpoint has no bound prompt delivery')
+    prompt = (directory / 'prompt.txt').read_text()
+    inherited_lines = re.findall(r'(?m)^이전 체크포인트: (.+)$', prompt)
+    if len(inherited_lines) > 1:
+        raise RuntimeError('previous checkpoint lineage is ambiguous')
+    inherited = json.loads(inherited_lines[0]) if inherited_lines else None
+    # Historical pre-ledger imports lack an events digest. They may resume
+    # after their reviewed import marker, but none of their scope is inherited.
+    if (receipt.get('events_sha256') is None and not (directory / 'reconciliation.json').exists()
+            and not receipt.get('shared_reservation_id')):
+        return checkpoint_from_events([], binding=binding, base=base, files=files,
+               reservation_id=None, events_sha256=None, repo=repo)
+    reconstructed = checkpoint_from_events(events, binding=binding, base=base, files=files,
+                   reservation_id=receipt.get('shared_reservation_id'),
+                   settlement_event=receipt.get('shared_settlement_event'),
+                   events_sha256=hashlib.sha256(raw).hexdigest(), previous=inherited, repo=repo)
+    saved = directory / 'checkpoint.json'
+    if saved.exists() and json.loads(saved.read_text()) != reconstructed:
+        raise RuntimeError('saved checkpoint differs from bound event replay')
+    return reconstructed
+
+
+def completed_review_verified(directory, receipt, reservation, *, repo):
+    """Recheck a stored PASS/REVISE before a timer declares the work done."""
+    try:
+        if (receipt.get('completion_verified') is not True
+                or receipt.get('binding_unchanged_after_review') is not True
+                or receipt.get('incomplete_reason') is not None
+                or receipt.get('shared_settlement_event') != reservation.get('event_id')
+                or reservation.get('state') != 'SETTLED'):
+            return False
+        settled = json.loads(reservation['result'])
+        if settled.get('category') != 'success':
+            return False
+        raw = (directory / 'events.jsonl').read_bytes()
+        if (receipt.get('events_sha256') != hashlib.sha256(raw).hexdigest()
+                or (directory / 'events.live.jsonl').read_bytes() != raw):
+            return False
+        events = [json.loads(line) for line in raw.splitlines()]
+        facts = [json.loads(line) for line in (directory / 'facts.jsonl').read_text().splitlines()]
+        binding = facts[0]['binding']
+        exit_code = facts[-1]['exit_code']
+        if not input_delivery_verified(directory, binding, exit_code):
+            return False
+        summary = summarize(events, binding['nonce'], exit_code, input_verified=True,
+                            head=receipt['head'], diff_sha256=receipt['diff_sha256'])
+        if (not summary['completion_verified'] or not summary['scope_declared']
+                or summary['verdict'] not in ('PASS', 'REVISE')
+                or summary['verdict'] != receipt.get('verdict')
+                or summary['cost_usd_estimate'] != settled.get('total_cost_usd')
+                or (directory / 'report.md').read_text() != summary['result']):
+            return False
+        checkpoint = previous_checkpoint(directory, head=receipt['head'], base=receipt['base'],
+                     diff_sha256=receipt['diff_sha256'],
+                     files=patch_files((directory / 'pr.diff').read_text()), repo=repo)
+        if (not checkpoint['scope_verified'] or receipt.get('checkpoint_sha256') !=
+                hashlib.sha256((directory / 'checkpoint.json').read_bytes()).hexdigest()):
+            return False
+        open_findings = any(item.get('status') == 'open' for item in checkpoint['findings'])
+        if (summary['verdict'] == 'PASS' and (open_findings or receipt.get('review_passed') is not True)
+                or summary['verdict'] == 'REVISE' and not open_findings):
+            return False
+        interpretation = json.loads((directory / 'interpretation.json').read_text())
+        return (interpretation.get('kind') == 'single'
+                and interpretation.get('events_sha256') == receipt['events_sha256']
+                and interpretation.get('checkpoint_sha256') == receipt['checkpoint_sha256']
+                and interpretation.get('reservation_id') == receipt['shared_reservation_id']
+                and interpretation.get('settlement_event') == receipt['shared_settlement_event']
+                and interpretation.get('completion_verified') is True)
+    except (OSError, ValueError, KeyError, TypeError, IndexError, RuntimeError):
         return False
-    stats = terminal[0].get('subagent_stats')
-    return (terminal[0].get('queued_turn_count') == 0 and isinstance(stats, dict)
+
+
+def result_interpretation(events):
+    """Identify one CLI result, or a completed Workflow notification after it.
+
+    The latter is not a second billable invocation.  Reject every other
+    multiple-result shape rather than guessing which result to trust.
+    """
+    results = []
+    result_positions = []
+    seen = {}
+    for index, event in enumerate(events):
+        if event.get('type') != 'result':
+            continue
+        identity = (event.get('session_id'), event.get('result_index'), event.get('uuid'))
+        if all(value is not None for value in identity) and identity in seen:
+            if seen[identity] != event:
+                return None
+            continue
+        seen[identity] = event
+        results.append(event)
+        result_positions.append(index)
+    if len(results) == 1:
+        if (results[0].get('origin') is not None or results[0].get('result_index') not in (None, 0)
+                or any(event.get('type') == 'system' and event.get('subtype') == 'task_started'
+                       for event in events)):
+            return None
+        return {'primary': results[0], 'final': results[0], 'kind': 'single'}
+    if len(results) != 2:
+        return None
+    primary, final = results
+    if (primary.get('origin') is not None or primary.get('result_index') != 0
+            or final.get('origin') != {'kind': 'task-notification'}
+            or final.get('result_index') != 1
+            or not primary.get('session_id')
+            or primary.get('session_id') != final.get('session_id')
+            or any(item.get('is_error') is not True or item.get('terminal_reason') != 'api_error'
+                   or item.get('api_error_status') != 429 for item in results)):
+        return None
+    positions = result_positions
+    started = [(index, event) for index, event in enumerate(events)
+               if event.get('type') == 'system' and event.get('subtype') == 'task_started']
+    notifications = [(index, event) for index, event in enumerate(events)
+                     if event.get('type') == 'system' and event.get('subtype') == 'task_notification']
+    cleared = [index for index, event in enumerate(events)
+               if event.get('type') == 'system' and event.get('subtype') == 'background_tasks_changed'
+               and event.get('tasks') == []]
+    if (len(positions) != 2 or len(started) != 1 or not started[0][1].get('task_id')
+            or len(notifications) != 1
+            or notifications[0][1].get('task_id') != started[0][1]['task_id']
+            or notifications[0][1].get('status') != 'completed'
+            or not cleared or not (started[0][0] < positions[0] < cleared[-1]
+                                    < notifications[0][0] < positions[1])):
+        return None
+    for key in ('spawned', 'completed', 'failed'):
+        if any(not isinstance(item.get('subagent_stats'), dict)
+               or not isinstance(item['subagent_stats'].get(key), int)
+               for item in results):
+            return None
+    for item in results:
+        stats = item['subagent_stats']
+        killed, refused = stats.get('killed'), stats.get('refused')
+        if (item.get('queued_turn_count') != 0 or stats['spawned'] != stats['completed']
+                or stats['failed'] != 0 or not isinstance(killed, dict)
+                or not isinstance(refused, dict) or any(killed.values()) or any(refused.values())):
+            return None
+    first, last = primary.get('modelUsage'), final.get('modelUsage')
+    if not isinstance(first, dict) or not first or not isinstance(last, dict):
+        return None
+    for model, usage in first.items():
+        later = last.get(model)
+        if not isinstance(usage, dict) or not isinstance(later, dict):
+            return None
+        for key in ('inputTokens', 'outputTokens', 'cacheReadInputTokens',
+                    'cacheCreationInputTokens', 'thinkingTokens', 'costUSD'):
+            older, newer = usage.get(key), later.get(key)
+            if (isinstance(older, bool) or isinstance(newer, bool)
+                    or not isinstance(older, (int, float)) or not isinstance(newer, (int, float))
+                    or not math.isfinite(older) or not math.isfinite(newer) or newer < older):
+                return None
+    costs = (primary.get('total_cost_usd'), final.get('total_cost_usd'))
+    if (any(isinstance(value, bool) or not isinstance(value, (int, float))
+            or not math.isfinite(value) or value < 0 for value in costs)
+            or costs[1] < costs[0]
+            or not math.isclose(costs[1], sum(value.get('costUSD', float('nan'))
+                    for value in last.values() if isinstance(value, dict)), rel_tol=1e-6, abs_tol=1e-6)):
+        return None
+    return {'primary': primary, 'final': final, 'kind': 'workflow_quota'}
+
+
+def terminal_children_stopped(events):
+    interpreted = result_interpretation(events)
+    if interpreted is None:
+        return False
+    stats = interpreted['final'].get('subagent_stats')
+    return (interpreted['final'].get('queued_turn_count') == 0 and isinstance(stats, dict)
             and all(isinstance(stats.get(key), int) and not isinstance(stats[key], bool)
                     and stats[key] >= 0 for key in ('spawned', 'completed', 'failed'))
             and stats['spawned'] == stats['completed'] and stats['failed'] == 0
@@ -103,13 +439,15 @@ def terminal_children_stopped(events):
 
 
 def rejected_quota_reset(events, *, min_reset=0):
-    terminal = [event for event in events if event.get('type') == 'result']
+    interpreted = result_interpretation(events)
     rejected = rejected_quota_events(events)
     resets = [item.get('resetsAt') for item in rejected]
     if (not terminal_children_stopped(events) or not rejected
             or not all(isinstance(value, (int, float)) and not isinstance(value, bool)
                        and math.isfinite(value) and value > min_reset for value in resets)
-            or terminal[0].get('is_error') is not True or terminal[0].get('terminal_reason') != 'api_error'):
+            or interpreted['primary'].get('is_error') is not True
+            or interpreted['primary'].get('terminal_reason') != 'api_error'
+            or interpreted['primary'].get('api_error_status') != 429):
         return None
     return max(resets)
 
@@ -121,6 +459,32 @@ def rejected_quota_events(events):
             if isinstance(info, dict) and info.get('status') == 'rejected']
 
 
+def effective_receipt(directory):
+    """Bind a later reviewed settlement without rewriting the failed receipt."""
+    raw = (directory / 'receipt.json').read_bytes()
+    receipt = json.loads(raw)
+    sidecar = directory / 'reconciliation.json'
+    if not sidecar.exists():
+        return receipt
+    if receipt.get('shared_settlement_event') is not None:
+        raise ValueError('settlement sidecar conflicts with original receipt')
+    recovery = json.loads(sidecar.read_text())
+    if (set(recovery) != {'source_receipt_sha256', 'source_events_sha256',
+                          'shared_reservation_id', 'shared_settlement_event', 'category', 'reset_at'}
+            or recovery['source_receipt_sha256'] != hashlib.sha256(raw).hexdigest()
+            or recovery['source_events_sha256'] != hashlib.sha256((directory / 'events.jsonl').read_bytes()).hexdigest()
+            or recovery['shared_reservation_id'] != receipt.get('shared_reservation_id')
+            or not isinstance(recovery['shared_settlement_event'], str)
+            or not re.fullmatch(r'[0-9a-f]{64}', recovery['shared_settlement_event'])
+            or recovery['category'] != 'quota'
+            or isinstance(recovery['reset_at'], bool)
+            or not isinstance(recovery['reset_at'], (int, float))
+            or not math.isfinite(recovery['reset_at']) or recovery['reset_at'] <= 0):
+        raise ValueError('settlement sidecar is not bound to immutable evidence')
+    return {**receipt, 'shared_settlement_event': recovery['shared_settlement_event'],
+            'reconciled_reset_at': recovery['reset_at']}
+
+
 def quota_resume_verified(directory, *, pr_number, pr_url, head, base, diff_sha256,
                           ledger, quota_group, now=None):
     """Accept only a completed, bound provider quota refusal with no live work.
@@ -130,15 +494,37 @@ def quota_resume_verified(directory, *, pr_number, pr_url, head, base, diff_sha2
     """
     now = time.time() if now is None else now
     try:
-        receipt = json.loads((directory / 'receipt.json').read_text())
+        receipt = effective_receipt(directory)
         facts = [json.loads(line) for line in (directory / 'facts.jsonl').read_text().splitlines()]
-        events = [json.loads(line) for line in (directory / 'events.jsonl').read_text().splitlines()]
+        event_bytes = (directory / 'events.jsonl').read_bytes()
+        event_sha = hashlib.sha256(event_bytes).hexdigest()
+        if (receipt.get('events_sha256') is not None and receipt['events_sha256'] != event_sha
+                or receipt.get('events_sha256') is None and receipt.get('reconciled_reset_at') is None
+                and receipt.get('shared_reservation_id')):
+            return False
+        if receipt.get('events_sha256') is not None:
+            live = directory / 'events.live.jsonl'
+            checkpoint = directory / 'checkpoint.json'
+            interpreted = directory / 'interpretation.json'
+            if (not live.is_file() or live.read_bytes() != event_bytes
+                    or not checkpoint.is_file() or receipt.get('checkpoint_sha256') !=
+                    hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+                    or not interpreted.is_file()):
+                return False
+            normalized = json.loads(interpreted.read_text())
+            if (normalized.get('events_sha256') != event_sha
+                    or normalized.get('checkpoint_sha256') != receipt['checkpoint_sha256']
+                    or normalized.get('reservation_id') != receipt.get('shared_reservation_id')
+                    or normalized.get('settlement_event') != receipt.get('shared_settlement_event')):
+                return False
+        events = [json.loads(line) for line in event_bytes.splitlines()]
         if (receipt.get('pr') != pr_number or receipt.get('url') != pr_url
                 or receipt.get('head') != head or receipt.get('base') != base
                 or receipt.get('diff_sha256') != diff_sha256 or receipt.get('completion_verified') is not False
                 or receipt.get('input_delivery_verified') is not True
                 or receipt.get('binding_unchanged_after_review') is not True
-                or receipt.get('incomplete_reason') is not None
+                or receipt.get('incomplete_reason') not in (
+                    None, 'review_scope_unverified', 'model_review_incomplete')
                 or not facts or facts[-1].get('state') != 'closed'
                 or facts[-1].get('exit_code') is None
                 or sum(item.get('state') == 'prompt_delivery_started' for item in facts) != 1
@@ -150,7 +536,11 @@ def quota_resume_verified(directory, *, pr_number, pr_url, head, base, diff_sha2
                 or binding.get('prompt_sha256') != receipt.get('prompt_sha256')
                 or not input_delivery_verified(directory, binding, facts[-1]['exit_code'])):
             return False
-        reset = rejected_quota_reset(events)
+        first_at = facts[0].get('at')
+        floor = first_at - 300 if isinstance(first_at, (int, float)) and not isinstance(first_at, bool) else 0
+        reset = rejected_quota_reset(events, min_reset=floor)
+        if receipt.get('reconciled_reset_at') is not None and receipt['reconciled_reset_at'] != reset:
+            return False
         if reset is None or reset > now:
             return False
         reservation_id, event_id = receipt.get('shared_reservation_id'), receipt.get('shared_settlement_event')
@@ -192,7 +582,9 @@ def reserve_attempt(directory, retry_unstarted, *, resume_quota=False, quota_bin
                                                      ledger=ledger, quota_group=quota_group)):
                     raise RuntimeError('previous attempt is not a verified terminal quota wait for this PR binding')
                 if previous == directory:
-                    directory.rename(directory.with_name(directory.name + '-quota-' + secrets.token_hex(4)))
+                    archived = directory.with_name(directory.name + '-quota-' + secrets.token_hex(4))
+                    directory.rename(archived)
+                    previous = archived
             elif retry_unstarted and previous == directory:
                 facts_path = directory / 'facts.jsonl'
                 try:
@@ -208,7 +600,14 @@ def reserve_attempt(directory, retry_unstarted, *, resume_quota=False, quota_bin
         directory.mkdir(mode=0o700, exist_ok=False)
         # The stable lock remains held until the receipt has been written. Relay
         # closure alone does not mean the first runner has finished its records.
-        yield
+        try:
+            yield previous
+        except BaseException:
+            # A failed preflight inside the lock must not strand a blank new
+            # attempt after the old quota evidence was archived.
+            if directory.exists() and not any(directory.iterdir()):
+                directory.rmdir()
+            raise
     finally:
         os.close(lock)
 
@@ -367,7 +766,8 @@ def summarize(events, nonce, exit_code, incomplete_reason=None, *, input_verifie
     models = set()
     tool_calls = {}
     successful_tool_results = set()
-    result = None
+    interpreted = result_interpretation(events)
+    result = interpreted['final'] if interpreted else None
     for event in events:
         if event.get('type') == 'control_response':
             response = event.get('response', {})
@@ -388,8 +788,6 @@ def summarize(events, nonce, exit_code, incomplete_reason=None, *, input_verifie
             successful_tool_results.update(item['tool_use_id'] for item in message.get('content', [])
                                            if isinstance(item, dict) and item.get('type') == 'tool_result'
                                            and item.get('tool_use_id') and item.get('is_error') is not True)
-        if event.get('type') == 'result':
-            result = event
     applied = [settings.get(nonce + suffix, {}) for suffix in ('-before', '-after')]
     configuration_verified = (all(item.get('applied') == APPLIED and item.get('has_errors') is False
                                   for item in applied) and models == {MODEL})
@@ -403,6 +801,7 @@ def summarize(events, nonce, exit_code, incomplete_reason=None, *, input_verifie
     denied_ids = {item.get('tool_use_id') for item in denials or [] if isinstance(item, dict)}
     successful_tools = {tool_calls[item] for item in successful_tool_results - denied_ids if item in tool_calls}
     completion_verified = (configuration_verified and incomplete_reason is None and exit_code == 0
+                           and interpreted is not None and interpreted['kind'] == 'single'
                            and result is not None and result.get('subtype') == 'success'
                            and not result.get('is_error') and isinstance(denials, list) and not denials
                            and isinstance(result.get('subagent_stats'), dict)
@@ -512,22 +911,44 @@ def main():
               '`미검토: 없음` 또는 `미검토: 항목과 이유` 형식으로 쓰세요. '
               'PASS는 패치의 모든 변경 자료를 검토했고 미검토가 없을 때만 사용하세요.\n'
               f'--- PATCH {diff_sha256} BEGIN ---\n{patch}\n--- PATCH END ---')
-    prompt_sha256 = hashlib.sha256(prompt.encode()).hexdigest()
-    input_event = {'type': 'user', 'message': {'role': 'user', 'content': prompt}}
-    if len(json.dumps(input_event)) + 1 > 1_900_000:
-        raise RuntimeError('PR patch is too large for complete inline review input')
-    binding = {'nonce': nonce, 'pr': args.pr, 'head': head,
-               'diff_sha256': diff_sha256, 'prompt_sha256': prompt_sha256}
+    files = patch_files(patch)
+    repo = Path(command('git', 'rev-parse', '--show-toplevel').strip()).resolve()
     shared = SharedCallLedger(args.shared_call_ledger)
     with reserve_attempt(directory, args.retry_unstarted, resume_quota=args.resume_quota,
                          ledger=shared, quota_group=args.quota_group,
                          quota_binding={'pr_number': args.pr, 'head': head, 'base': base,
-                                        'pr_url': pr['url'], 'diff_sha256': diff_sha256}):
+                                        'pr_url': pr['url'], 'diff_sha256': diff_sha256}) as previous:
+        inherited = (previous_checkpoint(previous, head=head, base=base, diff_sha256=diff_sha256,
+                                         files=files, repo=repo) if args.resume_quota and previous else None)
+        progress_instructions = (
+            '변경 파일별 검토를 마칠 때마다 별도 줄에 REVIEW_PROGRESS_JSON: 뒤로 '
+            'JSON {"head":"...","patch_sha256":"...","reviewed_files":["경로"],'
+            '"requirements":["검토한 요구"],"findings":[{"file":"경로","evidence":"근거"}]}를 남기세요. '
+            '지적에는 고유 id를 붙이고, 해결·철회는 같은 파일을 다시 읽은 뒤 '
+            '"resolved_findings":[{"id":"기존 id","reason":"해결 근거"}]로 남기세요. '
+            '성공한 Read와 일치하는 경로만 확정됩니다. 최종 PASS 전에 모든 변경 파일의 '
+            '검토 근거를 남기고 해결되지 않은 지적을 표시하세요.\n')
+        if inherited:
+            progress_instructions += ('이것은 같은 CLI 세션의 재개가 아닌 새로운 시도입니다. 이전 진행은 '
+                                      '검증된 범위만 참고하고 남은 파일을 검토하세요. 이전 결론을 복사하지 마세요. '
+                                      '이전 체크포인트: ' + json.dumps(inherited, ensure_ascii=False) + '\n')
+        prompt = prompt.replace(f'--- PATCH {diff_sha256} BEGIN ---\n',
+                                progress_instructions + f'--- PATCH {diff_sha256} BEGIN ---\n', 1)
+        prompt_sha256 = hashlib.sha256(prompt.encode()).hexdigest()
+        input_event = {'type': 'user', 'message': {'role': 'user', 'content': prompt}}
+        if len(json.dumps(input_event)) + 1 > 1_900_000:
+            raise RuntimeError('PR patch and checkpoint exceed complete inline review limit')
+        binding = {'nonce': nonce, 'pr': args.pr, 'head': head,
+                   'diff_sha256': diff_sha256, 'prompt_sha256': prompt_sha256}
         reservation_id = hashlib.sha256((str(directory) + ':' + nonce).encode()).hexdigest()
         try:
             shared.reserve(reservation_id, str(directory), 'claude', args.credential_ref, args.quota_group)
         except CapacityUnavailable as exc:
             write_private(directory / 'facts.jsonl', json.dumps({'state': 'closed', 'reason': exc.reason}) + '\n')
+            if args.resume_quota:
+                # The old settled quota attempt is already archived. Keep the
+                # preflight denial but free the canonical path for a later tick.
+                directory.rename(directory.with_name(directory.name + '-unstarted-' + secrets.token_hex(4)))
             raise RuntimeError(f'shared reviewer capacity unavailable: {exc.reason}') from None
         write_private(directory / 'pr.diff', patch)
         write_private(directory / 'prompt.txt', prompt)
@@ -536,10 +957,10 @@ def main():
         environment['CLAUDE_CODE_MAX_RETRIES'] = '0'
         settings = {'enableWorkflows': True, 'ultracode': True, 'disableAllHooks': True,
                     'enabledPlugins': {}, 'fallbackModel': [], 'switchModelsOnFlag': False}
-        repo = Path(command('git', 'rev-parse', '--show-toplevel').strip()).resolve()
         config = {'cli_executable': str(cli), 'cli_sha256': hashlib.sha256(cli.read_bytes()).hexdigest(),
                   'binding': binding,
-                  'facts_path': str(directory / 'facts.jsonl'), 'environment': environment,
+                  'facts_path': str(directory / 'facts.jsonl'),
+                  'events_path': str(directory / 'events.live.jsonl'), 'environment': environment,
                   'expected_applied': APPLIED,
                   'extra_args': review_tool_args(repo, settings)}
         write_private(directory / 'config.json', json.dumps(config))
@@ -552,16 +973,52 @@ def main():
                '--model', MODEL, '--effort', 'ultracode']
         shared.started(reservation_id, str(directory), {'kind': 'executor_invocation', 'pr': args.pr, 'head': head})
         code, output, incomplete_reason = invoke(cmd, '\n'.join(json.dumps(event) for event in events) + '\n', directory)
+        journal = directory / 'events.live.jsonl'
+        if (not journal.is_file() or
+                journal.read_bytes() != (directory / 'events.jsonl').read_bytes()):
+            incomplete_reason = incomplete_reason or 'event_journal_mismatch'
         delivered = input_delivery_verified(directory, binding, code)
         summary = summarize(output, nonce, code, incomplete_reason, input_verified=delivered,
                             head=head, diff_sha256=diff_sha256)
         rejected_quota = bool(rejected_quota_events(output))
         # A stale positive timestamp is not proof of a future provider reset.
         # Five minutes covers normal delivery/clock skew without accepting 1970 sentinels.
-        reset = rejected_quota_reset(output, min_reset=time.time() - 300)
-        terminal = next((event for event in output if event.get('type') == 'result'), {})
+        try:
+            started_at = json.loads((directory / 'facts.jsonl').read_text().splitlines()[0]).get('at')
+        except (OSError, ValueError, IndexError):
+            started_at = None
+        floor = started_at - 300 if (isinstance(started_at, (int, float))
+                and not isinstance(started_at, bool) and math.isfinite(started_at)
+                and started_at <= time.time() + 300) else time.time() - 300
+        reset = rejected_quota_reset(output, min_reset=floor)
+        interpreted = result_interpretation(output)
+        terminal = interpreted['primary'] if interpreted else {}
+        preliminary = checkpoint_from_events(output, binding=binding, base=base, files=files,
+                                              reservation_id=reservation_id, previous=inherited,
+                                              repo=repo)
+        open_findings = [item for item in preliminary['findings'] if item['status'] == 'open']
+        if summary['verdict'] not in ('PASS', 'REVISE'):
+            summary['completion_verified'] = False
+            summary['review_passed'] = False
+            summary['incomplete_reason'] = 'model_review_incomplete'
+        if not preliminary['scope_verified']:
+            summary['completion_verified'] = False
+            summary['review_passed'] = False
+            summary['incomplete_reason'] = 'review_scope_unverified'
+        elif summary['verdict'] == 'PASS' and open_findings:
+            summary['review_passed'] = False
+            summary['incomplete_reason'] = 'unresolved_review_finding'
         elapsed_ms = terminal.get('duration_ms')
         elapsed = elapsed_ms / 1000 if isinstance(elapsed_ms, (int, float)) and not isinstance(elapsed_ms, bool) and elapsed_ms >= 0 else 1800
+        if interpreted and interpreted['kind'] == 'workflow_quota':
+            try:
+                facts = [json.loads(line) for line in (directory / 'facts.jsonl').read_text().splitlines()]
+                start, closed = facts[0]['at'], facts[-1]['at']
+                if facts[-1]['state'] == 'closed' and all(isinstance(value, (int, float))
+                        and math.isfinite(value) for value in (start, closed)) and closed >= start:
+                    elapsed = closed - start
+            except (OSError, ValueError, KeyError, IndexError):
+                pass
         settlement_event = None
         if incomplete_reason is None and terminal_children_stopped(output):
             category = ('quota' if reset is not None else 'reconciliation' if rejected_quota
@@ -584,12 +1041,35 @@ def main():
             summary['completion_verified'] = False
             summary['review_passed'] = False
             summary['incomplete_reason'] = 'head_or_tree_changed_after_review'
+        raw_events = (directory / 'events.jsonl').read_bytes()
+        checkpoint = checkpoint_from_events(output, binding=binding, base=base, files=files,
+                                            reservation_id=reservation_id,
+                                            settlement_event=settlement_event, previous=inherited,
+                                            events_sha256=hashlib.sha256(raw_events).hexdigest(), repo=repo)
+        replace_private(directory / 'checkpoint.json', checkpoint)
+        replace_private(directory / 'interpretation.json', {
+            'kind': interpreted['kind'] if interpreted else 'unverified',
+            'session_id': interpreted['final'].get('session_id') if interpreted else None,
+            'result_indexes': [item.get('result_index') for item in
+                               (interpreted['primary'], interpreted['final'])] if interpreted else [],
+            'workflow_task_ids': sorted({item['task_id'] for item in output
+                if item.get('type') == 'system' and item.get('subtype') == 'task_started'
+                and isinstance(item.get('task_id'), str)}),
+            'terminal_reason': interpreted['final'].get('terminal_reason') if interpreted else None,
+            'api_error_status': interpreted['final'].get('api_error_status') if interpreted else None,
+            'quota_reset': reset, 'usage_snapshot_usd': summary['cost_usd_estimate'],
+            'completion_verified': summary['completion_verified'],
+            'reservation_id': reservation_id, 'settlement_event': settlement_event,
+            'checkpoint_sha256': hashlib.sha256((directory / 'checkpoint.json').read_bytes()).hexdigest(),
+            'events_sha256': hashlib.sha256(raw_events).hexdigest()})
         write_private(directory / 'report.md', summary.pop('result') or
                       '검수 미완료: 모델 응답이나 결과가 없습니다. facts.jsonl과 events.jsonl을 확인하세요.\n')
         write_private(directory / 'receipt.json', json.dumps({
             'pr': args.pr, 'url': pr['url'], 'head': head, 'checks': checks,
             'base': base, 'merge_base': merge_base,
             'diff_sha256': diff_sha256, 'prompt_sha256': prompt_sha256,
+            'events_sha256': hashlib.sha256(raw_events).hexdigest(),
+            'checkpoint_sha256': hashlib.sha256((directory / 'checkpoint.json').read_bytes()).hexdigest(),
             'cli_version': version, 'cli_sha256': config['cli_sha256'],
             'runner_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
             'relay_sha256': hashlib.sha256(CONTROL.read_bytes()).hexdigest(),

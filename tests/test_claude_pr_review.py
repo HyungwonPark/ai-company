@@ -56,12 +56,15 @@ class ClaudePRReviewTests(unittest.TestCase):
                 events = [
                     {'type': 'rate_limit_event', 'rate_limit_info': info},
                     {'type': 'result', 'is_error': True, 'terminal_reason': 'api_error',
+                     'api_error_status': 429,
                      'queued_turn_count': 0, 'duration_ms': 1000,
                      'subagent_stats': {'spawned': 0, 'completed': 0, 'failed': 0,
                                         'killed': {}, 'refused': {}}},
                 ]
                 def invoke(_cmd, _prompt, directory):
-                    (directory / 'events.jsonl').write_text(''.join(json.dumps(event) + '\n' for event in events))
+                    stream = ''.join(json.dumps(event) + '\n' for event in events)
+                    (directory / 'events.jsonl').write_text(stream)
+                    (directory / 'events.live.jsonl').write_text(stream)
                     return 1, events, None
                 argv = ['review', '31', '--shared-call-ledger', str(ledger_path),
                         '--credential-ref', 'review', '--quota-group', 'account',
@@ -130,6 +133,7 @@ class ClaudePRReviewTests(unittest.TestCase):
                      {'state': 'closed', 'exit_code': 0}]
             events = [{'type': 'rate_limit_event', 'rate_limit_info': {'status': 'rejected', 'resetsAt': 200}},
                       {'type': 'result', 'is_error': True, 'terminal_reason': 'api_error',
+                       'api_error_status': 429,
                        'queued_turn_count': 0, 'subagent_stats': {'spawned': 0, 'completed': 0,
                            'failed': 0, 'killed': {}, 'refused': {}}}]
             (directory / 'receipt.json').write_text(json.dumps(receipt))
@@ -177,6 +181,7 @@ class ClaudePRReviewTests(unittest.TestCase):
             self.addCleanup(ledger.close)
             events = [{'type': 'rate_limit_event', 'rate_limit_info': {'status': 'rejected', 'resetsAt': 200}},
                       {'type': 'result', 'is_error': True, 'terminal_reason': 'api_error',
+                       'api_error_status': 429,
                        'queued_turn_count': 0, 'subagent_stats': {'failed': 0, 'killed': {}, 'refused': {}}}]
             self.assertFalse(REVIEW.terminal_children_stopped(events))
             events[-1]['subagent_stats'].update({'spawned': 0, 'completed': 0})
