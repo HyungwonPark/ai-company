@@ -56,6 +56,111 @@ def settings_events(binding):
 
 
 class QuotaCheckpointTests(unittest.TestCase):
+    def test_completed_primary_then_workflow_429_uses_cumulative_terminal_result(self):
+        # Compact projection of the saved PR #35 stream: the primary result
+        # completed while Workflow was still running, then its notification
+        # ended at the provider's limit with a synthetic error message.
+        events = workflow_events()
+        events.pop(1)
+        primary = events[1]
+        primary.update(is_error=False, terminal_reason='completed',
+                       stop_reason='end_turn', subtype='success')
+        primary.pop('api_error_status')
+        events.insert(-1, {'type': 'rate_limit_event', 'rate_limit_info': {
+            'status': 'rejected', 'resetsAt': 200}})
+        events.insert(-1, {'type': 'assistant', 'is_api_error_message': True,
+                           'error': 'rate_limit', 'message': {'model': '<synthetic>',
+                           'content': [{'type': 'text', 'text': 'session limit'}]}})
+        events = [*settings_events({'nonce': 'n'}), *events]
+        self.assertEqual(review.result_interpretation(events)['kind'], 'workflow_quota')
+        self.assertTrue(review.terminal_children_stopped(events))
+        self.assertEqual(review.rejected_quota_reset(events), 200)
+        summary = review.summarize(events, 'n', 1)
+        self.assertTrue(summary['configuration_verified'])
+        self.assertEqual(summary['cost_usd_estimate'], 11)
+        self.assertFalse(summary['completion_verified'])
+        self.assertEqual(summary['response_models'], ['<synthetic>', review.MODEL])
+        wrong_request = list(events)
+        wrong_request[0] = {**events[0], 'response': {
+            **events[0]['response'], 'request_id': 'other-before'}}
+        self.assertFalse(review.summarize(wrong_request, 'n', 1)['configuration_verified'])
+        wrong_applied = list(events)
+        wrong_applied[2] = {**events[2], 'response': {
+            **events[2]['response'], 'response': {
+                'applied': {**review.APPLIED, 'effort': 'medium'}, 'has_errors': False}}}
+        self.assertFalse(review.summarize(wrong_applied, 'n', 1)['configuration_verified'])
+        errors = list(events)
+        errors[2] = {**events[2], 'response': {
+            **events[2]['response'], 'response': {
+                'applied': review.APPLIED, 'has_errors': True}}}
+        self.assertFalse(review.summarize(errors, 'n', 1)['configuration_verified'])
+        self.assertFalse(review.summarize([*events, {'type': 'assistant', 'message': {
+            'model': 'other-model'}}], 'n', 1)['configuration_verified'])
+        self.assertFalse(review.summarize([*events, {'type': 'assistant', 'message': {
+            'model': '<synthetic>'}}], 'n', 1)['configuration_verified'])
+        final_index = next(i for i, event in enumerate(events)
+                           if event.get('type') == 'result' and event.get('result_index') == 1)
+        wrong_session = list(events)
+        wrong_session[final_index] = {**events[final_index], 'session_id': 'other-session'}
+        self.assertIsNone(review.result_interpretation(wrong_session))
+        missing_notification = [event for event in events
+                                if event.get('subtype') != 'task_notification']
+        self.assertFalse(review.terminal_children_stopped(missing_notification))
+        wrong_final = list(events)
+        wrong_final[final_index] = {**events[final_index], 'api_error_status': 500}
+        self.assertIsNone(review.rejected_quota_reset(wrong_final))
+
+    def test_old_synthetic_model_checkpoint_replays_without_rewriting_history(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            head, base = 'a' * 40, 'b' * 40
+            patch_text = 'diff --git a/a.py b/a.py\n+x\n'
+            diff_sha = hashlib.sha256(patch_text.encode()).hexdigest()
+            old = root / ('pr-35-' + head + '-quota-old')
+            new = root / ('pr-35-' + head)
+            old.mkdir()
+            new.mkdir()
+            rows = workflow_events()
+            rows[2].update(is_error=False, terminal_reason='completed', stop_reason='end_turn')
+            rows[2].pop('api_error_status')
+            rows.insert(-1, {'type': 'assistant', 'is_api_error_message': True,
+                             'error': 'rate_limit', 'message': {'model': '<synthetic>'}})
+            for directory, nonce in ((old, 'old'), (new, 'new')):
+                events = [*settings_events({'nonce': nonce}), *rows]
+                (directory / 'events.jsonl').write_text(''.join(json.dumps(x) + '\n' for x in events))
+                (directory / 'pr.diff').write_text(patch_text)
+                (directory / 'facts.jsonl').write_text(json.dumps({'binding': {
+                    'pr': 35, 'head': head, 'diff_sha256': diff_sha,
+                    'nonce': nonce}, 'exit_code': 1}) + '\n')
+            old_receipt = {'head': head, 'base': base, 'diff_sha256': diff_sha,
+                           'events_sha256': None, 'shared_reservation_id': 'old-r'}
+            (old / 'receipt.json').write_text(json.dumps(old_receipt))
+            (old / 'reconciliation.json').write_text('{}')
+            (old / 'prompt.txt').write_text('')
+            with patch.object(review, 'input_delivery_verified', return_value=True):
+                inherited = review.previous_checkpoint(old, head=head, base=base,
+                    diff_sha256=diff_sha, files=['a.py'])
+                self.assertFalse(inherited['configuration_observed']['verified'])
+                record = {'source': str(old), 'receipt_sha256': hashlib.sha256(
+                    (old / 'receipt.json').read_bytes()).hexdigest(),
+                    'events_sha256': hashlib.sha256((old / 'events.jsonl').read_bytes()).hexdigest(),
+                    'checkpoint': inherited}
+                (new / 'prompt.txt').write_text('PREVIOUS_CHECKPOINT_JSON: ' + json.dumps(record) + '\n')
+                new_events = [json.loads(x) for x in (new / 'events.jsonl').read_text().splitlines()]
+                old_style = review.checkpoint_from_events(new_events, binding={
+                    'pr': 35, 'head': head, 'diff_sha256': diff_sha, 'nonce': 'new'},
+                    base=base, files=['a.py'], reservation_id='new-r', previous=inherited,
+                    events_sha256=hashlib.sha256((new / 'events.jsonl').read_bytes()).hexdigest(),
+                    legacy_model_check=True)
+                (new / 'checkpoint.json').write_text(json.dumps(old_style))
+                (new / 'receipt.json').write_text(json.dumps({
+                    'head': head, 'base': base, 'diff_sha256': diff_sha,
+                    'events_sha256': hashlib.sha256((new / 'events.jsonl').read_bytes()).hexdigest(),
+                    'checkpoint_sha256': hashlib.sha256((new / 'checkpoint.json').read_bytes()).hexdigest(),
+                    'shared_reservation_id': 'new-r'}))
+                self.assertEqual(review.previous_checkpoint(new, head=head, base=base,
+                    diff_sha256=diff_sha, files=['a.py']), old_style)
+
     def test_original_classifier_failed_but_workflow_quota_is_one_cumulative_result(self):
         events = workflow_events()
         self.assertEqual(review.result_interpretation(events)['kind'], 'workflow_quota')

@@ -119,7 +119,8 @@ def patch_files(patch):
 
 
 def checkpoint_from_events(events, *, binding, base, files, reservation_id,
-                           settlement_event=None, previous=None, events_sha256=None, repo=None):
+                           settlement_event=None, previous=None, events_sha256=None, repo=None,
+                           legacy_model_check=False):
     """Keep observed tool work separate from model-claimed completed review."""
     all_files = set(files)
     calls = {}
@@ -171,6 +172,11 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
                             observed.add(max(matches, key=len))
     settings = {}
     models = set()
+    interpreted = result_interpretation(events)
+    quota_rejected = (bool(rejected_quota_events(events)) and interpreted is not None
+        and interpreted['final'].get('is_error') is True
+        and interpreted['final'].get('terminal_reason') == 'api_error'
+        and interpreted['final'].get('api_error_status') == 429)
     for event in events:
         if event.get('type') == 'control_response':
             response = event.get('response', {})
@@ -178,7 +184,8 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
                 settings[response['request_id']] = response.get('response', {})
         elif event.get('type') == 'assistant':
             message = event.get('message', {})
-            if isinstance(message, dict) and isinstance(message.get('model'), str):
+            if (isinstance(message, dict) and isinstance(message.get('model'), str)
+                    and (legacy_model_check or not synthetic_quota_error(event, quota_rejected))):
                 models.add(message['model'])
     observed_configuration = {
         'before': settings.get(binding['nonce'] + '-before'),
@@ -295,13 +302,26 @@ def previous_checkpoint(directory, *, head, base, diff_sha256, files, repo=None,
             and not receipt.get('shared_reservation_id')):
         return checkpoint_from_events([], binding=binding, base=base, files=files,
                reservation_id=None, events_sha256=None, repo=repo)
+    old_import = receipt.get('events_sha256') is None and (directory / 'reconciliation.json').exists()
     reconstructed = checkpoint_from_events(events, binding=binding, base=base, files=files,
                    reservation_id=receipt.get('shared_reservation_id'),
                    settlement_event=receipt.get('shared_settlement_event'),
-                   events_sha256=hashlib.sha256(raw).hexdigest(), previous=inherited, repo=repo)
+                   events_sha256=hashlib.sha256(raw).hexdigest(), previous=inherited, repo=repo,
+                   legacy_model_check=old_import)
     saved = directory / 'checkpoint.json'
+    if not saved.exists() and receipt.get('checkpoint_sha256') is not None:
+        raise RuntimeError('bound checkpoint is missing')
     if saved.exists() and json.loads(saved.read_text()) != reconstructed:
-        raise RuntimeError('saved checkpoint differs from bound event replay')
+        # Older attempts counted Claude Code's synthetic 429 message as a
+        # model. Keep their immutable checkpoint when its old replay matches.
+        legacy = checkpoint_from_events(events, binding=binding, base=base, files=files,
+                 reservation_id=receipt.get('shared_reservation_id'),
+                 settlement_event=receipt.get('shared_settlement_event'),
+                 events_sha256=hashlib.sha256(raw).hexdigest(), previous=inherited,
+                 repo=repo, legacy_model_check=True)
+        if json.loads(saved.read_text()) != legacy:
+            raise RuntimeError('saved checkpoint differs from bound event replay')
+        return legacy
     return reconstructed
 
 
@@ -408,8 +428,15 @@ def result_interpretation(events):
             or final.get('result_index') != 1
             or not primary.get('session_id')
             or primary.get('session_id') != final.get('session_id')
-            or any(item.get('is_error') is not True or item.get('terminal_reason') != 'api_error'
-                   or item.get('api_error_status') != 429 for item in results)):
+            or (primary.get('is_error') is not True
+                or primary.get('terminal_reason') != 'api_error'
+                or primary.get('api_error_status') != 429)
+               and (primary.get('is_error') is not False
+                    or primary.get('terminal_reason') != 'completed'
+                    or primary.get('stop_reason') != 'end_turn')
+            or final.get('is_error') is not True
+            or final.get('terminal_reason') != 'api_error'
+            or final.get('api_error_status') != 429):
         return None
     positions = result_positions
     started = [(index, event) for index, event in enumerate(events)
@@ -482,9 +509,9 @@ def rejected_quota_reset(events, *, min_reset=0):
     if (not terminal_children_stopped(events) or not rejected
             or not all(isinstance(value, (int, float)) and not isinstance(value, bool)
                        and math.isfinite(value) and value > min_reset for value in resets)
-            or interpreted['primary'].get('is_error') is not True
-            or interpreted['primary'].get('terminal_reason') != 'api_error'
-            or interpreted['primary'].get('api_error_status') != 429):
+            or interpreted['final'].get('is_error') is not True
+            or interpreted['final'].get('terminal_reason') != 'api_error'
+            or interpreted['final'].get('api_error_status') != 429):
         return None
     return max(resets)
 
@@ -494,6 +521,15 @@ def rejected_quota_events(events):
     return [info for event in events if event.get('type') == 'rate_limit_event'
             for info in [event.get('rate_limit_info')]
             if isinstance(info, dict) and info.get('status') == 'rejected']
+
+
+def synthetic_quota_error(event, quota_rejected):
+    """Claude Code's generated 429 notice is not a model response."""
+    message = event.get('message')
+    return (event.get('type') == 'assistant' and event.get('is_api_error_message') is True
+            and event.get('error') == 'rate_limit' and isinstance(message, dict)
+            and message.get('model') == '<synthetic>'
+            and quota_rejected)
 
 
 def effective_receipt(directory):
@@ -830,8 +866,15 @@ def summarize(events, nonce, exit_code, incomplete_reason=None, *, input_verifie
                                            if isinstance(item, dict) and item.get('type') == 'tool_result'
                                            and item.get('tool_use_id') and item.get('is_error') is not True)
     applied = [settings.get(nonce + suffix, {}) for suffix in ('-before', '-after')]
+    quota_rejected = (bool(rejected_quota_events(events)) and interpreted is not None
+        and interpreted['final'].get('is_error') is True
+        and interpreted['final'].get('terminal_reason') == 'api_error'
+        and interpreted['final'].get('api_error_status') == 429)
+    verified_models = {event['message']['model'] for event in events
+        if event.get('type') == 'assistant' and isinstance(event.get('message'), dict)
+        and event['message'].get('model') and not synthetic_quota_error(event, quota_rejected)}
     configuration_verified = (all(item.get('applied') == APPLIED and item.get('has_errors') is False
-                                  for item in applied) and models == {MODEL})
+                                  for item in applied) and verified_models == {MODEL})
     subagents = result.get('subagent_stats') if result else None
     subagents = subagents if isinstance(subagents, dict) else {}
     killed = subagents.get('killed')
@@ -842,6 +885,7 @@ def summarize(events, nonce, exit_code, incomplete_reason=None, *, input_verifie
     denied_ids = {item.get('tool_use_id') for item in denials or [] if isinstance(item, dict)}
     successful_tools = {tool_calls[item] for item in successful_tool_results - denied_ids if item in tool_calls}
     completion_verified = (configuration_verified and incomplete_reason is None and exit_code == 0
+                           and not rejected_quota_events(events)
                            and interpreted is not None and interpreted['kind'] == 'single'
                            and result is not None and result.get('subtype') == 'success'
                            and not result.get('is_error') and isinstance(denials, list) and not denials

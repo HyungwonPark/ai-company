@@ -26,6 +26,7 @@
 
 ## 구현 원칙
 
+- 서버 Codex 개발 작업은 [개발 효율 지침](https://github.com/HyungwonPark/ai-company/blob/0a7468b27a90f10021a3280d4952b291d05ba523/docs/work-reviews/server-codex-efficiency-policy.md)을 따른다. 이는 제품 역할·운영 worker의 모델 설정을 바꾸지 않는다.
 - 작업 ID에 묶인 원래 명세·정책·어댑터 구성을 바꾸어 이전 작업을 합격시키지 않는다.
 - 실제 병합 준비는 현재 원격 커밋과 필수 CI·독립 검수 근거로 판단한다. 모의 결과는 `DEMO_READY`로 표시한다.
 - LangGraph 체크포인트는 진행 상태, 실행 기록은 외부 작업의 사실을 담당한다.
