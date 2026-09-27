@@ -1,8 +1,11 @@
 """Derived E1 persistence tests use isolated stores and never call a model."""
 
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from pathlib import Path
 import json
+import os
+import sqlite3
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -25,6 +28,7 @@ class RecoveredPlanTests(unittest.TestCase):
         self.origin.mkdir(parents=True)
         self.state = self.base / "copy" / "E1"
         self.store = ManagementStore(self.state)
+        self.state.chmod(0o700)
         self.addCleanup(self.store.close)
         project = self.store.create_project({"name": "E1", "goal": "Build safely"})
         message = self.store.post_message(project["id"], {"content": "Make a plan"})
@@ -45,6 +49,13 @@ class RecoveredPlanTests(unittest.TestCase):
             self.base / "config.json", self.base / "codex", self.base / "manifest.json",
             message["id"], project["id"], "pm-" + message["id"], "original-job",
             "original-reservation", self.content, self.evidence, self.binding)
+        source = self.origin / "sessions" / "sessions.sqlite"
+        source.parent.mkdir()
+        with sqlite3.connect(source) as original:
+            self.store.db.backup(original)
+        with sqlite3.connect(self.base / "trial-state.sqlite") as frozen:
+            self.store.db.backup(frozen)
+        self.store.close()
 
     def _apply(self):
         return apply_to_isolated_state(self.diagnosis)
@@ -55,27 +66,43 @@ class RecoveredPlanTests(unittest.TestCase):
                 results = list(pool.map(lambda _: self._apply(), range(4)))
         self.assertEqual([x["state"] for x in results].count("saved"), 1)
         self.assertEqual([x["state"] for x in results].count("already_saved"), 3)
-        self.assertEqual(self.store.db.execute("SELECT count(*) FROM management_plans").fetchone()[0], 1)
-        self.assertEqual(self.store.db.execute("SELECT count(*) FROM pm_recovery_revisions").fetchone()[0], 1)
-        self.assertEqual(self.store.get_plan(self.diagnosis.project_id, results[0]["plan_id"])["id"],
-                         results[0]["plan_id"])
+        store = ManagementStore(self.state)
+        try:
+            self.assertEqual(store.db.execute("SELECT count(*) FROM management_plans").fetchone()[0], 1)
+            self.assertEqual(store.db.execute("SELECT count(*) FROM pm_recovery_revisions").fetchone()[0], 1)
+            self.assertEqual(store.get_plan(self.diagnosis.project_id, results[0]["plan_id"])["id"],
+                             results[0]["plan_id"])
+        finally:
+            store.close()
 
     def test_restart_after_plan_save_completes_missing_revision_once(self):
-        saved = self.store.complete_pm_request(self.diagnosis.request_id, self.content,
-            expected_state="blocked", evidence=self.evidence)
+        store = ManagementStore(self.state)
+        try:
+            saved = store.complete_pm_request(self.diagnosis.request_id, self.content,
+                expected_state="blocked", evidence=self.evidence)
+        finally:
+            store.close()
         with patch("ai_company.pm_evidence_recovery.diagnose", return_value=self.diagnosis):
             self.assertEqual(self._apply()["plan_id"], saved["id"])
             self.assertEqual(self._apply()["state"], "already_saved")
-        self.assertEqual(self.store.db.execute("SELECT count(*) FROM management_plans").fetchone()[0], 1)
+        store = ManagementStore(self.state)
+        try:
+            self.assertEqual(store.db.execute("SELECT count(*) FROM management_plans").fetchone()[0], 1)
+        finally:
+            store.close()
 
     def test_repeat_refuses_changed_plan_content(self):
         with patch("ai_company.pm_evidence_recovery.diagnose", return_value=self.diagnosis):
             saved = self._apply()
-            plan = self.store.get_plan(self.diagnosis.project_id, saved["plan_id"])
-            plan["content"]["summary"] = "Changed after recovery"
-            with self.store.db:
-                self.store.db.execute("UPDATE management_plans SET document=? WHERE id=?",
-                                      (json.dumps(plan), plan["id"]))
+            store = ManagementStore(self.state)
+            try:
+                plan = store.get_plan(self.diagnosis.project_id, saved["plan_id"])
+                plan["content"]["summary"] = "Changed after recovery"
+                with store.db:
+                    store.db.execute("UPDATE management_plans SET document=? WHERE id=?",
+                                     (json.dumps(plan), plan["id"]))
+            finally:
+                store.close()
             with self.assertRaisesRegex(RecoveryError, "plan or current request changed"):
                 self._apply()
 
@@ -87,7 +114,11 @@ class RecoveredPlanTests(unittest.TestCase):
                 apply_to_isolated_state(self.diagnosis)
         with self.assertRaisesRegex(RecoveryError, "operating scope"):
             apply_to_operating_state(self.diagnosis)
-        self.assertEqual(self.store.db.execute("SELECT count(*) FROM management_plans").fetchone()[0], 0)
+        store = ManagementStore(self.state)
+        try:
+            self.assertEqual(store.db.execute("SELECT count(*) FROM management_plans").fetchone()[0], 0)
+        finally:
+            store.close()
 
     def test_original_output_requires_one_complete_matching_message(self):
         path = self.base / "output.jsonl"
@@ -106,6 +137,96 @@ class RecoveredPlanTests(unittest.TestCase):
         path.write_text(path.read_text() + json.dumps(lines[1]) + "\n")
         with self.assertRaises(RecoveryError):
             _raw_output(path, report, "original-session")
+
+    def test_isolated_apply_rejects_database_symlink_and_hardlink_before_write(self):
+        source = self.origin / "sessions" / "sessions.sqlite"
+        target = self.state / "sessions" / "sessions.sqlite"
+        self.store.close()
+        for link in (os.symlink, os.link):
+            target.unlink()
+            link(source, target)
+            with patch("ai_company.pm_evidence_recovery.diagnose", return_value=self.diagnosis):
+                with self.assertRaisesRegex(RecoveryError, "symbolic link|aliases"):
+                    self._apply()
+            with sqlite3.connect(source) as db:
+                self.assertFalse(db.execute("SELECT 1 FROM sqlite_master WHERE name='pm_recovery_revisions'").fetchone())
+
+    def test_isolated_apply_rejects_intermediate_directory_symlink(self):
+        self.store.close()
+        sessions = self.state / "sessions"
+        (sessions / "sessions.sqlite").unlink()
+        sessions.rmdir()
+        sessions.symlink_to(self.origin / "sessions", target_is_directory=True)
+        with patch("ai_company.pm_evidence_recovery.diagnose", return_value=self.diagnosis):
+            with self.assertRaisesRegex(RecoveryError, "symbolic link|changed before persistence"):
+                self._apply()
+
+    def test_directory_swap_after_pinning_never_writes_original(self):
+        sessions = self.state / "sessions"
+        original = self.origin / "sessions" / "sessions.sqlite"
+        with sqlite3.connect(original) as db:
+            db.execute("DROP TABLE management_links")
+        original_files = [original, original.with_name(original.name + "-wal"),
+                          original.with_name(original.name + "-shm")]
+        before = [path.read_bytes() if path.exists() else None for path in original_files[:2]]
+        shm_existed = original_files[2].exists()
+        constructor = ManagementStore.__init__
+
+        def swap_after_pin(store, root, **kwargs):
+            sessions.rename(self.state / "detached-sessions")
+            sessions.symlink_to(self.origin / "sessions", target_is_directory=True)
+            constructor(store, root, **kwargs)
+
+        with patch("ai_company.pm_evidence_recovery.diagnose", return_value=self.diagnosis), \
+                patch.object(ManagementStore, "__init__", swap_after_pin):
+            with self.assertRaisesRegex(RecoveryError, "symbolic link|changed before persistence"):
+                self._apply()
+        with sqlite3.connect(original) as db:
+            self.assertIsNone(db.execute(
+                "SELECT name FROM sqlite_master WHERE name='management_links'").fetchone())
+        self.assertEqual(before, [path.read_bytes() if path.exists() else None
+                                  for path in original_files[:2]])
+        self.assertEqual(shm_existed, original_files[2].exists())
+
+    def test_directory_swap_before_pinning_is_rejected(self):
+        from ai_company import pm_evidence_recovery as recovery
+        sessions = self.state / "sessions"
+        original = self.origin / "sessions" / "sessions.sqlite"
+        opener = recovery._isolated_stage
+
+        @contextmanager
+        def swap_before_pin(*args):
+            sessions.rename(self.state / "detached-sessions")
+            sessions.symlink_to(self.origin / "sessions", target_is_directory=True)
+            with opener(*args) as staged:
+                yield staged
+
+        with patch("ai_company.pm_evidence_recovery.diagnose", return_value=self.diagnosis), \
+                patch.object(recovery, "_isolated_stage", swap_before_pin):
+            with self.assertRaisesRegex(RecoveryError, "could not be staged"):
+                self._apply()
+        with sqlite3.connect(original) as db:
+            self.assertIsNone(db.execute(
+                "SELECT name FROM sqlite_master WHERE name='pm_recovery_revisions'").fetchone())
+
+    def test_idle_sidecars_are_removed_only_when_copy_is_published(self):
+        sessions = self.state / "sessions"
+        wal = sessions / "sessions.sqlite-wal"
+        shm = sessions / "sessions.sqlite-shm"
+        wal.write_bytes(b"")
+        shm.write_bytes(b"idle")
+        with patch("ai_company.pm_evidence_recovery.diagnose", return_value=self.diagnosis):
+            self.assertEqual(self._apply()["state"], "saved")
+        self.assertFalse(wal.exists())
+        self.assertFalse(shm.exists())
+
+    def test_nonempty_copy_wal_is_rejected_without_unlink(self):
+        wal = self.state / "sessions" / "sessions.sqlite-wal"
+        wal.write_bytes(b"pending")
+        with patch("ai_company.pm_evidence_recovery.diagnose", return_value=self.diagnosis):
+            with self.assertRaisesRegex(RecoveryError, "active SQLite sidecars"):
+                self._apply()
+        self.assertEqual(wal.read_bytes(), b"pending")
 
 
 if __name__ == "__main__":

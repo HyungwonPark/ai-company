@@ -6,12 +6,18 @@ review and master confirmation; this module never runs the coordinator.
 """
 
 from dataclasses import dataclass
+from contextlib import contextmanager
 from hashlib import sha256
 from pathlib import Path
 import json
+import math
+import os
 import re
+import shutil
 import sqlite3
+import stat
 import subprocess
+import tempfile
 
 from ai_company.adapters.configuration_evidence import codex_turn_configuration
 from ai_company.adapters.session_cli import codex_output_schema_digest
@@ -79,13 +85,288 @@ def _hash(path):
     return sha256(path.read_bytes()).hexdigest()
 
 
-def _bound_ledger_facts(db, origin, prior):
-    reservations = db.execute("SELECT * FROM reservations WHERE owner=? OR owner LIKE ? "
-        "ORDER BY reservation_id", (str(origin), str(prior) + '/%')).fetchall()
-    events = db.execute("SELECT * FROM settlement_events WHERE reservation_id IN ("
-        "SELECT reservation_id FROM reservations WHERE owner=? OR owner LIKE ?) "
-        "ORDER BY event_id", (str(origin), str(prior) + '/%')).fetchall()
+def _bound_ledger_facts(db, reservation_ids):
+    """Read only the seven frozen call identities, including their journal rows."""
+    if not reservation_ids:
+        raise RecoveryError("frozen E1 call identities are absent")
+    placeholders = ",".join("?" for _ in reservation_ids)
+    reservations = db.execute(f"SELECT * FROM reservations WHERE reservation_id IN ({placeholders}) "
+        "ORDER BY reservation_id", reservation_ids).fetchall()
+    events = db.execute(f"SELECT * FROM settlement_events WHERE reservation_id IN ({placeholders}) "
+        "ORDER BY event_id", reservation_ids).fetchall()
+    if len(reservations) != len(reservation_ids) or len(events) != len(reservation_ids):
+        raise RecoveryError("a frozen E1 or predecessor call is missing")
     return reservations, events
+
+
+def _followup_reservations(db, ledger, origin, prior, request, original_plan_id,
+                           original_ids, config):
+    """Permit only current E1 plan review/repair attempts beyond the frozen calls."""
+    rows = ledger.execute("SELECT reservation_id,owner,group_id,state,event_id,result,process_identity FROM reservations "
+                          "WHERE owner=? OR owner LIKE ? ORDER BY reservation_id",
+                          (str(origin), str(prior) + '/%')).fetchall()
+    extra = [row for row in rows if row[0] not in original_ids]
+    plans = {}
+    for (raw,) in db.execute("SELECT document FROM management_plans"):
+        plan = json.loads(raw)
+        if plan.get("request_id") == request["request_id"] and plan.get("project_id") == request["project_id"]:
+            plans[plan["id"]] = plan
+    if extra and original_plan_id not in plans:
+        raise RecoveryError("E1 follow-up has no bound original plan")
+    allowed = {}
+    for plan in plans.values():
+        if plan.get("digest") != digest(ManagementStore._plan_binding(plan)):
+            raise RecoveryError("E1 follow-up plan digest changed")
+        cursor, seen = plan, set()
+        while cursor["id"] != original_plan_id:
+            if cursor["id"] in seen or cursor.get("revision_of") not in plans:
+                raise RecoveryError("E1 follow-up plan lineage is invalid")
+            seen.add(cursor["id"])
+            parent = plans[cursor["revision_of"]]
+            if (cursor.get("auto_revision_attempt") != parent.get("auto_revision_attempt", 0) + 1 or
+                    cursor["auto_revision_attempt"] not in (1, 2) or
+                    parent.get("revision_result_id") != cursor["id"]):
+                raise RecoveryError("E1 follow-up plan revision is stale or skipped")
+            cursor = parent
+        if (plan.get("request_revision") != request["request_revision"] or
+                plan.get("goal_digest") != request["goal_digest"] or
+                plan.get("configuration_digest") != request["configuration_digest"]):
+            raise RecoveryError("E1 follow-up plan belongs to a different request revision")
+        allowed["plan-review-" + plan["digest"][:48]] = ("plan_review", plan)
+        attempt = plan.get("auto_revision_attempt", 0) + 1
+        if (attempt <= 2 and
+                (plan.get("status") == "needs_revision" and plan.get("revision_action") == "automatic" or
+                 plan.get("status") == "superseded" and
+                 plans.get(plan.get("revision_result_id"), {}).get("auto_revision_attempt") == attempt)):
+            allowed["pm-revise-" + digest([plan["id"], attempt])[:48]] = ("planning", plan)
+    started_repairs = set()
+    elapsed = 0.0
+    for reservation_id, owner, group, state, event_id, result, process_identity in extra:
+        if owner != str(origin) or group == "@host-only" or state not in ("RESERVED", "STARTED", "UNKNOWN", "SETTLED", "CANCELLED"):
+            raise RecoveryError("unrelated shared reservation in E1 lineage")
+        archived = ":cancel:" in reservation_id
+        bound_id = reservation_id
+        if archived:
+            cancellation = json.loads(result or "{}")
+            bound_id = cancellation.get("original_reservation_id")
+            if (state != "CANCELLED" or not isinstance(bound_id, str) or
+                    not reservation_id.startswith(bound_id + ":cancel:") or
+                    cancellation.get("evidence") != "queue_unclaimed_no_guard_no_process" or
+                    not ledger.execute("SELECT 1 FROM reservations WHERE reservation_id=? AND owner=? AND group_id=?",
+                                       (bound_id, owner, group)).fetchone()):
+                raise RecoveryError("E1 cancelled reservation archive is invalid")
+        unclaimed = state in ("RESERVED", "CANCELLED") or state == "UNKNOWN" and not process_identity
+        matches = []
+        for (job_id, raw) in db.execute("SELECT job_id,document FROM session_jobs"):
+            job = json.loads(raw)
+            if job.get("task_id") not in allowed:
+                continue
+            upper = job.get("attempt_count", 0) + unclaimed
+            for attempt in range(1, upper + 1):
+                if bound_id == digest([str(origin), job_id, attempt]):
+                    matches.append((job, attempt))
+        if len(matches) != 1:
+            raise RecoveryError("E1 follow-up reservation has no unique job attempt")
+        job, attempt = matches[0]
+        queued = (attempt == job["attempt_count"] + 1 and not job.get("process") and
+                  job.get("status") in ("READY", "WAITING_QUOTA", "WAITING_RETRY"))
+        claimed_unstarted = (state in ("RESERVED", "UNKNOWN") and
+            attempt == job["attempt_count"] and
+            job.get("status") in ("RUNNING", "NEEDS_RECONCILIATION") and
+            db.execute("SELECT 1 FROM session_events WHERE job_id=? "
+                "AND json_extract(document,'$.attempt_count')=? "
+                "AND json_extract(document,'$.status')='RUNNING' LIMIT 1",
+                (job["job_id"], attempt)).fetchone() is not None)
+        if ((unclaimed and not archived and not (queued or claimed_unstarted)) or
+                (not unclaimed and attempt > job["attempt_count"])):
+            raise RecoveryError("E1 follow-up attempt is not a resumable queue fact")
+        task_id = job["task_id"]
+        task = json.loads(_one(db, "SELECT document FROM flow_tasks WHERE task_id=?", (task_id,))[0])
+        scope, plan = allowed[task_id]
+        binding = task.get("specification", {}).get("plan", {})
+        executions = [*task.get("executions", []), task.get("active") or {}]
+        generation = task.get("generation")
+        linked = [item for item in executions if item.get("job_id") == job["job_id"]]
+        expected = (job.get("checkpoint") or {}).get("expected_report") or {}
+        spec = FlowSpec.model_validate(task["specification"])
+        agent = next((candidate for candidate in spec.agents
+                      if candidate.agent_id == linked[0].get("agent_id")), None) if len(linked) == 1 else None
+        submitted = job.get("specification") or {}
+        if (task.get("spec_digest") != digest(spec) or
+                spec.task.task_id != task_id or job.get("task_id") != task_id or
+                job.get("managed_by") != task_id or
+                submitted.get("task", {}).get("task_id") != task_id or
+                submitted.get("agent_id") != job.get("agent_id") or
+                submitted.get("provider") != job.get("provider") or
+                submitted.get("worktree") != spec.worktree or
+                agent is None or job.get("agent_id") != agent.agent_id or
+                job.get("provider") != agent.provider or
+                linked[0].get("provider") != agent.provider or
+                linked[0].get("role") != ("reviewer" if scope == "plan_review" else "pm") or
+                linked[0].get("role") not in agent.roles or
+                group != agent.quota_group or
+                task["specification"].get("execution_scope") != scope or
+                task["specification"].get("mode") != "live" or
+                not linked or len(linked) != 1 or
+                not isinstance(generation, int) or
+                linked[0].get("generation") not in range(1, generation + 1) or
+                any(expected.get(key) != linked[0].get(key) for key in
+                    ("execution_id", "generation", "role", "task_digest", "policy_digest")) or
+                expected.get("task_digest") != digest(spec.task) or
+                expected.get("policy_digest") != digest(spec.policy) or
+                (scope == "plan_review" and
+                 (binding.get("plan_digest") != plan["digest"] or
+                  binding.get("requirements_revision") != request["request_revision"] or
+                  binding.get("project_id") != request["project_id"] or
+                  {"provider": (plan.get("evidence") or {}).get("provider"),
+                   "session_id": (plan.get("evidence") or {}).get("session_id")}
+                  not in spec.inherited_pm_sessions)) or
+                (scope == "planning" and
+                 (binding.get("source_plan_id") != plan["id"] or
+                  binding.get("auto_revision_attempt") not in (1, 2) or
+                  task_id != "pm-revise-" + digest([plan["id"], binding["auto_revision_attempt"]])[:48] or
+                  binding.get("request_revision") != request["request_revision"] or
+                  binding.get("goal_digest") != request["goal_digest"] or
+                  binding.get("project_id") != request["project_id"]))):
+            raise RecoveryError("E1 follow-up task, generation or plan binding changed")
+        if state in ("STARTED", "UNKNOWN", "SETTLED") and scope == "planning":
+            started_repairs.add(task_id)
+        event = ledger.execute("SELECT event_id,result FROM settlement_events WHERE reservation_id=?", (reservation_id,)).fetchall()
+        if state == "SETTLED":
+            if len(event) != 1 or event[0] != (event_id, result) or not event_id or not process_identity:
+                raise RecoveryError("E1 follow-up settlement journal is incomplete")
+            saved_attempt = job
+            if attempt != job["attempt_count"]:
+                previous = db.execute("SELECT document FROM session_events WHERE job_id=? "
+                    "AND json_extract(document,'$.attempt_count')=? "
+                    "AND json_extract(document,'$.last_category') IS NOT NULL "
+                    "ORDER BY sequence DESC LIMIT 1", (job["job_id"], attempt)).fetchone()
+                if not previous:
+                    raise RecoveryError("E1 follow-up settled attempt has no saved result")
+                saved_attempt = json.loads(previous[0])
+            if event_id != digest([reservation_id, attempt, saved_attempt.get("last_category"),
+                                   saved_attempt.get("result")]):
+                raise RecoveryError("E1 follow-up settlement differs from its job result")
+            outcome = json.loads(result)
+            duration = outcome.get("duration_seconds")
+            if (isinstance(duration, bool) or not isinstance(duration, (int, float)) or
+                    not math.isfinite(duration) or duration < 0):
+                raise RecoveryError("E1 follow-up duration is invalid")
+            saved_result = saved_attempt.get("result") or {}
+            expected_duration = saved_result.get("duration_seconds")
+            if (isinstance(expected_duration, bool) or not isinstance(expected_duration, (int, float)) or
+                    not math.isfinite(expected_duration) or expected_duration < 0):
+                expected_duration = spec.policy.retry.execution_timeout_seconds
+            expected = {"category": saved_attempt.get("last_category"),
+                        "duration_seconds": expected_duration,
+                        "total_cost_usd": saved_result.get("total_cost_usd")}
+            schema_sha = saved_result.get("output_schema_sha256")
+            if isinstance(schema_sha, str) and re.fullmatch(r"[0-9a-f]{64}", schema_sha):
+                expected["output_schema_sha256"] = schema_sha
+            if expected["category"] in ("quota", "rate_limit"):
+                reset = outcome.get("reset_at")
+                if (isinstance(reset, bool) or not isinstance(reset, (int, float)) or
+                        not math.isfinite(reset) or reset <= 0 or
+                        saved_attempt.get("resume_at") is not None and reset != saved_attempt["resume_at"]):
+                    raise RecoveryError("E1 follow-up quota reset differs from its job")
+                expected["reset_at"] = reset
+            if outcome != expected:
+                raise RecoveryError("E1 follow-up settlement content differs from its job")
+            elapsed += duration
+        elif event or event_id or (state in ("RESERVED", "CANCELLED") and process_identity) or \
+                (state == "STARTED" and not process_identity) or \
+                (state == "CANCELLED" and result and not archived):
+            raise RecoveryError("E1 follow-up reservation state is inconsistent")
+        elif state in ("RESERVED", "STARTED", "UNKNOWN"):
+            elapsed += config.policy.retry.execution_timeout_seconds
+    extra_calls = sum(row[3] != "CANCELLED" for row in extra)
+    if (len(started_repairs) > min(2, config.policy.max_repairs) or
+            1 + extra_calls > config.policy.max_executions or
+            len(original_ids) + extra_calls > 24):
+        raise RecoveryError("E1 follow-up exceeds evaluation call or repair cap")
+    return extra, elapsed
+
+
+def _isolated_file_identity(origin, state, snapshot):
+    """Reject aliases before a copied SQLite database can be opened for writing."""
+    if state == origin:
+        raise RecoveryError("isolated recovery must target a separate state")
+    target = state / "sessions" / "sessions.sqlite"
+    source = origin / "sessions" / "sessions.sqlite"
+    protected = [path for base in (source, snapshot)
+                 for path in (base, base.with_name(base.name + "-wal"),
+                              base.with_name(base.name + "-shm")) if path.exists()]
+    for path in (state, state / "sessions", target,
+                 target.with_name(target.name + "-wal"),
+                 target.with_name(target.name + "-shm"),
+                 state / "pm-evidence-recovery",
+                 state / "pm-evidence-recovery" / "controller.lock"):
+        if path.is_symlink():
+            raise RecoveryError("isolated state contains a symbolic link")
+    for directory in (state, state / "sessions"):
+        metadata = directory.stat()
+        if not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid != os.getuid() or metadata.st_mode & 0o022:
+            raise RecoveryError("isolated state directory is not privately controlled")
+    if not target.is_file() or not stat.S_ISREG(target.stat().st_mode):
+        raise RecoveryError("isolated state database is absent")
+    identity = (target.stat().st_dev, target.stat().st_ino)
+    if any(identity == (path.stat().st_dev, path.stat().st_ino) for path in protected):
+        raise RecoveryError("isolated state database aliases an original file")
+    for suffix in ("-wal", "-shm"):
+        sidecar = target.with_name(target.name + suffix)
+        if sidecar.exists() and any((sidecar.stat().st_dev, sidecar.stat().st_ino) ==
+                                    (path.stat().st_dev, path.stat().st_ino) for path in protected):
+            raise RecoveryError("isolated SQLite sidecar aliases an original file")
+    return identity
+
+
+@contextmanager
+def _isolated_stage(origin, state, expected_identity):
+    """Run SQLite on a private staging copy; publish only into the pinned copy dir."""
+    directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    state_fd = sessions_fd = None
+    try:
+        state_fd = os.open(state, directory_flags)
+        sessions_fd = os.open("sessions", directory_flags, dir_fd=state_fd)
+        source_dir = (origin / "sessions").stat()
+        sessions_dir = os.fstat(sessions_fd)
+        if (sessions_dir.st_dev, sessions_dir.st_ino) == (source_dir.st_dev, source_dir.st_ino):
+            raise RecoveryError("isolated sessions directory aliases the original")
+        for suffix in ("-wal", "-shm"):
+            try:
+                sidecar = os.stat("sessions.sqlite" + suffix, dir_fd=sessions_fd,
+                                  follow_symlinks=False)
+            except FileNotFoundError:
+                continue
+            if not stat.S_ISREG(sidecar.st_mode) or suffix == "-wal" and sidecar.st_size:
+                raise RecoveryError("isolated state has active SQLite sidecars")
+        with tempfile.TemporaryDirectory(prefix="ai-company-e1-stage-") as temporary:
+            staged_root = Path(temporary)
+            staged_sessions = staged_root / "sessions"
+            staged_sessions.mkdir(mode=0o700)
+            for name in ("sessions.sqlite",):
+                try:
+                    file_fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                                      dir_fd=sessions_fd)
+                except FileNotFoundError:
+                    if name == "sessions.sqlite":
+                        raise RecoveryError("isolated state database is absent")
+                    continue
+                with os.fdopen(file_fd, "rb") as source_file, (staged_sessions / name).open("xb") as staged_file:
+                    if name == "sessions.sqlite":
+                        metadata = os.fstat(source_file.fileno())
+                        if ((metadata.st_dev, metadata.st_ino) != expected_identity or
+                                not stat.S_ISREG(metadata.st_mode)):
+                            raise RecoveryError("isolated state database changed before persistence")
+                    shutil.copyfileobj(source_file, staged_file)
+            yield staged_root, sessions_fd
+    except (OSError, sqlite3.Error) as exc:
+        raise RecoveryError("isolated state database could not be staged") from exc
+    finally:
+        if sessions_fd is not None:
+            os.close(sessions_fd)
+        if state_fd is not None:
+            os.close(state_fd)
 
 
 def _raw_output(path, original, session_id):
@@ -244,10 +525,56 @@ def diagnose(origin_root: Path, state_root: Path, shared_path: Path, config_path
         with sqlite3.connect(f"file:{lineage_shared}?mode=ro", uri=True) as original_ledger, \
                 sqlite3.connect(f"file:{Path(evidence_manifest).parent / 'shared-ledger.sqlite'}?mode=ro",
                                 uri=True) as frozen_ledger:
-            original_facts = _bound_ledger_facts(original_ledger, origin, prior)
-            if (_bound_ledger_facts(ledger, origin, prior) != original_facts or
-                    _bound_ledger_facts(frozen_ledger, origin, prior) != original_facts):
+            frozen_ids = [row[0] for row in frozen_ledger.execute(
+                "SELECT reservation_id FROM reservations WHERE owner=? OR owner LIKE ? ORDER BY reservation_id",
+                (str(origin), str(prior) + '/%'))]
+            if len(frozen_ids) != 7:
+                raise RecoveryError("frozen E1 lineage must contain exactly seven calls")
+            original_facts = _bound_ledger_facts(frozen_ledger, frozen_ids)
+            if (_bound_ledger_facts(ledger, frozen_ids) != original_facts or
+                    _bound_ledger_facts(original_ledger, frozen_ids) != original_facts):
                 raise RecoveryError("E1 or predecessor settlement differs from original shared ledger")
+            followups, followup_seconds = _followup_reservations(
+                db, ledger, origin, prior, request, request.get("plan_id"),
+                set(frozen_ids), config)
+            usage_delta = {}
+            for _, _, group, state_value, _, encoded, _ in followups:
+                if state_value != "SETTLED":
+                    continue
+                outcome = json.loads(encoded)
+                calls, seconds, cost, unknown = usage_delta.get(group, (0, 0.0, 0.0, 0))
+                usage_delta[group] = (calls + 1, seconds + outcome["duration_seconds"],
+                                      cost + (outcome.get("total_cost_usd") or 0),
+                                      max(unknown, int(outcome.get("total_cost_usd") is None)))
+            account_query = ("SELECT provider,credential_ref,group_id,calls,runtime_seconds,cost_usd,cost_unknown "
+                             "FROM accounts")
+            frozen_accounts = {(row[0], row[1]): row[2:] for row in frozen_ledger.execute(account_query)}
+            for candidate in (ledger, original_ledger):
+                accounts = {(row[0], row[1]): row[2:] for row in candidate.execute(account_query)}
+                for identity, baseline in frozen_accounts.items():
+                    current = accounts.get(identity)
+                    if current is None or current[0] != baseline[0]:
+                        raise RecoveryError("E1 shared account inventory changed")
+                    delta = usage_delta.get(baseline[0], (0, 0.0, 0.0, 0)) if candidate is ledger else (0, 0.0, 0.0, 0)
+                    if (current[1] < baseline[1] + delta[0] or
+                            current[2] + 1e-6 < baseline[2] + delta[1] or
+                            current[3] + 1e-6 < baseline[3] + delta[2] or
+                            current[4] < max(baseline[4], delta[3])):
+                        raise RecoveryError("E1 shared account usage regressed")
+            original_seconds = 0.0
+            case_seconds = 0.0
+            for row in original_facts[0]:
+                outcome = json.loads(row[8])
+                duration = outcome.get("duration_seconds")
+                if (isinstance(duration, bool) or not isinstance(duration, (int, float)) or
+                        not math.isfinite(duration) or duration < 0):
+                    raise RecoveryError("frozen evaluation runtime is invalid")
+                original_seconds += duration
+                if row[1] == str(origin):
+                    case_seconds += duration
+            if (original_seconds + followup_seconds > 1800 or
+                    case_seconds + followup_seconds > config.policy.max_runtime_seconds):
+                raise RecoveryError("E1 follow-up exceeds evaluation runtime cap")
         originals = {"cli-stdout.jsonl": stdout, "cli-stderr.log": stderr,
                      "output-schema.json": schema_paths[0], "rollout.jsonl": rollout,
                      "case-budget.json": origin / "case-budget.json",
@@ -298,8 +625,6 @@ def diagnose(origin_root: Path, state_root: Path, shared_path: Path, config_path
         row = _one(ledger, "SELECT owner,state,event_id,result FROM reservations WHERE reservation_id=?",
                    (reservation_id,))
         settlement = json.loads(row[3])
-        if ledger.execute("SELECT count(*) FROM reservations WHERE owner=?", (str(origin),)).fetchone()[0] != 1:
-            raise RecoveryError("E1 has additional shared reservations")
         event_id = digest([reservation_id, job["attempt_count"], job["last_category"], result])
         journal = _one(ledger, "SELECT result FROM settlement_events WHERE event_id=? AND reservation_id=?",
                        (event_id, reservation_id))[0]
@@ -376,9 +701,45 @@ def diagnose(origin_root: Path, state_root: Path, shared_path: Path, config_path
         ledger.close()
 
 
+def _save_recovery(store, diagnosis):
+    with store.db:
+        store.db.execute("""CREATE TABLE IF NOT EXISTS pm_recovery_revisions(
+            id TEXT PRIMARY KEY, request_id TEXT NOT NULL UNIQUE,
+            plan_id TEXT NOT NULL UNIQUE, document TEXT NOT NULL)""")
+    existing = store.db.execute("SELECT document FROM pm_recovery_revisions WHERE request_id=?",
+                                (diagnosis.request_id,)).fetchone()
+    if existing:
+        saved = json.loads(existing[0])
+        if saved.get("binding") != diagnosis.revision:
+            raise RecoveryError("a different recovery revision already owns E1")
+        plan = store.get_plan(diagnosis.project_id, saved["plan_id"])
+        request = store.get_pm_request(diagnosis.request_id)
+        if (plan.get("evidence") != diagnosis.plan_evidence or
+                plan.get("content") != diagnosis.plan_content or
+                plan.get("status") not in ("reviewing", "proposed", "needs_revision", "superseded") or
+                request.get("state") != "completed" or request.get("plan_id") != plan["id"] or
+                not store.request_is_current(diagnosis.request_id)):
+            raise RecoveryError("recovered plan or current request changed")
+        return {"state": "already_saved", "revision_id": saved["binding"]["id"],
+                "plan_id": plan["id"]}
+    plan = store.complete_pm_request(diagnosis.request_id, diagnosis.plan_content,
+                                     expected_state="blocked", evidence=diagnosis.plan_evidence)
+    record = {"binding": diagnosis.revision, "plan_id": plan["id"],
+              "original_failure": "assigned Codex CLI turn configuration is missing or unbound"}
+    with store.db:
+        store.db.execute("INSERT INTO pm_recovery_revisions VALUES (?,?,?,?)",
+                         (diagnosis.revision["id"], diagnosis.request_id, plan["id"],
+                          json.dumps(record, ensure_ascii=False, sort_keys=True)))
+    return {"state": "saved", "revision_id": diagnosis.revision["id"],
+            "plan_id": plan["id"]}
+
+
 def _apply(diagnosis: Diagnosis, *, operating: bool) -> dict:
     if operating != (diagnosis.state_root == diagnosis.origin_root):
         raise RecoveryError("recovery target does not match the selected operating scope")
+    if not operating:
+        _isolated_file_identity(diagnosis.origin_root, diagnosis.state_root,
+                                diagnosis.evidence_manifest.parent / "trial-state.sqlite")
     with controller_lock(diagnosis.state_root / "pm-evidence-recovery", blocking=True):
         # Recheck all immutable source facts under the lock before writing.
         current = diagnose(diagnosis.origin_root, diagnosis.state_root,
@@ -388,40 +749,44 @@ def _apply(diagnosis: Diagnosis, *, operating: bool) -> dict:
                            evidence_manifest=diagnosis.evidence_manifest)
         if current.revision != diagnosis.revision:
             raise RecoveryError("E1 evidence changed after diagnosis")
-        store = ManagementStore(diagnosis.state_root)
-        try:
-            with store.db:
-                store.db.execute("""CREATE TABLE IF NOT EXISTS pm_recovery_revisions(
-                    id TEXT PRIMARY KEY, request_id TEXT NOT NULL UNIQUE,
-                    plan_id TEXT NOT NULL UNIQUE, document TEXT NOT NULL)""")
-            existing = store.db.execute("SELECT document FROM pm_recovery_revisions WHERE request_id=?",
-                                        (diagnosis.request_id,)).fetchone()
-            if existing:
-                saved = json.loads(existing[0])
-                if saved.get("binding") != diagnosis.revision:
-                    raise RecoveryError("a different recovery revision already owns E1")
-                plan = store.get_plan(diagnosis.project_id, saved["plan_id"])
-                request = store.get_pm_request(diagnosis.request_id)
-                if (plan.get("evidence") != diagnosis.plan_evidence or
-                        plan.get("content") != diagnosis.plan_content or
-                        plan.get("status") not in ("reviewing", "proposed", "needs_revision", "superseded") or
-                        request.get("state") != "completed" or request.get("plan_id") != plan["id"] or
-                        not store.request_is_current(diagnosis.request_id)):
-                    raise RecoveryError("recovered plan or current request changed")
-                return {"state": "already_saved", "revision_id": saved["binding"]["id"],
-                        "plan_id": plan["id"]}
-            plan = store.complete_pm_request(diagnosis.request_id, diagnosis.plan_content,
-                                              expected_state="blocked", evidence=diagnosis.plan_evidence)
-            record = {"binding": diagnosis.revision, "plan_id": plan["id"],
-                      "original_failure": "assigned Codex CLI turn configuration is missing or unbound"}
-            with store.db:
-                store.db.execute("INSERT INTO pm_recovery_revisions VALUES (?,?,?,?)",
-                                 (diagnosis.revision["id"], diagnosis.request_id, plan["id"],
-                                  json.dumps(record, ensure_ascii=False, sort_keys=True)))
-            return {"state": "saved", "revision_id": diagnosis.revision["id"],
-                    "plan_id": plan["id"]}
-        finally:
-            store.close()
+        identity = None
+        if not operating:
+            identity = _isolated_file_identity(diagnosis.origin_root, diagnosis.state_root,
+                                                diagnosis.evidence_manifest.parent / "trial-state.sqlite")
+        if operating:
+            store = ManagementStore(diagnosis.state_root)
+            try:
+                return _save_recovery(store, diagnosis)
+            finally:
+                store.close()
+        with _isolated_stage(diagnosis.origin_root, diagnosis.state_root, identity) as (stage, sessions_fd):
+            store = ManagementStore(stage)
+            try:
+                result = _save_recovery(store, diagnosis)
+                if result["state"] == "saved":
+                    store.db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                    store.db.execute("PRAGMA journal_mode=DELETE")
+            finally:
+                store.close()
+            if identity != _isolated_file_identity(
+                    diagnosis.origin_root, diagnosis.state_root,
+                    diagnosis.evidence_manifest.parent / "trial-state.sqlite"):
+                raise RecoveryError("isolated state database changed before persistence")
+            if result["state"] == "saved":
+                if os.stat(stage).st_dev != os.fstat(sessions_fd).st_dev:
+                    raise RecoveryError("isolated stage and copy are on different filesystems")
+                for suffix in ("-wal", "-shm"):
+                    try:
+                        sidecar = os.stat("sessions.sqlite" + suffix, dir_fd=sessions_fd,
+                                          follow_symlinks=False)
+                    except FileNotFoundError:
+                        continue
+                    if not stat.S_ISREG(sidecar.st_mode) or suffix == "-wal" and sidecar.st_size:
+                        raise RecoveryError("isolated state gained active SQLite sidecars")
+                    os.unlink("sessions.sqlite" + suffix, dir_fd=sessions_fd)
+                os.replace(stage / "sessions" / "sessions.sqlite", "sessions.sqlite",
+                           dst_dir_fd=sessions_fd)
+            return result
 
 
 def apply_to_isolated_state(diagnosis: Diagnosis) -> dict:
