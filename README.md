@@ -2,7 +2,7 @@
 
 사용자는 PM과 목표·계획을 정하고, 여러 코딩 에이전트가 구현·검사·독립 검수·수정을 이어서 수행하는 작업 시스템을 구축합니다. 에이전트의 실행 조건·역할·격리를 관리하는 하네스와 작업 완료까지 이어지는 루프를 함께 만듭니다.
 
-**현재 위치: 기본 구조와 화면·작업 흐름 구현을 갖추고, 실제 모델을 연결한 전체 흐름 검증 중입니다. 지금은 Claude 검수의 사후 정산·수동 재개 결함을 보완하는 단계입니다.**
+**현재 위치: 기본 구조와 화면·작업 흐름 구현을 갖추고, 실제 모델을 연결한 전체 흐름 검증 중입니다. R36-4 코드 보완과 검증을 마쳤으며, 신뢰 검수기 적용·사후 정산·수동 검수 재개를 기다리는 단계입니다.**
 
 기준일: **2026-09-28 KST**. 아래 구현 상태는 개발 후보와 검증 기록을 기준으로 하며, 모든 변경이 main에 병합되거나 운영에 적용됐다는 뜻은 아닙니다. 이 README 갱신은 [문서 PR #23](https://github.com/HyungwonPark/ai-company/pull/23)에서 관리합니다.
 
@@ -14,21 +14,21 @@
 | 2. 작업 조정·보호 | 병렬 배정, 공용 계정·예약·사용량 정산, 한도 대기·이관·체크포인트 | 개발 후보의 구현·모의/격리 검사 통과. 실제 UNKNOWN 사건 처리와 재개는 후속 검증 중 | 미확인 실행을 중복 호출하지 않으면서 실제 중단·정산·재개 검증 |
 | 3. 작업실 화면·PM 연결 | 프로젝트→계획→진행→승인→결과, 요구사항 질문, 계획 검수, 역할별 지침 | PR #25~#28 구현·화면 CI 및 [PR #28 비운영 수용](docs/work-reviews/ai-company-pr28-acceptance-6db573e-2026-09-25.md) | 최신 운영 화면·사용자 직접 조작·앱 연결 확인 |
 | 4. 실제 PM 행동 평가 | 실제 Astra의 계획·판단과 후속 작업 평가 | 서버 보고상 E1 계획·내용 검수 PASS. E2는 중단 뒤 `hold_unknown` 유지 | E2 증거·복구 조건 처리와 E3~E6 재평가 완료 |
-| 5. Claude 검수 복구 **← 현재 보완** | PR #35 최종 검수와 PR #36 사후 정산·수동 재개 | R36-1~3 해결, 종료 형식·생성 오류 처리 보완 확인. **R36-4 재개 차단이 남음** | R36-4 수정·통합 검사·새 패키지·적용안, 조건 충족 후 수동 검수 완료 |
+| 5. Claude 검수 복구 **← 현재 적용 대기** | PR #35 최종 검수와 PR #36 사후 정산·수동 재개 | **R36-1~4 해결**. `7ab7681` 관련 39개 검사·최종 CI 3개 성공, 새 4파일 패키지 대조 완료 | 승인 범위 내 신뢰 검수기 적용·해당 예약 정산, 별도 수동 요청 후 실제 Claude 최종 검수 |
 | 6. 전체 흐름·운영 전환 | 사용자 목표 확정→실제 개발→검수→보고, 최종 승인·상시 운영 | 대기. 두 worker 중지/자동 시작 해제 상태로 보고됐으며 PR #10은 pending | 실제 전체 흐름과 사용자 확인, 필요한 운영 승인·배포 검증 |
 
 E1 PASS는 사용자 계획 확정이나 개발 실행 완료의 증거가 아닙니다. 완료율 숫자로 환산하지 않습니다. 구현·모의 검사·실제 모델 검사·운영 적용의 완료 조건이 서로 다릅니다.
 
 ## 지금 진행할 작업
 
-현재 검수 후보는 [PR #36](https://github.com/HyungwonPark/ai-company/pull/36)의 `1498962344d8cab3d4c084aca279fa60b60b7cb8`입니다. Claude가 검수해야 할 제품 대상은 [PR #35](https://github.com/HyungwonPark/ai-company/pull/35)의 `1d54d3a0ea5a21c7c2dc588f824c6567231829b4`입니다.
+현재 검수 후보는 [PR #36](https://github.com/HyungwonPark/ai-company/pull/36)의 `7ab76818758ef7cfa4828fd3578217da1d1dc257`입니다. Claude가 검수해야 할 제품 대상은 [PR #35](https://github.com/HyungwonPark/ai-company/pull/35)의 `1d54d3a0ea5a21c7c2dc588f824c6567231829b4`입니다.
 
-- **남은 결함 R36-4:** 기존 UNKNOWN 예약을 정산해도 새 정산 번호와 원본 실행 기록의 빈 정산값을 비교해 재개가 막힙니다.
-- **다음 작업 묶음:** 최소 수정 → 원본 보존·정산·수동 재개 통합 검사 → 독립 검수·최종 CI → 새 설치 패키지·해시·적용/복구안.
-- **그다음:** 필요한 적용 범위를 확인해 신뢰 검수기 설치·증거 기반 정산을 완료하고, 조건 충족과 사용자 수동 요청 후 Claude 검수를 한 건 실행합니다.
-- 기존 관련 검사 38개와 후보 CI 3개 통과가 이 잔여 결함의 해결이나 실제 Claude 최종 PASS를 의미하지 않습니다. 이전 패키지를 새 수정본의 패키지로 사용하지 않습니다.
+- **R36-4 해결:** 원본 정산값과 사후 정산값을 분리했습니다. 이전 합성 재현이 원본 보존 상태에서 READY로 진행하며, 원본 변경은 계속 차단됩니다.
+- **검증 완료:** Work 관련 검사 39개·독립 정적 검수·정확한 HEAD CI 3개 성공, 새 패키지 SHA-256·내부 4파일 소스 일치 확인. 실제 Claude 최종 판정은 미완료입니다.
+- **다음 작업 묶음:** 이번 새 패키지와 예약에 대한 승인 범위를 확인한 뒤 runner/tick 교체·전환 해시 갱신 → 해당 예약 1회 정산·연결 계정 한정 조정 → 원본 보존·준비 상태 검사·결과 보고. 승인된 동일 범위는 단계별 재확인 없이 진행합니다.
+- **그다음:** 사용자가 별도로 수동 재개를 요청하면 현재 제한·고정 대상·중복 실행을 확인한 뒤 Claude 검수를 한 건 실행합니다. 설치·정산 단계에는 tick·모델 호출을 포함하지 않습니다.
 
-세부 근거와 수용 조건은 [최신 검수·실행 지시](docs/work-reviews/pr36-review-1498962-2026-09-28.md)를 따릅니다.
+패키지 SHA-256은 `e79bd335e63f1dbaab47dec14769fc771921ff3df04972ddf458ce47694d0470`입니다. 이전 패키지를 새 수정본으로 사용하지 않습니다. 세부 근거·적용/복구 범위는 [최신 검수·후속 지시](docs/work-reviews/pr36-acceptance-7ab7681-2026-09-28.md)를 따릅니다.
 
 ## 현재 보존하는 상태
 
@@ -56,10 +56,10 @@ E1 PASS는 사용자 계획 확정이나 개발 실행 완료의 증거가 아�
 ## 문서 확인 순서
 
 1. 이 README에서 현재 단계와 남은 작업을 확인합니다.
-2. [최신 검수·실행 지시](docs/work-reviews/pr36-review-1498962-2026-09-28.md)와 [개발 효율 지침](docs/work-reviews/server-codex-efficiency-policy.md)을 읽습니다.
+2. [최신 검수·실행 지시](docs/work-reviews/pr36-acceptance-7ab7681-2026-09-28.md)와 [개발 효율 지침](docs/work-reviews/server-codex-efficiency-policy.md)을 읽습니다.
 3. 필요할 때만 [검수 문서 목록](docs/work-reviews/README.md)에서 과거 근거를 찾습니다.
 4. 실행·설치 명령은 실제 작업 후보의 코드·비공개 실행 명세·승인 범위와 대조합니다. 문서 브랜치에 제품 실행 코드가 모두 있다고 가정하지 않습니다.
 
-구축 상태의 주요 근거: [PR #10 한정 위임 검증](https://github.com/HyungwonPark/ai-company/pull/10), [PR #28 수용 기록](docs/work-reviews/ai-company-pr28-acceptance-6db573e-2026-09-25.md), [PR #35](https://github.com/HyungwonPark/ai-company/pull/35), [PR #36 진단 기록](https://github.com/HyungwonPark/ai-company/blob/1498962344d8cab3d4c084aca279fa60b60b7cb8/docs/work-reviews/pr36-manual-review-diagnostics-2026-09-28.md), [Work 재검수](docs/work-reviews/pr36-review-1498962-2026-09-28.md). CI·검수 문서·서버 보고의 범위를 각각 구분합니다.
+구축 상태의 주요 근거: [PR #10 한정 위임 검증](https://github.com/HyungwonPark/ai-company/pull/10), [PR #28 수용 기록](docs/work-reviews/ai-company-pr28-acceptance-6db573e-2026-09-25.md), [PR #35](https://github.com/HyungwonPark/ai-company/pull/35), [PR #36 진단 기록](https://github.com/HyungwonPark/ai-company/blob/1498962344d8cab3d4c084aca279fa60b60b7cb8/docs/work-reviews/pr36-manual-review-diagnostics-2026-09-28.md), [Work 재검수](docs/work-reviews/pr36-acceptance-7ab7681-2026-09-28.md). CI·검수 문서·서버 보고의 범위를 각각 구분합니다.
 
-[최종 수정일: 2026-09-28, v1.0]
+[최종 수정일: 2026-09-28, v1.1]
