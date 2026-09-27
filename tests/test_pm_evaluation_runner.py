@@ -609,6 +609,36 @@ class PMEValRunnerTests(unittest.TestCase):
             self.assertEqual(result['state'], 'plan_ready')
             worker.run_once.assert_called_once()
 
+    def test_residual_runtime_below_executor_timeout_never_starts_call(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'cases.json').write_text(json.dumps({'common_project_goal': 'fixture'}))
+            store = Mock()
+            store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E2'}]
+            store.overview.return_value = {'pm_requests': [{'request_id': 'request', 'state': 'pending'}],
+                                           'plans': [], 'runs': []}
+            worker = Mock(store=store)
+            worker.dispatcher.tasks.return_value = []
+            config = SimpleNamespace(pm_timeout_seconds=240, poll_seconds=1, policy=SimpleNamespace(
+                retry=SimpleNamespace(execution_timeout_seconds=300)))
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget), \
+                 patch.object(EVALUATION, 'global_usage', return_value=(9, 0)), \
+                 patch.object(EVALUATION, 'execution_usage', return_value=(1600, 0)):
+                result = EVALUATION.run_case(root, {'id': 'E2', 'initial_message': 'fixture',
+                    'followup_message': 'answer'},
+                                             config, root / 'unused.db')
+            self.assertEqual(result['state'], 'budget_wait')
+            worker.run_once.assert_not_called()
+
+    def test_case_gate_does_not_skip_failed_e2_or_require_all_cases_to_pass(self):
+        self.assertFalse(EVALUATION.case_can_advance('E2', 'environment_problem'))
+        self.assertFalse(EVALUATION.case_can_advance('E2', 'reconciliation_wait'))
+        self.assertFalse(EVALUATION.case_can_advance('E2', 'answer_needed'))
+        self.assertTrue(EVALUATION.case_can_advance('E2', 'plan_ready'))
+        self.assertTrue(EVALUATION.case_can_advance('E3', 'answer_needed'))
+        self.assertTrue(EVALUATION.case_can_advance('E4', 'master_decision_wait'))
+
     def test_submitted_repair_is_not_charged_until_invocation_starts(self):
         import sqlite3
         with tempfile.TemporaryDirectory() as temporary:
@@ -1082,7 +1112,7 @@ class PMEValRunnerTests(unittest.TestCase):
             self.assertEqual(EVALUATION.global_usage(root, ledger_path), (1, 0))
             ledger.close()
 
-    def test_continuation_stops_other_cases_after_first_common_request_error(self):
+    def test_continuation_stops_after_request_error_or_failed_e2(self):
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
             source = base / 'source'; source.mkdir()
@@ -1094,28 +1124,30 @@ class PMEValRunnerTests(unittest.TestCase):
             ledger = SharedCallLedger.initialize(ledger_path, [
                 ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
             ledger.close()
-            root = base / 'trial'; root.mkdir()
-            (root / 'canary-result.json').write_text(json.dumps({'state': 'canary_pm_ready'}))
             cases = {'cases': [{'id': f'E{number}'} for number in range(1, 7)]}
             config = SimpleNamespace(source_clone=str(source), base_sha='a' * 40)
             bindings = {case['id']: {'message_sha256': case['id'], 'configuration_sha256': 'fixed'}
                         for case in cases['cases']}
             subprocess_results = [SimpleNamespace(returncode=0, stdout='a' * 40, stderr=''),
                                  SimpleNamespace(returncode=0, stdout='', stderr='')]
-            argv = ['--cases', str(cases_path), '--config', str(config_path),
-                    '--shared-call-ledger', str(ledger_path), '--trial-root', str(root),
-                    '--execute', '--continue-after-canary', '--adoption-receipt', str(base / 'receipt')]
-            with patch.object(EVALUATION, 'load_inputs', return_value=(cases, config)), \
-                 patch.object(EVALUATION, 'evaluation_bindings', return_value=bindings), \
-                 patch.object(EVALUATION, 'adoption_verified', return_value=True), \
-                 patch.object(EVALUATION, 'canary_verified', return_value=True), \
-                 patch.object(EVALUATION.subprocess, 'run', side_effect=subprocess_results), \
-                 patch.object(EVALUATION, 'run_case', side_effect=[
-                     {'case': 'E1', 'state': 'plan_ready'},
-                     {'case': 'E2', 'state': 'request_error_wait'}]) as run_case, \
-                 contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(EVALUATION.main(argv), 0)
-            self.assertEqual(run_case.call_count, 2)
+            for state in ('request_error_wait', 'environment_problem'):
+                with self.subTest(state=state):
+                    root = base / ('trial-' + state); root.mkdir()
+                    (root / 'canary-result.json').write_text(json.dumps({'state': 'canary_pm_ready'}))
+                    argv = ['--cases', str(cases_path), '--config', str(config_path),
+                            '--shared-call-ledger', str(ledger_path), '--trial-root', str(root),
+                            '--execute', '--continue-after-canary', '--adoption-receipt', str(base / 'receipt')]
+                    with patch.object(EVALUATION, 'load_inputs', return_value=(cases, config)), \
+                         patch.object(EVALUATION, 'evaluation_bindings', return_value=bindings), \
+                         patch.object(EVALUATION, 'adoption_verified', return_value=True), \
+                         patch.object(EVALUATION, 'canary_verified', return_value=True), \
+                         patch.object(EVALUATION.subprocess, 'run', side_effect=subprocess_results), \
+                         patch.object(EVALUATION, 'run_case', side_effect=[
+                             {'case': 'E1', 'state': 'plan_ready'},
+                             {'case': 'E2', 'state': state}]) as run_case, \
+                         contextlib.redirect_stdout(io.StringIO()):
+                        self.assertEqual(EVALUATION.main(argv), 0)
+                    self.assertEqual(run_case.call_count, 2)
 
 
 if __name__ == '__main__':

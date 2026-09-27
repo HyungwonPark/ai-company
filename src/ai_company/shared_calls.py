@@ -263,7 +263,7 @@ class SharedCallLedger:
                                 (reason, row["group_id"]))
         self._transaction(apply)
 
-    def settle(self, reservation_id, owner, event_id, result, *, terminated):
+    def settle(self, reservation_id, owner, event_id, result, *, terminated, expected_accounts=None):
         """Commit confirmed termination, shared usage and cooldown exactly once."""
         if not terminated or not isinstance(result, dict) or not event_id:
             raise SharedCallError("settlement requires a terminal result and stable event ID")
@@ -283,6 +283,11 @@ class SharedCallLedger:
             row = self.reservation(reservation_id)
             if not row or row["owner"] != owner:
                 raise SharedCallError("settlement ownership mismatch")
+            if expected_accounts is not None and [list(item) for item in self.db.execute(
+                    'SELECT provider,credential_ref,group_id,state,resume_at,reason,calls,'
+                    'runtime_seconds,cost_usd,cost_unknown FROM accounts WHERE group_id=? '
+                    'ORDER BY provider,credential_ref', (row['group_id'],))] != expected_accounts:
+                raise SharedCallError('account restriction or usage changed before settlement')
             if row["state"] == "SETTLED":
                 if row["event_id"] != event_id or row["result"] != encoded:
                     raise SharedCallError("settlement differs from committed fact")

@@ -604,6 +604,15 @@ def case_progress(overview):
     return {'proposed': 'plan_ready', 'stale': 'environment_problem'}.get(plan['status'], 'environment_problem')
 
 
+def case_can_advance(case_id, state):
+    """Only a result satisfying this case's fixed behavior may unlock the next case."""
+    expected = {'E1': {'plan_ready'}, 'E2': {'plan_ready'},
+                'E3': {'answer_needed', 'master_decision_wait'},
+                'E4': {'answer_needed', 'master_decision_wait'},
+                'E5': {'plan_ready'}, 'E6': {'plan_ready'}}
+    return state in expected[case_id]
+
+
 def case_wait(worker, overview):
     """Surface a scheduled provider wait instead of polling through the cooldown."""
     request = overview['pm_requests'][-1]
@@ -724,7 +733,7 @@ def run_case(root, case, config, shared_path, _legacy_deadline=None, *, stop_aft
             repair_exhausted = needs_repair and repairs >= MAX_REPAIRS
             if repair_exhausted and repairs == MAX_REPAIRS:
                 repair_exhausted = not resumable_second_repair(case_root, shared_path, current)
-            if calls >= MAX_CALLS or repair_exhausted or next_timeout <= 0:
+            if calls >= MAX_CALLS or repair_exhausted or next_timeout < timeout:
                 return {'case': case['id'], 'state': 'budget_wait', **evidence, 'calls': calls,
                         'repairs': repairs, 'reserved_seconds': seconds,
                         'next_call_timeout_seconds': max(0, next_timeout)}
@@ -860,7 +869,7 @@ def main(argv=None):
                         json.dump(result, stream, ensure_ascii=False, sort_keys=True)
                     canary.chmod(0o600)
                 break
-            if result['state'] not in ('plan_ready', 'answer_needed', 'master_decision_wait', 'revision_limit', 'environment_problem'):
+            if not case_can_advance(case['id'], result['state']):
                 break
         status = ('canary_recorded' if results[-1]['state'] == 'canary_pm_ready' else 'canary_incomplete') \
             if args.canary_one_call else 'raw_evaluation_recorded'

@@ -308,6 +308,8 @@ class SessionCliTests(unittest.TestCase):
         outcome = self.run_cli(timeout_seconds=0.3, on_spawn=spawned.append)
         self.assertEqual(outcome.category, "reconciliation")
         self.assertIn("stopped=True", outcome.message)
+        self.assertEqual(outcome.result['termination_cause'], 'timeout')
+        self.assertEqual(outcome.result['effective_timeout_seconds'], 0.3)
         child = int((self.worktree / "child.pid").read_text())
         for pid in (spawned[0]["pid"], child):
             info = _proc_info(pid)
@@ -323,6 +325,7 @@ class SessionCliTests(unittest.TestCase):
 
         outcome = self.run_cli(on_spawn=fail)
         self.assertEqual(outcome.category, "reconciliation")
+        self.assertEqual(outcome.result['termination_cause'], 'supervision_failure')
         self.assertIsNone(_proc_info(spawned[0]["pid"]))
 
     def test_timeout_keeps_observed_new_session(self):
@@ -337,6 +340,7 @@ class SessionCliTests(unittest.TestCase):
             "pathlib.Path('child.pid').write_text(str(child.pid))"))
         outcome = self.run_cli()
         self.assertEqual(outcome.category, "reconciliation")
+        self.assertEqual(outcome.result['termination_cause'], 'live_descendants')
         child = int((self.worktree / "child.pid").read_text())
         info = _proc_info(child)
         self.assertTrue(info is None or info["state"] == "Z")
