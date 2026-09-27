@@ -6,6 +6,7 @@ import stat
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from ai_company.adapters.session_cli import _proc_info, run_session
 
@@ -35,6 +36,17 @@ class SessionCliTests(unittest.TestCase):
     def run_cli(self, provider="codex", session_id="session-1", **kwargs):
         return run_session(provider, self.worktree, "resume checkpoint\n", session_id,
                            output_dir=self.output, executable=str(self.cli), **kwargs)
+
+    def test_changed_pinned_native_cli_stops_before_process_or_output(self):
+        identity = {'path': str(self.cli), 'sha256': '0' * 64,
+                    'version': '0.157.0', 'profile': 'codex-0.157-turn-context-v1'}
+        with patch('ai_company.adapters.configuration_evidence.codex_cli_identity',
+                   return_value=(None, 'codex_cli_changed')), patch(
+                   'ai_company.adapters.session_cli.subprocess.Popen') as spawn:
+            with self.assertRaisesRegex(RuntimeError, 'changed after pre-reservation'):
+                self.run_cli(session_id=None, expected_codex_cli=identity)
+        spawn.assert_not_called()
+        self.assertFalse(self.output.exists())
 
     def test_codex_explicit_resume_uses_stdin_and_restricted_logs(self):
         self.fixture([{"type": "thread.started", "thread_id": "session-1"},

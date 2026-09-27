@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 import sqlite3
 import subprocess
+import tempfile
 import time
 
 from ai_company.automation import Automation
@@ -364,6 +365,23 @@ def canary_verified(root, shared_path, marker):
                 return False
             task = json.loads(task_row[0])
             attempts = task.get('executions') or []
+            evidence = plan.get('evidence') or {}
+            if marker.get('recovery_revision_id'):
+                if attempts:
+                    return False
+                from ai_company.pm_evidence_recovery import diagnose, verify_saved_recovery
+                origin = (root / 'E1').resolve()
+                recovery = diagnose(origin, origin, shared_path,
+                    Path(marker['recovery_config_path']), Path(marker['recovery_codex_home']),
+                    validator_commit=marker['recovery_validator_commit'],
+                    evidence_manifest=Path(marker['recovery_evidence_manifest']))
+                verified = verify_saved_recovery(recovery, allow_review_progress=True)
+                return (verified['revision_id'] == marker['recovery_revision_id']
+                        and verified['plan_id'] == marker['plan_id']
+                        and verified['reservation_id'] == reservation_id
+                        and evidence.get('original_job_id') == recovery.job_id
+                        and request['state'] == 'completed' and request['plan_id'] == plan['id']
+                        and not attempts)
             if not attempts or not attempts[-1].get('job_id'):
                 return False
             job_id = attempts[-1]['job_id']
@@ -371,7 +389,6 @@ def canary_verified(root, shared_path, marker):
             if not job_row:
                 return False
             job = json.loads(job_row[0])
-            evidence = plan.get('evidence') or {}
             return (plan['project_id'] == request['project_id'] and request['state'] == 'completed'
                     and request['plan_id'] == plan['id'] and plan['id'] == marker['plan_id']
                     and evidence.get('task_id') == task_id and evidence.get('session_id') == job.get('session_id')
@@ -381,6 +398,65 @@ def canary_verified(root, shared_path, marker):
             db.close()
     except (KeyError, TypeError, ValueError, sqlite3.Error, OSError):
         return False
+
+
+def recovered_canary(root, shared_path, config_path, codex_home, evidence_manifest,
+                     validator_commit, *, allow_progress=False):
+    """Generate, rather than hand-edit, E1's canary from a saved derived plan."""
+    from ai_company.pm_evidence_recovery import diagnose, verify_saved_recovery
+    origin = (root / 'E1').resolve()
+    recovery = diagnose(origin, origin, shared_path, config_path, codex_home,
+                        validator_commit=validator_commit,
+                        evidence_manifest=evidence_manifest)
+    verified = verify_saved_recovery(recovery, allow_review_progress=allow_progress)
+    facts = trial_reservations(root, shared_path)
+    if not facts or not allow_progress and len(facts) != 1:
+        raise ValueError('E1 recovery requires exactly one settled trial reservation')
+    reservation_id, owner, state, event_id, result = facts[0]
+    if reservation_id != recovery.reservation_id or owner != str(origin) or state != 'SETTLED':
+        raise ValueError('E1 recovery has no matching settled original call')
+    marker = {'case': 'E1', 'state': 'canary_pm_ready', 'model_calls': 1,
+              'plan_id': verified['plan_id'], 'last_reservation_id': reservation_id,
+              'last_event_id': event_id,
+              'last_result_sha256': hashlib.sha256(result.encode()).hexdigest(),
+              'recovery_revision_id': verified['revision_id'],
+              'recovery_validator_commit': validator_commit,
+              'recovery_config_path': str(Path(config_path).resolve()),
+              'recovery_codex_home': str(Path(codex_home).resolve()),
+              'recovery_evidence_manifest': str(Path(evidence_manifest).resolve())}
+    if not canary_verified(root, shared_path, marker):
+        raise ValueError('saved E1 recovery does not satisfy the canary gate')
+    return marker
+
+
+def record_recovered_canary(path, marker):
+    """Atomically publish the validated E1 gate, preserving a torn predecessor."""
+    path = Path(path)
+    if path.exists():
+        try:
+            saved = json.loads(path.read_text())
+        except json.JSONDecodeError:
+            saved = None
+        if saved == marker:
+            return
+        if saved is not None:
+            raise ValueError('saved E1 canary differs from derived recovery')
+        torn = path.with_name(path.name + '.torn-' + str(time.time_ns()))
+        os.replace(path, torn)
+    fd, name = tempfile.mkstemp(prefix='.canary-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w') as stream:
+            json.dump(marker, stream, ensure_ascii=False, sort_keys=True)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(name, path)
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        Path(name).unlink(missing_ok=True)
 
 
 def global_usage(root, shared_path):
@@ -670,9 +746,17 @@ def main(argv=None):
     parser.add_argument('--prior-trial-root', type=Path, help='immutable predecessor with the same fixed E1-E6 cases')
     parser.add_argument('--canary-one-call', action='store_true', help='stop after one E1 PM reservation and parse')
     parser.add_argument('--continue-after-canary', action='store_true', help='resume only after verified E1 PM canary')
+    parser.add_argument('--adopt-recovered-e1', action='store_true',
+                        help='verify and record an already settled, recovered E1 without a model call')
+    parser.add_argument('--e1-evidence-manifest', type=Path)
+    parser.add_argument('--codex-home', type=Path)
+    parser.add_argument('--recovery-validator-commit')
     args = parser.parse_args(argv)
-    if args.canary_one_call and args.continue_after_canary:
-        parser.error('canary and continuation are separate evaluation stages')
+    if sum((args.canary_one_call, args.continue_after_canary, args.adopt_recovered_e1)) > 1:
+        parser.error('canary, recovery adoption and continuation are separate evaluation stages')
+    if args.adopt_recovered_e1 and not all((args.e1_evidence_manifest, args.codex_home,
+                                           args.recovery_validator_commit)):
+        parser.error('recovered E1 requires its frozen manifest, Codex home and validator commit')
     cases, config = load_inputs(args.cases, args.config, args.shared_call_ledger)
     hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in (args.cases, args.config)}
     bindings = evaluation_bindings(cases, config)
@@ -691,6 +775,8 @@ def main(argv=None):
     if (head.returncode or dirty.returncode or dirty.stdout.strip()
             or not adoption_verified(args.adoption_receipt, args.shared_call_ledger, head.stdout.strip())):
         raise SystemExit('all model caller paths must be reviewed as using this ledger before actual evaluation')
+    if args.adopt_recovered_e1 and args.recovery_validator_commit != head.stdout.strip():
+        raise SystemExit('recovered E1 validator must be this clean evaluator release')
     root = args.trial_root.resolve()
     source = Path(config.source_clone).resolve()
     shared = args.shared_call_ledger.resolve()
@@ -708,8 +794,13 @@ def main(argv=None):
         manifest = root / 'evaluation-bindings.json'
         exact = {'input_sha256': hashes, 'case_bindings': bindings, 'product_commit': config.base_sha,
                  'output_schema_sha256': schema_digests, 'evaluator_commit': head.stdout.strip()}
-        if manifest.exists() and json.loads(manifest.read_text()) != exact:
-            raise SystemExit('evaluation inputs or configuration changed after trial start')
+        changed = set()
+        if manifest.exists():
+            saved_manifest = json.loads(manifest.read_text())
+            changed = {key for key in exact if saved_manifest.get(key) != exact[key]}
+            if changed and (changed != {'evaluator_commit'} or
+                            not (args.adopt_recovered_e1 or args.continue_after_canary)):
+                raise SystemExit('evaluation inputs or configuration changed after trial start')
         if not manifest.exists():
             with manifest.open('x') as stream:
                 json.dump(exact, stream, ensure_ascii=False, sort_keys=True)
@@ -731,9 +822,20 @@ def main(argv=None):
                 'actual_model_calls_this_invocation': 0}, ensure_ascii=False))
             return 0
         canary = root / 'canary-result.json'
+        if args.adopt_recovered_e1:
+            marker = recovered_canary(root, shared, args.config, args.codex_home,
+                                      args.e1_evidence_manifest, args.recovery_validator_commit,
+                                      allow_progress=canary.exists())
+            record_recovered_canary(canary, marker)
+            print(json.dumps({'status': 'recovered_canary_recorded', 'case': 'E1',
+                'revision_id': marker['recovery_revision_id'], 'plan_id': marker['plan_id'],
+                'actual_model_calls_this_invocation': 0, 'master_confirmations': 0}, ensure_ascii=False))
+            return 0
         if args.continue_after_canary:
             if not canary.is_file() or not canary_verified(root, shared, json.loads(canary.read_text())):
                 raise SystemExit('verified E1 one-call PM canary is required before continuation')
+            if changed and not json.loads(canary.read_text()).get('recovery_revision_id'):
+                raise SystemExit('new evaluator requires an independently verified recovery revision')
         elif not args.canary_one_call:
             raise SystemExit('start with --canary-one-call; continuation requires --continue-after-canary')
         elif canary.exists():

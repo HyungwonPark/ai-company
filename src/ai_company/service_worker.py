@@ -227,10 +227,20 @@ def preflight(root, component, config_path, catalog_path, shared_path, execute_t
                     from ai_company.automation_contracts import AutomationConfig
                     from ai_company.execution_specs import ExecutionCatalog
                     invalid_reason = 'worker_config_invalid'
-                    AutomationConfig.model_validate(config)
+                    automation = AutomationConfig.model_validate(config)
+                    configurations = [automation]
                     if catalog_path is not None:
                         invalid_reason = 'execution_catalog_invalid'
-                        ExecutionCatalog.load(catalog_path)
+                        catalog = ExecutionCatalog.load(catalog_path)
+                        configurations.extend(AutomationConfig.model_validate(value)
+                                              for value in catalog._entries.values())
+                    if any(item.mode == 'live' and any(agent.provider == 'codex' and agent.enabled
+                           for agent in item.agents) for item in configurations):
+                        from ai_company.adapters.configuration_evidence import codex_cli_identity
+                        invalid_reason = 'codex_cli_version_unverified'
+                        _, reason = codex_cli_identity()
+                        if reason:
+                            return {'component': component, 'status': 'blocked', 'reasons': [reason]}
                     return {'component': component, 'status': 'ready', 'reasons': []}
                 from ai_company.adapters.translation_cli import TranslationCLI
                 from ai_company.translations import TranslationStore, configuration
