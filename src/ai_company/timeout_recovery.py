@@ -125,6 +125,44 @@ def _ledger_snapshot_digest(path):
         return _sha(_canonical(rows))
 
 
+def _account_rows(db, group):
+    rows = []
+    for row in db.execute('SELECT provider,credential_ref,state,resume_at,reason FROM accounts '
+                          'WHERE group_id=? ORDER BY provider,credential_ref', (group,)):
+        item = list(row)
+        if isinstance(item[3], bytes):
+            item[3] = {'invalid_blob_sha256': _sha(item[3])}
+        rows.append(item)
+    return rows
+
+
+def _account_restriction(rows, now):
+    if not rows:
+        return 'missing_account'
+    if any(row[2:] != rows[0][2:] for row in rows[1:]):
+        return 'alias_mismatch'
+    waits = [row[3] for row in rows]
+    if any(wait is not None and (isinstance(wait, bool) or not isinstance(wait, (int, float))
+                                or not math.isfinite(wait) or wait <= 0) for wait in waits):
+        return 'invalid_wait'
+    if any(wait is not None and wait > now for wait in waits):
+        return 'future_wait'
+    if any(row[2:] != ['UNKNOWN', rows[0][3], 'session termination or effects are uncertain']
+           for row in rows):
+        return 'other_account_block'
+    return 'ready'
+
+
+def _expected_account_rows(plan, *, settled=False, released=False):
+    rows = [row.copy() for row in plan['account_rows']]
+    for row in rows:
+        if released:
+            row[2:] = ['AVAILABLE', None, None]
+        elif settled:
+            row[2], row[4] = 'UNKNOWN', 'reconciliation'
+    return rows
+
+
 def diagnose(case_root, ledger_path, baseline_path, job_id):
     """Read-only, fail-closed assessment; never treats elapsed time as termination proof."""
     root = Path(case_root).resolve()
@@ -153,8 +191,14 @@ def diagnose(case_root, ledger_path, baseline_path, job_id):
         if row is None:
             raise ValueError('attempt has no shared reservation')
         group = row['group_id']
-        accounts = ledger.db.execute('SELECT state,resume_at,reason FROM accounts WHERE group_id=?',
-                                     (group,)).fetchall()
+        accounts = _account_rows(ledger.db, group)
+        account_full_rows = [list(item) for item in ledger.db.execute(
+            'SELECT provider,credential_ref,group_id,state,resume_at,reason,calls,'
+            'runtime_seconds,cost_usd,cost_unknown FROM accounts WHERE group_id=? '
+            'ORDER BY provider,credential_ref', (group,))]
+        for item in account_full_rows:
+            if isinstance(item[4], bytes):
+                item[4] = {'invalid_blob_sha256': _sha(item[4])}
         other_live = ledger.db.execute("SELECT count(*) FROM reservations WHERE group_id=? AND reservation_id!=? "
                                        "AND state IN ('RESERVED','STARTED','UNKNOWN')",
                                        (group, reservation_id)).fetchone()[0]
@@ -175,6 +219,7 @@ def diagnose(case_root, ledger_path, baseline_path, job_id):
         old_accounts = baseline.execute('SELECT state,resume_at,reason FROM accounts WHERE group_id=?',
                                         (group,)).fetchall()
     preserved = _ledger_history_preserved(ledger_path, baseline_path)
+    account_restriction = _account_restriction(accounts, time.time())
     result = job.get('result') or {}
     stdout = _output_facts(result.get('stdout_path'), root)
     stderr = Path(result.get('stderr_path', ''))
@@ -219,8 +264,7 @@ def diagnose(case_root, ledger_path, baseline_path, job_id):
             and result.get('termination_cause') == 'timeout'
             and result.get('effective_timeout_seconds') == job['specification']['retry_policy']['execution_timeout_seconds']
             and result.get('exit_code') == -15 and result.get('structured_output') is None
-            and len(accounts) > 0 and all(a[0] == 'UNKNOWN' and
-                a[2] == 'session termination or effects are uncertain' for a in accounts)
+            and account_restriction == 'ready'
             and old_accounts and all(a[0] == 'AVAILABLE' for a in old_accounts)
             and not other_live and preserved and isinstance(result.get('duration_seconds'), (int, float))
             and not isinstance(result.get('duration_seconds'), bool)
@@ -238,6 +282,7 @@ def diagnose(case_root, ledger_path, baseline_path, job_id):
             'stderr_path': str(stderr.resolve()), 'stderr_sha256': _sha(stderr.read_bytes()),
             'repository_snapshot': job['repository_snapshot'],
             'process': process, 'guard_path': str(guard_path),
+            'account_rows': accounts, 'account_full_rows': account_full_rows,
             'duration_seconds': result.get('duration_seconds'),
             'result_sha256': _sha(_canonical(result)),
             'decision': ('same_session_retry_preparable' if safe else
@@ -249,6 +294,7 @@ def diagnose(case_root, ledger_path, baseline_path, job_id):
                        'timeout_cause_recorded': result.get('termination_cause') == 'timeout',
                        'terminal_complete': bool(stdout['turn_completed']),
                        'other_live_reservations': other_live, 'historical_ledger_preserved': preserved,
+                       'account_restriction': account_restriction,
                        'baseline_available': bool(old_accounts)
                        and all(a[0] == 'AVAILABLE' for a in old_accounts)}}
     plan['digest'] = _sha(_canonical(plan))
@@ -341,6 +387,19 @@ def apply_in_stopped_environment(case_root, ledger_path, baseline_path, job_id, 
                     if (settled is None or settled['state'] != 'SETTLED' or settled['event_id'] != event_id
                             or settled['result'] != json.dumps(fact, sort_keys=True, ensure_ascii=False)):
                         raise ValueError('recovered settlement changed')
+                reservation = ledger.reservation(plan['reservation_id'])
+                current_accounts = _account_rows(ledger.db, plan['group_id'])
+                expected_accounts = _expected_account_rows(
+                    plan, settled=reservation['state'] == 'SETTLED')
+                already_released = (phase in ('guard_cleared', 'done')
+                                    and current_accounts == _expected_account_rows(plan, released=True))
+                if current_accounts != expected_accounts and not already_released:
+                    raise ValueError('account restriction changed since the frozen decision')
+                if not already_released and _account_restriction(
+                        [row[:2] + ['UNKNOWN', row[3],
+                         'session termination or effects are uncertain'] for row in current_accounts],
+                        time.time()) != 'ready':
+                    raise ValueError('account restriction changed: wait or alias blocks release')
                 guard_now = _guard(plan['guard_path'])
                 if phase in ('pinned', 'settled', 'prepared'):
                     if (guard_now is None or guard_now.get('job_id') != job_id
@@ -361,7 +420,9 @@ def apply_in_stopped_environment(case_root, ledger_path, baseline_path, job_id, 
                         fresh = diagnose(root, shared, baseline_path, job_id)
                         if fresh['digest'] != plan['digest'] or fresh['decision'] != 'same_session_retry_preparable':
                             raise ValueError('recovery evidence changed before settlement')
-                    ledger.settle(plan['reservation_id'], str(root), event_id, fact, terminated=True)
+                    ledger.settle(plan['reservation_id'], str(root), event_id, fact, terminated=True,
+                                  expected_accounts=plan['account_full_rows']
+                                  if current['state'] == 'UNKNOWN' else None)
                     db.execute("UPDATE timeout_recoveries SET phase='settled' WHERE job_id=?", (job_id,))
                     phase = 'settled'
                     if fail_after == 'settlement': raise RuntimeError('injected stop after settlement')
@@ -430,15 +491,22 @@ def apply_in_stopped_environment(case_root, ledger_path, baseline_path, job_id, 
                         if ledger.db.execute("SELECT 1 FROM reservations WHERE group_id=? AND state IN "
                                              "('RESERVED','STARTED','UNKNOWN')", (plan['group_id'],)).fetchone():
                             raise SharedCallError('another reservation still blocks this account')
-                        accounts = ledger.db.execute('SELECT state,reason FROM accounts WHERE group_id=?',
-                                                     (plan['group_id'],)).fetchall()
-                        if accounts and all(row == ('AVAILABLE', None) for row in accounts):
+                        accounts = _account_rows(ledger.db, plan['group_id'])
+                        if accounts == _expected_account_rows(plan, released=True):
                             return
-                        if not accounts or any(row != ('UNKNOWN', 'reconciliation')
-                                               for row in accounts):
-                            raise SharedCallError('account has another block or cooldown')
-                        ledger.db.execute("UPDATE accounts SET state='AVAILABLE',resume_at=NULL,reason=NULL "
-                                          'WHERE group_id=?', (plan['group_id'],))
+                        if accounts != _expected_account_rows(plan, settled=True):
+                            raise SharedCallError('account restriction changed since the frozen decision')
+                        if _account_restriction(
+                                [row[:2] + ['UNKNOWN', row[3],
+                                 'session termination or effects are uncertain'] for row in accounts],
+                                time.time()) != 'ready':
+                            raise SharedCallError('account wait or alias still blocks release')
+                        changed = ledger.db.execute(
+                            "UPDATE accounts SET state='AVAILABLE',resume_at=NULL,reason=NULL "
+                            "WHERE group_id=? AND state='UNKNOWN' AND reason='reconciliation' "
+                            "AND resume_at IS ?", (plan['group_id'], accounts[0][3]))
+                        if changed.rowcount != len(accounts):
+                            raise SharedCallError('account restriction changed during release')
                     ledger._transaction(reopen)
                     if fail_after == 'account': raise RuntimeError('injected stop after account')
                     db.execute("UPDATE timeout_recoveries SET phase='done' WHERE job_id=?", (job_id,))

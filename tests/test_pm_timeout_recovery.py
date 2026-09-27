@@ -4,6 +4,7 @@ from pathlib import Path
 import sqlite3
 import subprocess
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -233,6 +234,138 @@ class TimeoutRecoveryTests(unittest.TestCase):
             self.apply(plan['digest'])
         ledger = SharedCallLedger(self.ledger_path)
         self.assertEqual(ledger.account('codex', 'credential', 'group')['state'], 'UNKNOWN')
+        ledger.close()
+
+    def test_future_wait_before_diagnosis_blocks_without_settlement(self):
+        future = time.time() + 3600
+        with sqlite3.connect(self.ledger_path) as db:
+            db.execute("UPDATE accounts SET resume_at=? WHERE group_id='group'", (future,))
+        plan = self.plan()
+        self.assertEqual(plan['decision'], 'hold_unknown')
+        self.assertEqual(plan['checks']['account_restriction'], 'future_wait')
+        with self.assertRaisesRegex(ValueError, 'incomplete'):
+            self.apply(plan['digest'])
+        ledger = SharedCallLedger(self.ledger_path)
+        self.assertEqual(ledger.reservation(self.reservation_id)['state'], 'UNKNOWN')
+        self.assertEqual(ledger.account('codex', 'credential', 'group')['resume_at'], future)
+        ledger.close()
+
+    def test_new_wait_after_settlement_survives_reentry(self):
+        plan = self.plan()
+        with self.assertRaisesRegex(RuntimeError, 'injected stop'):
+            self.apply(plan['digest'], fail_after='settlement')
+        future = time.time() + 3600
+        with sqlite3.connect(self.ledger_path) as db:
+            db.execute("UPDATE accounts SET resume_at=? WHERE group_id='group'", (future,))
+        with self.assertRaisesRegex(ValueError, 'account restriction changed'):
+            self.apply(plan['digest'])
+        ledger = SharedCallLedger(self.ledger_path)
+        self.assertEqual(ledger.reservation(self.reservation_id)['state'], 'SETTLED')
+        self.assertEqual(ledger.account('codex', 'credential', 'group')['resume_at'], future)
+        self.assertEqual(ledger.account('codex', 'credential', 'group')['calls'], 8)
+        self.assertEqual(ledger.db.execute('SELECT count(*) FROM settlement_events').fetchone()[0], 1)
+        ledger.close()
+
+    def test_wait_inserted_after_guard_release_is_not_erased(self):
+        plan = self.plan()
+        with self.assertRaisesRegex(RuntimeError, 'injected stop'):
+            self.apply(plan['digest'], fail_after='guard')
+        future = time.time() + 3600
+        with sqlite3.connect(self.ledger_path) as db:
+            db.execute("UPDATE accounts SET resume_at=? WHERE group_id='group'", (future,))
+        with self.assertRaisesRegex(ValueError, 'account restriction changed'):
+            self.apply(plan['digest'])
+        with sqlite3.connect(self.db_path) as db:
+            self.assertEqual(db.execute('SELECT phase FROM timeout_recoveries').fetchone()[0], 'guard_cleared')
+        ledger = SharedCallLedger(self.ledger_path)
+        self.assertEqual(ledger.account('codex', 'credential', 'group')['resume_at'], future)
+        self.assertEqual(ledger.db.execute('SELECT count(*) FROM settlement_events').fetchone()[0], 1)
+        ledger.close()
+
+    def test_alias_wait_or_block_mismatch_prevents_recovery(self):
+        for restriction in ('future_wait', 'disabled'):
+            with self.subTest(restriction=restriction):
+                self.setUp()
+                with sqlite3.connect(self.ledger_path) as db:
+                    db.execute("INSERT INTO accounts SELECT 'codex','alias',group_id,state,resume_at,reason,"
+                               "calls,runtime_seconds,cost_usd,cost_unknown FROM accounts WHERE group_id='group'")
+                with sqlite3.connect(self.baseline) as db:
+                    db.execute("INSERT INTO accounts SELECT 'codex','alias',group_id,state,resume_at,reason,"
+                               "calls,runtime_seconds,cost_usd,cost_unknown FROM accounts WHERE group_id='group'")
+                with sqlite3.connect(self.ledger_path) as db:
+                    if restriction == 'future_wait':
+                        db.execute("UPDATE accounts SET resume_at=? WHERE credential_ref='alias'",
+                                   (time.time() + 3600,))
+                    else:
+                        db.execute("UPDATE accounts SET state='DISABLED',reason='authentication' "
+                                   "WHERE credential_ref='alias'")
+                plan = self.plan()
+                self.assertTrue(plan['checks']['historical_ledger_preserved'])
+                self.assertEqual(plan['decision'], 'hold_unknown')
+                with self.assertRaisesRegex(ValueError, 'incomplete'):
+                    self.apply(plan['digest'])
+
+    def test_expired_wait_is_reviewed_and_released(self):
+        expired = time.time() - 3600
+        with sqlite3.connect(self.ledger_path) as db:
+            db.execute("UPDATE accounts SET resume_at=? WHERE group_id='group'", (expired,))
+        plan = self.plan()
+        self.assertEqual(plan['decision'], 'same_session_retry_preparable')
+        self.assertEqual(self.apply(plan['digest'])['state'], 'done')
+        ledger = SharedCallLedger(self.ledger_path)
+        self.assertIsNone(ledger.account('codex', 'credential', 'group')['resume_at'])
+        ledger.close()
+
+    def test_uninterpretable_wait_is_preserved(self):
+        with sqlite3.connect(self.ledger_path) as db:
+            db.execute("UPDATE accounts SET resume_at='not-a-time' WHERE group_id='group'")
+        plan = self.plan()
+        self.assertEqual(plan['decision'], 'hold_unknown')
+        self.assertEqual(plan['checks']['account_restriction'], 'invalid_wait')
+
+    def test_blob_wait_is_rejected_without_serialization_error(self):
+        with sqlite3.connect(self.ledger_path) as db:
+            db.execute("UPDATE accounts SET resume_at=x'0102' WHERE group_id='group'")
+        plan = self.plan()
+        self.assertEqual(plan['decision'], 'hold_unknown')
+        self.assertEqual(plan['checks']['account_restriction'], 'invalid_wait')
+
+    def test_restriction_added_between_final_check_and_transaction_is_not_erased(self):
+        plan = self.plan()
+        with self.assertRaisesRegex(RuntimeError, 'injected stop'):
+            self.apply(plan['digest'], fail_after='guard')
+        original = SharedCallLedger._transaction
+        future = time.time() + 3600
+        def inject(ledger, operation):
+            if operation.__name__ == 'reopen':
+                with sqlite3.connect(ledger.path) as other:
+                    other.execute("UPDATE accounts SET resume_at=? WHERE group_id='group'", (future,))
+            return original(ledger, operation)
+        with patch.object(SharedCallLedger, '_transaction', inject):
+            with self.assertRaisesRegex(Exception, 'account restriction changed'):
+                self.apply(plan['digest'])
+        ledger = SharedCallLedger(self.ledger_path)
+        self.assertEqual(ledger.account('codex', 'credential', 'group')['resume_at'], future)
+        self.assertEqual(ledger.db.execute('SELECT count(*) FROM settlement_events').fetchone()[0], 1)
+        ledger.close()
+
+    def test_restriction_added_immediately_before_settlement_is_not_overwritten(self):
+        plan = self.plan()
+        original = SharedCallLedger._transaction
+        def inject(ledger, operation):
+            if operation.__name__ == 'apply':
+                with sqlite3.connect(ledger.path) as other:
+                    other.execute("UPDATE accounts SET reason='authentication' WHERE group_id='group'")
+            return original(ledger, operation)
+        with patch.object(SharedCallLedger, '_transaction', inject):
+            with self.assertRaisesRegex(Exception, 'account restriction or usage changed'):
+                self.apply(plan['digest'])
+        ledger = SharedCallLedger(self.ledger_path)
+        account = ledger.account('codex', 'credential', 'group')
+        self.assertEqual((account['state'], account['reason'], account['calls']),
+                         ('UNKNOWN', 'authentication', 7))
+        self.assertEqual(ledger.reservation(self.reservation_id)['state'], 'UNKNOWN')
+        self.assertEqual(ledger.db.execute('SELECT count(*) FROM settlement_events').fetchone()[0], 0)
         ledger.close()
 
     def test_decreased_historical_usage_never_prepares_recovery(self):
