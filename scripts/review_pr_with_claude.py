@@ -127,6 +127,11 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
     observed = set()
     claims = []
     sessions = set()
+    models_so_far = set()
+    progress_batches = 0
+    progress_settings = set()
+    progress_responses = {}
+    before_settings = None
     for event in events:
         if event.get('session_id'):
             sessions.add(event['session_id'])
@@ -134,6 +139,10 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
             message = event.get('message', {})
             if not isinstance(message, dict):
                 continue
+            if isinstance(message.get('model'), str):
+                models_so_far.add(message['model'])
+            message_claims = []
+            progress_marker = False
             for item in message.get('content', []):
                 if not isinstance(item, dict):
                     continue
@@ -144,10 +153,17 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
                 if item.get('type') == 'text' and isinstance(item.get('text'), str):
                     for line in item['text'].splitlines():
                         if len(line) <= 10_000 and line.startswith('REVIEW_PROGRESS_JSON: '):
+                            progress_marker = True
                             try:
-                                claims.append((json.loads(line.split(': ', 1)[1]), set(observed)))
+                                message_claims.append((json.loads(line.split(': ', 1)[1]), set(observed)))
                             except json.JSONDecodeError:
                                 continue
+            if progress_marker and event.get('parent_tool_use_id') is None:
+                progress_batches += 1
+                claims.extend((claim, read, binding['nonce'] + '-progress-' + str(progress_batches))
+                              for claim, read in message_claims)
+            else:
+                claims.extend((claim, read, None) for claim, read in message_claims)
         if event.get('type') == 'user':
             message = event.get('message', {})
             if not isinstance(message, dict):
@@ -170,6 +186,25 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
                         matches = [name for name in files if path == name or path.endswith('/' + name)]
                         if matches:
                             observed.add(max(matches, key=len))
+        if event.get('type') == 'control_response':
+            response = event.get('response', {})
+            ident = response.get('request_id')
+            safe = response.get('response', {})
+            if ident == binding['nonce'] + '-before':
+                before_settings = safe
+            elif (isinstance(ident, str) and ident.startswith(binding['nonce'] + '-progress-')
+                  and ident in {batch for _, _, batch in claims}):
+                if ident in progress_responses:
+                    if progress_responses[ident] != safe:
+                        progress_settings.discard(ident)
+                else:
+                    progress_responses[ident] = safe
+                    if (isinstance(before_settings, dict)
+                            and before_settings.get('applied') == APPLIED
+                            and before_settings.get('has_errors') is False
+                            and isinstance(safe, dict) and safe.get('applied') == APPLIED
+                            and safe.get('has_errors') is False and models_so_far == {MODEL}):
+                        progress_settings.add(ident)
     settings = {}
     models = set()
     interpreted = result_interpretation(events)
@@ -196,6 +231,8 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
         and item.get('applied') == APPLIED and item.get('has_errors') is False
         for item in (observed_configuration['before'], observed_configuration['after']))
         and models == {MODEL})
+    if progress_settings:
+        observed_configuration['progress_verified'] = sorted(progress_settings)
     reviewed, requirements = set(), []
     findings_by_id = {}
     lineage = []
@@ -209,8 +246,10 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
         findings_by_id = {item['id']: dict(item) for item in previous.get('findings', [])}
         lineage = list(previous.get('lineage', []))
     reviewed_current = set()
-    if observed_configuration['verified']:
-        for claim, already_read in claims:
+    if observed_configuration['verified'] or progress_settings:
+        for claim, already_read, batch in claims:
+            if not observed_configuration['verified'] and batch not in progress_settings:
+                continue
             if (not isinstance(claim, dict) or claim.get('head') != binding['head']
                     or claim.get('patch_sha256') != binding['diff_sha256']):
                 continue
@@ -415,11 +454,46 @@ def result_interpretation(events):
         results.append(event)
         result_positions.append(index)
     if len(results) == 1:
-        if (results[0].get('origin') is not None or results[0].get('result_index') not in (None, 0)
-                or any(event.get('type') == 'system' and event.get('subtype') == 'task_started'
-                       for event in events)):
+        result = results[0]
+        if result.get('origin') is not None or result.get('result_index') not in (None, 0):
             return None
-        return {'primary': results[0], 'final': results[0], 'kind': 'single'}
+        started, completed = {}, set()
+        background = []
+        for index, event in enumerate(events):
+            if event.get('type') != 'system':
+                continue
+            subtype = event.get('subtype')
+            if subtype == 'task_started':
+                task_id = event.get('task_id')
+                if (not isinstance(task_id, str) or not task_id or task_id in started
+                        or index >= result_positions[0]
+                        or event.get('session_id') != result.get('session_id')):
+                    return None
+                started[task_id] = index
+            elif subtype == 'task_notification':
+                task_id = event.get('task_id')
+                if (task_id not in started or task_id in completed
+                        or event.get('status') != 'completed'
+                        or event.get('session_id') != result.get('session_id')
+                        or index <= started[task_id] or index >= result_positions[0]):
+                    return None
+                completed.add(task_id)
+            elif subtype == 'background_tasks_changed':
+                background.append((index, event.get('tasks')))
+            elif subtype == 'task_progress' and index >= result_positions[0]:
+                return None
+        if started:
+            if (set(started) != completed
+                    or background and (background[-1][0] >= result_positions[0]
+                                      or background[-1][1] != [])
+                    or result.get('subtype') != 'success' or result.get('is_error') is not False
+                    or result.get('terminal_reason') != 'completed'
+                    or result.get('stop_reason') != 'end_turn'):
+                return None
+            return {'primary': result, 'final': result, 'kind': 'workflow_complete'}
+        if completed or background and background[-1][1] != []:
+            return None
+        return {'primary': result, 'final': result, 'kind': 'single'}
     if len(results) != 2:
         return None
     primary, final = results
@@ -888,7 +962,8 @@ def summarize(events, nonce, exit_code, incomplete_reason=None, *, input_verifie
     successful_tools = {tool_calls[item] for item in successful_tool_results - denied_ids if item in tool_calls}
     completion_verified = (configuration_verified and incomplete_reason is None and exit_code == 0
                            and not rejected_quota_events(events)
-                           and interpreted is not None and interpreted['kind'] == 'single'
+                           and interpreted is not None
+                           and interpreted['kind'] in ('single', 'workflow_complete')
                            and result is not None and result.get('subtype') == 'success'
                            and not result.get('is_error') and isinstance(denials, list) and not denials
                            and isinstance(result.get('subagent_stats'), dict)
@@ -1103,6 +1178,8 @@ def main():
         delivered = input_delivery_verified(directory, binding, code)
         summary = summarize(output, nonce, code, incomplete_reason, input_verified=delivered,
                             head=head, diff_sha256=diff_sha256)
+        summary['execution_incomplete_reason'] = incomplete_reason
+        summary['review_incomplete_reason'] = None
         rejected_quota = bool(rejected_quota_events(output))
         # A stale positive timestamp is not proof of a future provider reset.
         # Five minutes covers normal delivery/clock skew without accepting 1970 sentinels.
@@ -1123,14 +1200,15 @@ def main():
         if summary['verdict'] not in ('PASS', 'REVISE'):
             summary['completion_verified'] = False
             summary['review_passed'] = False
-            summary['incomplete_reason'] = 'model_review_incomplete'
+            summary['review_incomplete_reason'] = 'model_review_incomplete'
         if not preliminary['scope_verified']:
             summary['completion_verified'] = False
             summary['review_passed'] = False
-            summary['incomplete_reason'] = 'review_scope_unverified'
+            summary['review_incomplete_reason'] = 'review_scope_unverified'
         elif summary['verdict'] == 'PASS' and open_findings:
             summary['review_passed'] = False
-            summary['incomplete_reason'] = 'unresolved_review_finding'
+            summary['review_incomplete_reason'] = 'unresolved_review_finding'
+        summary['incomplete_reason'] = (incomplete_reason or summary['review_incomplete_reason'])
         elapsed_ms = terminal.get('duration_ms')
         elapsed = elapsed_ms / 1000 if isinstance(elapsed_ms, (int, float)) and not isinstance(elapsed_ms, bool) and elapsed_ms >= 0 else 1800
         if interpreted and interpreted['kind'] == 'workflow_quota':
@@ -1163,7 +1241,8 @@ def main():
         if not summary['binding_unchanged_after_review']:
             summary['completion_verified'] = False
             summary['review_passed'] = False
-            summary['incomplete_reason'] = 'head_or_tree_changed_after_review'
+            summary['review_incomplete_reason'] = 'head_or_tree_changed_after_review'
+            summary['incomplete_reason'] = incomplete_reason or summary['review_incomplete_reason']
         raw_events = (directory / 'events.jsonl').read_bytes()
         checkpoint = checkpoint_from_events(output, binding=binding, base=base, files=files,
                                             reservation_id=reservation_id,

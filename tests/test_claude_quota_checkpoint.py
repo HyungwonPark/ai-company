@@ -56,6 +56,97 @@ def settings_events(binding):
 
 
 class QuotaCheckpointTests(unittest.TestCase):
+    def test_timeout_unknown_cost_settlement_stays_blocked_and_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            ledger = SharedCallLedger.initialize(Path(temporary) / 'ledger.sqlite', [
+                ('claude', 'credential', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            self.addCleanup(ledger.close)
+            owner = str(Path(temporary) / 'attempt')
+            ledger.reserve('reservation', owner, 'claude', 'credential', 'group')
+            ledger.started('reservation', owner, {'kind': 'executor_invocation'})
+            ledger.uncertain('reservation', owner, 'timeout')
+            fact = {'category': 'reconciliation', 'cause': 'timeout', 'duration_seconds': 1800,
+                    'total_cost_usd': None}
+            self.assertTrue(ledger.settle('reservation', owner, 'event', fact,
+                                          terminated=True))
+            self.assertFalse(ledger.settle('reservation', owner, 'event', fact,
+                                           terminated=True))
+            account = ledger.account('claude', 'credential', 'group')
+            self.assertEqual((account['state'], account['calls'], account['cost_unknown']),
+                             ('UNKNOWN', 1, 1))
+            with self.assertRaises(SharedCallError):
+                ledger.settle('reservation', owner, 'event',
+                              {**fact, 'total_cost_usd': 4.46}, terminated=True)
+
+    def test_completed_workflow_before_single_result_is_one_finished_review(self):
+        # Shape projected from the saved PR #29 CLI stream: two task starts,
+        # two completed notifications, then one final result and after settings.
+        terminal = {'type': 'result', 'session_id': 'same-session', 'result_index': 0,
+                    'subtype': 'success', 'is_error': False, 'terminal_reason': 'completed',
+                    'stop_reason': 'end_turn', 'queued_turn_count': 0,
+                    'permission_denials': [], 'subagent_stats': {
+                        'spawned': 0, 'completed': 0, 'failed': 0, 'killed': {}, 'refused': {}},
+                    'result': ('판정: PASS\n대상 HEAD: ' + 'a' * 40 + '\n패치 SHA-256: '
+                               + 'b' * 64 + '\n검토 범위: 패치 전체\n미검토: 없음')}
+        tasks = [{'type': 'system', 'subtype': 'task_started',
+                  'task_id': task, 'session_id': 'same-session'} for task in ('one', 'two')]
+        done = [{'type': 'system', 'subtype': 'task_notification', 'task_id': task,
+                 'session_id': 'same-session', 'status': 'completed'} for task in ('one', 'two')]
+        events = [*tasks, *done, terminal]
+        self.assertEqual(review.result_interpretation(events)['kind'], 'workflow_complete')
+        self.assertTrue(review.terminal_children_stopped(events))
+        summary = review.summarize([*settings_events({'nonce': 'n'}), *events], 'n', 0,
+                                   input_verified=True, head='a' * 40, diff_sha256='b' * 64)
+        self.assertTrue(summary['completion_verified'])
+        self.assertTrue(summary['review_passed'])
+        for changed in ([*tasks, done[0], terminal],
+                        [*tasks, done[0], {**done[1], 'status': 'stopped'}, terminal],
+                        [*tasks, *done, dict(done[1]), terminal],
+                        [*tasks, done[0], terminal, done[1]],
+                        [*tasks, *done, terminal, {'type': 'system',
+                            'subtype': 'task_progress', 'task_id': 'one'}],
+                        [*tasks, done[0], {**done[1], 'session_id': 'other'}, terminal]):
+            with self.subTest(changed=changed[-2:]):
+                self.assertIsNone(review.result_interpretation(changed))
+
+    def test_progress_needs_bound_midrun_settings_before_partial_credit(self):
+        binding = {'pr': 35, 'head': 'a' * 40, 'diff_sha256': 'b' * 64, 'nonce': 'n'}
+        claim = {'head': binding['head'], 'patch_sha256': binding['diff_sha256'],
+                 'reviewed_files': ['a.py'], 'requirements': ['reviewed a.py'], 'findings': []}
+        rows = [settings_events(binding)[0],
+                {'type': 'assistant', 'message': {'model': review.MODEL, 'content': [
+                    {'type': 'tool_use', 'id': 'read-1', 'name': 'Read',
+                     'input': {'file_path': '/repo/a.py'}}]}},
+                {'type': 'user', 'message': {'content': [
+                    {'type': 'tool_result', 'tool_use_id': 'read-1', 'is_error': False}]}},
+                {'type': 'assistant', 'message': {'model': review.MODEL, 'content': [
+                    {'type': 'text', 'text': 'REVIEW_PROGRESS_JSON: ' + json.dumps(claim)}]}},
+                {'type': 'control_response', 'response': {
+                    'request_id': 'n-progress-1', 'response': {
+                        'applied': review.APPLIED, 'has_errors': False}}}]
+        args = dict(binding=binding, base='c' * 40, files=['a.py'],
+                    reservation_id='reservation', repo='/repo')
+        self.assertEqual(review.checkpoint_from_events(rows, **args)['reviewed_files'], ['a.py'])
+        for changed in (rows[:-1],
+                        [*rows[:-1], {**rows[-1], 'response': {
+                            **rows[-1]['response'], 'response': {
+                                'applied': {**review.APPLIED, 'effort': 'medium'},
+                                'has_errors': False}}}],
+                        [*rows[:-1], {**rows[-1], 'response': {
+                            **rows[-1]['response'], 'request_id': 'n-progress-2'}}],
+                        [rows[0], rows[1], rows[3], rows[4]],
+                        [rows[0], {**rows[1], 'message': {
+                            **rows[1]['message'], 'model': 'other-model'}}, *rows[2:]],
+                        [*rows, {**rows[4], 'response': {**rows[4]['response'],
+                            'response': {'applied': {**review.APPLIED, 'effort': 'medium'},
+                                         'has_errors': False}}}],
+                        [*rows[:3], {**rows[3], 'message': {
+                            **rows[3]['message'], 'content': [{'type': 'text',
+                                'text': 'REVIEW_PROGRESS_JSON: ' + json.dumps({
+                                    **claim, 'head': 'd' * 40})}]}}, rows[4]]):
+            with self.subTest(changed=changed[-1:]):
+                self.assertEqual(review.checkpoint_from_events(changed, **args)['reviewed_files'], [])
+
     def test_completed_primary_then_workflow_429_uses_cumulative_terminal_result(self):
         # Compact projection of the saved PR #35 stream: the primary result
         # completed while Workflow was still running, then its notification

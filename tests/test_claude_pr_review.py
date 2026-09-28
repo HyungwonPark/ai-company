@@ -23,6 +23,59 @@ PASS_REPORT = (f'판정: PASS\n대상 HEAD: {HEAD}\n패치 SHA-256: {DIFF_SHA}\n
 
 
 class ClaudePRReviewTests(unittest.TestCase):
+    def test_timeout_and_scope_failure_remain_distinct_in_saved_receipt(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            cli = root / 'claude'; cli.write_text('fake-cli')
+            relay = root / 'relay'; relay.write_text('fake-relay')
+            ledger_path = root / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('claude', 'review', 'account', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            self.addCleanup(ledger.close)
+
+            def command(*args):
+                if args == ('git', 'rev-parse', 'HEAD'):
+                    return HEAD
+                if args == ('git', 'status', '--porcelain'):
+                    return ''
+                if args == ('git', 'rev-parse', '--show-toplevel'):
+                    return str(root)
+                if args[0] == 'gh':
+                    return json.dumps({'url': 'https://github.com/example/repo/pull/31',
+                                       'headRefOid': HEAD})
+                if args[-1] == '--version':
+                    return '2.1.283'
+                raise AssertionError(args)
+
+            def invoke(_cmd, _prompt, directory):
+                (directory / 'events.jsonl').write_text('')
+                (directory / 'events.live.jsonl').write_text('')
+                return -9, [], 'timeout'
+
+            argv = ['review', '31', '--shared-call-ledger', str(ledger_path),
+                    '--credential-ref', 'review', '--quota-group', 'account',
+                    '--adoption-receipt', str(root / 'adoption.json')]
+            with patch('sys.argv', argv), patch.object(Path, 'home', return_value=root), \
+                 patch.object(REVIEW, 'SharedCallLedger', return_value=ledger), \
+                 patch.object(REVIEW, 'shared_adoption_verified', return_value=True), \
+                 patch.object(REVIEW, 'command', side_effect=command), \
+                 patch.object(REVIEW, 'reviewable', return_value=[]), \
+                 patch.object(REVIEW.shutil, 'which', return_value=str(cli)), \
+                 patch.object(REVIEW, 'CONTROL', relay), \
+                 patch.object(REVIEW, 'complete_pr_patch', return_value=(
+                     'diff --git a/a b/a\n+x\n', 'b' * 40, 'b' * 40)), \
+                 patch.object(REVIEW, 'invoke', side_effect=invoke), \
+                 patch.object(REVIEW, 'input_delivery_verified', return_value=True), \
+                 patch.object(REVIEW, 'binding_unchanged', return_value=True):
+                self.assertEqual(REVIEW.main(), 1)
+            directory = root / '.local/state/ai-company/claude-pr-reviews' / f'pr-31-{HEAD}'
+            receipt = json.loads((directory / 'receipt.json').read_text())
+            self.assertEqual(receipt['incomplete_reason'], 'timeout')
+            self.assertEqual(receipt['execution_incomplete_reason'], 'timeout')
+            self.assertEqual(receipt['review_incomplete_reason'], 'review_scope_unverified')
+            self.assertEqual(ledger.reservation(receipt['shared_reservation_id'])['state'], 'UNKNOWN')
+            self.assertEqual(ledger.account('claude', 'review', 'account')['state'], 'UNKNOWN')
+
     def test_rejected_quota_without_verified_reset_never_releases_shared_account(self):
         for reset in (9999999999, None, 'not-a-time', 0, -1, 1):
             with self.subTest(reset=reset), tempfile.TemporaryDirectory() as temporary:

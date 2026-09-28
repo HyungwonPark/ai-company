@@ -24,6 +24,16 @@ for line in sys.stdin:
     event=json.loads(line)
     if event['type']=='user':
         open(os.environ['MARKER'],'w').write('delivered')
+        if os.environ.get('PROGRESS'):
+            for item in [
+                {'type':'system','subtype':'background_tasks_changed','tasks':['task-1']},
+                {'type':'system','subtype':'task_started','task_id':'task-1'},
+                {'type':'assistant','parent_tool_use_id':None,
+                 'message':{'model':os.environ['MODEL'],'content':[{'type':'text',
+                    'text':'REVIEW_PROGRESS_JSON: {}'}]}},
+                {'type':'result','session_id':'native-session','result_index':0,'result':'first'}]:
+                print(json.dumps(item),flush=True)
+            continue
         if os.environ.get('WORKFLOW'):
             for item in [
                 {'type':'system','subtype':'task_started','task_id':'task-1'},
@@ -41,6 +51,10 @@ for line in sys.stdin:
         payload={'applied':{'model':os.environ['MODEL'],'effort':os.environ['EFFORT'],'ultracode':True},
                  'settings':{'env':{'SECRET':'PRIVATE_ENV'}},'errors':[]}
     print(json.dumps({'type':'control_response','response':{'request_id':req,'subtype':'success','response':payload}}),flush=True)
+    if req.endswith('-progress-1') and os.environ.get('PROGRESS'):
+        for item in [{'type':'system','subtype':'task_notification','task_id':'task-1','status':'completed'},
+                     {'type':'system','subtype':'background_tasks_changed','tasks':[]}]:
+            print(json.dumps(item),flush=True)
 '''
 
 
@@ -50,7 +64,7 @@ class ClaudeFileAdapterTests(unittest.TestCase):
         self.root = Path(temporary.name)
 
     def relay(self, effort, model='claude-opus-5', blocked=False, bound_prompt=False,
-              journal=False, workflow=False):
+              journal=False, workflow=False, progress=False):
         directory = self.root / effort; directory.mkdir()
         native = directory / 'native'; native.write_text(NATIVE); native.chmod(0o700)
         config = {'cli_executable':str(native), 'cli_sha256':hashlib.sha256(native.read_bytes()).hexdigest(),
@@ -63,6 +77,8 @@ class ClaudeFileAdapterTests(unittest.TestCase):
             config['events_path'] = str(directory/'events.live.jsonl')
         if workflow:
             config['environment']['WORKFLOW'] = '1'
+        if progress:
+            config['environment']['PROGRESS'] = '1'
         if model != 'claude-opus-5':
             config['expected_applied'] = {'model':model, 'effort':'xhigh', 'ultracode':True}
         if blocked:
@@ -121,6 +137,19 @@ class ClaudeFileAdapterTests(unittest.TestCase):
                      and item.get('response', {}).get('request_id') == 'attempt-1-after')
         self.assertGreater(after, last_result)
         self.assertEqual(facts[-1]['state'], 'closed')
+
+    def test_progress_settings_and_after_wait_for_workflow_completion(self):
+        _, result, facts = self.relay('xhigh', progress=True)
+        rows = [json.loads(line) for line in result.stdout.splitlines()]
+        positions = {item['response']['request_id']: index for index, item in enumerate(rows)
+                     if item.get('type') == 'control_response'}
+        result_index = next(index for index, item in enumerate(rows) if item.get('type') == 'result')
+        notification = next(index for index, item in enumerate(rows)
+                            if item.get('subtype') == 'task_notification')
+        self.assertLess(result_index, positions['attempt-1-progress-1'])
+        self.assertLess(notification, positions['attempt-1-after'])
+        self.assertEqual(facts[-1]['state'], 'closed')
+        self.assertNotIn('PRIVATE_', result.stdout + json.dumps(facts))
 
     def test_relay_and_native_unblock_inherited_signals(self):
         directory, _, _ = self.relay('xhigh', blocked=True)
