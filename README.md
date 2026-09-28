@@ -2,7 +2,7 @@
 
 사용자는 PM과 목표·계획을 정하고, 여러 코딩 에이전트가 구현·검사·독립 검수·수정을 이어서 수행하는 작업 시스템을 구축합니다. 에이전트의 실행 조건·역할·격리를 관리하는 하네스와 작업 완료까지 이어지는 루프를 함께 만듭니다.
 
-**현재 위치: 기본 구조와 화면·작업 흐름 구현을 갖추고, 실제 모델을 연결한 전체 흐름 검증 중입니다. R36-4 코드 보완·검증을 마쳤고 서버에서 한정 설치·정산 완료를 보고했습니다. 현재는 실제 Claude 검수의 수동 재개를 기다리는 단계입니다.**
+**현재 위치: 기본 구조와 화면·작업 흐름 구현을 갖추고, 실제 모델을 연결한 전체 흐름 검증 중입니다. R36-4 한정 설치·이전 예약 정산 뒤 실제 검수를 한 건 실행했으나 30분 제한으로 중단됐습니다. 현재는 새 예약 UNKNOWN을 보존하며 종료·사용량 증거와 검수기 완료 계약을 진단하는 단계입니다.**
 
 기준일: **2026-09-28 KST**. 아래 구현 상태는 개발 후보와 검증 기록을 기준으로 하며, 모든 변경이 main에 병합되거나 운영에 적용됐다는 뜻은 아닙니다. 이 README 갱신은 [문서 PR #23](https://github.com/HyungwonPark/ai-company/pull/23)에서 관리합니다.
 
@@ -14,26 +14,26 @@
 | 2. 작업 조정·보호 | 병렬 배정, 공용 계정·예약·사용량 정산, 한도 대기·이관·체크포인트 | 개발 후보의 구현·모의/격리 검사 통과. 실제 UNKNOWN 사건 처리와 재개는 후속 검증 중 | 미확인 실행을 중복 호출하지 않으면서 실제 중단·정산·재개 검증 |
 | 3. 작업실 화면·PM 연결 | 프로젝트→계획→진행→승인→결과, 요구사항 질문, 계획 검수, 역할별 지침 | PR #25~#28 구현·화면 CI 및 [PR #28 비운영 수용](docs/work-reviews/ai-company-pr28-acceptance-6db573e-2026-09-25.md) | 최신 운영 화면·사용자 직접 조작·앱 연결 확인 |
 | 4. 실제 PM 행동 평가 | 실제 Astra의 계획·판단과 후속 작업 평가 | 서버 보고상 E1 계획·내용 검수 PASS. E2는 중단 뒤 `hold_unknown` 유지 | E2 증거·복구 조건 처리와 E3~E6 재평가 완료 |
-| 5. Claude 검수 복구 **← 수동 검수 재개 대기** | PR #35 최종 검수와 PR #36 사후 정산·수동 재개 | **R36-1~4 해결**. 기존 검사·CI·패키지 대조 완료. 서버 보고상 한정 설치·예약 1건 정산·READY 확인 완료 | 별도 수동 요청 후 현재 조건 대조·실제 Claude 최종 검수·종료/정산 |
+| 5. Claude 검수 복구 **← timeout 진단·복구 준비** | PR #35 최종 검수와 검수기 중단·정산·재개 | R36-1~4 해결·한정 적용 보고 유지. 이후 실제 검수 한 건은 30분 중단, 새 예약·계정 UNKNOWN | 종료·총사용량 증거 대조·완료 계약 보완·새 예약 정산/재개 조건 충족·실제 최종 검수 |
 | 6. 전체 흐름·운영 전환 | 사용자 목표 확정→실제 개발→검수→보고, 최종 승인·상시 운영 | 대기. 두 worker 중지/자동 시작 해제 상태로 보고됐으며 PR #10은 pending | 실제 전체 흐름과 사용자 확인, 필요한 운영 승인·배포 검증 |
 
 E1 PASS는 사용자 계획 확정이나 개발 실행 완료의 증거가 아닙니다. 완료율 숫자로 환산하지 않습니다. 구현·모의 검사·실제 모델 검사·운영 적용의 완료 조건이 서로 다릅니다.
 
 ## 지금 진행할 작업
 
-현재 복구 후보는 [PR #36](https://github.com/HyungwonPark/ai-company/pull/36)의 `7ab76818758ef7cfa4828fd3578217da1d1dc257`입니다. 실제 Claude 검수 대상은 [PR #35](https://github.com/HyungwonPark/ai-company/pull/35)의 `1d54d3a0ea5a21c7c2dc588f824c6567231829b4`입니다.
+제품 검수 대상은 [PR #35](https://github.com/HyungwonPark/ai-company/pull/35)의 `1d54d3a0ea5a21c7c2dc588f824c6567231829b4`, 설치된 검수기 후보는 [PR #36](https://github.com/HyungwonPark/ai-company/pull/36)의 `7ab76818758ef7cfa4828fd3578217da1d1dc257`입니다. GitHub 후보는 유지되고 설치 사실은 서버 보고입니다.
 
-- **기존 검증:** R36-1~4 해결, 관련 검사 39개·정확한 HEAD CI 3개 성공·고정 패키지 대조 근거를 유지합니다.
-- **한정 적용 완료 보고:** runner/tick·전환 기록 갱신, 현재 예약 한 건 정산, 연결 계정 UNKNOWN → COOLDOWN, 원본 11파일 보존, 검사 함수 READY입니다. 추가 모델 호출·tick·새 예약은 0건으로 보고됐습니다.
-- **다음 묶음:** 별도 사용자 수동 재개 요청 후 현재 제한·고정 대상·중복 실행을 확인하고 실제 Claude 검수 한 건 → 종료·정산 → 결과 보고까지 진행합니다. 이미 끝난 설치·정산은 반복하지 않습니다.
-- READY는 내부 검사 결과이며 실제 검수 완료나 공급자의 현재 한도 회복을 보장하지 않습니다.
+- **실제 검수 미완료:** 수동 검수 한 건이 30분 제한으로 중단됐으며 PASS/REVISE가 없습니다. 시작 설정·Opus 응답은 관측됐지만 종료 후 설정 검증은 미완료입니다.
+- **진행·사용량:** 읽기 13개·완료 인정 0개, 주 호출 관측 비용 USD 4.46입니다. Workflow 포함 총사용량은 미확정이며 전체 비용으로 단정하지 않습니다.
+- **현재 차단:** 이번 새 예약·계정은 UNKNOWN(timeout)입니다. 직전 설치·이전 예약 정산은 보존하며 같은 작업을 다시 하지 않습니다.
+- **다음 묶음:** 추가 모델 호출 없이 종료·사용량·진행/설정/Workflow 이벤트를 대조하고, 복제 환경 재현 → 확인된 경계의 최소 보완 → 검사·정산/적용·복구안까지 준비합니다. 기존 quota 전용 재개 경로를 timeout에 그대로 쓰지 않습니다.
 
-[현재 적용 보고와 수동 검수 조건](docs/work-reviews/pr36-applied-manual-review-ready-2026-09-28.md)을 따릅니다. [기존 수용·적용/복구 문서](docs/work-reviews/pr36-acceptance-7ab7681-2026-09-28.md)는 당시 검증과 승인 범위의 근거로 보존합니다.
+[현재 시간 초과 진단·후속 보완 지시](docs/work-reviews/pr35-timeout-review-diagnostics-2026-09-28.md)를 적용합니다. [직전 설치·정산 보고](docs/work-reviews/pr36-applied-manual-review-ready-2026-09-28.md)와 [기존 수용 문서](docs/work-reviews/pr36-acceptance-7ab7681-2026-09-28.md)는 당시 상태와 근거로 보존합니다.
 
 ## 현재 보존하는 상태
 
 - PR #35의 실제 Claude 최종 판정은 미완료입니다. 서버 보고상 변경 파일 13개는 읽었지만 완료 인정 0개·남은 13개입니다.
-- 이번 Claude 예약은 서버 보고상 정산됐고 연결 계정은 COOLDOWN입니다. 과거 E2의 `hold_unknown`은 별개 사건으로 유지하며 시간 경과만으로 해제하지 않습니다.
+- 직전 예약의 정산은 보존하며, 이번 timeout의 새 예약과 연결 계정 UNKNOWN은 별도로 복구해야 합니다. 과거 E2의 `hold_unknown`도 유지하며 시간 경과만으로 해제하지 않습니다.
 - 두 worker 중지, 기존 quota 타이머, 원본 기록·기존 서비스와 PR #10 pending을 유지합니다.
 - **이번 PR 검수는 수동 1회 재개 방식**입니다. 검수 전용 자동 재개 타이머는 설치·활성화하지 않습니다. 제품의 일반 한도 대기·이관 기능과 구분합니다.
 - 과거에 성공한 실제 모델 호출·검수 이력은 보존합니다. 현재 후보의 미완료를 프로젝트 전체가 실제 모델을 한 번도 사용하지 않았다는 뜻으로 해석하지 않습니다.
@@ -70,10 +70,10 @@ E1 PASS는 사용자 계획 확정이나 개발 실행 완료의 증거가 아�
 ## 문서 확인 순서
 
 1. 이 README에서 현재 단계와 남은 작업을 확인합니다.
-2. [현재 적용 보고·수동 검수 조건](docs/work-reviews/pr36-applied-manual-review-ready-2026-09-28.md)와 [개발 효율 지침](docs/work-reviews/server-codex-efficiency-policy.md)을 읽습니다. 세션 점검·인계는 [세션 명세](docs/work-reviews/cli-session-lifecycle-policy-2026-09-28.md)를 함께 적용합니다.
+2. [현재 timeout 진단·후속 보완 지시](docs/work-reviews/pr35-timeout-review-diagnostics-2026-09-28.md)와 [개발 효율 지침](docs/work-reviews/server-codex-efficiency-policy.md)을 읽습니다. 세션 점검·인계는 [세션 명세](docs/work-reviews/cli-session-lifecycle-policy-2026-09-28.md)를 함께 적용합니다.
 3. 필요할 때만 [검수 문서 목록](docs/work-reviews/README.md)에서 과거 근거를 찾습니다.
 4. 실행·설치 명령은 실제 작업 후보의 코드·비공개 실행 명세·승인 범위와 대조합니다. 문서 브랜치에 제품 실행 코드가 모두 있다고 가정하지 않습니다.
 
 구축 상태의 주요 근거: [PR #10 한정 위임 검증](https://github.com/HyungwonPark/ai-company/pull/10), [PR #28 수용 기록](docs/work-reviews/ai-company-pr28-acceptance-6db573e-2026-09-25.md), [PR #35](https://github.com/HyungwonPark/ai-company/pull/35), [PR #36 진단 기록](https://github.com/HyungwonPark/ai-company/blob/1498962344d8cab3d4c084aca279fa60b60b7cb8/docs/work-reviews/pr36-manual-review-diagnostics-2026-09-28.md), [Work 재검수](docs/work-reviews/pr36-acceptance-7ab7681-2026-09-28.md). CI·검수 문서·서버 보고의 범위를 각각 구분합니다.
 
-[최종 수정일: 2026-09-28, v1.4]
+[최종 수정일: 2026-09-28, v1.5]
