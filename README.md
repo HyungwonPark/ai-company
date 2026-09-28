@@ -48,6 +48,12 @@ E1 PASS는 사용자 계획 확정이나 개발 실행 완료의 증거가 아�
 
 완료 작업당 사용량·소요 시간·재검수·사용자 복구 개입을 기존 기록으로 측정합니다. 상세 범위와 수용 기준은 [역할 선택·후속 구현 지침](docs/work-reviews/adaptive-orchestration-policy-2026-09-28.md)에 있습니다.
 
+## CLI 세션과 프로젝트 연속성
+
+**같은 작업에서는 기존 개발 세션을 활용하고, 목표·완료 조건·코드·증거·공식 상태는 세션 밖에 보존합니다.** 단순 재시작 후 resume는 기존 대화를 복원하므로 그 자체가 토큰 절약은 아닙니다. 작업이 끝나고 다음 목표가 달라질 때 짧은 인계 후 새 개발 대화를 고려합니다. 요약·캐시·재조사 비용까지 측정하기 전 절약률을 단정하지 않습니다.
+
+지금 서버에 맡길 일은 기존 화면·로그로 현재 개발 문맥과 사용량을 확인하고 비공개 인계를 준비하는 것입니다. PR #36은 기존 승인과 완료 증거를 대조해 남은 범위만 처리하며 실제 검수의 별도 수동 요청 조건을 유지합니다. 제품 실행 세션·예약·UNKNOWN은 개발 대화 정리와 구분합니다. [세션 유지·전환 및 서버 작업 명세](docs/work-reviews/cli-session-lifecycle-policy-2026-09-28.md)를 적용합니다.
+
 ## 토큰 절약과 작업 단위
 
 **앞으로는 작은 수정마다 지시를 끊지 않고, 같은 목표에 속한 관련 작업을 조금 더 넓게 묶어 한 번에 마무리합니다.** Work PM은 완료 조건과 승인 범위를 함께 제시하고, 서버 Codex는 그 범위 안에서 조사·구현·검사·지적 수정·문서화·패키징까지 이어서 처리합니다.
@@ -64,10 +70,10 @@ E1 PASS는 사용자 계획 확정이나 개발 실행 완료의 증거가 아�
 ## 문서 확인 순서
 
 1. 이 README에서 현재 단계와 남은 작업을 확인합니다.
-2. [최신 검수·실행 지시](docs/work-reviews/pr36-acceptance-7ab7681-2026-09-28.md)와 [개발 효율 지침](docs/work-reviews/server-codex-efficiency-policy.md)을 읽습니다.
+2. [최신 검수·실행 지시](docs/work-reviews/pr36-acceptance-7ab7681-2026-09-28.md)와 [개발 효율 지침](docs/work-reviews/server-codex-efficiency-policy.md)을 읽습니다. 세션 점검·인계는 [세션 명세](docs/work-reviews/cli-session-lifecycle-policy-2026-09-28.md)를 함께 적용합니다.
 3. 필요할 때만 [검수 문서 목록](docs/work-reviews/README.md)에서 과거 근거를 찾습니다.
 4. 실행·설치 명령은 실제 작업 후보의 코드·비공개 실행 명세·승인 범위와 대조합니다. 문서 브랜치에 제품 실행 코드가 모두 있다고 가정하지 않습니다.
 
 구축 상태의 주요 근거: [PR #10 한정 위임 검증](https://github.com/HyungwonPark/ai-company/pull/10), [PR #28 수용 기록](docs/work-reviews/ai-company-pr28-acceptance-6db573e-2026-09-25.md), [PR #35](https://github.com/HyungwonPark/ai-company/pull/35), [PR #36 진단 기록](https://github.com/HyungwonPark/ai-company/blob/1498962344d8cab3d4c084aca279fa60b60b7cb8/docs/work-reviews/pr36-manual-review-diagnostics-2026-09-28.md), [Work 재검수](docs/work-reviews/pr36-acceptance-7ab7681-2026-09-28.md). CI·검수 문서·서버 보고의 범위를 각각 구분합니다.
 
-[최종 수정일: 2026-09-28, v1.2]
+[최종 수정일: 2026-09-28, v1.3]
