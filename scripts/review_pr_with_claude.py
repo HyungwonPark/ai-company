@@ -472,7 +472,7 @@ def result_interpretation(events):
                 started[task_id] = index
             elif subtype == 'task_notification':
                 task_id = event.get('task_id')
-                if (task_id not in started or task_id in completed
+                if (not isinstance(task_id, str) or task_id not in started or task_id in completed
                         or event.get('status') != 'completed'
                         or event.get('session_id') != result.get('session_id')
                         or index <= started[task_id] or index >= result_positions[0]):
@@ -483,7 +483,8 @@ def result_interpretation(events):
             elif subtype == 'task_progress' and index >= result_positions[0]:
                 return None
         if started:
-            if (set(started) != completed
+            if (not isinstance(result.get('session_id'), str) or not result['session_id']
+                    or set(started) != completed
                     or background and (background[-1][0] >= result_positions[0]
                                       or background[-1][1] != [])
                     or result.get('subtype') != 'success' or result.get('is_error') is not False
@@ -520,7 +521,9 @@ def result_interpretation(events):
     cleared = [index for index, event in enumerate(events)
                if event.get('type') == 'system' and event.get('subtype') == 'background_tasks_changed'
                and event.get('tasks') == []]
-    if (len(positions) != 2 or len(started) != 1 or not started[0][1].get('task_id')
+    if (len(positions) != 2 or len(started) != 1
+            or not isinstance(started[0][1].get('task_id'), str)
+            or not started[0][1]['task_id']
             or len(notifications) != 1
             or notifications[0][1].get('task_id') != started[0][1]['task_id']
             or notifications[0][1].get('status') != 'completed'

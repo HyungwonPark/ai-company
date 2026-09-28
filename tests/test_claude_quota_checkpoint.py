@@ -108,6 +108,12 @@ class QuotaCheckpointTests(unittest.TestCase):
                         [*tasks, done[0], {**done[1], 'session_id': 'other'}, terminal]):
             with self.subTest(changed=changed[-2:]):
                 self.assertIsNone(review.result_interpretation(changed))
+        for malformed in ([*tasks, {**done[0], 'task_id': []}, done[1], terminal],
+                          [{**tasks[0], 'session_id': None}, tasks[1], *done,
+                           {**terminal, 'session_id': None}],
+                          [*tasks, *done, {**terminal, 'session_id': None}]):
+            with self.subTest(malformed=malformed[-2:]):
+                self.assertIsNone(review.result_interpretation(malformed))
 
     def test_progress_needs_bound_midrun_settings_before_partial_credit(self):
         binding = {'pr': 35, 'head': 'a' * 40, 'diff_sha256': 'b' * 64, 'nonce': 'n'}
@@ -286,6 +292,8 @@ class QuotaCheckpointTests(unittest.TestCase):
             [*events[:5], {**events[5], 'total_cost_usd': 9}],
             [*events[:5], {**events[5], 'modelUsage': {'opus': {
                 **events[5]['modelUsage']['opus'], 'outputTokens': 1}}}],
+            [{**events[0], 'task_id': ['task-1']}, *events[1:4],
+             {**events[4], 'task_id': ['task-1']}, events[5]],
             [*events[:5], {**events[5], 'subagent_stats': {
                 **events[5]['subagent_stats'], 'spawned': 1}}],
         ]
