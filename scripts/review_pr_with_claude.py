@@ -136,7 +136,7 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
     progress_batches = 0
     progress_settings = set()
     progress_responses = {}
-    unmatched_bad_progress = False
+    unbound_progress_response = False
     before_settings = None
     for event in events:
         if event.get('session_id'):
@@ -209,11 +209,9 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
                             and safe.get('has_errors') is False and models_so_far == {MODEL}):
                         progress_settings.add(ident)
             elif isinstance(ident, str) and ident.startswith(binding['nonce'] + '-progress-'):
-                # Older numbered requests cannot prove a new content-bound
-                # claim, but an explicit bad snapshot must still veto fallback.
-                if (not isinstance(safe, dict) or safe.get('applied') != APPLIED
-                        or safe.get('has_errors') is not False):
-                    unmatched_bad_progress = True
+                # An old numbered or premature response cannot be bound to a
+                # claim. It must not enable the before/after compatibility path.
+                unbound_progress_response = True
     settings = {}
     models = set()
     interpreted = result_interpretation(events)
@@ -259,7 +257,7 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
         for claim, already_read, batch in claims:
             if (batch in progress_responses and batch not in progress_settings
                     or batch not in progress_responses
-                    and (not observed_configuration['verified'] or unmatched_bad_progress)):
+                    and (not observed_configuration['verified'] or unbound_progress_response)):
                 continue
             if (not isinstance(claim, dict) or claim.get('head') != binding['head']
                     or claim.get('patch_sha256') != binding['diff_sha256']):

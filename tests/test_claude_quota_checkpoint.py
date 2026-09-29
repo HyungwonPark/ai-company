@@ -180,6 +180,7 @@ class QuotaCheckpointTests(unittest.TestCase):
             [before, *read, valid, after], **args)['reviewed_files'], ['a.py'])
         for events in ([before, *read, valid, setting(request, 'medium'), after],
                        [before, *read, valid, setting('n-progress-1', 'medium'), after],
+                       [before, *read, setting(request), valid, after],
                        [before, *read, valid, setting(request), setting(request, 'medium'), after]):
             with self.subTest(case='bad or conflicting snapshot', count=len(events)):
                 self.assertEqual(review.checkpoint_from_events(events, **args)['reviewed_files'], [])
