@@ -2,9 +2,9 @@
 
 사용자는 PM과 목표·계획을 정하고, 여러 코딩 에이전트가 구현·검사·독립 검수·수정을 이어서 수행하는 작업 시스템을 구축합니다. 에이전트의 실행 조건·역할·격리를 관리하는 하네스와 작업 완료까지 이어지는 루프를 함께 만듭니다.
 
-**현재 위치: 기본 구조와 화면·작업 흐름 구현을 갖추고, 실제 모델을 연결한 전체 흐름 검증 중입니다. R36-4 한정 설치·이전 예약 정산 뒤 실제 검수를 한 건 실행했으나 30분 제한으로 중단됐습니다. 현재는 새 예약 UNKNOWN을 보존하며 종료·사용량 증거와 검수기 완료 계약을 진단하는 단계입니다.**
+**현재 위치: 기본 구조와 화면·작업 흐름 구현을 갖추고, 실제 모델을 연결한 전체 흐름 검증 중입니다. 실제 Claude 검수의 timeout 이후 PR #37 진단·보완 후보를 검토했습니다. 현재는 Work가 재현한 R37-1~3의 보완을 기다리며 새 예약 UNKNOWN과 실제 검수 미완료를 유지합니다.**
 
-기준일: **2026-09-28 KST**. 아래 구현 상태는 개발 후보와 검증 기록을 기준으로 하며, 모든 변경이 main에 병합되거나 운영에 적용됐다는 뜻은 아닙니다. 이 README 갱신은 [문서 PR #23](https://github.com/HyungwonPark/ai-company/pull/23)에서 관리합니다.
+기준일: **2026-09-29 KST**. 아래 구현 상태는 개발 후보와 검증 기록을 기준으로 하며, 모든 변경이 main에 병합되거나 운영에 적용됐다는 뜻은 아닙니다. 이 README 갱신은 [문서 PR #23](https://github.com/HyungwonPark/ai-company/pull/23)에서 관리합니다.
 
 ## 단계별 구축 현황
 
@@ -14,21 +14,21 @@
 | 2. 작업 조정·보호 | 병렬 배정, 공용 계정·예약·사용량 정산, 한도 대기·이관·체크포인트 | 개발 후보의 구현·모의/격리 검사 통과. 실제 UNKNOWN 사건 처리와 재개는 후속 검증 중 | 미확인 실행을 중복 호출하지 않으면서 실제 중단·정산·재개 검증 |
 | 3. 작업실 화면·PM 연결 | 프로젝트→계획→진행→승인→결과, 요구사항 질문, 계획 검수, 역할별 지침 | PR #25~#28 구현·화면 CI 및 [PR #28 비운영 수용](docs/work-reviews/ai-company-pr28-acceptance-6db573e-2026-09-25.md) | 최신 운영 화면·사용자 직접 조작·앱 연결 확인 |
 | 4. 실제 PM 행동 평가 | 실제 Astra의 계획·판단과 후속 작업 평가 | 서버 보고상 E1 계획·내용 검수 PASS. E2는 중단 뒤 `hold_unknown` 유지 | E2 증거·복구 조건 처리와 E3~E6 재평가 완료 |
-| 5. Claude 검수 복구 **← timeout 진단·복구 준비** | PR #35 최종 검수와 검수기 중단·정산·재개 | R36-1~4 해결·한정 적용 보고 유지. 이후 실제 검수 한 건은 30분 중단, 새 예약·계정 UNKNOWN | 종료·총사용량 증거 대조·완료 계약 보완·새 예약 정산/재개 조건 충족·실제 최종 검수 |
+| 5. Claude 검수 복구 **← PR #37 보완 3건** | PR #35 최종 검수와 검수기 진행·종료·정산 | R36 해결·이전 적용 보고 유지. PR #37 검사·CI·패키지 대조 통과, 추가 경계 R37-1~3 재현. 현재 예약·계정 UNKNOWN | 보완 후보 검증·종료/사용량 증거·현 예약 복구 조건·실제 최종 검수 |
 | 6. 전체 흐름·운영 전환 | 사용자 목표 확정→실제 개발→검수→보고, 최종 승인·상시 운영 | 대기. 두 worker 중지/자동 시작 해제 상태로 보고됐으며 PR #10은 pending | 실제 전체 흐름과 사용자 확인, 필요한 운영 승인·배포 검증 |
 
 E1 PASS는 사용자 계획 확정이나 개발 실행 완료의 증거가 아닙니다. 완료율 숫자로 환산하지 않습니다. 구현·모의 검사·실제 모델 검사·운영 적용의 완료 조건이 서로 다릅니다.
 
 ## 지금 진행할 작업
 
-제품 검수 대상은 [PR #35](https://github.com/HyungwonPark/ai-company/pull/35)의 `1d54d3a0ea5a21c7c2dc588f824c6567231829b4`, 설치된 검수기 후보는 [PR #36](https://github.com/HyungwonPark/ai-company/pull/36)의 `7ab76818758ef7cfa4828fd3578217da1d1dc257`입니다. GitHub 후보는 유지되고 설치 사실은 서버 보고입니다.
+검토한 [PR #37](https://github.com/HyungwonPark/ai-company/pull/37) 후보는 `0f023b727f1ed1a3b557c845a44fcf3862de3666`입니다. 제품의 실제 Claude 검수 대상 PR #35 `1d54d3a0ea5a21c7c2dc588f824c6567231829b4`와 기존 설치 후보 PR #36 `7ab7681`은 구분합니다.
 
-- **실제 검수 미완료:** 수동 검수 한 건이 30분 제한으로 중단됐으며 PASS/REVISE가 없습니다. 시작 설정·Opus 응답은 관측됐지만 종료 후 설정 검증은 미완료입니다.
-- **진행·사용량:** 읽기 13개·완료 인정 0개, 주 호출 관측 비용 USD 4.46입니다. Workflow 포함 총사용량은 미확정이며 전체 비용으로 단정하지 않습니다.
-- **현재 차단:** 이번 새 예약·계정은 UNKNOWN(timeout)입니다. 직전 설치·이전 예약 정산은 보존하며 같은 작업을 다시 하지 않습니다.
-- **다음 묶음:** 추가 모델 호출 없이 종료·사용량·진행/설정/Workflow 이벤트를 대조하고, 복제 환경 재현 → 확인된 경계의 최소 보완 → 검사·정산/적용·복구안까지 준비합니다. 기존 quota 전용 재개 경로를 timeout에 그대로 쓰지 않습니다.
+- **보완 3건:** 중간 설정 실패를 전후 설정 성공이 우회하는 경계, 긴 진행 선언의 번호 차이로 다른 설정 응답을 연결하는 경계, 정상 Workflow 완료를 저장 증거 재확인에서 거부하는 경계를 합성 입력으로 재현했습니다.
+- **검증한 범위:** 관련 검사 53개·최종 HEAD CI 3개 성공과 네 파일 패키지 해시/소스 일치를 확인했습니다. 실제 Claude 검수 PASS나 운영 적용 완료를 뜻하지 않습니다.
+- **다음 묶음:** PR #37에서 R37-1~3 수정 → 관련 회귀·통합 검사 → 최종 CI → 신뢰 해시·패키지·적용/복구안 갱신을 한 번에 진행합니다. 현재 후보의 적용 권고는 보류합니다.
+- **현재 timeout:** 주 호출 성공 뒤 Workflow 종료가 확인되지 않았다는 서버 보고입니다. 새 예약·계정 UNKNOWN, 실제 검수 미완료·완료 인정 0/13, 주 호출 관측 비용 USD 4.46·총사용량 미확정을 유지합니다.
 
-[현재 시간 초과 진단·후속 보완 지시](docs/work-reviews/pr35-timeout-review-diagnostics-2026-09-28.md)를 적용합니다. [직전 설치·정산 보고](docs/work-reviews/pr36-applied-manual-review-ready-2026-09-28.md)와 [기존 수용 문서](docs/work-reviews/pr36-acceptance-7ab7681-2026-09-28.md)는 당시 상태와 근거로 보존합니다.
+[PR #37 재검수와 서버 보완 지시](docs/work-reviews/pr37-review-0f023b7-2026-09-29.md)를 적용합니다. [원래 timeout 진단 지시](docs/work-reviews/pr35-timeout-review-diagnostics-2026-09-28.md)와 [직전 설치·이전 예약 정산 보고](docs/work-reviews/pr36-applied-manual-review-ready-2026-09-28.md)는 당시 근거로 보존합니다.
 
 ## 현재 보존하는 상태
 
@@ -70,10 +70,10 @@ E1 PASS는 사용자 계획 확정이나 개발 실행 완료의 증거가 아�
 ## 문서 확인 순서
 
 1. 이 README에서 현재 단계와 남은 작업을 확인합니다.
-2. [현재 timeout 진단·후속 보완 지시](docs/work-reviews/pr35-timeout-review-diagnostics-2026-09-28.md)와 [개발 효율 지침](docs/work-reviews/server-codex-efficiency-policy.md)을 읽습니다. 세션 점검·인계는 [세션 명세](docs/work-reviews/cli-session-lifecycle-policy-2026-09-28.md)를 함께 적용합니다.
+2. [최신 PR #37 재검수·보완 지시](docs/work-reviews/pr37-review-0f023b7-2026-09-29.md)와 [개발 효율 지침](docs/work-reviews/server-codex-efficiency-policy.md)을 읽습니다. 세션 점검·인계는 [세션 명세](docs/work-reviews/cli-session-lifecycle-policy-2026-09-28.md)를 함께 적용합니다.
 3. 필요할 때만 [검수 문서 목록](docs/work-reviews/README.md)에서 과거 근거를 찾습니다.
 4. 실행·설치 명령은 실제 작업 후보의 코드·비공개 실행 명세·승인 범위와 대조합니다. 문서 브랜치에 제품 실행 코드가 모두 있다고 가정하지 않습니다.
 
 구축 상태의 주요 근거: [PR #10 한정 위임 검증](https://github.com/HyungwonPark/ai-company/pull/10), [PR #28 수용 기록](docs/work-reviews/ai-company-pr28-acceptance-6db573e-2026-09-25.md), [PR #35](https://github.com/HyungwonPark/ai-company/pull/35), [PR #36 진단 기록](https://github.com/HyungwonPark/ai-company/blob/1498962344d8cab3d4c084aca279fa60b60b7cb8/docs/work-reviews/pr36-manual-review-diagnostics-2026-09-28.md), [Work 재검수](docs/work-reviews/pr36-acceptance-7ab7681-2026-09-28.md). CI·검수 문서·서버 보고의 범위를 각각 구분합니다.
 
-[최종 수정일: 2026-09-28, v1.5]
+[최종 수정일: 2026-09-29, v1.6]
