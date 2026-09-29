@@ -128,8 +128,9 @@ class QuotaCheckpointTests(unittest.TestCase):
                 {'type': 'assistant', 'message': {'model': review.MODEL, 'content': [
                     {'type': 'text', 'text': 'REVIEW_PROGRESS_JSON: ' + json.dumps(claim)}]}},
                 {'type': 'control_response', 'response': {
-                    'request_id': 'n-progress-1', 'response': {
+                    'request_id': None, 'response': {
                         'applied': review.APPLIED, 'has_errors': False}}}]
+        rows[-1]['response']['request_id'] = review.progress_request_id('n', rows[3], 1)
         args = dict(binding=binding, base='c' * 40, files=['a.py'],
                     reservation_id='reservation', repo='/repo')
         self.assertEqual(review.checkpoint_from_events(rows, **args)['reviewed_files'], ['a.py'])
@@ -139,7 +140,7 @@ class QuotaCheckpointTests(unittest.TestCase):
                                 'applied': {**review.APPLIED, 'effort': 'medium'},
                                 'has_errors': False}}}],
                         [*rows[:-1], {**rows[-1], 'response': {
-                            **rows[-1]['response'], 'request_id': 'n-progress-2'}}],
+                            **rows[-1]['response'], 'request_id': 'n-progress-wrong'}}],
                         [rows[0], rows[1], rows[3], rows[4]],
                         [rows[0], {**rows[1], 'message': {
                             **rows[1]['message'], 'model': 'other-model'}}, *rows[2:]],
@@ -152,6 +153,59 @@ class QuotaCheckpointTests(unittest.TestCase):
                                     **claim, 'head': 'd' * 40})}]}}, rows[4]]):
             with self.subTest(changed=changed[-1:]):
                 self.assertEqual(review.checkpoint_from_events(changed, **args)['reviewed_files'], [])
+
+    def test_pr37_progress_repros_reject_bad_snapshot_and_misaligned_response(self):
+        binding = {'pr': 35, 'head': 'a' * 40, 'diff_sha256': 'b' * 64, 'nonce': 'n'}
+        claim = {'head': binding['head'], 'patch_sha256': binding['diff_sha256'],
+                 'reviewed_files': ['a.py']}
+        def progress(value, *, child=False):
+            return {'type': 'assistant', 'parent_tool_use_id': 'child' if child else None,
+                    'session_id': 'main', 'message': {'model': review.MODEL,
+                    'content': [{'type': 'text', 'text': 'REVIEW_PROGRESS_JSON: ' + json.dumps(value)}]}}
+        def setting(suffix, effort='xhigh'):
+            return {'type': 'control_response', 'response': {
+                'request_id': suffix, 'response': {'applied': {**review.APPLIED, 'effort': effort},
+                                                  'has_errors': False}}}
+        before, after = setting('n-before'), setting('n-after')
+        read = [{'type': 'assistant', 'message': {'model': review.MODEL, 'content': [
+                    {'type': 'tool_use', 'name': 'Read', 'id': 'r',
+                     'input': {'file_path': '/repo/a.py'}}]}},
+                {'type': 'user', 'message': {'content': [
+                    {'type': 'tool_result', 'tool_use_id': 'r', 'is_error': False}]}}]
+        args = dict(binding=binding, base='c' * 40, files=['a.py'],
+                    reservation_id='reservation', repo='/repo')
+        valid = progress(claim)
+        request = review.progress_request_id('n', valid, 1)
+        self.assertEqual(review.checkpoint_from_events(
+            [before, *read, valid, after], **args)['reviewed_files'], ['a.py'])
+        for events in ([before, *read, valid, setting(request, 'medium'), after],
+                       [before, *read, valid, setting('n-progress-1', 'medium'), after],
+                       [before, *read, valid, setting(request), setting(request, 'medium'), after]):
+            with self.subTest(case='bad or conflicting snapshot', count=len(events)):
+                self.assertEqual(review.checkpoint_from_events(events, **args)['reviewed_files'], [])
+
+        long_marker = progress({**claim, 'requirements': ['x' * 10000]})
+        malformed = {'type': 'assistant', 'parent_tool_use_id': None,
+                     'message': {'model': review.MODEL, 'content': [
+                         {'type': 'text', 'text': 'REVIEW_PROGRESS_JSON: {invalid'}]}}
+        self.assertIsNone(review.progress_request_id('n', long_marker, 1))
+        self.assertIsNone(review.progress_request_id('n', malformed, 1))
+        self.assertIsNone(review.progress_request_id('n', progress(claim, child=True), 1))
+        shifted = [before, *read, long_marker, malformed, progress(claim, child=True),
+                   valid, setting('n-progress-1'), setting(request, 'medium')]
+        self.assertEqual(review.checkpoint_from_events(shifted, **args)['reviewed_files'], [])
+
+        second = progress({**claim, 'reviewed_files': ['b.py']})
+        second_request = review.progress_request_id('n', second, 2)
+        read_b = [{'type': 'assistant', 'message': {'model': review.MODEL, 'content': [
+                      {'type': 'tool_use', 'name': 'Read', 'id': 'r2',
+                       'input': {'file_path': '/repo/b.py'}}]}},
+                  {'type': 'user', 'message': {'content': [
+                      {'type': 'tool_result', 'tool_use_id': 'r2', 'is_error': False}]}}]
+        delayed = [before, *read, valid, *read_b, second,
+                   setting(second_request, 'medium'), setting(request)]
+        self.assertEqual(review.checkpoint_from_events(delayed, **{**args,
+                         'files': ['a.py', 'b.py']})['reviewed_files'], ['a.py'])
 
     def test_completed_primary_then_workflow_429_uses_cumulative_terminal_result(self):
         # Compact projection of the saved PR #35 stream: the primary result

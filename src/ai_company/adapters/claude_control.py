@@ -14,6 +14,31 @@ import sys
 import time
 
 
+def progress_request_id(nonce, event, ordinal):
+    """Bind one eligible top-level progress message to its settings snapshot."""
+    if (not 1 <= ordinal <= 64 or event.get('type') != 'assistant'
+            or event.get('parent_tool_use_id') is not None):
+        return None
+    message = event.get('message')
+    if not isinstance(message, dict):
+        return None
+    def valid_marker(line):
+        if len(line) > 10_000 or not line.startswith('REVIEW_PROGRESS_JSON: '):
+            return False
+        try:
+            return isinstance(json.loads(line.split(': ', 1)[1]), dict)
+        except json.JSONDecodeError:
+            return False
+    if not any(isinstance(item, dict) and item.get('type') == 'text'
+               and isinstance(item.get('text'), str)
+               and any(valid_marker(line) for line in item['text'].splitlines())
+               for item in message.get('content', [])):
+        return None
+    digest = hashlib.sha256(json.dumps(event, sort_keys=True, separators=(',', ':'),
+                                     ensure_ascii=False).encode()).hexdigest()
+    return f'{nonce}-progress-{ordinal}-{digest}'
+
+
 def main():
     # The PR review runner blocks these signals while spawning this relay.
     # Clear the inherited mask before spawning the native Claude CLI.
@@ -111,15 +136,10 @@ def main():
                         active_tasks.discard(event['task_id'])
                     elif event.get('subtype') == 'background_tasks_changed' and isinstance(event.get('tasks'), list):
                         background_tasks = event['tasks']
-                if event.get('type') == 'assistant' and event.get('parent_tool_use_id') is None:
-                    message = event.get('message', {})
-                    if isinstance(message, dict) and any(
-                            isinstance(item, dict) and item.get('type') == 'text'
-                            and isinstance(item.get('text'), str)
-                            and any(line.startswith('REVIEW_PROGRESS_JSON: ')
-                                    for line in item['text'].splitlines())
-                            for item in message.get('content', [])) and len(progress_requests) < 64:
-                        progress_id = config['binding']['nonce'] + '-progress-' + str(len(progress_requests) + 1)
+                if event.get('type') == 'assistant':
+                    progress_id = progress_request_id(config['binding']['nonce'], event,
+                                                      len(progress_requests) + 1)
+                    if progress_id is not None:
                         progress_requests.add(progress_id)
                         send({'type': 'control_request', 'request_id': progress_id,
                               'request': {'subtype': 'get_settings'}})

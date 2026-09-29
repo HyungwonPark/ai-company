@@ -4,6 +4,7 @@ import argparse
 from contextlib import contextmanager
 import fcntl
 import hashlib
+import importlib.util
 import json
 import math
 import os
@@ -41,6 +42,10 @@ ADOPTED_CALLERS = {'automation', 'translation', 'flow_cli', 'session_cli', 'pr_r
 CONTROL = Path(__file__).with_name('claude_control.py')
 if not CONTROL.exists():
     CONTROL = Path(__file__).resolve().parents[1] / 'src/ai_company/adapters/claude_control.py'
+control_spec = importlib.util.spec_from_file_location('trusted_claude_control', CONTROL)
+control_module = importlib.util.module_from_spec(control_spec)
+control_spec.loader.exec_module(control_module)
+progress_request_id = control_module.progress_request_id
 
 
 def command(*args):
@@ -131,6 +136,7 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
     progress_batches = 0
     progress_settings = set()
     progress_responses = {}
+    unmatched_bad_progress = False
     before_settings = None
     for event in events:
         if event.get('session_id'):
@@ -142,7 +148,6 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
             if isinstance(message.get('model'), str):
                 models_so_far.add(message['model'])
             message_claims = []
-            progress_marker = False
             for item in message.get('content', []):
                 if not isinstance(item, dict):
                     continue
@@ -153,17 +158,15 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
                 if item.get('type') == 'text' and isinstance(item.get('text'), str):
                     for line in item['text'].splitlines():
                         if len(line) <= 10_000 and line.startswith('REVIEW_PROGRESS_JSON: '):
-                            progress_marker = True
                             try:
                                 message_claims.append((json.loads(line.split(': ', 1)[1]), set(observed)))
                             except json.JSONDecodeError:
                                 continue
-            if progress_marker and event.get('parent_tool_use_id') is None:
+            batch = progress_request_id(binding['nonce'], event, progress_batches + 1)
+            if batch is not None:
                 progress_batches += 1
-                claims.extend((claim, read, binding['nonce'] + '-progress-' + str(progress_batches))
+                claims.extend((claim, read, batch)
                               for claim, read in message_claims)
-            else:
-                claims.extend((claim, read, None) for claim, read in message_claims)
         if event.get('type') == 'user':
             message = event.get('message', {})
             if not isinstance(message, dict):
@@ -205,6 +208,12 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
                             and isinstance(safe, dict) and safe.get('applied') == APPLIED
                             and safe.get('has_errors') is False and models_so_far == {MODEL}):
                         progress_settings.add(ident)
+            elif isinstance(ident, str) and ident.startswith(binding['nonce'] + '-progress-'):
+                # Older numbered requests cannot prove a new content-bound
+                # claim, but an explicit bad snapshot must still veto fallback.
+                if (not isinstance(safe, dict) or safe.get('applied') != APPLIED
+                        or safe.get('has_errors') is not False):
+                    unmatched_bad_progress = True
     settings = {}
     models = set()
     interpreted = result_interpretation(events)
@@ -248,7 +257,9 @@ def checkpoint_from_events(events, *, binding, base, files, reservation_id,
     reviewed_current = set()
     if observed_configuration['verified'] or progress_settings:
         for claim, already_read, batch in claims:
-            if not observed_configuration['verified'] and batch not in progress_settings:
+            if (batch in progress_responses and batch not in progress_settings
+                    or batch not in progress_responses
+                    and (not observed_configuration['verified'] or unmatched_bad_progress)):
                 continue
             if (not isinstance(claim, dict) or claim.get('head') != binding['head']
                     or claim.get('patch_sha256') != binding['diff_sha256']):
@@ -423,7 +434,10 @@ def completed_review_verified(directory, receipt, reservation, *, repo):
                 or summary['verdict'] == 'REVISE' and not open_findings):
             return False
         interpretation = json.loads((directory / 'interpretation.json').read_text())
-        return (interpretation.get('kind') == 'single'
+        replayed = result_interpretation(events)
+        return (replayed is not None
+                and replayed['kind'] in ('single', 'workflow_complete')
+                and interpretation.get('kind') == replayed['kind']
                 and interpretation.get('events_sha256') == receipt['events_sha256']
                 and interpretation.get('checkpoint_sha256') == receipt['checkpoint_sha256']
                 and interpretation.get('reservation_id') == receipt['shared_reservation_id']
