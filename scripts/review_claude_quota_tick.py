@@ -14,8 +14,8 @@ import secrets
 
 
 TRUSTED_HASHES = {
-    'runner.py': '848527b0bc6baf86070d7ee56de29e54ac4418da5006bd506faadbc10d922598',
-    'claude_control.py': 'a010b4bb33ff684a46414070596c29b7a99c85d85f550885cfb9d7ae6fe9ff07',
+    'runner.py': '259c9b287c6b2fa4a3771d97e5f88df58f4afbd762d3608ee30f25290a62a862',
+    'claude_control.py': '9bd51e97e31335235dfd12dacac0b5eb96a0215a130b21b9c2eace37836c1106',
     'shared_calls.py': '0eac176791c85b24173a79204335a869883f2047f751b9f442e65d3253cbcaf9',
 }
 

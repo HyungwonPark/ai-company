@@ -14,6 +14,31 @@ import sys
 import time
 
 
+def progress_request_id(nonce, event, ordinal):
+    """Bind one eligible top-level progress message to its settings snapshot."""
+    if (not 1 <= ordinal <= 64 or event.get('type') != 'assistant'
+            or event.get('parent_tool_use_id') is not None):
+        return None
+    message = event.get('message')
+    if not isinstance(message, dict):
+        return None
+    def valid_marker(line):
+        if len(line) > 10_000 or not line.startswith('REVIEW_PROGRESS_JSON: '):
+            return False
+        try:
+            return isinstance(json.loads(line.split(': ', 1)[1]), dict)
+        except json.JSONDecodeError:
+            return False
+    if not any(isinstance(item, dict) and item.get('type') == 'text'
+               and isinstance(item.get('text'), str)
+               and any(valid_marker(line) for line in item['text'].splitlines())
+               for item in message.get('content', [])):
+        return None
+    digest = hashlib.sha256(json.dumps(event, sort_keys=True, separators=(',', ':'),
+                                     ensure_ascii=False).encode()).hexdigest()
+    return f'{nonce}-progress-{ordinal}-{digest}'
+
+
 def main():
     # The PR review runner blocks these signals while spawning this relay.
     # Clear the inherited mask before spawning the native Claude CLI.
@@ -74,8 +99,9 @@ def main():
         def send(event):
             child.stdin.write(json.dumps(event) + '\n')
             child.stdin.flush()
-        sent = closed = False
+        sent = closed = saw_result = False
         queried_before = queried_after = False
+        progress_requests = set()
         active_tasks = set()
         background_tasks = []
         send(incoming[0])
@@ -87,7 +113,7 @@ def main():
                 response = event.get('response', {})
                 ident = response.get('request_id')
                 if event.get('type') == 'control_response':
-                    if ident in (before, after):
+                    if ident in (before, after) or ident in progress_requests:
                         payload = response.get('response', {})
                         applied = payload.get('applied', {})
                         if not isinstance(applied, dict):
@@ -110,6 +136,13 @@ def main():
                         active_tasks.discard(event['task_id'])
                     elif event.get('subtype') == 'background_tasks_changed' and isinstance(event.get('tasks'), list):
                         background_tasks = event['tasks']
+                if event.get('type') == 'assistant':
+                    progress_id = progress_request_id(config['binding']['nonce'], event,
+                                                      len(progress_requests) + 1)
+                    if progress_id is not None:
+                        progress_requests.add(progress_id)
+                        send({'type': 'control_request', 'request_id': progress_id,
+                              'request': {'subtype': 'get_settings'}})
                 if event.get('type') == 'control_response' and ident == incoming[0]['request_id'] and not queried_before:
                     queried_before = True
                     send({'type': 'control_request', 'request_id': before, 'request': {'subtype': 'get_settings'}})
@@ -127,10 +160,12 @@ def main():
                         record({'state': 'configuration_refused'})
                         child.stdin.close()
                         closed = True
-                elif event.get('type') == 'result' and not queried_after and not active_tasks and not background_tasks:
+                if event.get('type') == 'result':
+                    saw_result = True
+                if saw_result and not queried_after and not active_tasks and not background_tasks:
                     queried_after = True
                     send({'type': 'control_request', 'request_id': after, 'request': {'subtype': 'get_settings'}})
-                elif event.get('type') == 'control_response' and ident == after:
+                if event.get('type') == 'control_response' and ident == after:
                     child.stdin.close()
                     closed = True
         finally:
