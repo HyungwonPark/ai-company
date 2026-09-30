@@ -137,6 +137,16 @@ class UnknownReviewPathTests(unittest.TestCase):
             with self.assertRaises(SharedCallError):
                 ledger.reconcile_settled_quota("old-unknown", "claude", "review", "group", "event")
 
+    def test_approved_path_rejects_non_timeout_unknown_account(self):
+        with tempfile.TemporaryDirectory() as temp:
+            ledger = self.ledger(Path(temp))
+            ledger.db.execute("UPDATE accounts SET reason='provider_error' WHERE group_id='group'")
+            target, approval = self.target(), self.approval()
+            with self.assertRaises(SharedCallError):
+                ledger.reserve_approved_unknown(manual_reservation_id(approval, target),
+                                                "new-owner", "claude", "review", "group",
+                                                approval, target, "old-unknown")
+
     def test_timeout_record_is_atomic_unknown_and_has_no_usage_settlement(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

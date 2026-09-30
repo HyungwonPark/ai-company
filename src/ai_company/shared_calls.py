@@ -272,8 +272,8 @@ class SharedCallLedger:
             if not old or old["group_id"] != group_id or old["state"] != "UNKNOWN":
                 raise SharedCallError("operator approval has no matching UNKNOWN reservation")
             account = self.account(provider, credential_ref, group_id)
-            if account["state"] != "UNKNOWN":
-                raise SharedCallError("operator approval cannot change the account state")
+            if account["state"] != "UNKNOWN" or account["reason"] != "timeout":
+                raise SharedCallError("operator approval requires UNKNOWN(timeout) account")
             other = self.db.execute(
                 "SELECT reservation_id FROM reservations WHERE group_id=? "
                 "AND state IN ('RESERVED','STARTED','UNKNOWN') AND reservation_id<>?",
