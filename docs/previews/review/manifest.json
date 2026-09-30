@@ -1,0 +1,20 @@
+{
+  "access": "public reviewed documentation only; no authentication or live state",
+  "document_commit": "35df64ac5a2bfe0dd126d53128c9e63da7404aa0",
+  "files": {
+    "preview/index.html": "f5165b1accfb6db54ad18ad490667581d567bf8ea1c64e95788405e976754449",
+    "preview/manual.html": "3f07d15400b2754e26d859e4311593437fb17a54d0c3cc9887a649cdac19de12",
+    "review-routes.caddy": "ca0e480af434edd4989c118469793a0d9d711e650c1cfa4d1836842a9ef7e61b",
+    "site/index.html": "4bc47361c7565a36173b266367b066822c3d591da34a17cbfa9fffe18b9b5af3",
+    "site/manual/index.html": "0f2062b0acade9f18726a219fcbde8ee0a228a5e0a244c1b3fa418ac4cd67ed6"
+  },
+  "generator_sha256": "f0ae9404778d9506062bfb2095eb3e84671ccf117aab51775645943429e870dc",
+  "model_calls": 0,
+  "schema_version": 1,
+  "sources": {
+    "docs/review/index.md": "004925f5ea25b281866e10d1a23e4a98a9b97a27f48757c983084b91397bcf2a",
+    "docs/review/manual.md": "dee1ab4b1d3183768971a7f325e4a1c6b414287bee702797e8488e895f6dd9de"
+  },
+  "stylesheet_sha256": "5fd73a2cfa82474c24ae9a62d072799558d0f3b0e2995937eb64de901bb87946",
+  "target_code_commit": "e659fc66cadfb5af77f85327314671b46a0383e0"
+}

@@ -1,0 +1,55 @@
+name: Review documents
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  documents:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CHROME_CHANNEL: chrome
+      REVIEW_OUTPUT: /tmp/review-documents
+      UI_OUTPUT: /tmp/review-browser-evidence
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Prepare document and browser tooling
+        run: |
+          python -m pip install -r scripts/review-docs-requirements.txt
+          npm install --prefix "$RUNNER_TEMP/review-tooling" --no-audit --no-fund @playwright/test@1.63.0
+          echo "NODE_PATH=$RUNNER_TEMP/review-tooling/node_modules" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/review-fonts" "$HOME/.local/share/fonts"
+          cd "$RUNNER_TEMP/review-fonts"
+          apt-get download fonts-noto-cjk
+          for font_package in ./*.deb; do dpkg-deb -x "$font_package" extracted; done
+          cp extracted/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc "$HOME/.local/share/fonts/"
+          fc-cache -f "$HOME/.local/share/fonts"
+      - name: Validate source and deterministic generation
+        run: |
+          python -m unittest discover -s tests -p 'test_review_pages.py' -v
+          python scripts/build_review_pages.py --source-commit 35df64ac5a2bfe0dd126d53128c9e63da7404aa0 --target-code-commit e659fc66cadfb5af77f85327314671b46a0383e0 --output "$REVIEW_OUTPUT"
+      - name: Validate isolated Caddy routes
+        run: |
+          mkdir -p "$UI_OUTPUT"
+          python tests/test_review_routes.py "$REVIEW_OUTPUT" > "$UI_OUTPUT/caddy-result.json"
+      - name: Validate sandboxed Chrome and mobile reading
+        run: |
+          git fetch origin 2087eccae3f946bc6d676904462a9b2acabd8521 --no-tags
+          git show 2087eccae3f946bc6d676904462a9b2acabd8521:src/ai_company/web/sw.js > "$RUNNER_TEMP/deployed-sw.js"
+          REVIEW_SERVICE_WORKER="$RUNNER_TEMP/deployed-sw.js" REVIEW_PREVIEW="$REVIEW_OUTPUT/preview" python tests/run_review_browser.py "$REVIEW_OUTPUT/site"
+      - name: Preserve public preview and evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: review-documents-evidence
+          path: |
+            /tmp/review-documents/
+            /tmp/review-browser-evidence/
+          if-no-files-found: warn
+          retention-days: 14
