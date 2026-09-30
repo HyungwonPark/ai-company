@@ -24,6 +24,9 @@ const {pathToFileURL}=require('node:url');
     if(width===390&&theme==='light'){const cdp=await context.newCDPSession(page);await cdp.send('DOM.enable');await cdp.send('CSS.enable');const {root}=await cdp.send('DOM.getDocument');const {nodeId}=await cdp.send('DOM.querySelector',{nodeId:root.nodeId,selector:'h1'});const result=await cdp.send('CSS.getPlatformFontsForNode',{nodeId});assert.ok(result.fonts.some(f=>f.familyName.includes('Noto Sans CJK')),'Korean font not rendered');fonts.push({endpoint,fonts:result.fonts});await cdp.detach();}
     await page.screenshot({path:path.join(out,`${endpoint.replace('/','-')}-${theme}-${width}.png`)});
     screens.push(`${endpoint.replace('/','-')}-${theme}-${width}.png`);
+    await page.locator('.contents summary').click();
+    assert.equal(await page.locator('.contents ol').evaluate(x=>getComputedStyle(x).listStyleType),'none');
+    const tocshot=`${endpoint.replace('/','-')}-${theme}-${width}-toc.png`;await page.screenshot({path:path.join(out,tocshot)});screens.push(tocshot);
     await page.locator('.contents a').first().click();assert.ok(new URL(page.url()).hash);
     await page.locator('table').first().scrollIntoViewIfNeeded();
     const detail=`${endpoint.replace('/','-')}-${theme}-${width}-table.png`;
@@ -40,8 +43,13 @@ const {pathToFileURL}=require('node:url');
     const enlarged=await page.evaluate(()=>Object.fromEntries(['h1','h2','table','.contents a','.brand'].map(s=>[s,parseFloat(getComputedStyle(document.querySelector(s)).fontSize)])));
     for(const selector of Object.keys(normal))assert.equal(enlarged[selector],normal[selector]*2,`200% text: ${selector}`);
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'200% text overflow');
-    await page.locator('.provenance summary').click();
+    await page.locator('.contents summary').click();
+    const boxes=await page.locator('.contents a').evaluateAll(xs=>xs.map(x=>{const r=x.getBoundingClientRect();return {top:r.top,bottom:r.bottom}}));
+    for(let i=1;i<boxes.length;i++)assert.ok(boxes[i].top>=boxes[i-1].bottom,'enlarged TOC overlaps');
+    await page.evaluate(()=>scrollTo(0,0));
     const zoom=`${endpoint.replace('/','-')}-${width}-text-200.png`;await page.screenshot({path:path.join(out,zoom)});screens.push(zoom);
+    await page.locator('.provenance summary').click();
+    const version=`${endpoint.replace('/','-')}-${width}-version-200.png`;await page.screenshot({path:path.join(out,version)});screens.push(version);
     checks.push({width,endpoint,text_enlargement:200,computed_sizes:enlarged,no_overflow:true});
    }
    assert.deepEqual(errors,[]);await context.close();
