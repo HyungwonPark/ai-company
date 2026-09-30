@@ -2,11 +2,13 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import threading
 
 site = Path(sys.argv[1]).resolve()
+csp = re.search(r'header Content-Security-Policy "([^"]+)"', (site.parent / 'review-routes.caddy').read_text()).group(1)
 # Exact deployed service-worker source, only for interception regression.
 sw = Path(os.environ['REVIEW_SERVICE_WORKER']).read_bytes() if os.environ.get('REVIEW_SERVICE_WORKER') else None
 
@@ -32,6 +34,10 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header('Content-Type', kind)
         self.send_header('Cache-Control', 'no-store')
+        if target:
+            self.send_header('Content-Security-Policy', csp)
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.send_header('Referrer-Policy', 'no-referrer')
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(body)

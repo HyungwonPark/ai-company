@@ -14,7 +14,8 @@ const {pathToFileURL}=require('node:url');
    page.on('request',r=>{if(new URL(r.url()).origin!==base)external.push(r.url())});
    const errors=[];page.on('pageerror',e=>errors.push(e.message));
    for(const theme of ['light','black'])for(const endpoint of ['review','review/manual']){
-    await page.goto(base+'/'+endpoint);await page.reload();await page.locator('#theme-'+theme).check();
+    const response=await page.goto(base+'/'+endpoint);assert.ok(response.headers()['content-security-policy'].includes("default-src 'none'"));await page.reload();await page.locator('#theme-'+theme).check();
+    assert.equal(await page.evaluate(()=>getComputedStyle(document.body).backgroundColor),theme==='black'?'rgb(17, 21, 18)':'rgb(245, 245, 242)','CSP blocked stylesheet or theme');
     assert.equal(await page.locator('html').getAttribute('lang'),'ko');
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'page overflow');
     assert.equal(await page.locator('script,iframe,img,form').count(),0);
