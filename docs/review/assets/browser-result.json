@@ -1,0 +1,288 @@
+{
+  "status": "PASS",
+  "browser": "153.0.8010.52",
+  "sandbox": true,
+  "checks": [
+    {
+      "width": 320,
+      "theme": "light",
+      "endpoint": "review",
+      "direct": true,
+      "refresh": true,
+      "anchors": 6,
+      "no_overflow": true
+    },
+    {
+      "width": 320,
+      "theme": "light",
+      "endpoint": "review/manual",
+      "direct": true,
+      "refresh": true,
+      "anchors": 8,
+      "no_overflow": true
+    },
+    {
+      "width": 320,
+      "theme": "black",
+      "endpoint": "review",
+      "direct": true,
+      "refresh": true,
+      "anchors": 6,
+      "no_overflow": true
+    },
+    {
+      "width": 320,
+      "theme": "black",
+      "endpoint": "review/manual",
+      "direct": true,
+      "refresh": true,
+      "anchors": 8,
+      "no_overflow": true
+    },
+    {
+      "width": 320,
+      "endpoint": "review",
+      "text_enlargement": 200,
+      "computed_sizes": {
+        "h1": 49.984,
+        "h2": 41.984,
+        "table": 28,
+        ".contents a": 30,
+        ".brand": 41.984
+      },
+      "no_overflow": true
+    },
+    {
+      "width": 320,
+      "endpoint": "review/manual",
+      "text_enlargement": 200,
+      "computed_sizes": {
+        "h1": 49.984,
+        "h2": 41.984,
+        "table": 28,
+        ".contents a": 30,
+        ".brand": 41.984
+      },
+      "no_overflow": true
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "endpoint": "review",
+      "direct": true,
+      "refresh": true,
+      "anchors": 6,
+      "no_overflow": true
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "endpoint": "review/manual",
+      "direct": true,
+      "refresh": true,
+      "anchors": 8,
+      "no_overflow": true
+    },
+    {
+      "width": 390,
+      "theme": "black",
+      "endpoint": "review",
+      "direct": true,
+      "refresh": true,
+      "anchors": 6,
+      "no_overflow": true
+    },
+    {
+      "width": 390,
+      "theme": "black",
+      "endpoint": "review/manual",
+      "direct": true,
+      "refresh": true,
+      "anchors": 8,
+      "no_overflow": true
+    },
+    {
+      "width": 390,
+      "endpoint": "review",
+      "text_enlargement": 200,
+      "computed_sizes": {
+        "h1": 54.016,
+        "h2": 41.984,
+        "table": 28,
+        ".contents a": 30,
+        ".brand": 41.984
+      },
+      "no_overflow": true
+    },
+    {
+      "width": 390,
+      "endpoint": "review/manual",
+      "text_enlargement": 200,
+      "computed_sizes": {
+        "h1": 54.016,
+        "h2": 41.984,
+        "table": 28,
+        ".contents a": 30,
+        ".brand": 41.984
+      },
+      "no_overflow": true
+    },
+    {
+      "width": 1440,
+      "theme": "light",
+      "endpoint": "review",
+      "direct": true,
+      "refresh": true,
+      "anchors": 6,
+      "no_overflow": true
+    },
+    {
+      "width": 1440,
+      "theme": "light",
+      "endpoint": "review/manual",
+      "direct": true,
+      "refresh": true,
+      "anchors": 8,
+      "no_overflow": true
+    },
+    {
+      "width": 1440,
+      "theme": "black",
+      "endpoint": "review",
+      "direct": true,
+      "refresh": true,
+      "anchors": 6,
+      "no_overflow": true
+    },
+    {
+      "width": 1440,
+      "theme": "black",
+      "endpoint": "review/manual",
+      "direct": true,
+      "refresh": true,
+      "anchors": 8,
+      "no_overflow": true
+    },
+    {
+      "width": 1440,
+      "endpoint": "review",
+      "text_enlargement": 200,
+      "computed_sizes": {
+        "h1": 60,
+        "h2": 44,
+        "table": 30,
+        ".contents a": 30,
+        ".brand": 44
+      },
+      "no_overflow": true
+    },
+    {
+      "width": 1440,
+      "endpoint": "review/manual",
+      "text_enlargement": 200,
+      "computed_sizes": {
+        "h1": 60,
+        "h2": 44,
+        "table": 30,
+        ".contents a": 30,
+        ".brand": 44
+      },
+      "no_overflow": true
+    },
+    {
+      "existing_service_worker": "network page retained"
+    },
+    {
+      "download_preview": "offline navigation passed"
+    }
+  ],
+  "screens": [
+    "review-light-320.png",
+    "review-light-320-toc.png",
+    "review-light-320-table.png",
+    "review-manual-light-320.png",
+    "review-manual-light-320-toc.png",
+    "review-manual-light-320-table.png",
+    "review-black-320.png",
+    "review-black-320-toc.png",
+    "review-black-320-table.png",
+    "review-manual-black-320.png",
+    "review-manual-black-320-toc.png",
+    "review-manual-black-320-table.png",
+    "review-320-text-200.png",
+    "review-320-version-200.png",
+    "review-manual-320-text-200.png",
+    "review-manual-320-version-200.png",
+    "review-light-390.png",
+    "review-light-390-toc.png",
+    "review-light-390-table.png",
+    "review-manual-light-390.png",
+    "review-manual-light-390-toc.png",
+    "review-manual-light-390-table.png",
+    "review-black-390.png",
+    "review-black-390-toc.png",
+    "review-black-390-table.png",
+    "review-manual-black-390.png",
+    "review-manual-black-390-toc.png",
+    "review-manual-black-390-table.png",
+    "review-390-text-200.png",
+    "review-390-version-200.png",
+    "review-manual-390-text-200.png",
+    "review-manual-390-version-200.png",
+    "review-light-1440.png",
+    "review-light-1440-toc.png",
+    "review-light-1440-table.png",
+    "review-manual-light-1440.png",
+    "review-manual-light-1440-toc.png",
+    "review-manual-light-1440-table.png",
+    "review-black-1440.png",
+    "review-black-1440-toc.png",
+    "review-black-1440-table.png",
+    "review-manual-black-1440.png",
+    "review-manual-black-1440-toc.png",
+    "review-manual-black-1440-table.png",
+    "review-1440-text-200.png",
+    "review-1440-version-200.png",
+    "review-manual-1440-text-200.png",
+    "review-manual-1440-version-200.png"
+  ],
+  "fonts": [
+    {
+      "endpoint": "review",
+      "fonts": [
+        {
+          "familyName": "Liberation Sans",
+          "postScriptName": "LiberationSans-Bold",
+          "isCustomFont": false,
+          "glyphCount": 12
+        },
+        {
+          "familyName": "Noto Sans CJK KR",
+          "postScriptName": "NotoSansCJKkr-Regular",
+          "isCustomFont": false,
+          "glyphCount": 4
+        }
+      ]
+    },
+    {
+      "endpoint": "review/manual",
+      "fonts": [
+        {
+          "familyName": "Liberation Sans",
+          "postScriptName": "LiberationSans-Bold",
+          "isCustomFont": false,
+          "glyphCount": 13
+        },
+        {
+          "familyName": "Noto Sans CJK KR",
+          "postScriptName": "NotoSansCJKkr-Regular",
+          "isCustomFont": false,
+          "glyphCount": 7
+        }
+      ]
+    }
+  ],
+  "external_requests": [],
+  "model_calls": 0,
+  "scope": "temporary static documents; no production or master interaction"
+}
