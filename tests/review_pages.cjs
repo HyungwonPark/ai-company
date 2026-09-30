@@ -18,18 +18,31 @@ const {pathToFileURL}=require('node:url');
     assert.equal(await page.locator('html').getAttribute('lang'),'ko');
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'page overflow');
     assert.equal(await page.locator('script,iframe,img,form').count(),0);
-    const links=await page.locator('.contents a').evaluateAll(xs=>xs.map(x=>x.hash.slice(1)));
-    for(const id of links)assert.equal(await page.locator(`[id="${id}"]`).count(),1);
-    await page.locator('.contents a').first().click();assert.ok(new URL(page.url()).hash);
+    const links=await page.locator('.contents a').evaluateAll(xs=>xs.map(x=>decodeURIComponent(x.hash.slice(1))));
+    for(const id of links)assert.ok(await page.evaluate(id=>!!document.getElementById(id),id),`missing heading: ${id}`);
     if(width===390&&theme==='light'){const cdp=await context.newCDPSession(page);await cdp.send('DOM.enable');await cdp.send('CSS.enable');const {root}=await cdp.send('DOM.getDocument');const {nodeId}=await cdp.send('DOM.querySelector',{nodeId:root.nodeId,selector:'h1'});const result=await cdp.send('CSS.getPlatformFontsForNode',{nodeId});assert.ok(result.fonts.some(f=>f.familyName.includes('Noto Sans CJK')),'Korean font not rendered');fonts.push({endpoint,fonts:result.fonts});await cdp.detach();}
     await page.screenshot({path:path.join(out,`${endpoint.replace('/','-')}-${theme}-${width}.png`)});
     screens.push(`${endpoint.replace('/','-')}-${theme}-${width}.png`);
+    await page.locator('.contents a').first().click();assert.ok(new URL(page.url()).hash);
+    await page.locator('table').first().scrollIntoViewIfNeeded();
+    const detail=`${endpoint.replace('/','-')}-${theme}-${width}-table.png`;
+    await page.screenshot({path:path.join(out,detail)});screens.push(detail);
     checks.push({width,theme,endpoint,direct:true,refresh:true,anchors:links.length,no_overflow:true});
    }
    await page.goto(base+'/review');await page.keyboard.press('Tab');assert.equal(await page.locator(':focus').innerText(),'본문으로');await page.keyboard.press('Enter');assert.equal(await page.locator(':focus').getAttribute('id'),'document');
    await page.getByRole('navigation',{name:'문서'}).getByRole('link',{name:'매뉴얼',exact:true}).click();assert.equal(new URL(page.url()).pathname,'/review/manual');await page.goBack();assert.equal(new URL(page.url()).pathname,'/review');
    await page.locator('.provenance summary').click();assert.ok(await page.getByText('e659fc66cadfb5af77f85327314671b46a0383e0',{exact:true}).isVisible());
-   await page.evaluate(()=>document.documentElement.style.fontSize='32px');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'200% text overflow');
+   for(const endpoint of ['review','review/manual']){
+    await page.goto(base+'/'+endpoint);
+    const normal=await page.evaluate(()=>Object.fromEntries(['h1','h2','table','.contents a','.brand'].map(s=>[s,parseFloat(getComputedStyle(document.querySelector(s)).fontSize)])));
+    await page.evaluate(()=>document.documentElement.style.fontSize='32px');
+    const enlarged=await page.evaluate(()=>Object.fromEntries(['h1','h2','table','.contents a','.brand'].map(s=>[s,parseFloat(getComputedStyle(document.querySelector(s)).fontSize)])));
+    for(const selector of Object.keys(normal))assert.equal(enlarged[selector],normal[selector]*2,`200% text: ${selector}`);
+    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'200% text overflow');
+    await page.locator('.provenance summary').click();
+    const zoom=`${endpoint.replace('/','-')}-${width}-text-200.png`;await page.screenshot({path:path.join(out,zoom)});screens.push(zoom);
+    checks.push({width,endpoint,text_enlargement:200,computed_sizes:enlarged,no_overflow:true});
+   }
    assert.deepEqual(errors,[]);await context.close();
   }
   const context=await browser.newContext(),page=await context.newPage();await page.goto(base+'/');
