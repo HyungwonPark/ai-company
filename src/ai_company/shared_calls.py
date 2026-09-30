@@ -14,6 +14,8 @@ import time
 from uuid import uuid4
 
 from ai_company.timeout_unknown import classify_unknown_recovery
+from ai_company.manual_unknown_review import ReviewTarget, manual_reservation_id, validate_approval
+from ai_company.review_protocol import validate_timeout_evidence
 
 
 class SharedCallError(RuntimeError):
@@ -238,6 +240,61 @@ class SharedCallLedger:
         except sqlite3.Error as exc:
             raise SharedCallError("shared reservation failed closed") from exc
 
+    def reserve_approved_unknown(self, reservation_id, owner, provider, credential_ref,
+                                 group_id, approval, target, unknown_reservation_id):
+        """Reserve one new review slot under an exact operator approval.
+
+        This is intentionally separate from :meth:`reserve`: normal callers
+        still fail closed for UNKNOWN accounts/reservations.  The old UNKNOWN
+        row and account remain untouched, and the derived id makes retries
+        idempotent without introducing a generic force/override switch.
+        """
+        if not isinstance(target, ReviewTarget):
+            raise SharedCallError("manual review target is not pinned")
+        try:
+            validate_approval(approval, target, unknown_reservation_id=unknown_reservation_id)
+            expected_id = manual_reservation_id(approval, target)
+        except (TypeError, ValueError) as exc:
+            raise SharedCallError(str(exc)) from exc
+        if reservation_id != expected_id:
+            raise SharedCallError("manual reservation identity is not derived from approval")
+        if not all(isinstance(value, str) and value for value in
+                   (reservation_id, owner, provider, credential_ref, group_id, unknown_reservation_id)):
+            raise SharedCallError("manual reservation identity is incomplete")
+
+        def apply():
+            existing = self.reservation(reservation_id)
+            if existing:
+                if existing["owner"] != owner or existing["group_id"] != group_id:
+                    raise SharedCallError("manual reservation identity was reused")
+                return existing
+            old = self.reservation(unknown_reservation_id)
+            if not old or old["group_id"] != group_id or old["state"] != "UNKNOWN":
+                raise SharedCallError("operator approval has no matching UNKNOWN reservation")
+            account = self.account(provider, credential_ref, group_id)
+            if account["state"] != "UNKNOWN":
+                raise SharedCallError("operator approval cannot change the account state")
+            other = self.db.execute(
+                "SELECT reservation_id FROM reservations WHERE group_id=? "
+                "AND state IN ('RESERVED','STARTED','UNKNOWN') AND reservation_id<>?",
+                (group_id, unknown_reservation_id)).fetchone()
+            if other:
+                raise CapacityUnavailable("another reservation is active", reason_code="reservation_active",
+                                          recovery_state="ACTIVE_RESERVATION")
+            occupied = self.db.execute(
+                "SELECT count(*) FROM reservations WHERE state IN ('RESERVED','STARTED','UNKNOWN')").fetchone()[0]
+            if occupied >= 2:
+                raise CapacityUnavailable("all host slots are reserved")
+            self.db.execute("INSERT INTO reservations(reservation_id,owner,group_id,state,created_at) "
+                            "VALUES (?,?,?,?,?)",
+                            (reservation_id, owner, group_id, "RESERVED", self.clock()))
+            return self.reservation(reservation_id)
+
+        try:
+            return self._transaction(apply)
+        except sqlite3.Error as exc:
+            raise SharedCallError("manual reservation failed closed") from exc
+
     def reserve_host(self, reservation_id, owner):
         """Reserve one global slot for a local check without an account call."""
         def apply():
@@ -282,6 +339,29 @@ class SharedCallLedger:
             if row['group_id'] != '@host-only':
                 self.db.execute("UPDATE accounts SET state='UNKNOWN',reason=? WHERE group_id=?",
                                 (reason, row["group_id"]))
+        self._transaction(apply)
+
+    def uncertain_timeout(self, reservation_id, owner, evidence):
+        """Atomically retain timeout evidence while protecting UNKNOWN.
+
+        No usage, cost, settlement event, or quota reset is written here.
+        """
+        try:
+            validate_timeout_evidence(evidence)
+        except (TypeError, ValueError) as exc:
+            raise SharedCallError(str(exc)) from exc
+
+        def apply():
+            row = self.reservation(reservation_id)
+            if not row or row["owner"] != owner or row["state"] == "SETTLED":
+                raise SharedCallError("unknown timeout cannot be recorded")
+            encoded = json.dumps({"category": "unknown_timeout", "timeout": dict(evidence)},
+                                 sort_keys=True, ensure_ascii=False)
+            self.db.execute("UPDATE reservations SET state='UNKNOWN',result=? WHERE reservation_id=?",
+                            (encoded, reservation_id))
+            if row["group_id"] != "@host-only":
+                self.db.execute("UPDATE accounts SET state='UNKNOWN',reason='timeout' WHERE group_id=?",
+                                (row["group_id"],))
         self._transaction(apply)
 
     def settle(self, reservation_id, owner, event_id, result, *, terminated, expected_accounts=None):

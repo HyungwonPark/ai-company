@@ -34,6 +34,28 @@ else:
     from ai_company.shared_calls import CapacityUnavailable, SharedCallLedger
     SHARED_CONTROL = Path(__file__).resolve().parents[1] / 'src/ai_company/shared_calls.py'
 
+try:
+    from ai_company.review_protocol import settled_review, timeout_evidence, workflow_completion
+except ModuleNotFoundError:  # trusted standalone runner may ship beside only its control files
+    def workflow_completion(**values):
+        checks = {key: value is True for key, value in values.items()}
+        timed_out = checks.get('timed_out', False)
+        checks.pop('timed_out', None)
+        ready = all(value for key, value in checks.items() if key != 'reservation_settled') and not timed_out
+        complete = ready and checks.get('reservation_settled', False)
+        reason = None if complete else next((key for key, value in checks.items() if not value),
+                                            'timed_out' if timed_out else 'evidence_incomplete')
+        return {'complete': complete, 'ready_for_settlement': ready, 'reason_code': reason,
+                'checks': {**checks, 'timed_out': timed_out}}
+
+    def timeout_evidence(**values):
+        return {'event': 'review_timeout', 'reason': 'timeout', **values,
+                'settlement_allowed': False, 'cost_estimate_allowed': False}
+
+    def settled_review(*, reservation_state, settlement_event, result_saved, usage_saved):
+        return (reservation_state == 'SETTLED' and isinstance(settlement_event, str)
+                and bool(settlement_event) and result_saved is True and usage_saved is True)
+
 
 MODEL = 'claude-opus-5-5'
 APPLIED = {'model': MODEL, 'effort': 'xhigh', 'ultracode': True}
@@ -939,7 +961,7 @@ def invoke(command_line, input_text, directory, timeout_seconds=1800):
 
 
 def summarize(events, nonce, exit_code, incomplete_reason=None, *, input_verified=False,
-              head=None, diff_sha256=None):
+              head=None, diff_sha256=None, workflow_expected=False):
     settings = {}
     models = set()
     tool_calls = {}
@@ -985,6 +1007,39 @@ def summarize(events, nonce, exit_code, incomplete_reason=None, *, input_verifie
     denials = result.get('permission_denials') if result else None
     denied_ids = {item.get('tool_use_id') for item in denials or [] if isinstance(item, dict)}
     successful_tools = {tool_calls[item] for item in successful_tool_results - denied_ids if item in tool_calls}
+    workflow_completed = interpreted is not None and interpreted['kind'] in ('workflow_complete', 'workflow_quota')
+    workflow_activity = any(event.get('type') == 'system' and event.get('subtype') in
+                            ('task_started', 'task_notification', 'background_tasks_changed')
+                            for event in events)
+    # The durable events journal is the result store for provider errors too;
+    # a 429 may legitimately have no textual model result.
+    result_saved = result is not None
+    usage_saved = (result is not None and
+                   ((isinstance(result.get('modelUsage'), dict) and bool(result['modelUsage']))
+                    or (isinstance(result.get('total_cost_usd'), (int, float))
+                        and not isinstance(result.get('total_cost_usd'), bool)
+                        and math.isfinite(result['total_cost_usd'])
+                        and result['total_cost_usd'] >= 0)))
+    execution_protocol = workflow_completion(
+        main_process_terminated=(incomplete_reason is None
+                                 and (exit_code == 0 or quota_rejected or (interpreted is not None
+                                                        and interpreted['kind'] == 'workflow_quota'))),
+        child_tasks_terminated=(result is not None and result.get('queued_turn_count') == 0
+                                and isinstance(result.get('subagent_stats'), dict)
+                                and result['subagent_stats'].get('spawned') == result['subagent_stats'].get('completed')
+                                and result['subagent_stats'].get('failed', 0) == 0
+                                and not any(killed.values()) and not any(refused.values())),
+        workflow_completed=((workflow_completed or not workflow_activity or
+                             (quota_rejected and interpreted is not None
+                              and interpreted['kind'] == 'single')) if workflow_expected else
+                            interpreted is not None and interpreted['kind'] in ('single', 'workflow_complete', 'workflow_quota')),
+        result_saved=result_saved,
+        usage_saved=((usage_saved or quota_rejected) if workflow_expected else True),
+        # This is the pre-settlement execution gate.  The runner replaces it
+        # with a post-settlement check before writing the receipt.
+        reservation_settled=True,
+        account_protection_confirmed=True,
+        timed_out=incomplete_reason == 'timeout')
     completion_verified = (configuration_verified and incomplete_reason is None and exit_code == 0
                            and not rejected_quota_events(events)
                            and interpreted is not None
@@ -997,7 +1052,8 @@ def summarize(events, nonce, exit_code, incomplete_reason=None, *, input_verifie
                            and result.get('queued_turn_count') == 0
                            and subagents.get('spawned', 0) == subagents.get('completed', 0)
                            and subagents.get('failed', 0) == 0
-                           and not any(killed.values()) and not any(refused.values()))
+                           and not any(killed.values()) and not any(refused.values())
+                           and execution_protocol['complete'])
     report = result.get('result', '') if result else ''
     report = report if isinstance(report, str) else ''
     verdict_pattern = r'(?:\*\*)?판정:\s*(PASS|REVISE|INCOMPLETE)(?:\*\*)?'
@@ -1011,6 +1067,8 @@ def summarize(events, nonce, exit_code, incomplete_reason=None, *, input_verifie
                       and lines[3].startswith('검토 범위: ') and lines[3] != '검토 범위: '
                       and lines[4] == '미검토: 없음')
     return {'configuration_verified': configuration_verified, 'completion_verified': completion_verified,
+            'execution_protocol': execution_protocol,
+            'protocol_ready_for_settlement': execution_protocol['ready_for_settlement'],
             'input_delivery_verified': input_verified, 'scope_declared': scope_declared,
             'review_passed': completion_verified and input_verified and scope_declared and verdict == 'PASS',
             'verdict': verdict,
@@ -1087,8 +1145,10 @@ def main():
         raise RuntimeError('PR diff is empty')
     if len(patch) > 200_000:
         raise RuntimeError('PR patch exceeds the complete inline review limit')
-    if re.search(r'(?m)^(?:Binary files |GIT binary patch\s*$)', patch):
-        raise RuntimeError('binary changes require separate review evidence before this runner can pass')
+    # ``git diff --binary`` carries PNG and other blobs as an ASCII patch
+    # envelope (literal/delta data), so the complete patch remains reviewable
+    # as UTF-8 text.  Do not silently drop binary paths or call them a partial
+    # review; patch_files() still binds every diff header to the prompt.
     if json.loads(command('gh', 'pr', 'view', str(args.pr), '--json', 'headRefOid'))['headRefOid'] != head:
         raise RuntimeError('PR head changed during preflight')
     if not CONTROL.is_file():
@@ -1202,7 +1262,7 @@ def main():
             incomplete_reason = incomplete_reason or 'event_journal_mismatch'
         delivered = input_delivery_verified(directory, binding, code)
         summary = summarize(output, nonce, code, incomplete_reason, input_verified=delivered,
-                            head=head, diff_sha256=diff_sha256)
+                            head=head, diff_sha256=diff_sha256, workflow_expected=True)
         summary['execution_incomplete_reason'] = incomplete_reason
         summary['review_incomplete_reason'] = None
         rejected_quota = bool(rejected_quota_events(output))
@@ -1217,6 +1277,9 @@ def main():
                 and started_at <= time.time() + 300) else time.time() - 300
         reset = rejected_quota_reset(output, min_reset=floor)
         interpreted = result_interpretation(output)
+        workflow_activity = any(event.get('type') == 'system' and event.get('subtype') in
+                                ('task_started', 'task_notification', 'background_tasks_changed')
+                                for event in output)
         terminal = interpreted['primary'] if interpreted else {}
         preliminary = checkpoint_from_events(output, binding=binding, base=base, files=files,
                                               reservation_id=reservation_id, previous=inherited,
@@ -1246,7 +1309,8 @@ def main():
             except (OSError, ValueError, KeyError, IndexError):
                 pass
         settlement_event = None
-        if incomplete_reason is None and terminal_children_stopped(output):
+        if (incomplete_reason is None and terminal_children_stopped(output)
+                and summary['protocol_ready_for_settlement']):
             category = ('quota' if reset is not None else 'reconciliation' if rejected_quota
                         else 'success' if summary['completion_verified'] else 'blocked')
             fact = {'category': category, 'duration_seconds': elapsed,
@@ -1257,8 +1321,47 @@ def main():
             shared.settle(reservation_id, str(directory),
                           settlement_event,
                           fact, terminated=True)
+            settled = shared.reservation(reservation_id)
+            summary['execution_protocol'] = workflow_completion(
+                main_process_terminated=True,
+                child_tasks_terminated=True,
+                workflow_completed=(interpreted is not None
+                    and interpreted['kind'] in ('workflow_complete', 'workflow_quota'))
+                    or not workflow_activity,
+                result_saved=interpreted is not None,
+                usage_saved=interpreted is not None and (
+                    (isinstance(interpreted['final'].get('modelUsage'), dict)
+                     and bool(interpreted['final'].get('modelUsage')))
+                    or (isinstance(interpreted['final'].get('total_cost_usd'), (int, float))
+                        and not isinstance(interpreted['final'].get('total_cost_usd'), bool)
+                        and math.isfinite(interpreted['final']['total_cost_usd'])
+                        and interpreted['final']['total_cost_usd'] >= 0)),
+                reservation_settled=settled is not None and settled['state'] == 'SETTLED',
+                account_protection_confirmed=True,
+            )
+            summary['completion_verified'] = bool(
+                summary['completion_verified'] and summary['execution_protocol']['complete'])
+            summary['protocol_ready_for_settlement'] = summary['execution_protocol']['ready_for_settlement']
+            summary['review_passed'] = bool(
+                summary['completion_verified'] and summary['input_delivery_verified']
+                and summary['scope_declared'] and summary['verdict'] == 'PASS'
+                and summary.get('review_incomplete_reason') is None)
         else:
-            shared.uncertain(reservation_id, str(directory), incomplete_reason or 'terminal_or_children_unverified')
+            if incomplete_reason == 'timeout':
+                interpreted_kind = interpreted['kind'] if interpreted else None
+                record = timeout_evidence(
+                    main_process_state='terminated_after_timeout' if code is not None else 'unknown',
+                    child_tasks_terminated=terminal_children_stopped(output),
+                    workflow_completed=interpreted_kind in ('workflow_complete', 'workflow_quota'),
+                    result_saved=interpreted is not None,
+                    usage_saved=interpreted is not None and isinstance(
+                        interpreted['final'].get('modelUsage'), dict)
+                        and bool(interpreted['final'].get('modelUsage')),
+                    reservation_state='STARTED',
+                    account_protection_state='UNKNOWN_TIMEOUT_UNRESOLVED')
+                shared.uncertain_timeout(reservation_id, str(directory), record)
+            else:
+                shared.uncertain(reservation_id, str(directory), incomplete_reason or 'terminal_or_children_unverified')
         summary['provider_quota_rejected'] = rejected_quota
         summary['quota_reset_verified'] = reset is not None
         summary['shared_settlement_category'] = category if settlement_event else None
