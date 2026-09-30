@@ -13,14 +13,17 @@ import sqlite3
 import time
 from uuid import uuid4
 
+from ai_company.timeout_unknown import classify_unknown_recovery
+
 
 class SharedCallError(RuntimeError):
     pass
 
 
 class CapacityUnavailable(SharedCallError):
-    def __init__(self, reason, resume_at=None):
+    def __init__(self, reason, resume_at=None, *, reason_code=None, recovery_state=None):
         self.reason, self.resume_at = reason, resume_at
+        self.reason_code, self.recovery_state = reason_code, recovery_state
         super().__init__(reason)
 
 
@@ -197,12 +200,30 @@ class SharedCallLedger:
                 if existing['state'] != 'CANCELLED':
                     return existing
             account = self.account(provider, credential_ref, group_id)
-            if account["state"] in ("UNKNOWN", "DISABLED"):
-                raise CapacityUnavailable("shared account requires reconciliation")
+            unknown = classify_unknown_recovery(account)
+            if unknown is not None:
+                raise CapacityUnavailable("shared account requires reconciliation",
+                                          reason_code=unknown.reason_code,
+                                          recovery_state=unknown.state)
+            if account["state"] == "DISABLED":
+                raise CapacityUnavailable("shared account requires reconciliation",
+                                          reason_code="account_disabled",
+                                          recovery_state="ACCOUNT_DISABLED")
             if account["state"] == "COOLDOWN" and (account["resume_at"] is None or account["resume_at"] > self.clock()):
-                raise CapacityUnavailable("shared account is cooling down", account["resume_at"])
-            if self.db.execute("SELECT 1 FROM reservations WHERE group_id=? AND state IN ('RESERVED','STARTED','UNKNOWN')", (group_id,)).fetchone():
-                raise CapacityUnavailable("shared account is reserved")
+                raise CapacityUnavailable("shared account is cooling down", account["resume_at"],
+                                          reason_code="quota_cooldown", recovery_state="COOLDOWN")
+            unresolved = self.db.execute(
+                "SELECT state FROM reservations WHERE group_id=? AND state IN ('RESERVED','STARTED','UNKNOWN')",
+                (group_id,)).fetchone()
+            if unresolved:
+                decision = classify_unknown_recovery(account, {"state": unresolved[0]})
+                if decision is not None:
+                    raise CapacityUnavailable("shared account is reserved",
+                                              reason_code=decision.reason_code,
+                                              recovery_state=decision.state)
+                raise CapacityUnavailable("shared account is reserved",
+                                          reason_code="reservation_active",
+                                          recovery_state="ACTIVE_RESERVATION")
             occupied = self.db.execute("SELECT count(*) FROM reservations WHERE state IN ('RESERVED','STARTED','UNKNOWN')").fetchone()[0]
             if occupied >= 2:
                 raise CapacityUnavailable("all host slots are reserved")

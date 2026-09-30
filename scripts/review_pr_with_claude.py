@@ -108,6 +108,16 @@ def replace_private(path, value):
         os.close(parent)
 
 
+def capacity_fact(exc):
+    """Serialize a pre-reservation denial without treating it as model usage."""
+    return {
+        'state': 'closed',
+        'reason': exc.reason,
+        'reason_code': exc.reason_code,
+        'recovery_state': exc.recovery_state,
+    }
+
+
 def patch_files(patch):
     # Git's quoted names and renames require a dedicated parser; fail closed.
     names = []
@@ -1152,7 +1162,7 @@ def main():
         try:
             shared.reserve(reservation_id, str(directory), 'claude', args.credential_ref, args.quota_group)
         except CapacityUnavailable as exc:
-            write_private(directory / 'facts.jsonl', json.dumps({'state': 'closed', 'reason': exc.reason}) + '\n')
+            write_private(directory / 'facts.jsonl', json.dumps(capacity_fact(exc), ensure_ascii=False) + '\n')
             if args.resume_quota:
                 # The old settled quota attempt is already archived. Keep the
                 # preflight denial but free the canonical path for a later tick.

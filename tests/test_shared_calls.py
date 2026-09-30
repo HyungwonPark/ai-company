@@ -10,6 +10,12 @@ from unittest.mock import patch
 from ai_company.shared_calls import CapacityUnavailable, SharedCallError, SharedCallLedger
 from ai_company.dispatcher import Dispatcher
 from ai_company.runtime import ExecutionBlocked
+from ai_company.timeout_unknown import (
+    ABANDONED_UNKNOWN,
+    UNKNOWN_RESERVATION_UNRESOLVED,
+    UNKNOWN_TIMEOUT_UNRESOLVED,
+    classify_unknown_recovery,
+)
 
 
 class SharedCallTests(unittest.TestCase):
@@ -104,6 +110,36 @@ class SharedCallTests(unittest.TestCase):
         with self.assertRaisesRegex(SharedCallError, 'state is invalid'):
             ledger.reserve('corrupt', 'queue-a', 'codex', 'primary', 'account-a')
         self.assertIsNone(ledger.reservation('corrupt'))
+
+    def test_timeout_unknown_is_explicit_and_remains_fail_closed(self):
+        ledger = self.open()
+        ledger.db.execute("UPDATE accounts SET state='UNKNOWN',reason='timeout' WHERE group_id='account-a'")
+        with self.assertRaises(CapacityUnavailable) as raised:
+            ledger.reserve('after-timeout', 'queue-b', 'codex', 'primary', 'account-a')
+        self.assertEqual(raised.exception.reason_code, 'account_unknown_timeout')
+        self.assertEqual(raised.exception.recovery_state, UNKNOWN_TIMEOUT_UNRESOLVED)
+        self.assertIsNone(ledger.reservation('after-timeout'))
+        self.assertEqual(ledger.account('codex', 'primary', 'account-a')['state'], 'UNKNOWN')
+
+    def test_unknown_reservation_has_its_own_reason_without_reusing_quota_release(self):
+        ledger = self.open()
+        ledger.db.execute("INSERT INTO reservations(reservation_id,owner,group_id,state,created_at) "
+                          "VALUES ('old-unknown','queue-a','account-a','UNKNOWN',100)")
+        with self.assertRaises(CapacityUnavailable) as raised:
+            ledger.reserve('new-call', 'queue-b', 'codex', 'primary', 'account-a')
+        self.assertEqual(raised.exception.reason_code, 'reservation_unknown')
+        self.assertEqual(raised.exception.recovery_state, UNKNOWN_RESERVATION_UNRESOLVED)
+        self.assertIsNone(ledger.reservation('new-call'))
+        self.assertEqual(ledger.account('codex', 'primary', 'account-a')['state'], 'AVAILABLE')
+
+    def test_timeout_policy_states_never_admit_new_calls(self):
+        timeout = classify_unknown_recovery({'state': 'UNKNOWN', 'reason': 'timeout'})
+        abandoned = classify_unknown_recovery({'state': 'AVAILABLE'}, operator_abandoned=True)
+        self.assertEqual(timeout.state, UNKNOWN_TIMEOUT_UNRESOLVED)
+        self.assertEqual(timeout.reason_code, 'account_unknown_timeout')
+        self.assertFalse(timeout.allows_new_calls)
+        self.assertEqual(abandoned.state, ABANDONED_UNKNOWN)
+        self.assertFalse(abandoned.allows_new_calls)
 
     def test_unstarted_cancellation_requires_proof_and_never_clears_started(self):
         ledger = self.open()

@@ -23,6 +23,17 @@ PASS_REPORT = (f'판정: PASS\n대상 HEAD: {HEAD}\n패치 SHA-256: {DIFF_SHA}\n
 
 
 class ClaudePRReviewTests(unittest.TestCase):
+    def test_pre_reservation_fact_keeps_timeout_reason_code_without_usage(self):
+        error = CapacityUnavailable('shared account requires reconciliation',
+                                     reason_code='account_unknown_timeout',
+                                     recovery_state='UNKNOWN_TIMEOUT_UNRESOLVED')
+        self.assertEqual(REVIEW.capacity_fact(error), {
+            'state': 'closed',
+            'reason': 'shared account requires reconciliation',
+            'reason_code': 'account_unknown_timeout',
+            'recovery_state': 'UNKNOWN_TIMEOUT_UNRESOLVED',
+        })
+
     def test_timeout_and_scope_failure_remain_distinct_in_saved_receipt(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
