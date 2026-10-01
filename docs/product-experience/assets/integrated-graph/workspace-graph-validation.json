@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "source": "temporary SQLite + actual ManagementHTTPServer; fixture model facts",
+  "checks": [
+    "Light/Black × 320/390/1440; Korean render; graph visible, no page overflow, 44px controls",
+    "5-second actual API refresh preserves selection, focus, position, zoom; past run switch does not overwrite current view",
+    "graph/list identical artifact; keyboard edge activation; planned vs recorded; exact-run approval; global navigation clears filter",
+    "project isolation, selected run restoration, offline read preservation, reconnect",
+    "mobile details preserve scroll and expanded evidence through real 5-second refresh; focus enters detail and Escape returns to selected node",
+    "mobile drag and normal page scroll; reduced motion; 200% equivalent viewport reflow; dialogue and approval composition"
+  ],
+  "write_paths": [
+    "/api/login",
+    "/api/password"
+  ]
+}

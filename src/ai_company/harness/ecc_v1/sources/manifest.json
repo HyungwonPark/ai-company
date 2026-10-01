@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "harness_id": "ai-company.ecc",
+  "version": "1",
+  "source_repository": "https://github.com/affaan-m/ECC",
+  "source_commit": "8321021c54d670126ce3b2969d5deb880b4b0c2a",
+  "selected_sources": [
+    {
+      "path": "agents/planner.md",
+      "url": "https://github.com/affaan-m/ECC/blob/8321021c54d670126ce3b2969d5deb880b4b0c2a/agents/planner.md",
+      "sha256": "63aba865206bac9cb5887542fb01b97656e7701faff98e091aa77057ba9860bc"
+    },
+    {
+      "path": "skills/search-first/SKILL.md",
+      "url": "https://github.com/affaan-m/ECC/blob/8321021c54d670126ce3b2969d5deb880b4b0c2a/skills/search-first/SKILL.md",
+      "sha256": "d66d744228b9cf860acf35f8a90cbbe8195e61367860da9d3632f9fc65706733"
+    },
+    {
+      "path": "skills/verification-loop/SKILL.md",
+      "url": "https://github.com/affaan-m/ECC/blob/8321021c54d670126ce3b2969d5deb880b4b0c2a/skills/verification-loop/SKILL.md",
+      "sha256": "f0d56107f79e607d4de6c5543b8edfb1b58ab9ae4019b39831689cd91116543e"
+    },
+    {
+      "path": "agents/code-reviewer.md",
+      "url": "https://github.com/affaan-m/ECC/blob/8321021c54d670126ce3b2969d5deb880b4b0c2a/agents/code-reviewer.md",
+      "sha256": "9dd23be23d65f18126e10f7680fc1eb2576ec54a427d076ff2f870bd0bafd5d2"
+    },
+    {
+      "path": "commands/checkpoint.md",
+      "url": "https://github.com/affaan-m/ECC/blob/8321021c54d670126ce3b2969d5deb880b4b0c2a/commands/checkpoint.md",
+      "sha256": "92926e49d18f18d52244f14d5f0962e69b2fc9c65dcf3b5775b1649a2aa494be"
+    },
+    {
+      "path": "skills/strategic-compact/SKILL.md",
+      "url": "https://github.com/affaan-m/ECC/blob/8321021c54d670126ce3b2969d5deb880b4b0c2a/skills/strategic-compact/SKILL.md",
+      "sha256": "44a71c6dcc3fdde8061b8a78296c5d37233e4accc8cf3c794e29ac5b9f2eee28"
+    }
+  ],
+  "roles": {
+    "pm": {
+      "path": "pm.md",
+      "sha256": "380c7cf72c1d138037c4a3a1d6217aa877a0f6b34badbff0ed322fd61a947444",
+      "selected_sources": [
+        "agents/planner.md",
+        "skills/search-first/SKILL.md",
+        "commands/checkpoint.md",
+        "skills/strategic-compact/SKILL.md"
+      ]
+    },
+    "developer": {
+      "path": "developer.md",
+      "sha256": "c39134d4cabac049f986acc04db03d876549c05fb501d4140c6148a334259234",
+      "selected_sources": [
+        "skills/search-first/SKILL.md",
+        "skills/verification-loop/SKILL.md",
+        "commands/checkpoint.md",
+        "skills/strategic-compact/SKILL.md"
+      ]
+    },
+    "reviewer": {
+      "path": "reviewer.md",
+      "sha256": "0c78156e8cf1c51c59b6d9fd43ad1f5a001297f8a989b8a818f9f9280bce8104",
+      "selected_sources": [
+        "skills/verification-loop/SKILL.md",
+        "agents/code-reviewer.md",
+        "commands/checkpoint.md",
+        "skills/strategic-compact/SKILL.md"
+      ]
+    },
+    "final": {
+      "path": "final.md",
+      "sha256": "2c82702a9283b3223234dd5bd11117442c1ffb5448959ca0b82dbf7a1a56c955",
+      "selected_sources": [
+        "skills/verification-loop/SKILL.md",
+        "agents/code-reviewer.md",
+        "commands/checkpoint.md",
+        "skills/strategic-compact/SKILL.md"
+      ]
+    }
+  },
+  "license": {
+    "spdx": "MIT",
+    "path": "sources/LICENSE",
+    "source_url": "https://github.com/affaan-m/ECC/blob/8321021c54d670126ce3b2969d5deb880b4b0c2a/LICENSE",
+    "sha256": "326146379f01bb137c0a5d3c54770c1aa31076705c8b88a7f6b26a460f6221b2"
+  },
+  "adaptation_notes": [
+    "선정한 문서의 작업 방법만 프로젝트 전용 한국어 역할 지침으로 재작성했다. 원문 전체를 설치하지 않는다.",
+    "원래 task·policy·모델 후보·예산·승인·최종 검수 계약을 최우선으로 유지한다. 원본 모델 기본값·병렬 수·승인 및 샌드박스 설정을 가져오지 않았다.",
+    "범용 npm/pyright 명령, 커버리지·확신 수치, 임의 합격 기준, 자동 commit/stash, 전역 hook/MCP/학습·재시도 엔진을 제외했다.",
+    "계획·실제 실행·모의 검사·저장 결과 재검사를 구별하며 동일 후보의 검사와 독립 검수 근거를 연결한다.",
+    "역할별 실제 전달 시각·버전·content_hash는 실행기가 별도 기록한다. 파일 존재나 본 manifest는 전달 성공 또는 모델의 지침 준수 증거가 아니다.",
+    "업스트림 MIT 본문을 sources/LICENSE에 원문 그대로 보존했다. 문서 해시는 각 역할 파일의 UTF-8 바이트에 대한 SHA-256이다."
+  ]
+}

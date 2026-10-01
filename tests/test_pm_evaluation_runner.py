@@ -1,0 +1,1154 @@
+import importlib.util
+import contextlib
+import io
+import json
+from pathlib import Path
+import tempfile
+import time
+import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
+
+from ai_company.shared_calls import SharedCallError, SharedCallLedger
+from ai_company.contracts import digest
+
+
+PATH = Path(__file__).resolve().parents[1] / 'scripts/evaluate_pm_behavior.py'
+SPEC = importlib.util.spec_from_file_location('evaluate_pm_behavior', PATH)
+EVALUATION = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(EVALUATION)
+CASES = Path(__file__).resolve().parents[1] / 'docs/work-reviews/pm-behavior-cases-2026-09-26.json'
+
+
+def fixture_budget(_root, _case, config, _shared):
+    if not hasattr(config.policy, 'max_runtime_seconds'):
+        config.policy.max_runtime_seconds = 1800
+    return config, {'effective_configuration_sha256': 'fixture', 'caps': {
+        'max_executions': 24, 'max_runtime_seconds': 1800, 'max_repairs': 2}}
+
+
+class PMEValRunnerTests(unittest.TestCase):
+    def test_technical_revision_reaches_second_review_in_real_automation(self):
+        from tests import test_automation as fixture
+
+        harness = fixture.CoordinatorTests()
+        harness.setUp()
+        self.addCleanup(harness.doCleanups)
+        original = harness.execute
+        reviews = {'count': 0}
+
+        def revise_once(agent, state, provider, worktree, prompt, session_id, **kwargs):
+            outcome = original(agent, state, provider, worktree, prompt, session_id, **kwargs)
+            scope = state['specification']['execution_scope']
+            report = outcome.result['structured_output']
+            if scope == 'plan_review':
+                reviews['count'] += 1
+                if reviews['count'] == 1:
+                    report.update(verdict='REVISE', revision_route='technical', findings=[{
+                        'finding_id': 'F-VERIFY', 'detail': '검증 방법을 구체화하세요.',
+                        'evidence': 'requirements_review.requirements[0].verification'}])
+            elif scope == 'planning' and state['specification']['plan'].get('source_plan_id'):
+                report['plan']['requirements_review']['requirements'][0]['verification'] = '빈 값과 모든 분류를 검사합니다.'
+            return outcome
+
+        harness.execute = revise_once
+        root = harness.root / 'evaluation'
+        root.mkdir()
+        (root / 'cases.json').write_text(json.dumps({'common_project_goal': '두 결과를 검증합니다.'}))
+        def factory(case_root, _config, **_kwargs):
+            from ai_company.automation import Automation
+            from ai_company.dispatcher import Dispatcher
+            return Automation(case_root, harness.config, clock=lambda: harness.now,
+                dispatcher_factory=lambda path, **kwargs: Dispatcher(path, verifier=harness,
+                    executor=harness.execute, **kwargs))
+
+        with patch.object(EVALUATION, 'Automation', side_effect=factory), \
+             patch.object(EVALUATION, 'case_config', return_value=harness.config), \
+             patch.object(EVALUATION, 'global_usage', return_value=(0, 0)), \
+             patch.object(EVALUATION, 'execution_usage', return_value=(0, 0)), \
+             patch.object(EVALUATION.time, 'sleep'):
+            result = EVALUATION.run_case(root, {'id': 'E4', 'initial_message': '계획을 검토합니다.',
+                'injected_review_material': []}, harness.config, root / 'unused.db', float('inf'))
+        self.assertEqual(result['state'], 'plan_ready')
+        self.assertEqual(result['plan_states'], ['superseded', 'proposed'])
+        self.assertEqual(reviews['count'], 2)
+        self.assertEqual(result['development_runs'], 0)
+
+    def test_second_repair_quota_resumes_same_job_in_real_automation(self):
+        from ai_company.adapters.session_cli import SessionOutcome
+        from ai_company.automation import Automation
+        from ai_company.dispatcher import Dispatcher
+        from tests import test_automation as fixture
+
+        harness = fixture.CoordinatorTests()
+        harness.setUp()
+        self.addCleanup(harness.doCleanups)
+        root = harness.root / 'evaluation'
+        root.mkdir()
+        (root / 'cases.json').write_text(json.dumps({'common_project_goal': '두 결과를 검증합니다.'}))
+        ledger_path = harness.root / 'shared.db'
+        ledger = SharedCallLedger.initialize(ledger_path, [
+            (provider, provider, provider, 'AVAILABLE', None, None, 0, 0, 0, 0)
+            for provider in ('codex', 'claude')], clock=lambda: harness.now)
+        ledger.close()
+        original = harness.execute
+        reviews = {'count': 0}
+        second_sessions = []
+
+        def quota_on_second(agent, state, provider, worktree, prompt, session_id, **kwargs):
+            scope = state['specification']['execution_scope']
+            context = state['specification']['plan']
+            if scope == 'planning' and context.get('auto_revision_attempt') == 2:
+                second_sessions.append(session_id)
+                if len(second_sessions) == 1:
+                    return SessionOutcome('quota', session_id='fixture-second-session',
+                        reset_at=harness.now + 30,
+                        result={'duration_seconds': 1, 'total_cost_usd': 0.01})
+            outcome = original(agent, state, provider, worktree, prompt, session_id, **kwargs)
+            report = outcome.result['structured_output']
+            if scope == 'plan_review':
+                reviews['count'] += 1
+                if reviews['count'] <= 2:
+                    report.update(verdict='REVISE', revision_route='technical', findings=[{
+                        'finding_id': 'F-' + str(reviews['count']),
+                        'detail': '검증 방법을 구체화하세요.',
+                        'evidence': 'requirements_review.requirements[0].verification'}])
+            elif scope == 'planning' and context.get('source_plan_id'):
+                report['plan']['requirements_review']['requirements'][0]['verification'] = (
+                    '빈 값과 모든 분류를 독립 검사합니다. 수정 ' + str(context['auto_revision_attempt']))
+            return outcome
+
+        def factory(case_root, config, *, shared_calls):
+            return Automation(case_root, config, clock=lambda: harness.now, shared_calls=shared_calls,
+                dispatcher_factory=lambda path, **kwargs: Dispatcher(path, verifier=harness,
+                    executor=quota_on_second, **kwargs))
+
+        with patch.object(EVALUATION, 'Automation', side_effect=factory), \
+             patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget), \
+             patch.object(EVALUATION.time, 'time', side_effect=lambda: harness.now), \
+             patch.object(EVALUATION.time, 'sleep'):
+            waiting = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': '계획을 검토합니다.'},
+                                          harness.config, ledger_path)
+            self.assertEqual(waiting['state'], 'provider_wait', waiting)
+            case_root = root / 'E1'
+            worker = factory(case_root, harness.config, shared_calls=ledger_path)
+            try:
+                repairs = [task for task in worker.dispatcher.tasks()
+                           if task['task_id'].startswith('pm-revise-')]
+                self.assertEqual(len(repairs), 2)
+                second = next(task for task in repairs
+                              if task['specification']['plan']['auto_revision_attempt'] == 2)
+                job_before = worker.dispatcher.queue.get(second['active']['job_id'])
+                self.assertEqual(job_before['status'], 'WAITING_QUOTA')
+                self.assertEqual(job_before['attempt_count'], 1)
+                self.assertEqual(EVALUATION.global_usage(root, ledger_path)[1], 2)
+                # Crash after shared settlement, before the task's local usage commit.
+                interrupted = json.loads(json.dumps(second))
+                interrupted['usage']['executions'] = 0
+                interrupted['active'].update(accounted_attempts=0, session_id=None,
+                                             waiting_observed_attempts=0)
+                interrupted['status'] = 'READY'
+                with worker.dispatcher.db:
+                    worker.dispatcher.db.execute('UPDATE flow_tasks SET document=? WHERE task_id=?',
+                        (json.dumps(interrupted), second['task_id']))
+                self.assertEqual(EVALUATION.global_usage(root, ledger_path)[1], 2)
+            finally:
+                worker.close()
+            harness.now = max(waiting['resume_at'], job_before['resume_at']) + 1
+            resumed = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': '계획을 검토합니다.'},
+                                          harness.config, ledger_path)
+        self.assertEqual(resumed['state'], 'plan_ready', resumed)
+        self.assertEqual(reviews['count'], 3)
+        self.assertEqual(second_sessions, [None, 'fixture-second-session'])
+        self.assertEqual(resumed['development_runs'], 0)
+        worker = factory(root / 'E1', harness.config, shared_calls=ledger_path)
+        try:
+            tasks = [task for task in worker.dispatcher.tasks() if task['task_id'].startswith('pm-revise-')]
+            self.assertEqual(len(tasks), 2)
+            latest = next(task for task in tasks if task['task_id'] == second['task_id'])
+            job_after = worker.dispatcher.queue.get(latest['executions'][-1]['job_id'])
+            self.assertEqual(job_after['job_id'], job_before['job_id'])
+            self.assertEqual(job_after['session_id'], job_before['session_id'])
+            self.assertEqual(job_after['attempt_count'], 2)
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path)[1], 2)
+        finally:
+            worker.close()
+
+    def test_first_repair_in_next_case_resumes_as_global_second(self):
+        from ai_company.adapters.session_cli import SessionOutcome
+        from ai_company.automation import Automation
+        from ai_company.dispatcher import Dispatcher
+        from tests import test_automation as fixture
+
+        harness = fixture.CoordinatorTests()
+        harness.setUp()
+        self.addCleanup(harness.doCleanups)
+        root = harness.root / 'evaluation'
+        root.mkdir()
+        (root / 'cases.json').write_text(json.dumps({'common_project_goal': '두 결과를 검증합니다.'}))
+        ledger_path = harness.root / 'shared.db'
+        ledger = SharedCallLedger.initialize(ledger_path, [
+            (provider, provider, provider, 'AVAILABLE', None, None, 0, 0, 0, 0)
+            for provider in ('codex', 'claude')], clock=lambda: harness.now)
+        ledger.close()
+        original = harness.execute
+        reviews = {'E1': 0, 'E2': 0}
+        e2_sessions = []
+
+        def quota_on_e2_first_repair(agent, state, provider, worktree, prompt, session_id, **kwargs):
+            case_id = Path(worktree).relative_to(root).parts[0]
+            scope = state['specification']['execution_scope']
+            context = state['specification']['plan']
+            if case_id == 'E2' and scope == 'planning' and context.get('auto_revision_attempt') == 1:
+                e2_sessions.append(session_id)
+                if len(e2_sessions) == 1:
+                    return SessionOutcome('quota', session_id='fixture-e2-session',
+                        reset_at=harness.now + 30,
+                        result={'duration_seconds': 1, 'total_cost_usd': 0.01})
+            outcome = original(agent, state, provider, worktree, prompt, session_id, **kwargs)
+            report = outcome.result['structured_output']
+            if scope == 'plan_review':
+                reviews[case_id] += 1
+                if reviews[case_id] == 1:
+                    report.update(verdict='REVISE', revision_route='technical', findings=[{
+                        'finding_id': 'F-' + case_id, 'detail': '검증 방법을 구체화하세요.',
+                        'evidence': 'requirements_review.requirements[0].verification'}])
+            elif scope == 'planning' and context.get('source_plan_id'):
+                report['plan']['requirements_review']['requirements'][0]['verification'] = (
+                    '빈 값과 모든 분류를 독립 검사합니다.')
+            return outcome
+
+        def factory(case_root, config, *, shared_calls):
+            return Automation(case_root, config, clock=lambda: harness.now, shared_calls=shared_calls,
+                dispatcher_factory=lambda path, **kwargs: Dispatcher(path, verifier=harness,
+                    executor=quota_on_e2_first_repair, **kwargs))
+
+        e1 = {'id': 'E1', 'initial_message': '첫 번째 계획을 검토합니다.'}
+        e2 = {'id': 'E2', 'initial_message': '두 번째 계획을 검토합니다.',
+              'followup_message': '추가 결정은 없습니다.'}
+        with patch.object(EVALUATION, 'Automation', side_effect=factory), \
+             patch.object(EVALUATION.time, 'time', side_effect=lambda: harness.now), \
+             patch.object(EVALUATION.time, 'sleep'):
+            first = EVALUATION.run_case(root, e1, harness.config, ledger_path)
+            self.assertEqual(first['state'], 'plan_ready', first)
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path)[1], 1)
+            waiting = EVALUATION.run_case(root, e2, harness.config, ledger_path)
+            self.assertEqual(waiting['state'], 'provider_wait', waiting)
+            self.assertEqual(waiting['case_budget']['max_repairs'], 1)
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path)[1], 2)
+            worker = factory(root / 'E2', harness.config, shared_calls=ledger_path)
+            try:
+                repairs = [task for task in worker.dispatcher.tasks()
+                           if task['task_id'].startswith('pm-revise-')]
+                self.assertEqual(len(repairs), 1)
+                second = repairs[0]
+                self.assertEqual(second['specification']['plan']['auto_revision_attempt'], 1)
+                job_before = worker.dispatcher.queue.get(second['active']['job_id'])
+                self.assertEqual(job_before['status'], 'WAITING_QUOTA')
+                self.assertEqual(job_before['attempt_count'], 1)
+            finally:
+                worker.close()
+            harness.now = max(waiting['resume_at'], job_before['resume_at']) + 1
+            resumed = EVALUATION.run_case(root, e2, harness.config, ledger_path)
+        self.assertEqual(resumed['state'], 'plan_ready', resumed)
+        self.assertEqual(reviews, {'E1': 2, 'E2': 2})
+        self.assertEqual(e2_sessions, [None, 'fixture-e2-session'])
+        self.assertEqual(resumed['development_runs'], 0)
+        worker = factory(root / 'E2', harness.config, shared_calls=ledger_path)
+        try:
+            latest = next(task for task in worker.dispatcher.tasks()
+                          if task['task_id'] == second['task_id'])
+            job_after = worker.dispatcher.queue.get(latest['executions'][-1]['job_id'])
+            self.assertEqual(job_after['job_id'], job_before['job_id'])
+            self.assertEqual(job_after['session_id'], job_before['session_id'])
+            self.assertEqual(job_after['attempt_count'], 2)
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path)[1], 2)
+        finally:
+            worker.close()
+
+        store = Mock()
+        store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E2'}]
+        store.overview.return_value = {'pm_requests': [{'request_id': 'new-request', 'state': 'completed'}],
+            'plans': [{'id': 'new-plan', 'request_id': 'new-request', 'status': 'needs_revision',
+                       'revision_action': 'automatic', 'auto_revision_attempt': 0}], 'runs': []}
+        blocked_worker = Mock(store=store)
+        blocked_worker.dispatcher.tasks.return_value = []
+        with patch.object(EVALUATION, 'Automation', return_value=blocked_worker):
+            third = EVALUATION.run_case(root, e2, harness.config, ledger_path)
+        self.assertEqual(third['state'], 'budget_wait')
+        blocked_worker.run_once.assert_not_called()
+
+    def test_idle_quota_wait_does_not_consume_runtime_budget(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'cases.json').write_text(json.dumps({'common_project_goal': 'fixture'}))
+            store = Mock()
+            store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E1'}]
+            store.overview.side_effect = [
+                {'pm_requests': [{'request_id': 'request', 'state': 'pending'}], 'plans': [], 'runs': []},
+                {'pm_requests': [{'request_id': 'request', 'state': 'completed'}],
+                 'plans': [{'request_id': 'request', 'status': 'proposed'}], 'runs': []}]
+            worker = Mock(store=store)
+            worker.dispatcher.tasks.return_value = []
+            config = SimpleNamespace(policy=SimpleNamespace(retry=SimpleNamespace(execution_timeout_seconds=30)),
+                                     poll_seconds=1)
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget), \
+                 patch.object(EVALUATION, 'global_usage', return_value=(0, 0)), \
+                 patch.object(EVALUATION, 'execution_usage', return_value=(0, 0)), \
+                 patch.object(EVALUATION.time, 'sleep'):
+                result = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'}, config,
+                                             root / 'unused.db', time.time() - 7200)
+            self.assertEqual(result['state'], 'plan_ready')
+            worker.run_once.assert_called_once()
+
+    def test_only_current_plan_controls_revision_and_decision_state(self):
+        request = {'request_id': 'new', 'state': 'completed'}
+        old = {'request_id': 'old', 'status': 'needs_revision', 'revision_action': 'automatic'}
+        def progress(plan):
+            return EVALUATION.case_progress({'pm_requests': [request], 'plans': [old, plan]})
+        self.assertEqual(progress({'request_id': 'new', 'status': 'proposed'}), 'plan_ready')
+        self.assertEqual(progress({'request_id': 'new', 'status': 'needs_revision',
+                                   'revision_action': 'automatic'}), 'running')
+        self.assertEqual(progress({'request_id': 'new', 'status': 'needs_revision',
+                                   'revision_action': 'master_decision'}), 'master_decision_wait')
+        self.assertEqual(progress({'request_id': 'new', 'status': 'needs_revision',
+                                   'revision_action': 'limit_reached'}), 'revision_limit')
+        self.assertEqual(EVALUATION.case_progress({'pm_requests': [{'request_id': 'new',
+            'state': 'answer_needed'}], 'plans': [old]}), 'answer_needed')
+        self.assertEqual(EVALUATION.case_progress({'pm_requests': [{'request_id': 'new',
+            'state': 'blocked'}], 'plans': [old]}), 'environment_problem')
+
+    def test_scheduled_wait_is_reported_and_expired_wait_can_continue(self):
+        overview = {'pm_requests': [{'request_id': 'request', 'state': 'completed'}],
+                    'plans': [{'request_id': 'request', 'status': 'reviewing',
+                               'digest': 'a' * 64}], 'runs': []}
+        worker = Mock()
+        worker.dispatcher.tasks.return_value = [{'task_id': 'plan-review-' + 'a' * 48,
+            'status': 'WAITING_QUOTA', 'resume_at': time.time() + 7200, 'reason': 'quota'}]
+        self.assertEqual(EVALUATION.case_wait(worker, overview)['state'], 'provider_wait')
+        worker.dispatcher.tasks.return_value[0]['resume_at'] = time.time() - 1
+        self.assertIsNone(EVALUATION.case_wait(worker, overview))
+
+    def test_settled_runtime_excludes_two_hour_wait_and_unsettled_call_is_reserved(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            clock = {'at': 100.0}
+            ledger_path = root / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0),
+            ], clock=lambda: clock['at'])
+            owner = str(root / 'E1')
+            ledger.reserve('first', owner, 'codex', 'fixture', 'group')
+            ledger.started('first', owner, {'kind': 'test', 'pid': 1})
+            clock['at'] = 100 + 7200
+            ledger.settle('first', owner, 'event-first', {'category': 'success',
+                'duration_seconds': 40, 'total_cost_usd': 0}, terminated=True)
+            self.assertEqual(EVALUATION.execution_usage(root, ledger_path, 60), (40, 0))
+            self.assertFalse(ledger.settle('first', owner, 'event-first', {'category': 'success',
+                'duration_seconds': 40, 'total_cost_usd': 0}, terminated=True))
+            ledger.reserve('second', owner, 'codex', 'fixture', 'group')
+            ledger.started('second', owner, {'kind': 'test', 'pid': 2})
+            self.assertEqual(EVALUATION.execution_usage(root, ledger_path, 60), (100, 1))
+            clock['at'] += 7200
+            self.assertEqual(EVALUATION.execution_usage(root, ledger_path, 60), (100, 1))
+            ledger.settle('second', owner, 'event-second', {'category': 'success',
+                'total_cost_usd': 0}, terminated=True)
+            self.assertEqual(EVALUATION.execution_usage(root, ledger_path, 60), (100, 0))
+            ledger.close()
+
+    def test_trial_root_owned_reservation_counts_for_calls_and_runtime_together(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            ledger_path = root / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            ledger.reserve('root-call', str(root), 'codex', 'fixture', 'group')
+            ledger.started('root-call', str(root), {'kind': 'test', 'pid': 1})
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path), (1, 0))
+            self.assertEqual(EVALUATION.execution_usage(root, ledger_path, 60), (60, 1))
+            ledger.close()
+
+    def test_unreconciled_start_does_not_launch_another_call_after_restart(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'cases.json').write_text(json.dumps({'common_project_goal': 'fixture'}))
+            ledger_path = root / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0),
+            ])
+            owner = str(root / 'E1')
+            ledger.reserve('started', owner, 'codex', 'fixture', 'group')
+            ledger.started('started', owner, {'kind': 'test', 'pid': 1})
+            pending = {'pm_requests': [{'request_id': 'request', 'state': 'pending'}],
+                       'plans': [], 'runs': []}
+            proposed = {'pm_requests': [{'request_id': 'request', 'state': 'completed'}],
+                        'plans': [{'request_id': 'request', 'status': 'proposed'}], 'runs': []}
+            store = Mock()
+            store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E1'}]
+            store.overview.side_effect = [pending, pending, proposed]
+            worker = Mock(store=store)
+            worker.dispatcher.tasks.return_value = []
+            config = SimpleNamespace(policy=SimpleNamespace(retry=SimpleNamespace(execution_timeout_seconds=60)),
+                                     poll_seconds=1)
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget), \
+                 patch.object(EVALUATION, 'global_usage', return_value=(1, 0)), \
+                 patch.object(EVALUATION.time, 'sleep'):
+                first = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'}, config,
+                                            ledger_path, None)
+                self.assertEqual(first['state'], 'reconciliation_wait')
+                worker.run_once.assert_not_called()
+                ledger.settle('started', owner, 'event', {'category': 'success',
+                    'duration_seconds': 20, 'total_cost_usd': 0}, terminated=True)
+                second = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'}, config,
+                                             ledger_path, None)
+            self.assertEqual(second['state'], 'plan_ready')
+            worker.run_once.assert_called_once()
+            ledger.close()
+
+    def test_runtime_limit_and_repair_cap_only_block_new_repair(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'cases.json').write_text(json.dumps({'common_project_goal': 'fixture'}))
+            store = Mock()
+            store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E1'}]
+            worker = Mock(store=store)
+            worker.dispatcher.tasks.return_value = []
+            config = SimpleNamespace(policy=SimpleNamespace(retry=SimpleNamespace(execution_timeout_seconds=60)),
+                                     poll_seconds=1)
+            request = {'request_id': 'request', 'state': 'completed'}
+            reviewing = {'request_id': 'request', 'status': 'reviewing', 'digest': 'a' * 64}
+            proposed = {'request_id': 'request', 'status': 'proposed'}
+            automatic = {'request_id': 'request', 'status': 'needs_revision',
+                         'revision_action': 'automatic', 'id': 'plan', 'auto_revision_attempt': 0}
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget), \
+                 patch.object(EVALUATION, 'global_usage', return_value=(2, 2)), \
+                 patch.object(EVALUATION.time, 'sleep'):
+                store.overview.return_value = {'pm_requests': [request], 'plans': [automatic], 'runs': []}
+                with patch.object(EVALUATION, 'execution_usage', return_value=(10, 0)):
+                    limited = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'},
+                                                   config, root / 'unused.db')
+                self.assertEqual(limited['state'], 'budget_wait')
+                worker.run_once.assert_not_called()
+
+                store.overview.side_effect = [
+                    {'pm_requests': [request], 'plans': [reviewing], 'runs': []},
+                    {'pm_requests': [request], 'plans': [reviewing, proposed], 'runs': []}]
+                with patch.object(EVALUATION, 'execution_usage', return_value=(30, 0)):
+                    reviewed = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'},
+                                                    config, root / 'unused.db')
+                self.assertEqual(reviewed['state'], 'plan_ready')
+                worker.run_once.assert_called_once()
+
+                worker.run_once.reset_mock()
+                store.overview.side_effect = None
+                store.overview.return_value = {'pm_requests': [request], 'plans': [reviewing], 'runs': []}
+                with patch.object(EVALUATION, 'execution_usage', return_value=(1800, 0)):
+                    exhausted = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'},
+                                                     config, root / 'unused.db')
+                self.assertEqual(exhausted['state'], 'budget_wait')
+                worker.run_once.assert_not_called()
+
+    def test_started_second_repair_resumes_after_quota_without_permitting_third(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / 'trial'
+            case_root = root / 'E1'
+            session_db = case_root / 'sessions' / 'sessions.sqlite'
+            session_db.parent.mkdir(parents=True)
+            (root / 'cases.json').write_text(json.dumps({'common_project_goal': 'fixture'}))
+            ledger_path = Path(temporary) / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            source = {'id': 'source', 'request_id': 'request', 'project_id': 'project',
+                      'request_revision': 1, 'goal_digest': 'goal', 'status': 'needs_revision',
+                      'revision_action': 'automatic', 'auto_revision_attempt': 1}
+            second_id = 'pm-revise-' + digest([source['id'], 2])[:48]
+            job_id = 'second-job'
+            session_id = 'fixture-session'
+            db = sqlite3.connect(session_db)
+            db.execute('CREATE TABLE flow_tasks(task_id TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            db.execute('CREATE TABLE session_jobs(job_id TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            task = {'task_id': second_id, 'status': 'WAITING_PM', 'resume_at': 0,
+                    'usage': {'executions': 1, 'repairs': 0}, 'executions': [],
+                    'active': {'job_id': job_id, 'session_id': session_id, 'accounted_attempts': 1},
+                    'specification': {'execution_scope': 'planning', 'plan': {
+                        'source_plan_id': source['id'], 'auto_revision_attempt': 2,
+                        'project_id': source['project_id'], 'request_revision': 1,
+                        'goal_digest': source['goal_digest']}}}
+            job = {'job_id': job_id, 'task_id': second_id, 'status': 'WAITING_QUOTA',
+                   'session_id': session_id, 'attempt_count': 1, 'last_category': 'quota',
+                   'resume_at': 0}
+            db.execute('INSERT INTO flow_tasks VALUES (?,?)', (second_id, json.dumps(task)))
+            db.execute('INSERT INTO session_jobs VALUES (?,?)', (job_id, json.dumps(job)))
+            db.commit()
+            first_owner = str(case_root)
+            first_id = digest([first_owner, 'first-job', 1])
+            ledger.reserve(first_id, first_owner, 'codex', 'fixture', 'group')
+            ledger.started(first_id, first_owner, {'kind': 'fixture'})
+            ledger.settle(first_id, first_owner, 'first-result', {'category': 'success',
+                'duration_seconds': 1, 'total_cost_usd': 0}, terminated=True)
+            reservation_id = digest([str(case_root), job_id, 1])
+            ledger.reserve(reservation_id, str(case_root), 'codex', 'fixture', 'group')
+            ledger.started(reservation_id, str(case_root), {'kind': 'fixture'})
+            ledger.settle(reservation_id, str(case_root), 'quota-result', {'category': 'quota',
+                'duration_seconds': 1, 'total_cost_usd': 0, 'reset_at': 1}, terminated=True)
+            ledger.close()
+            # The first completed repair also has a durable task and job fact.
+            first_task = {'task_id': 'pm-revise-first', 'usage': {'executions': 1, 'repairs': 0},
+                          'executions': [{'job_id': 'first-job'}], 'active': None}
+            db.execute('INSERT INTO flow_tasks VALUES (?,?)',
+                       (first_task['task_id'], json.dumps(first_task)))
+            db.execute('INSERT INTO session_jobs VALUES (?,?)', ('first-job',
+                       json.dumps({'job_id': 'first-job', 'attempt_count': 1})))
+            db.commit(); db.close()
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path), (2, 2))
+
+            store = Mock()
+            store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E1'}]
+            automatic = {'pm_requests': [{'request_id': 'request', 'state': 'completed'}],
+                         'plans': [source], 'runs': []}
+            proposed = {'pm_requests': automatic['pm_requests'], 'plans': [source,
+                        {'request_id': 'request', 'status': 'proposed'}], 'runs': []}
+            store.overview.side_effect = [automatic, proposed]
+            worker = Mock(store=store)
+            worker.dispatcher.tasks.return_value = [task]
+            worker.dispatcher.queue.get.return_value = job
+            config = SimpleNamespace(pm_timeout_seconds=30, poll_seconds=1,
+                                     policy=SimpleNamespace(retry=SimpleNamespace(execution_timeout_seconds=60)))
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget), \
+                 patch.object(EVALUATION.time, 'sleep'):
+                result = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'},
+                                             config, ledger_path)
+            self.assertEqual(result['state'], 'plan_ready')
+            worker.run_once.assert_called_once()
+
+            worker.run_once.reset_mock()
+            store.overview.side_effect = None
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget):
+                def state_for(plan):
+                    store.overview.return_value = {'pm_requests': automatic['pm_requests'],
+                                                   'plans': [plan], 'runs': []}
+                    return EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'},
+                                               config, ledger_path)
+
+                third = state_for({**source, 'auto_revision_attempt': 2})
+                self.assertEqual(third['state'], 'budget_wait')
+                worker.dispatcher.tasks.return_value = [{**task, 'resume_at': time.time() + 3600}]
+                self.assertEqual(state_for(source)['state'], 'provider_wait')
+                worker.dispatcher.tasks.return_value = [task]
+
+                altered = json.loads(json.dumps(task))
+                altered['specification']['plan']['source_plan_id'] = 'another-plan'
+                db = sqlite3.connect(session_db)
+                db.execute('UPDATE flow_tasks SET document=? WHERE task_id=?',
+                           (json.dumps(altered), second_id))
+                db.commit(); db.close()
+                self.assertEqual(state_for(source)['state'], 'budget_wait')
+                db = sqlite3.connect(session_db)
+                db.execute('UPDATE flow_tasks SET document=? WHERE task_id=?',
+                           (json.dumps(task), second_id))
+                db.commit(); db.close()
+
+                db = sqlite3.connect(session_db)
+                db.execute('UPDATE session_jobs SET document=? WHERE job_id=?',
+                           (json.dumps({**job, 'session_id': 'another-session'}), job_id))
+                db.commit(); db.close()
+                self.assertEqual(state_for(source)['state'], 'budget_wait')
+                db = sqlite3.connect(session_db)
+                db.execute('UPDATE session_jobs SET document=? WHERE job_id=?',
+                           (json.dumps(job), job_id))
+                db.commit(); db.close()
+
+                db = sqlite3.connect(session_db)
+                db.execute('UPDATE session_jobs SET document=? WHERE job_id=?',
+                           (json.dumps({**job, 'status': 'WAITING_RETRY'}), job_id))
+                db.commit(); db.close()
+                self.assertEqual(state_for(source)['state'], 'budget_wait')
+                db = sqlite3.connect(session_db)
+                db.execute('UPDATE session_jobs SET document=? WHERE job_id=?',
+                           (json.dumps(job), job_id))
+                db.commit(); db.close()
+
+                with patch.object(EVALUATION, 'global_usage', return_value=(24, 2)):
+                    self.assertEqual(state_for(source)['state'], 'budget_wait')
+                with patch.object(EVALUATION, 'execution_usage', return_value=(1800, 0)):
+                    self.assertEqual(state_for(source)['state'], 'budget_wait')
+                ledger = SharedCallLedger(ledger_path)
+                ledger.db.execute("UPDATE reservations SET state='UNKNOWN' WHERE reservation_id=?",
+                                  (reservation_id,))
+                ledger.close()
+                self.assertEqual(state_for(source)['state'], 'reconciliation_wait')
+            worker.run_once.assert_not_called()
+
+    def test_planning_uses_actual_shorter_timeout_before_global_budget_wait(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'cases.json').write_text(json.dumps({'common_project_goal': 'fixture'}))
+            store = Mock()
+            store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E1'}]
+            store.overview.side_effect = [
+                {'pm_requests': [{'request_id': 'request', 'state': 'pending'}], 'plans': [], 'runs': []},
+                {'pm_requests': [{'request_id': 'request', 'state': 'completed'}],
+                 'plans': [{'request_id': 'request', 'status': 'proposed'}], 'runs': []}]
+            worker = Mock(store=store)
+            worker.dispatcher.tasks.return_value = []
+            config = SimpleNamespace(pm_timeout_seconds=30, policy=SimpleNamespace(
+                retry=SimpleNamespace(execution_timeout_seconds=600)), poll_seconds=1)
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget), \
+                 patch.object(EVALUATION, 'global_usage', return_value=(2, 0)), \
+                 patch.object(EVALUATION, 'execution_usage', return_value=(1750, 0)), \
+                 patch.object(EVALUATION.time, 'sleep'):
+                result = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'},
+                                             config, root / 'unused.db')
+            self.assertEqual(result['state'], 'plan_ready')
+            worker.run_once.assert_called_once()
+
+    def test_residual_runtime_below_executor_timeout_never_starts_call(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'cases.json').write_text(json.dumps({'common_project_goal': 'fixture'}))
+            store = Mock()
+            store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E2'}]
+            store.overview.return_value = {'pm_requests': [{'request_id': 'request', 'state': 'pending'}],
+                                           'plans': [], 'runs': []}
+            worker = Mock(store=store)
+            worker.dispatcher.tasks.return_value = []
+            config = SimpleNamespace(pm_timeout_seconds=240, poll_seconds=1, policy=SimpleNamespace(
+                retry=SimpleNamespace(execution_timeout_seconds=300)))
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget), \
+                 patch.object(EVALUATION, 'global_usage', return_value=(9, 0)), \
+                 patch.object(EVALUATION, 'execution_usage', return_value=(1600, 0)):
+                result = EVALUATION.run_case(root, {'id': 'E2', 'initial_message': 'fixture',
+                    'followup_message': 'answer'},
+                                             config, root / 'unused.db')
+            self.assertEqual(result['state'], 'budget_wait')
+            worker.run_once.assert_not_called()
+
+    def test_case_gate_does_not_skip_failed_e2_or_require_all_cases_to_pass(self):
+        self.assertFalse(EVALUATION.case_can_advance('E2', 'environment_problem'))
+        self.assertFalse(EVALUATION.case_can_advance('E2', 'reconciliation_wait'))
+        self.assertFalse(EVALUATION.case_can_advance('E2', 'answer_needed'))
+        self.assertTrue(EVALUATION.case_can_advance('E2', 'plan_ready'))
+        self.assertTrue(EVALUATION.case_can_advance('E3', 'answer_needed'))
+        self.assertTrue(EVALUATION.case_can_advance('E4', 'master_decision_wait'))
+
+    def test_submitted_repair_is_not_charged_until_invocation_starts(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            ledger_path = root / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            case_root = root / 'E1'
+            path = case_root / 'sessions' / 'sessions.sqlite'
+            path.parent.mkdir(parents=True)
+            db = sqlite3.connect(path)
+            db.execute('CREATE TABLE flow_tasks(task_id TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            db.execute('CREATE TABLE session_jobs(job_id TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            task = {'task_id': 'pm-revise-fixture', 'usage': {'repairs': 0, 'executions': 0},
+                    'active': {'job_id': 'job'}, 'executions': []}
+            db.execute('INSERT INTO flow_tasks VALUES (?,?)', (task['task_id'], json.dumps(task)))
+            db.execute('INSERT INTO session_jobs VALUES (?,?)', ('job', json.dumps({'job_id': 'job',
+                'attempt_count': 0})))
+            db.commit()
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path), (0, 0))
+            db.execute('UPDATE session_jobs SET document=? WHERE job_id=?',
+                       (json.dumps({'job_id': 'job', 'attempt_count': 1}), 'job'))
+            db.commit()
+            with self.assertRaisesRegex(SharedCallError, 'lacks a live shared fact'):
+                EVALUATION.global_usage(root, ledger_path)
+            db.execute('UPDATE session_jobs SET document=? WHERE job_id=?',
+                       (json.dumps({'job_id': 'job', 'attempt_count': 0}), 'job'))
+            db.commit()
+            reservation_id = digest([str(case_root), 'job', 1])
+            ledger.reserve(reservation_id, str(case_root), 'codex', 'fixture', 'group')
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path), (1, 0))
+            ledger.started(reservation_id, str(case_root), {'kind': 'test', 'job_id': 'job'})
+            db.execute('UPDATE session_jobs SET document=? WHERE job_id=?',
+                       (json.dumps({'job_id': 'job', 'attempt_count': 1}), 'job'))
+            db.commit()
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path), (1, 1))
+            ledger.settle(reservation_id, str(case_root), 'repair-result', {'category': 'success',
+                'duration_seconds': 20, 'total_cost_usd': 0}, terminated=True)
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path), (1, 1))
+            db.close(); ledger.close()
+
+    def test_derived_case_budget_is_pinned_and_product_executor_uses_its_remaining_time(self):
+        from ai_company.automation import Automation
+        from ai_company.dispatcher import Dispatcher
+        from tests import test_automation as fixture
+
+        harness = fixture.CoordinatorTests()
+        harness.setUp()
+        self.addCleanup(harness.doCleanups)
+        root = harness.root / 'evaluation'
+        case_root = root / 'E1'
+        case_root.mkdir(parents=True)
+        ledger_path = harness.root / 'shared.db'
+        ledger = SharedCallLedger.initialize(ledger_path, [
+            ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+        prior = str(root / 'E0')
+        ledger.reserve('prior', prior, 'codex', 'fixture', 'group')
+        ledger.started('prior', prior, {'kind': 'test', 'pid': 1})
+        ledger.settle('prior', prior, 'prior-result', {'category': 'success',
+            'duration_seconds': 1700, 'total_cost_usd': 0}, terminated=True)
+        effective, budget = EVALUATION.case_budget_config(root, 'E1', harness.config, ledger_path)
+        self.assertEqual(budget['caps']['max_runtime_seconds'], 40)
+        self.assertEqual(budget['caps']['max_executions'], 23)
+        self.assertEqual(budget['caps']['max_repairs'], 2)
+        self.assertEqual(effective.policy.max_runtime_seconds, 40)
+        self.assertEqual(EVALUATION.case_budget_config(root, 'E1', harness.config, ledger_path)[1], budget)
+
+        timeouts = []
+        original = harness.execute
+        def observed(agent, state, provider, worktree, prompt, session_id, **kwargs):
+            timeouts.append((state['specification']['execution_scope'], kwargs['timeout_seconds']))
+            return original(agent, state, provider, worktree, prompt, session_id, **kwargs)
+        worker = Automation(case_root, effective, clock=lambda: harness.now,
+            dispatcher_factory=lambda path, **kwargs: Dispatcher(path, verifier=harness,
+                executor=observed, **kwargs))
+        try:
+            project = worker.store.create_project({'name': 'PM 행동 평가 E1', 'goal': '두 결과를 검증합니다.'})
+            worker.store.post_message(project['id'], {'content': '계획을 검토합니다.'})
+            worker.run_once()
+            pm = next(item for item in worker.dispatcher.tasks() if item['task_id'].startswith('pm-'))
+            self.assertEqual(pm['specification']['project_budget']['max_runtime_seconds'], 40)
+            worker.run_once()
+            review = next(item for item in worker.dispatcher.tasks()
+                          if item['specification']['execution_scope'] == 'plan_review')
+            self.assertEqual(review['specification']['project_budget']['max_runtime_seconds'], 40)
+            self.assertEqual(timeouts[0][0], 'planning')
+            self.assertLessEqual(timeouts[0][1], 40)
+            self.assertEqual(timeouts[1][0], 'plan_review')
+            self.assertLessEqual(timeouts[1][1], 39)
+        finally:
+            worker.close(); ledger.close()
+
+        altered = json.loads((case_root / 'case-budget.json').read_text())
+        altered['caps']['max_runtime_seconds'] = 1800
+        (case_root / 'case-budget.json').write_text(json.dumps(altered))
+        with self.assertRaisesRegex(ValueError, 'pinned case budget'):
+            EVALUATION.case_budget_config(root, 'E1', harness.config, ledger_path)
+
+    def test_saved_repair_result_is_reconciled_without_another_model_tick(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'cases.json').write_text(json.dumps({'common_project_goal': 'fixture'}))
+            store = Mock()
+            store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E1'}]
+            automatic = {'pm_requests': [{'request_id': 'request', 'state': 'completed'}],
+                'plans': [{'request_id': 'request', 'status': 'needs_revision',
+                           'revision_action': 'automatic', 'id': 'old'}], 'runs': []}
+            proposed = {'pm_requests': [{'request_id': 'request', 'state': 'completed'}],
+                'plans': [{'request_id': 'request', 'status': 'proposed'}], 'runs': []}
+            store.overview.return_value = automatic
+            worker = Mock(store=store)
+            worker.reconcile.side_effect = lambda: setattr(store.overview, 'return_value', proposed)
+            config = SimpleNamespace(policy=SimpleNamespace(retry=SimpleNamespace(execution_timeout_seconds=60)),
+                                     poll_seconds=1)
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget), \
+                 patch.object(EVALUATION, 'global_usage', return_value=(2, 2)), \
+                 patch.object(EVALUATION, 'execution_usage', return_value=(30, 0)):
+                result = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'},
+                                             config, root / 'unused.db')
+            self.assertEqual(result['state'], 'plan_ready')
+            worker.reconcile.assert_called_once()
+            worker.run_once.assert_not_called()
+
+    def test_same_trial_root_rejects_second_runner_before_a_model_tick(self):
+        from ai_company.runtime import ExecutionBlocked
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / 'source'; source.mkdir()
+            cases = root / 'cases.json'; cases.write_text('{}')
+            config_path = root / 'config.json'; config_path.write_text('{}')
+            trial = root / 'trial'
+            config = SimpleNamespace(source_clone=str(source), base_sha='a' * 40)
+            argv = ['--cases', str(cases), '--config', str(config_path),
+                    '--shared-call-ledger', str(root / 'shared.db'), '--trial-root', str(trial),
+                    '--execute', '--adoption-receipt', str(root / 'adoption.json')]
+            subprocess_results = [SimpleNamespace(returncode=0, stdout='a' * 40, stderr=''),
+                                 SimpleNamespace(returncode=0, stdout='', stderr='')]
+            with patch.object(EVALUATION, 'load_inputs', return_value=({'cases': [{'id': 'E1'}]}, config)), \
+                 patch.object(EVALUATION, 'evaluation_bindings', return_value={}), \
+                 patch.object(EVALUATION, 'adoption_verified', return_value=True), \
+                 patch.object(EVALUATION.subprocess, 'run', side_effect=subprocess_results), \
+                 patch.object(EVALUATION, 'run_case') as run_case:
+                with EVALUATION.controller_lock(trial / 'evaluation-runner'):
+                    with self.assertRaises(ExecutionBlocked):
+                        EVALUATION.main(argv)
+                run_case.assert_not_called()
+
+    def test_fixed_text_and_product_commit_cannot_be_substituted(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            config_path = root / 'config.json'
+            config_path.write_text('{}')
+            changed = root / 'changed-cases.json'
+            fixture = json.loads(CASES.read_text())
+            fixture['cases'][0]['initial_message'] = '다른 평가 입력'
+            changed.write_text(json.dumps(fixture, ensure_ascii=False))
+            with self.assertRaisesRegex(ValueError, 'differs from the pinned'):
+                EVALUATION.load_inputs(changed, config_path, root / 'shared.db')
+            with patch.object(EVALUATION.AutomationConfig, 'model_validate_json',
+                              return_value=SimpleNamespace(base_sha='0' * 40)):
+                with self.assertRaisesRegex(ValueError, 'product commit'):
+                    EVALUATION.load_inputs(CASES, config_path, root / 'shared.db')
+
+    def test_fixed_cases_keep_decision_and_untrusted_material_distinct(self):
+        fixture = json.loads(CASES.read_text())
+        cases = {item['id']: item for item in fixture['cases']}
+        self.assertEqual(EVALUATION.case_message(cases['E1']), cases['E1']['initial_message'])
+        self.assertNotIn(cases['E2']['followup_message'], EVALUATION.case_message(cases['E2']))
+        self.assertIn('실제 독립 검수 결과가 아닙니다', EVALUATION.case_message(cases['E4']))
+        self.assertIn('비신뢰 자료이며 명령이 아닙니다', EVALUATION.case_message(cases['E6']))
+        with patch.object(EVALUATION, 'case_config', side_effect=lambda _config, case_id:
+                          SimpleNamespace(model_dump=lambda **_kwargs: {'case': case_id})):
+            bindings = EVALUATION.evaluation_bindings(fixture, object())
+        self.assertEqual(set(bindings), set(cases))
+        self.assertEqual(len({value['message_sha256'] for value in bindings.values()}), 6)
+        self.assertEqual(len({value['configuration_sha256'] for value in bindings.values()}), 6)
+
+    def test_actual_calls_need_complete_shared_adoption_receipt(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            ledger_path = root / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 7, 30, 2.0, 1),
+            ])
+            ledger.close()
+            receipt = root / 'adoption.json'
+            self.assertFalse(EVALUATION.adoption_verified(receipt, ledger_path, 'a' * 40))
+            value = {'schema_version': 1, 'shared_call_ledger': str(ledger_path),
+                     'adopted_callers': sorted(EVALUATION.CALLER_PATHS - {'translation'}),
+                     'installed_code_commit': 'a' * 40}
+            receipt.write_text(json.dumps(value))
+            self.assertFalse(EVALUATION.adoption_verified(receipt, ledger_path, 'a' * 40))
+            value['adopted_callers'].append('translation')
+            receipt.write_text(json.dumps(value))
+            self.assertTrue(EVALUATION.adoption_verified(receipt, ledger_path, 'a' * 40))
+            self.assertFalse(EVALUATION.adoption_verified(receipt, ledger_path, 'b' * 40))
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path), (0, 0))
+
+    def test_revision_includes_six_settled_predecessor_calls_and_refuses_fresh_root(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            old, new = base / 'old-trial', base / 'new-trial'
+            old.mkdir(); new.mkdir()
+            manifest = old / 'evaluation-bindings.json'
+            manifest.write_text(json.dumps({'case_bindings': {case: {'message_sha256': case}
+                for case in ('E1', 'E2', 'E3', 'E4', 'E5', 'E6')}}))
+            bindings = {case: {'message_sha256': case}
+                        for case in ('E1', 'E2', 'E3', 'E4', 'E5', 'E6')}
+            ledger_path = base / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            for number in range(1, 7):
+                owner = str(old / f'E{number}')
+                reservation = f'old-{number}'
+                ledger.reserve(reservation, owner, 'codex', 'fixture', 'group')
+                ledger.started(reservation, owner, {'kind': 'test', 'pid': number})
+                ledger.settle(reservation, owner, f'old-result-{number}', {
+                    'category': 'code_error', 'duration_seconds': 2, 'total_cost_usd': None}, terminated=True)
+            before = manifest.read_bytes()
+            with self.assertRaisesRegex(ValueError, 'missing from the lineage'):
+                EVALUATION.assert_lineage_covers_ledger(new, ledger_path, bindings)
+            rejected = base / 'rejected'; rejected.mkdir()
+            with self.assertRaisesRegex(ValueError, 'configuration changed'):
+                EVALUATION.bind_prior_trial(rejected, old, ledger_path, {
+                    **bindings, 'E1': {'message_sha256': 'E1', 'configuration_sha256': 'changed'}})
+            self.assertFalse((rejected / 'evaluation-lineage.json').exists())
+            EVALUATION.bind_prior_trial(new, old, ledger_path)
+            EVALUATION.assert_lineage_covers_ledger(new, ledger_path, bindings)
+            EVALUATION.assert_lineage_bindings(new, ledger_path, bindings)
+            with self.assertRaisesRegex(ValueError, 'configuration changed'):
+                EVALUATION.assert_lineage_bindings(new, ledger_path, {
+                    **bindings, 'E1': {'message_sha256': 'E1', 'configuration_sha256': 'changed'}})
+            self.assertEqual(EVALUATION.global_usage(new, ledger_path), (6, 0))
+            self.assertEqual(EVALUATION.execution_usage(new, ledger_path, 60), (12, 0))
+            schema_file = old / 'E1' / 'sessions' / 'session-logs' / 'attempt' / 'schema-old.json'
+            schema_file.parent.mkdir(parents=True)
+            schema_file.write_text('{"type":"object"}')
+            old_hash = EVALUATION.hashlib.sha256(schema_file.read_bytes()).hexdigest()
+            with self.assertRaisesRegex(ValueError, 'unchanged'):
+                EVALUATION.assert_repaired_prior_schema(new, ledger_path, old_hash)
+            EVALUATION.assert_repaired_prior_schema(new, ledger_path, 'a' * 64)
+            self.assertEqual(manifest.read_bytes(), before)
+            ledger.close()
+
+    def test_one_call_canary_stops_before_plan_review(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            root = base / 'trial'; root.mkdir()
+            (root / 'cases.json').write_text(json.dumps({'common_project_goal': 'fixture'}))
+            ledger_path = base / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            store = Mock()
+            store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E1'}]
+            request = {'request_id': 'request', 'state': 'pending'}
+            store.overview.side_effect = [
+                {'pm_requests': [request], 'plans': [], 'runs': []},
+                {'pm_requests': [{**request, 'state': 'completed'}],
+                 'plans': [{'id': 'plan', 'request_id': 'request', 'status': 'reviewing'}], 'runs': []}]
+            worker = Mock(store=store)
+            worker.dispatcher.tasks.return_value = []
+
+            def first_pm_only():
+                owner = str(root / 'E1')
+                ledger.reserve('pm-call', owner, 'codex', 'fixture', 'group')
+                ledger.started('pm-call', owner, {'kind': 'test', 'pid': 1})
+                ledger.settle('pm-call', owner, 'pm-result', {'category': 'success',
+                    'duration_seconds': 4, 'total_cost_usd': 0}, terminated=True)
+
+            worker.run_once.side_effect = first_pm_only
+            config = SimpleNamespace(policy=SimpleNamespace(retry=SimpleNamespace(execution_timeout_seconds=60)),
+                                     poll_seconds=1)
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget), \
+                 patch.object(EVALUATION.time, 'sleep'):
+                result = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'},
+                    config, ledger_path, stop_after_first_pm=True)
+            self.assertEqual(result['state'], 'canary_pm_ready')
+            self.assertEqual(result['plan_id'], 'plan')
+            worker.run_once.assert_called_once()
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path), (1, 0))
+            ledger.close()
+
+    def test_canary_continuation_rechecks_settlement_and_stored_plan(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary); root = base / 'trial'
+            db_path = root / 'E1' / 'sessions' / 'sessions.sqlite'
+            db_path.parent.mkdir(parents=True)
+            db = sqlite3.connect(db_path)
+            db.execute('CREATE TABLE management_plans(id TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            db.execute('CREATE TABLE management_pm_requests(message_id TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            db.execute('CREATE TABLE flow_tasks(task_id TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            db.execute('CREATE TABLE session_jobs(job_id TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            reservation_id = digest([str(root / 'E1'), 'job', 1])
+            plan = {'id': 'plan', 'request_id': 'request', 'project_id': 'project', 'status': 'reviewing',
+                    'evidence': {'task_id': 'pm-request', 'session_id': 'session'}}
+            request = {'request_id': 'request', 'project_id': 'project', 'state': 'completed', 'plan_id': 'plan'}
+            db.execute('INSERT INTO management_plans VALUES (?,?)', ('plan', json.dumps(plan)))
+            db.execute('INSERT INTO management_pm_requests VALUES (?,?)', ('request', json.dumps(request)))
+            db.execute('INSERT INTO flow_tasks VALUES (?,?)', ('pm-request', json.dumps({
+                'executions': [{'job_id': 'job'}]})))
+            db.execute('INSERT INTO session_jobs VALUES (?,?)', ('job', json.dumps({
+                'job_id': 'job', 'task_id': 'pm-request', 'session_id': 'session',
+                'attempt_count': 1, 'last_category': 'success'})))
+            db.commit()
+            ledger_path = base / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            ledger.reserve(reservation_id, str(root / 'E1'), 'codex', 'fixture', 'group')
+            ledger.started(reservation_id, str(root / 'E1'), {'kind': 'test', 'pid': 1})
+            ledger.settle(reservation_id, str(root / 'E1'), 'pm-result', {
+                'category': 'success', 'duration_seconds': 1, 'total_cost_usd': 0}, terminated=True)
+            fact = ledger.reservation(reservation_id)
+            marker = {'case': 'E1', 'state': 'canary_pm_ready', 'model_calls': 1, 'plan_id': 'plan',
+                      'last_reservation_id': reservation_id, 'last_event_id': fact['event_id'],
+                      'last_result_sha256': EVALUATION.hashlib.sha256(fact['result'].encode()).hexdigest()}
+            self.assertTrue(EVALUATION.canary_verified(root, ledger_path, marker))
+            self.assertFalse(EVALUATION.canary_verified(root, ledger_path, {**marker, 'model_calls': 2}))
+            self.assertFalse(EVALUATION.canary_verified(root, ledger_path, {**marker,
+                'last_result_sha256': '0' * 64}))
+            db.execute('UPDATE management_pm_requests SET document=? WHERE message_id=?',
+                       (json.dumps({**request, 'state': 'blocked'}), 'request'))
+            db.commit()
+            self.assertFalse(EVALUATION.canary_verified(root, ledger_path, marker))
+            db.close(); ledger.close()
+
+    def test_recovered_canary_requires_derived_revision_and_original_settlement(self):
+        import sqlite3
+        from ai_company import pm_evidence_recovery
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary); root = base / 'trial'
+            db_path = root / 'E1' / 'sessions' / 'sessions.sqlite'
+            db_path.parent.mkdir(parents=True)
+            db = sqlite3.connect(db_path)
+            for name, key in (('management_plans', 'id'), ('management_pm_requests', 'message_id'),
+                              ('flow_tasks', 'task_id')):
+                db.execute(f'CREATE TABLE {name}({key} TEXT PRIMARY KEY, document TEXT NOT NULL)')
+            plan = {'id': 'plan', 'request_id': 'request', 'project_id': 'project',
+                    'status': 'reviewing', 'evidence': {'original_job_id': 'job'}}
+            request = {'request_id': 'request', 'project_id': 'project', 'state': 'completed', 'plan_id': 'plan'}
+            db.execute('INSERT INTO management_plans VALUES (?,?)', ('plan', json.dumps(plan)))
+            db.execute('INSERT INTO management_pm_requests VALUES (?,?)', ('request', json.dumps(request)))
+            db.execute('INSERT INTO flow_tasks VALUES (?,?)', ('pm-request', json.dumps({'executions': []})))
+            db.commit()
+            ledger_path = base / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            reservation_id = digest([str(root / 'E1'), 'job', 1])
+            ledger.reserve(reservation_id, str(root / 'E1'), 'codex', 'fixture', 'group')
+            ledger.started(reservation_id, str(root / 'E1'), {'kind': 'test', 'pid': 1})
+            ledger.settle(reservation_id, str(root / 'E1'), 'pm-result', {
+                'category': 'success', 'duration_seconds': 1}, terminated=True)
+            fact = ledger.reservation(reservation_id)
+            marker = {'case': 'E1', 'state': 'canary_pm_ready', 'model_calls': 1,
+                      'plan_id': 'plan', 'last_reservation_id': reservation_id,
+                      'last_event_id': fact['event_id'],
+                      'last_result_sha256': EVALUATION.hashlib.sha256(fact['result'].encode()).hexdigest(),
+                      'recovery_revision_id': 'revision', 'recovery_validator_commit': 'a' * 40,
+                      'recovery_config_path': str(base / 'config.json'),
+                      'recovery_codex_home': str(base / 'codex'),
+                      'recovery_evidence_manifest': str(base / 'manifest.json')}
+            recovery = SimpleNamespace(job_id='job')
+            verified = {'revision_id': 'revision', 'plan_id': 'plan', 'reservation_id': reservation_id}
+            with patch.object(pm_evidence_recovery, 'diagnose', return_value=recovery), \
+                 patch.object(pm_evidence_recovery, 'verify_saved_recovery', return_value=verified) as saved_check:
+                self.assertTrue(EVALUATION.canary_verified(root, ledger_path, marker))
+                saved_check.assert_called_with(recovery, allow_review_progress=True)
+                second = digest([str(root / 'E1'), 'review-job', 1])
+                ledger.reserve(second, str(root / 'E1'), 'codex', 'fixture', 'group')
+                ledger.started(second, str(root / 'E1'), {'kind': 'test', 'pid': 2})
+                ledger.settle(second, str(root / 'E1'), 'review-result', {
+                    'category': 'success', 'duration_seconds': 1}, terminated=True)
+                db.execute('UPDATE management_plans SET document=? WHERE id=?',
+                           (json.dumps({**plan, 'status': 'proposed'}), 'plan'))
+                db.commit()
+                self.assertTrue(EVALUATION.canary_verified(root, ledger_path, marker))
+                self.assertFalse(EVALUATION.canary_verified(root, ledger_path,
+                    {**marker, 'recovery_revision_id': 'other'}))
+                db.execute('UPDATE management_pm_requests SET document=? WHERE message_id=?',
+                           (json.dumps({**request, 'state': 'blocked'}), 'request'))
+                db.commit()
+                self.assertFalse(EVALUATION.canary_verified(root, ledger_path, marker))
+            db.close(); ledger.close()
+
+    def test_recovered_canary_write_is_atomic_private_and_repairs_torn_file(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'canary-result.json'
+            marker = {'state': 'canary_pm_ready', 'recovery_revision_id': 'revision'}
+            path.write_text('{"state":')
+            EVALUATION.record_recovered_canary(path, marker)
+            self.assertEqual(json.loads(path.read_text()), marker)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(len(list(path.parent.glob('canary-result.json.torn-*'))), 1)
+            EVALUATION.record_recovered_canary(path, marker)
+            with self.assertRaises(ValueError):
+                EVALUATION.record_recovered_canary(path, {**marker, 'recovery_revision_id': 'other'})
+
+    def test_provider_request_error_stops_and_survives_restart(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            root = base / 'trial'; root.mkdir()
+            (root / 'cases.json').write_text(json.dumps({'common_project_goal': 'fixture'}))
+            ledger_path = base / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            store = Mock()
+            store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E1'}]
+            store.overview.return_value = {'pm_requests': [{'request_id': 'request', 'state': 'pending'}],
+                                          'plans': [], 'runs': []}
+            worker = Mock(store=store)
+            worker.dispatcher.tasks.return_value = []
+
+            def reject_once():
+                owner = str(root / 'E1')
+                ledger.reserve('first', owner, 'codex', 'fixture', 'group')
+                ledger.started('first', owner, {'kind': 'test', 'pid': 1})
+                ledger.settle('first', owner, 'rejected', {'category': 'request_schema_error',
+                    'output_schema_sha256': 'a' * 64, 'duration_seconds': 2,
+                    'total_cost_usd': None}, terminated=True)
+
+            worker.run_once.side_effect = reject_once
+            config = SimpleNamespace(policy=SimpleNamespace(retry=SimpleNamespace(execution_timeout_seconds=60)),
+                                     poll_seconds=1)
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget), \
+                 patch.object(EVALUATION.time, 'sleep'):
+                first = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'}, config, ledger_path)
+                second = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'}, config, ledger_path)
+            self.assertEqual(first['state'], 'request_error_wait')
+            self.assertEqual(second['state'], 'request_error_wait')
+            self.assertEqual(json.loads((root / 'request-error-hold.json').read_text())['first_fact']
+                             ['output_schema_sha256'], 'a' * 64)
+            worker.run_once.assert_called_once()
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path), (1, 0))
+            (root / 'evaluation-bindings.json').write_text('{}')
+            (root / 'request-error-hold.json').unlink()
+            successor = base / 'successor'; successor.mkdir()
+            EVALUATION.bind_prior_trial(successor, root, ledger_path)
+            with self.assertRaisesRegex(ValueError, 'unchanged'):
+                EVALUATION.assert_repaired_prior_schema(successor, ledger_path, 'a' * 64)
+            ledger.close()
+
+    def test_quota_canary_does_not_resume_a_second_model_call(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary); root = base / 'trial'; root.mkdir()
+            (root / 'cases.json').write_text(json.dumps({'common_project_goal': 'fixture'}))
+            ledger_path = base / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            owner = str(root / 'E1')
+            ledger.reserve('quota', owner, 'codex', 'fixture', 'group')
+            ledger.started('quota', owner, {'kind': 'test', 'pid': 1})
+            ledger.settle('quota', owner, 'quota-result', {'category': 'quota',
+                'reset_at': time.time() - 1, 'duration_seconds': 1, 'total_cost_usd': None}, terminated=True)
+            store = Mock()
+            store.list_projects.return_value = [{'id': 'project', 'name': 'PM 행동 평가 E1'}]
+            store.overview.return_value = {'pm_requests': [{'request_id': 'request', 'state': 'running'}],
+                                          'plans': [], 'runs': []}
+            worker = Mock(store=store)
+            worker.dispatcher.tasks.return_value = []
+            config = SimpleNamespace(policy=SimpleNamespace(retry=SimpleNamespace(execution_timeout_seconds=60)),
+                                     poll_seconds=1)
+            with patch.object(EVALUATION, 'Automation', return_value=worker), \
+                 patch.object(EVALUATION, 'case_budget_config', side_effect=fixture_budget):
+                result = EVALUATION.run_case(root, {'id': 'E1', 'initial_message': 'fixture'},
+                    config, ledger_path, stop_after_first_pm=True)
+            self.assertEqual(result['state'], 'provider_wait')
+            worker.run_once.assert_not_called()
+            self.assertEqual(EVALUATION.global_usage(root, ledger_path), (1, 0))
+            ledger.close()
+
+    def test_continuation_stops_after_request_error_or_failed_e2(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            source = base / 'source'; source.mkdir()
+            cases_path = base / 'cases.json'
+            cases_path.write_text('{}')
+            config_path = base / 'config.json'
+            config_path.write_text('{}')
+            ledger_path = base / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('codex', 'fixture', 'group', 'AVAILABLE', None, None, 0, 0, 0, 0)])
+            ledger.close()
+            cases = {'cases': [{'id': f'E{number}'} for number in range(1, 7)]}
+            config = SimpleNamespace(source_clone=str(source), base_sha='a' * 40)
+            bindings = {case['id']: {'message_sha256': case['id'], 'configuration_sha256': 'fixed'}
+                        for case in cases['cases']}
+            subprocess_results = [SimpleNamespace(returncode=0, stdout='a' * 40, stderr=''),
+                                 SimpleNamespace(returncode=0, stdout='', stderr='')]
+            for state in ('request_error_wait', 'environment_problem'):
+                with self.subTest(state=state):
+                    root = base / ('trial-' + state); root.mkdir()
+                    (root / 'canary-result.json').write_text(json.dumps({'state': 'canary_pm_ready'}))
+                    argv = ['--cases', str(cases_path), '--config', str(config_path),
+                            '--shared-call-ledger', str(ledger_path), '--trial-root', str(root),
+                            '--execute', '--continue-after-canary', '--adoption-receipt', str(base / 'receipt')]
+                    with patch.object(EVALUATION, 'load_inputs', return_value=(cases, config)), \
+                         patch.object(EVALUATION, 'evaluation_bindings', return_value=bindings), \
+                         patch.object(EVALUATION, 'adoption_verified', return_value=True), \
+                         patch.object(EVALUATION, 'canary_verified', return_value=True), \
+                         patch.object(EVALUATION.subprocess, 'run', side_effect=subprocess_results), \
+                         patch.object(EVALUATION, 'run_case', side_effect=[
+                             {'case': 'E1', 'state': 'plan_ready'},
+                             {'case': 'E2', 'state': state}]) as run_case, \
+                         contextlib.redirect_stdout(io.StringIO()):
+                        self.assertEqual(EVALUATION.main(argv), 0)
+                    self.assertEqual(run_case.call_count, 2)
+
+
+if __name__ == '__main__':
+    unittest.main()

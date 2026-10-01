@@ -1,0 +1,125 @@
+{
+  "observed_at": "2026-09-16T13:10:19.334544+00:00",
+  "code": "23ac8a723f6bfc4d67fe12949c9253e9f8acf04c",
+  "image": "sha256:0f44d2e0a3706567bafea34c640345264fcace697a5ce317405366380cbfa1f8",
+  "production_applied": true,
+  "approved_scope": [
+    "web",
+    "automation worker",
+    "read-only pilot catalog"
+  ],
+  "translation_worker_changed": false,
+  "configuration_digest": "2f925f653446f89b1b0d717f9a42e0d99a9df4660c90283a4cd2ba66a6d66415",
+  "catalog_sha256": "cf5f200f62495262bbdffbc177a9eefddeb6581de48c87d7d0a554bbd4c13153",
+  "budget": {
+    "max_cost_usd": null,
+    "max_runtime_seconds": 1800.0,
+    "max_executions": 24,
+    "max_repairs": 2
+  },
+  "max_parallel": 2,
+  "allowed_paths": [
+    "src/ai_company/pilot_status.py",
+    "tests/test_pilot_status.py"
+  ],
+  "eligibility": {
+    "pm": {
+      "eligible": [
+        "pilot-pm"
+      ],
+      "available": [
+        "pilot-pm"
+      ],
+      "resume_times": [],
+      "requested": [
+        {
+          "model": "gpt-6-astra",
+          "reasoning_effort": "ultra"
+        }
+      ]
+    },
+    "final": {
+      "eligible": [
+        "pilot-final"
+      ],
+      "available": [
+        "pilot-final"
+      ],
+      "resume_times": [],
+      "requested": [
+        {
+          "model": "gpt-6-astra",
+          "reasoning_effort": "ultra"
+        }
+      ]
+    }
+  },
+  "eligibility_scope": "read-only Dispatcher selection, no model call; requested CLI configuration is not new model execution evidence",
+  "checks": [
+    "web_image_exact",
+    "web_running",
+    "web_health",
+    "catalog_argument",
+    "catalog_read_only_exact_path",
+    "catalog_hash_matches",
+    "web_no_host_ports",
+    "web_restrictions_preserved",
+    "automation_active",
+    "automation_config_preserved",
+    "automation_release_exact",
+    "automation_unit_exact",
+    "automation_catalog_exact",
+    "automation_fresh_heartbeat",
+    "translation_active",
+    "translation_config_preserved",
+    "translation_pid_release_unit_preserved",
+    "translation_fresh_heartbeat",
+    "automation_config_digest",
+    "preserved_container_talenta-edward-app-1",
+    "preserved_container_talenta-edward-backup-1",
+    "preserved_container_talenta-edward-caddy-1",
+    "preserved_container_talenta-edward-db-1",
+    "quota_timer_preserved",
+    "public_login_page",
+    "public_password_login_mode",
+    "public_static_app.js",
+    "public_static_execution-ui.js",
+    "public_static_styles.css",
+    "public_static_sw.js",
+    "anonymous_denied_/api/projects",
+    "anonymous_denied_/api/execution-catalog",
+    "couple_https_access",
+    "live_host_origin_auth_guards",
+    "all_existing_database_rows_preserved",
+    "only_empty_additive_tables",
+    "pr10_pending"
+  ],
+  "check_count": 37,
+  "existing_database_rows_changed": [],
+  "existing_table_count": 28,
+  "new_empty_tables": [
+    "management_execution_spec_registrations",
+    "management_execution_specs",
+    "translation_saved_rechecks"
+  ],
+  "translation_pid_preserved": true,
+  "translation_config_preserved": true,
+  "couple_containers_preserved": true,
+  "quota_timer_active": true,
+  "pr10_pending": true,
+  "users_passwords_and_sessions_preserved": true,
+  "master_login_performed": false,
+  "master_project_created": false,
+  "master_plan_confirmed": false,
+  "new_model_calls": 0,
+  "new_confirmed_execution_id": null,
+  "pending": [
+    "master APK goal input",
+    "master execution spec registration",
+    "master fresh plan request and confirmation",
+    "same execution actual development/check/CI/reviews/report/pending approval comparison",
+    "offsite signing key storage and restore"
+  ],
+  "rollback_rule": "No old web/automation restart after new bound work; stop automatic execution and preserve compatible management UI and DB. No database snapshot restore.",
+  "merged": false
+}

@@ -1,0 +1,61 @@
+{
+  "status": "FAIL",
+  "error": "Expected values to be strictly equal:\n+ actual - expected\n\n+ ''\n- 'isolated-unsent-input'\n",
+  "checks": [
+    "baseline v8 controls two old tabs",
+    "new worker waits while old tabs remain usable"
+  ],
+  "boundaries": [
+    {
+      "name": "upgrade-partial",
+      "active": "ai-company-shell-v8",
+      "waiting": "ai-company-shell-v10",
+      "controllers": [
+        {
+          "cache": "ai-company-shell-v8",
+          "clients": 2
+        },
+        {
+          "cache": "ai-company-shell-v10",
+          "clients": 0
+        }
+      ],
+      "app_sha256": "ba6c80c072e1aca3b6d1d8855e2998cf9a090d9816a776a37a5f47ef7f91a6ca",
+      "report_sha256": "2be6f1acd15a00633f66dbd3eae06ecd2f86a69751abd11a52fda3c8d80245be",
+      "public_login": true,
+      "private_navigation": 0,
+      "http_cache_disabled": true
+    },
+    {
+      "name": "upgrade-complete",
+      "active": "ai-company-shell-v8",
+      "waiting": "ai-company-shell-v10",
+      "controllers": [
+        {
+          "cache": "ai-company-shell-v8",
+          "clients": 2
+        },
+        {
+          "cache": "ai-company-shell-v10",
+          "clients": 0
+        }
+      ],
+      "app_sha256": "ba6c80c072e1aca3b6d1d8855e2998cf9a090d9816a776a37a5f47ef7f91a6ca",
+      "report_sha256": "1a7667777b931d2f30900bdb4ae8821ceaebdaa9da10f983083ac4bb0d5bdaaa",
+      "public_login": true,
+      "private_navigation": 0,
+      "http_cache_disabled": true
+    }
+  ],
+  "failedRequests": [
+    {
+      "path": "/api/session",
+      "error": "net::ERR_INTERNET_DISCONNECTED"
+    },
+    {
+      "path": "/api/session",
+      "error": "net::ERR_INTERNET_DISCONNECTED"
+    }
+  ],
+  "errors": []
+}

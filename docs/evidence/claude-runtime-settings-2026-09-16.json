@@ -1,0 +1,338 @@
+{
+  "cli_version": "2.1.270",
+  "cli_binary_sha256": "7bf9f33acc124df9abccf6f2366397a82a740378d535fa12d426fa77fdbc9946",
+  "source_commit": "110fac102127fd0ab528fa187f8933b1a17a7879",
+  "collector": "per-probe loopback HTTP endpoint; selected fields only; closed after each invocation",
+  "collector_exported_outside_host": false,
+  "raw_prompts_or_authentication_exported": false,
+  "production_policy_changed": false,
+  "automatic_fallback_eligible": false,
+  "previous_evidence_preserved": true,
+  "cli_invocations": 4,
+  "main_requests": 5,
+  "workflow_child_requests": 2,
+  "auxiliary_title_requests": 3,
+  "total_cost_usd": 0.34472375,
+  "permission_mode": "dontAsk",
+  "restricted": true,
+  "safe_mode": true,
+  "global_settings_changed": false,
+  "backend_model_verified": false,
+  "sessions": [
+    {
+      "name": "xhigh",
+      "category": "success",
+      "session_id": "1f6ec366-8574-44e4-a09f-6ef41c1ee805",
+      "started_at": 1789524909.9696352,
+      "ended_at": 1789524913.5216787,
+      "applied": [],
+      "api_requests": [
+        {
+          "session.id": "1f6ec366-8574-44e4-a09f-6ef41c1ee805",
+          "app.version": "2.1.270",
+          "event.name": "api_request",
+          "event.timestamp": "2026-09-16T02:15:12.102Z",
+          "event.sequence": 1,
+          "prompt.id": "6aa527e6-af0e-4a43-a841-40ee712f84bb",
+          "model": "claude-haiku-4-5-20251001",
+          "input_tokens": 925,
+          "output_tokens": 13,
+          "cost_usd": 0.00099,
+          "duration_ms": 971,
+          "request_id": "req_011Cf6K4JrcFzSKJZuDaNDEb",
+          "client_request_id": "50a27a38-0101-4e0a-89f2-1ed158321cc7",
+          "query_source": "generate_session_title"
+        },
+        {
+          "session.id": "1f6ec366-8574-44e4-a09f-6ef41c1ee805",
+          "app.version": "2.1.270",
+          "event.name": "api_request",
+          "event.timestamp": "2026-09-16T02:15:12.935Z",
+          "event.sequence": 3,
+          "prompt.id": "6aa527e6-af0e-4a43-a841-40ee712f84bb",
+          "model": "claude-opus-5",
+          "input_tokens": 2,
+          "output_tokens": 7,
+          "cost_usd": 0.023505,
+          "duration_ms": 1763,
+          "request_id": "req_011Cf6K4Le1yCn9L8LBoEFRH",
+          "client_request_id": "d176bf92-52d7-453c-a090-da21444864bc",
+          "query_source": "sdk",
+          "effort": "xhigh"
+        }
+      ],
+      "cost_usd": 0.024495000000000003,
+      "cgroup_stopped": true,
+      "stdout_sha256": "c893d78404f0d246d8c7a61e26aceaef805be36a42363b34c5530023ed65bf8d",
+      "selected_telemetry_sha256": "f86a0068afef8975162c82c76ce9b88123bcc7dd577ea11cb0678c738cb527b4"
+    },
+    {
+      "name": "ultracode-applied",
+      "category": "unknown",
+      "session_id": null,
+      "started_at": 1789525098.4936798,
+      "ended_at": 1789525100.241109,
+      "applied": [
+        {
+          "request_id": "applied-before-9d5e3f6aa21e4596b924304a5ddfa1d9",
+          "applied": {
+            "model": "claude-opus-5",
+            "effort": "xhigh",
+            "ultracode": false
+          },
+          "has_errors": false
+        }
+      ],
+      "api_requests": [],
+      "cost_usd": null,
+      "cgroup_stopped": true,
+      "stdout_sha256": "fe91464d1bf4d0326c8a2cd90e266a134a995084ad4190d1e85a42be62eee0e8",
+      "selected_telemetry_sha256": "8ee669ed8452b600d6d4adf4a0a110d7e2c61ffe6b318e701b28fc853f9953a6"
+    },
+    {
+      "name": "ultracode-enabled",
+      "category": "success",
+      "session_id": "7efc7a24-f4f4-49d8-b286-db58c209f3f5",
+      "started_at": 1789525204.217716,
+      "ended_at": 1789525207.6171017,
+      "applied": [
+        {
+          "request_id": "applied-before-0ede1523a39c4c529ca0a9fdd61a530a",
+          "applied": {
+            "model": "claude-opus-5",
+            "effort": "xhigh",
+            "ultracode": true
+          },
+          "has_errors": false
+        },
+        {
+          "request_id": "applied-after-00a2dc18bc4643bca9a457ec98d50a8b",
+          "applied": {
+            "model": "claude-opus-5",
+            "effort": "xhigh",
+            "ultracode": true
+          },
+          "has_errors": false
+        }
+      ],
+      "api_requests": [
+        {
+          "session.id": "7efc7a24-f4f4-49d8-b286-db58c209f3f5",
+          "app.version": "2.1.270",
+          "event.name": "api_request",
+          "event.timestamp": "2026-09-16T02:20:06.477Z",
+          "event.sequence": 1,
+          "prompt.id": "f6af511a-f165-4dbf-89d6-22d1bed22079",
+          "model": "claude-haiku-4-5-20251001",
+          "input_tokens": 925,
+          "output_tokens": 13,
+          "cost_usd": 0.00099,
+          "duration_ms": 986,
+          "request_id": "req_011Cf6KS1SUWryr29VaQpki6",
+          "client_request_id": "e00674a4-4daa-40c3-9811-a1ce0912f21b",
+          "query_source": "generate_session_title"
+        },
+        {
+          "session.id": "7efc7a24-f4f4-49d8-b286-db58c209f3f5",
+          "app.version": "2.1.270",
+          "event.name": "api_request",
+          "event.timestamp": "2026-09-16T02:20:07.025Z",
+          "event.sequence": 3,
+          "prompt.id": "f6af511a-f165-4dbf-89d6-22d1bed22079",
+          "model": "claude-opus-5",
+          "input_tokens": 2,
+          "output_tokens": 7,
+          "cost_usd": 0.034644999999999995,
+          "duration_ms": 1488,
+          "request_id": "req_011Cf6KS1ZR6HbnnowtKoqpy",
+          "client_request_id": "636c382b-c89a-4462-8221-4fcc63f25d14",
+          "query_source": "sdk",
+          "effort": "xhigh"
+        }
+      ],
+      "cost_usd": 0.03563499999999999,
+      "cgroup_stopped": true,
+      "stdout_sha256": "5492992cfca95ada096f0842b71f218fbcba834d2b32b30f0efa9d036560cb89",
+      "selected_telemetry_sha256": "727e24aa7bb8d7635c4a7a9368082fd96c41a42a3fadd5e59470a302f2737575"
+    },
+    {
+      "name": "workflow",
+      "category": "success",
+      "session_id": "927b9644-01c7-4e33-a460-1c8bc92e36dd",
+      "started_at": 1789525328.558131,
+      "ended_at": 1789525352.7622457,
+      "applied": [
+        {
+          "request_id": "applied-before-a663769194004e6fbddb663c4b5c3b37",
+          "applied": {
+            "model": "claude-opus-5",
+            "effort": "xhigh",
+            "ultracode": true
+          },
+          "has_errors": false
+        },
+        {
+          "request_id": "applied-after-2d3d016c12a74bb19accd05a41491163",
+          "applied": {
+            "model": "claude-opus-5",
+            "effort": "xhigh",
+            "ultracode": true
+          },
+          "has_errors": false
+        }
+      ],
+      "api_requests": [
+        {
+          "session.id": "927b9644-01c7-4e33-a460-1c8bc92e36dd",
+          "app.version": "2.1.270",
+          "event.name": "api_request",
+          "event.timestamp": "2026-09-16T02:22:11.327Z",
+          "event.sequence": 1,
+          "prompt.id": "4f8c1a46-6e8a-491c-900f-781b6bd58cde",
+          "model": "claude-haiku-4-5-20251001",
+          "input_tokens": 1266,
+          "output_tokens": 28,
+          "cost_usd": 0.001406,
+          "duration_ms": 1503,
+          "request_id": "req_011Cf6KbB6emQCy8inbtpuc6",
+          "client_request_id": "81268d81-2622-4bed-9844-f8b99893f4f4",
+          "query_source": "generate_session_title"
+        },
+        {
+          "session.id": "927b9644-01c7-4e33-a460-1c8bc92e36dd",
+          "app.version": "2.1.270",
+          "event.name": "api_request",
+          "event.timestamp": "2026-09-16T02:22:22.929Z",
+          "event.sequence": 5,
+          "prompt.id": "4f8c1a46-6e8a-491c-900f-781b6bd58cde",
+          "model": "claude-opus-5",
+          "input_tokens": 2,
+          "output_tokens": 1252,
+          "cost_usd": 0.16416,
+          "duration_ms": 13038,
+          "request_id": "req_011Cf6KbBEaigHPMi8aGd8Hw",
+          "client_request_id": "f74d1292-cd85-4722-b450-d81b0316d158",
+          "query_source": "sdk",
+          "effort": "xhigh"
+        },
+        {
+          "session.id": "927b9644-01c7-4e33-a460-1c8bc92e36dd",
+          "app.version": "2.1.270",
+          "event.name": "api_request",
+          "event.timestamp": "2026-09-16T02:22:25.229Z",
+          "event.sequence": 7,
+          "prompt.id": "4f8c1a46-6e8a-491c-900f-781b6bd58cde",
+          "model": "claude-opus-5",
+          "input_tokens": 2,
+          "output_tokens": 105,
+          "cost_usd": 0.0292075,
+          "duration_ms": 2156,
+          "request_id": "req_011Cf6Kc9WBZHBP2HekJsSfJ",
+          "client_request_id": "1032f60f-7355-4f4b-adf6-a0b32c759a7a",
+          "query_source": "sdk",
+          "effort": "xhigh"
+        },
+        {
+          "session.id": "927b9644-01c7-4e33-a460-1c8bc92e36dd",
+          "app.version": "2.1.270",
+          "event.name": "api_request",
+          "event.timestamp": "2026-09-16T02:22:26.252Z",
+          "event.sequence": 10,
+          "prompt.id": "4f8c1a46-6e8a-491c-900f-781b6bd58cde",
+          "workflow.run_id": "wf_a9738395-7f3",
+          "workflow.name": "custom",
+          "model": "claude-opus-5",
+          "input_tokens": 2,
+          "output_tokens": 229,
+          "cost_usd": 0.021122500000000002,
+          "duration_ms": 3196,
+          "request_id": "req_011Cf6Kc9UwhjscmCV8XUfns",
+          "client_request_id": "0605c3c2-558e-430a-83d8-696eb4eb1661",
+          "query_source": "agent:builtin:workflow-subagent",
+          "effort": "xhigh"
+        },
+        {
+          "session.id": "927b9644-01c7-4e33-a460-1c8bc92e36dd",
+          "app.version": "2.1.270",
+          "event.name": "api_request",
+          "event.timestamp": "2026-09-16T02:22:26.358Z",
+          "event.sequence": 13,
+          "prompt.id": "4f8c1a46-6e8a-491c-900f-781b6bd58cde",
+          "workflow.run_id": "wf_a9738395-7f3",
+          "workflow.name": "custom",
+          "model": "claude-opus-5",
+          "input_tokens": 2,
+          "output_tokens": 202,
+          "cost_usd": 0.019978749999999997,
+          "duration_ms": 3302,
+          "request_id": "req_011Cf6Kc9TTHcYgyv1QQyFtb",
+          "client_request_id": "e011382a-fdcf-4a03-ab14-1d1bfda967bb",
+          "query_source": "agent:builtin:workflow-subagent",
+          "effort": "xhigh"
+        },
+        {
+          "session.id": "927b9644-01c7-4e33-a460-1c8bc92e36dd",
+          "app.version": "2.1.270",
+          "event.name": "api_request",
+          "event.timestamp": "2026-09-16T02:22:32.194Z",
+          "event.sequence": 15,
+          "prompt.id": "4f8c1a46-6e8a-491c-900f-781b6bd58cde",
+          "model": "claude-opus-5",
+          "input_tokens": 2,
+          "output_tokens": 378,
+          "cost_usd": 0.048719,
+          "duration_ms": 5810,
+          "request_id": "req_011Cf6KcPfj5HqcHRLEUXL8n",
+          "client_request_id": "aa44006c-e515-44c4-b6f9-1f4243f1727c",
+          "query_source": "sdk",
+          "effort": "xhigh"
+        }
+      ],
+      "cost_usd": 0.28459375,
+      "cgroup_stopped": true,
+      "stdout_sha256": "6508af154f41e1c3cb89fdd1465abc72ce83f5f71eee01c7be0fd9a85260dc53",
+      "selected_telemetry_sha256": "caa12c2a310628972fced137c76aedaff51c9a309b7f4effb1acf61b0d63893c",
+      "workflow": {
+        "run_id": "wf_a9738395-7f3",
+        "task_id": "w2cmsjc2m",
+        "tool_use_id": "toolu_0141uz5mS3bP9nyR5MXE8YRS",
+        "script_sha256": "81f06f86f32f30abc9742e8b57dfe70a6fb36533a762f4edd5b38d57f0c8da95",
+        "agent_count": 2,
+        "native_task_status": "completed",
+        "children": [
+          {
+            "agentId": "ae6211625f95a24f3",
+            "model": "claude-opus-5",
+            "state": "done",
+            "phaseIndex": 1,
+            "startedAt": 1789525343006,
+            "durationMs": 3352,
+            "toolCalls": 1,
+            "lastToolName": "StructuredOutput"
+          },
+          {
+            "agentId": "a27370138c1529206",
+            "model": "claude-opus-5",
+            "state": "done",
+            "phaseIndex": 1,
+            "startedAt": 1789525343008,
+            "durationMs": 3271,
+            "toolCalls": 1,
+            "lastToolName": "StructuredOutput"
+          }
+        ],
+        "overlap_ms": 3271,
+        "result": {
+          "active": 1,
+          "done": 1,
+          "waiting": 1,
+          "unknown": 2,
+          "blocked": 1
+        },
+        "data_scope": "inline fixture inputs, not project implementation or independent code review",
+        "filesystem_tools_exposed": false
+      }
+    }
+  ],
+  "next_required": "Integrate before/after applied settings and per-request evidence under a new versioned policy; verify bounded repository writes and Claude handoff/resume without changing old tasks."
+}

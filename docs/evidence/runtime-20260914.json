@@ -1,0 +1,319 @@
+{
+  "scope": "supervised_host_validation_and_isolated_local_worker_exercise",
+  "date": "2026-09-14",
+  "host": {
+    "status": "HOST_VERIFIED",
+    "package_started": true,
+    "profile_created": true,
+    "before_limits": {
+      "kernel.unprivileged_userns_clone": "1",
+      "kernel.apparmor_restrict_unprivileged_userns": "1"
+    },
+    "after_package_limits": {
+      "kernel.unprivileged_userns_clone": "1",
+      "kernel.apparmor_restrict_unprivileged_userns": "1"
+    },
+    "profile_identity": [
+      2049,
+      7807
+    ],
+    "after_profile_limits": {
+      "kernel.unprivileged_userns_clone": "1",
+      "kernel.apparmor_restrict_unprivileged_userns": "1"
+    },
+    "profile_sha256": "11d39094f044f0cda0febb3ad517b830301da6b2ce929664af09ee9e4dd264f9",
+    "new_profiles": {
+      "bwrap": "enforce",
+      "unpriv_bwrap": "enforce"
+    },
+    "final_limits": {
+      "kernel.unprivileged_userns_clone": "1",
+      "kernel.apparmor_restrict_unprivileged_userns": "1"
+    },
+    "existing_profiles_unchanged": true,
+    "package_files_verified": true,
+    "verification_scope": [
+      "minimal_bwrap",
+      "allowed_write",
+      "same_uid_outside_denied",
+      "network_denied",
+      "detached_child_terminated",
+      "actual_worker_completed",
+      "five_fixed_tests",
+      "existing_service_baseline"
+    ],
+    "additional_product_reviews": "tracked separately"
+  },
+  "package": {
+    "name": "bubblewrap",
+    "version": "0.9.0-1ubuntu0.1",
+    "deb_sha256": "3fb4ca3a8d2060444836568ed49d6897a403467e4ba29c93440900093fb96a38",
+    "binary_sha256": "ae27935781511400c65ebcc0b4669775d602f46251b8707c947a1ac1b160c1c8"
+  },
+  "cli_versions": {
+    "codex": "0.154.0",
+    "claude": "2.1.270"
+  },
+  "isolation": {
+    "minimal_bwrap": true,
+    "child_cap_eff": "0000000000000000",
+    "same_uid_outside_errno": 30,
+    "outside_file_absent": true,
+    "network_baseline_connected": true,
+    "network_sandbox_errno": 1,
+    "detached_child_terminated": true,
+    "diagnostic_units_clean": 7
+  },
+  "candidate_sha": "535d5c529d59dc59789d8216822c7773be79ecde",
+  "fixed_tests": 5,
+  "all_units_stopped": true,
+  "unit_count": 13,
+  "baseline_unchanged": true,
+  "executions": {
+    "developer": {
+      "category": "success",
+      "session_id": "01a09fa2-7561-7101-b88d-4f7d63d55a33",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "high",
+      "requested_ultracode": false,
+      "observed_models": [],
+      "observed_efforts": [],
+      "observed_ultracode": [],
+      "configuration_evidence": {
+        "source": "codex_rollout",
+        "scope": "cli_turn_configuration",
+        "status": "observed",
+        "session_id": "01a09fa2-7561-7101-b88d-4f7d63d55a33",
+        "cli_version": "0.154.0",
+        "contexts": [
+          {
+            "turn_id": "01a09fa2-75cc-7063-bfb4-06a27da1f7bc",
+            "model": "gpt-6-astra",
+            "reasoning_effort": "high",
+            "recorded_at": 1789384620.89
+          }
+        ],
+        "backend_model_verified": false
+      },
+      "structured_output": null,
+      "exit_code": 0,
+      "duration_seconds": 27.778270242968574,
+      "cgroup_stopped": true,
+      "stdout_sha256": "76c57a455944cd9882cb2d72d99fbdc807060da236caaab40a112fb44e2203d2",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "independent": {
+      "category": "permission",
+      "session_id": "35752f72-3d77-4f60-add1-eb6f9083726b",
+      "requested_model": "claude-opus-5",
+      "requested_effort": "xhigh",
+      "requested_ultracode": true,
+      "observed_models": [
+        "claude-opus-5"
+      ],
+      "observed_efforts": [],
+      "observed_ultracode": [],
+      "configuration_evidence": {
+        "source": "claude_control_initialize",
+        "scope": "supported_configuration",
+        "model": "claude-opus-5",
+        "supported_efforts": [
+          "high",
+          "low",
+          "max",
+          "medium",
+          "xhigh"
+        ],
+        "applied_effort": null,
+        "applied_ultracode": null
+      },
+      "exit_code": 0,
+      "duration_seconds": 45.70693073282018,
+      "cgroup_stopped": true,
+      "stdout_sha256": "fbaaae197611bc2f44256bab8ac53092b185845c33f117d41749277bdaf79213",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_verdict": {
+        "verdict": "PASS",
+        "candidate_sha": "535d5c529d59dc59789d8216822c7773be79ecde",
+        "findings": []
+      },
+      "tool_evidence": {
+        "category": "permission",
+        "verdict": "PASS",
+        "workflow_invocations": 0,
+        "tool_names": [
+          "Glob",
+          "Read",
+          "StructuredOutput",
+          "mcp__plugin_context-mode_context-mode__ctx_execute"
+        ]
+      }
+    },
+    "independent2": {
+      "category": "success",
+      "session_id": "1b35cf85-4620-457d-a5a1-0d171a6deb3c",
+      "requested_model": "claude-opus-5",
+      "requested_effort": "xhigh",
+      "requested_ultracode": true,
+      "observed_models": [
+        "claude-opus-5"
+      ],
+      "observed_efforts": [],
+      "observed_ultracode": [],
+      "configuration_evidence": {
+        "source": "claude_control_initialize",
+        "scope": "supported_configuration",
+        "model": "claude-opus-5",
+        "supported_efforts": [
+          "high",
+          "low",
+          "max",
+          "medium",
+          "xhigh"
+        ],
+        "applied_effort": null,
+        "applied_ultracode": null
+      },
+      "exit_code": 0,
+      "duration_seconds": 37.88863193709403,
+      "cgroup_stopped": true,
+      "stdout_sha256": "63944d708bcb16d260a3d8e2f769470c1c497128cdb179c578b5570f68790f37",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_verdict": {
+        "verdict": "PASS",
+        "candidate_sha": "535d5c529d59dc59789d8216822c7773be79ecde",
+        "findings": []
+      },
+      "tool_evidence": {
+        "category": "success",
+        "verdict": "PASS",
+        "workflow_invocations": 0,
+        "tool_names": [
+          "Glob",
+          "Grep",
+          "Read",
+          "StructuredOutput"
+        ]
+      }
+    },
+    "final": {
+      "category": "success",
+      "session_id": "01a09fa9-62c0-7f40-92c8-de00d90b8f1d",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "ultra",
+      "requested_ultracode": false,
+      "observed_models": [],
+      "observed_efforts": [],
+      "observed_ultracode": [],
+      "configuration_evidence": {
+        "source": "codex_rollout",
+        "scope": "cli_turn_configuration",
+        "status": "observed",
+        "session_id": "01a09fa9-62c0-7f40-92c8-de00d90b8f1d",
+        "cli_version": "0.154.0",
+        "contexts": [
+          {
+            "turn_id": "01a09fa9-6349-7cf2-97c9-dc50d91239a5",
+            "model": "gpt-6-astra",
+            "reasoning_effort": "ultra",
+            "recorded_at": 1789385074.847
+          }
+        ],
+        "backend_model_verified": false
+      },
+      "exit_code": 0,
+      "duration_seconds": 23.70261329691857,
+      "cgroup_stopped": true,
+      "stdout_sha256": "60a38612e5ffe3484793853eb6bd199ad96a467c4b85d4d3aec8b185f69c2020",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_verdict": {
+        "verdict": "BLOCK",
+        "candidate_sha": "535d5c529d59dc59789d8216822c7773be79ecde",
+        "findings": [
+          "Static verification is blocked: permitted Read, Glob, and Grep tools are unavailable. Source correctness, test coverage, and commit identity could not be independently verified."
+        ]
+      },
+      "tool_evidence": {
+        "codex_commands": []
+      }
+    },
+    "final2": {
+      "category": "success",
+      "session_id": "01a09faa-dc23-7f91-9f7c-4d8debe17a8f",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "ultra",
+      "requested_ultracode": false,
+      "observed_models": [],
+      "observed_efforts": [],
+      "observed_ultracode": [],
+      "configuration_evidence": {
+        "source": "codex_rollout",
+        "scope": "cli_turn_configuration",
+        "status": "observed",
+        "session_id": "01a09faa-dc23-7f91-9f7c-4d8debe17a8f",
+        "cli_version": "0.154.0",
+        "contexts": [
+          {
+            "turn_id": "01a09faa-dc89-7b40-ada7-e5e0eb105df3",
+            "model": "gpt-6-astra",
+            "reasoning_effort": "ultra",
+            "recorded_at": 1789385171.607
+          }
+        ],
+        "backend_model_verified": false
+      },
+      "exit_code": 0,
+      "duration_seconds": 26.75366986100562,
+      "cgroup_stopped": true,
+      "stdout_sha256": "789ac9a7f51bd0040eb1c334629e1ee8ea853abfd7f3eb5b1755aee4aeb6f906",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "review_verdict": {
+        "verdict": "PASS",
+        "candidate_sha": "535d5c529d59dc59789d8216822c7773be79ecde",
+        "findings": []
+      },
+      "tool_evidence": {
+        "codex_commands": [
+          {
+            "command": "/bin/bash -lc 'git rev-parse HEAD'",
+            "exit_code": 0
+          },
+          {
+            "command": "/bin/bash -lc 'git status --porcelain'",
+            "exit_code": 0
+          },
+          {
+            "command": "/bin/bash -lc 'git show HEAD:src/normalize_title.py'",
+            "exit_code": 0
+          },
+          {
+            "command": "/bin/bash -lc 'git show HEAD:tests/test_normalize_title.py'",
+            "exit_code": 0
+          },
+          {
+            "command": "/bin/bash -lc 'cat /home/edward/.agents/skills/code-review-skill/SKILL.md'",
+            "exit_code": 0
+          }
+        ]
+      }
+    }
+  },
+  "limits": [
+    "local fixture was not pushed and has no remote CI",
+    "not a complete automatic Dispatcher/PM/UI workflow",
+    "Claude applied effort and Ultracode unknown; no Workflow tool invocation observed",
+    "Codex turn configuration does not independently verify backend model",
+    "no operating timer switch, deployment, or automatic merge"
+  ],
+  "local_regression": {
+    "tests": 168,
+    "status": "PASS",
+    "duration_seconds": 37.997
+  },
+  "auth_cleanup": {
+    "dedicated_sudo_invalidated": true,
+    "noninteractive_sudo_rejected": true,
+    "dedicated_tmux_closed": true,
+    "password_stored": false
+  }
+}

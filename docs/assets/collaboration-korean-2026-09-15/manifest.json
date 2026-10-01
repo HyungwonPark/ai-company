@@ -1,0 +1,15 @@
+{
+  "source_commit": "bebb204611c51823e59b796ca16ce63f08534b04",
+  "workflow_run": "https://github.com/HyungwonPark/ai-company/actions/runs/34944130985",
+  "scope": "sandboxed browser fixtures; approval translation from one recorded actual CLI call, separately reprocessed without another model call",
+  "files": {
+    "light-desktop-collaboration-fixture.png": "bd4de78e8f84f4b3a812fd8b8668bb70e63a84813aeea800050b4b5c74979ab6",
+    "light-desktop-korean-report-fixture.png": "b07e8e177a7d10b24aecb5cb8407407911b201be8ed3f38a588a5856830c7f8b",
+    "light-recorded-cli-reprocessed-korean-approval.png": "1e2f4d055799789d1daccebaeb7e76f0df8eabdf85f821fbdfcfd2a875b1db6f",
+    "light-mobile-recorded-cli-reprocessed-korean-approval.png": "4830b865b860e6fadc4cd297625cfa38f4dae1b52fd1adbda09f83d774acbe14",
+    "black-desktop-collaboration-fixture.png": "01bf3df04fb43c796d3012cbb3efad905f9d4fd8cb41063b1479052cfc2213ad",
+    "black-desktop-korean-report-fixture.png": "1bb62d2c3b8efb70f86f6e84504d2ddc85d630e0e83dae295ceb0ba84ccc5a1a",
+    "black-recorded-cli-reprocessed-korean-approval.png": "80955a62581349edf9786ca706ad25d5010617ce2db2a3b6fb96c844b9a3859c",
+    "black-mobile-recorded-cli-reprocessed-korean-approval.png": "bbae9ed30bdc8ce65b2a828fa42e04b407a4cd6268a747df383083297f62ec7f"
+  }
+}

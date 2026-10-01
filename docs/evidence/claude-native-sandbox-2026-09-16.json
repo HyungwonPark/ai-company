@@ -1,0 +1,242 @@
+{
+  "schema": "claude-native-sandbox-probe-v1",
+  "observed_at": "2026-09-16T02:46:42.045922+00:00",
+  "status": "BLOCKED_NATIVE_BASH",
+  "cli_version": "2.1.270",
+  "cli_sha256": "7bf9f33acc124df9abccf6f2366397a82a740378d535fa12d426fa77fdbc9946",
+  "dependency": {
+    "package": "socat",
+    "version": "1.8.0.0-4ubuntu0.1",
+    "architecture": "arm64",
+    "archive_sha256": "4230c851d4534710f63753a8322b5baae8aedc1aed21a3a0f2350fa61d44169b",
+    "binary_sha256": "8bce608454b1f027e42ad6d9e49935dfad44605da7f7f138b06a0f36b38d6025",
+    "method": "dpkg-deb -x into private validation directory; no maintainer scripts or system install",
+    "system_package_database_changed": false
+  },
+  "preflight": [
+    {
+      "case": "missing-socat",
+      "returncode": 1,
+      "applied": [],
+      "diagnostic_lines": [
+        "Error: sandbox required but unavailable: sandbox is enabled but dependencies are missing: socat not installed · install missing tools (e.g. apt install bubblewrap socat) or see https://code.claude.com/docs/en/sandboxing",
+        "  sandbox.failIfUnavailable is set — refusing to start without a working sandbox."
+      ],
+      "native_event_types": [
+        "result"
+      ],
+      "model_prompt_supplied": false,
+      "native_stdout_sha256": "d13623cb85ff7d8f9c01cab6769bca8533774d77080345493c85928762cbe0da",
+      "cgroup_stopped": true,
+      "sandbox_requested": {
+        "enabled": true,
+        "failIfUnavailable": true,
+        "allowUnsandboxedCommands": false
+      },
+      "system_packages_installed": false,
+      "operating_state_modified": false
+    },
+    {
+      "case": "private-socat",
+      "returncode": 0,
+      "applied": [
+        {
+          "model": "claude-opus-5",
+          "effort": "xhigh",
+          "advisor": null,
+          "ultracode": true
+        }
+      ],
+      "diagnostic_lines": [],
+      "native_event_types": [
+        "control_response",
+        "control_response"
+      ],
+      "model_prompt_supplied": false,
+      "native_stdout_sha256": "d12d92a525ade825b635eeefb27ca45f8b092d354b69874f8b46f29ffbb0abc9",
+      "cgroup_stopped": true,
+      "sandbox_requested": {
+        "enabled": true,
+        "failIfUnavailable": true,
+        "allowUnsandboxedCommands": false
+      },
+      "system_packages_installed": false,
+      "operating_state_modified": false
+    }
+  ],
+  "native_bash": {
+    "session_id": "f3e05936-b239-40af-b335-934ac283ebdd",
+    "started_at": 1789526087.0662162,
+    "ended_at": 1789526099.8976693,
+    "cli_result_category": "success",
+    "tool_results": [
+      {
+        "type": "tool_result",
+        "content": "Exit code 1\napply-seccomp: write /proc/self/setgroups (nested userns is capability-restricted; caller must provide CAP_SYS_ADMIN): Permission denied",
+        "is_error": true,
+        "tool_use_id": "toolu_017Rp3prvpAqfE31K2w9ZGpW"
+      }
+    ],
+    "cost_usd": 0.080055,
+    "main_api_requests": 2,
+    "auxiliary_api_requests": 1,
+    "cgroup_stopped": true,
+    "collector_closed": true,
+    "stdout_sha256": "42b262770217ee999285be92050aa0d1b4378faf53f2fc77e9e625a9f3d344e2",
+    "helper_executed": false,
+    "path_write_check": "NOT_RUN",
+    "path_read_check": "NOT_RUN",
+    "network_block_check": "NOT_RUN",
+    "spawned_child_cleanup_check": "NOT_RUN"
+  },
+  "minimal_reproduction": {
+    "cases": [
+      {
+        "name": "bwrap-true",
+        "argv": [
+          "/usr/bin/bwrap",
+          "--new-session",
+          "--die-with-parent",
+          "--unshare-user",
+          "--cap-drop",
+          "ALL",
+          "--unshare-pid",
+          "--unshare-net",
+          "--ro-bind",
+          "/",
+          "/",
+          "--proc",
+          "/proc",
+          "--dev",
+          "/dev",
+          "--chdir",
+          "/",
+          "--clearenv",
+          "--",
+          "/usr/bin/true"
+        ],
+        "exit": 0,
+        "stdout": "",
+        "stderr": "",
+        "cgroup_stopped": true
+      },
+      {
+        "name": "bwrap-profile",
+        "argv": [
+          "/usr/bin/bwrap",
+          "--new-session",
+          "--die-with-parent",
+          "--unshare-user",
+          "--cap-drop",
+          "ALL",
+          "--unshare-pid",
+          "--unshare-net",
+          "--ro-bind",
+          "/",
+          "/",
+          "--proc",
+          "/proc",
+          "--dev",
+          "/dev",
+          "--chdir",
+          "/",
+          "--clearenv",
+          "--",
+          "/usr/bin/python3",
+          "-c",
+          "import pathlib,json;print(json.dumps({'profile':pathlib.Path('/proc/self/attr/current').read_text().strip(),'status':[s for s in pathlib.Path('/proc/self/status').read_text().splitlines() if s.startswith(('CapEff:','CapBnd:','NoNewPrivs:','Seccomp:'))]}))"
+        ],
+        "exit": 0,
+        "stdout": "{\"profile\": \"bwrap//&unpriv_bwrap (enforce)\", \"status\": [\"CapEff:\\t0000000000000000\", \"CapBnd:\\t0000000000000000\", \"NoNewPrivs:\\t1\", \"Seccomp:\\t0\"]}",
+        "stderr": "",
+        "cgroup_stopped": true
+      },
+      {
+        "name": "embedded-helper",
+        "argv": [
+          "/usr/bin/bwrap",
+          "--new-session",
+          "--die-with-parent",
+          "--unshare-user",
+          "--cap-drop",
+          "ALL",
+          "--unshare-pid",
+          "--unshare-net",
+          "--ro-bind",
+          "/",
+          "/",
+          "--proc",
+          "/proc",
+          "--dev",
+          "/dev",
+          "--chdir",
+          "/",
+          "--clearenv",
+          "--setenv",
+          "ARGV0",
+          "apply-seccomp",
+          "--",
+          "/home/edward/.local/share/claude/versions/2.1.270",
+          "/usr/bin/true"
+        ],
+        "exit": 1,
+        "stdout": "",
+        "stderr": "apply-seccomp: write /proc/self/setgroups (nested userns is capability-restricted; caller must provide CAP_SYS_ADMIN): Permission denied",
+        "cgroup_stopped": true
+      }
+    ],
+    "native_binary_sha256": "7bf9f33acc124df9abccf6f2366397a82a740378d535fa12d426fa77fdbc9946",
+    "profile_sha256": "11d39094f044f0cda0febb3ad517b830301da6b2ce929664af09ee9e4dd264f9",
+    "sysctls": "kernel.unprivileged_userns_clone = 1\nkernel.apparmor_restrict_unprivileged_userns = 1\n",
+    "model_calls": 0,
+    "system_changes": false
+  },
+  "secondary_strace": {
+    "exit": 1,
+    "stderr_excerpt": [
+      "unshare(CLONE_NEWNS|CLONE_NEWPID)       = -1 EPERM (Operation not permitted)",
+      "prctl(PR_SET_DUMPABLE, SUID_DUMP_USER)  = 0",
+      "unshare(CLONE_NEWUSER)                  = 0",
+      "openat(AT_FDCWD, \"/proc/self/setgroups\", O_WRONLY) = -1 EACCES (Permission denied)",
+      "write(2, \"apply-seccomp: write /proc/self/\"..., 128apply-seccomp: write /proc/self/setgroups (nested userns is capability-restricted; caller must provide CAP_SYS_ADMIN): Permissio) = 128"
+    ],
+    "trace_is_secondary_diagnostic": true,
+    "primary_untraced_result": "minimal/result.json"
+  },
+  "kernel_audit": {
+    "audit_timestamp": 1789526584.745,
+    "profile": "unpriv_bwrap",
+    "comm": "2.1.270",
+    "pid": 1920922,
+    "operation": "capable",
+    "capability": 21,
+    "capname": "sys_admin",
+    "decision": "DENIED",
+    "correlation": "same minimal reproduction interval; separate traced run excluded"
+  },
+  "operating_state_same_as_before": {
+    "management_projects": true,
+    "management_pm_requests": true,
+    "management_runs": true,
+    "session_jobs": true,
+    "translation_jobs": true,
+    "pr10": true,
+    "services": true,
+    "timer": true,
+    "worker_release": true,
+    "public_image": true,
+    "neighbors": true
+  },
+  "global_sysctl_profile_changes": false,
+  "production_rollout_applied": false,
+  "claude_developer_eligible": false,
+  "model_calls_in_minimal_reproduction": 0,
+  "source_reference_commit": "0bab820dace6809fb5cfe117b6ae2693bf5858b5",
+  "limits": [
+    "dependency initialization is not a successful Bash execution",
+    "CLI final success does not imply tool success",
+    "traced process is secondary evidence; untraced failure is primary",
+    "no privilege increase, weakened sandbox or system package installation",
+    "this does not reverse earlier verified company bwrap isolation"
+  ]
+}

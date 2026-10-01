@@ -1,0 +1,34 @@
+{
+  "status": "FAIL",
+  "error": "mixed modules must not throw unhandled exceptions during authenticated project render\n+ actual - expected\n\n+ [\n+   'workspaceGraph.selectScope is not a function'\n+ ]\n- []\n",
+  "active": {
+    "case": "old-graph",
+    "stage": "authenticated selective module failure",
+    "errors": [
+      "workspaceGraph.selectScope is not a function"
+    ],
+    "observations": [
+      {
+        "loaded": {
+          "app.js": "f048a9d5f5826ccb8c40868e81256c3a652c0f3e62c3ac41196f1c7e563a0450",
+          "workspace-graph-ui.js": "8819bcb7bab374b71ad9037c8a8a0248f764f582ee4efecd432c24689d3643b5",
+          "report-ui.js": "1a7667777b931d2f30900bdb4ae8821ceaebdaa9da10f983083ac4bb0d5bdaaa"
+        },
+        "states": [
+          {
+            "cache": "ai-company-shell-v8",
+            "clients": 2
+          },
+          {
+            "cache": "ai-company-shell-v10",
+            "clients": 0
+          }
+        ],
+        "authenticated": true,
+        "project_api": true,
+        "http_cache_disabled": true
+      }
+    ]
+  },
+  "completed": []
+}

@@ -1,0 +1,69 @@
+# ai-company 작업 규칙
+
+## 목적
+
+하네스와 작업 루프를 모두 구축한다. 사용자가 정한 목표·완료 조건을 유지하며 구현·검사·독립 검수·수정을 자동으로 이어간다. 역할과 실행 도구를 분리하여 새 어댑터를 추가할 수 있게 한다.
+
+## 초기 구축 범위와 공통 제약
+
+아래 모의 실행·미검증 설명은 초기 구축 당시의 범위다. 최신 실제 호출·운영 적용·차단 상태는 `docs/live-use-readiness-2026-09-16.md`의 현재 상태와 연결된 고정 검증 기록을 먼저 대조한다. 초기 설명만으로 후속 실제 검증을 미실시로 되돌리거나 전체 실사용 완료로 간주하지 않는다.
+
+- Python·LangGraph·SQLite의 개발 루프는 단일 서버 시뮬레이션 기반이다.
+- 별도의 SQLite 세션 큐와 Claude Code·Codex 프로세스 실행기, 사용자 systemd timer가 있다. 세션 완료는 작업 검사·검수나 병합 준비를 의미하지 않는다. 실제 계정의 모델 호출과 원격 작업 CI의 루프 통합은 아직 검증하지 않았다.
+- 후속 `flow` 배정기는 공유 한도 이관과 CLI 결과·검수 그래프를 연결한다. 모의 검증과 실사용 차단 범위는 `docs/flow-validation-2026-09-14.md`에 구분한다. 새 운영 flow timer는 아직 배포하지 않았다.
+- 서버 작업은 사용자의 기존 SSH·tmux 경로를 활용한다. 이 웹 대화와 서버 CLI 사이에 자동 세션 승계가 있다고 가정하지 않는다.
+- 기존 운영 서비스에 영향을 주는 변경과 금융 프로젝트의 재개는 이 작업 범위에 포함하지 않는다.
+
+- 통합 후속 목표와 소유권은 `docs/plans/company-control-plane.md`를 따른다. 기존 PR #5 복구/출처 검증을 유지하고 관리 API는 같은 SQLite를 조회·기록한다. PM 요청 저장은 실제 PM 응답이 아니다.
+- 독립 Git clone의 flow 실행 중 전역 배정 잠금은 풀되 작업·저장소 소유권과 최대 두 실행의 용량을 유지한다. 실제/미확인 고아 실행 guard도 용량을 보존한다. 기존 Git common dir를 공유하는 worktree는 직렬화한다.
+- 공개 도메인·TWA 및 호스트 전용 프로필의 계획 문서는 적용 증거가 아니다. 운영 서비스 변경·자동 병합·배포를 문서 작성만으로 수행하지 않는다.
+
+## 사용자에게 쓰는 글
+
+- PR 제목·본문, 커밋 설명, 게시글과 작업 보고는 한글로 작성한다.
+- `AI Company`, `Aigent workspace` 같은 지정 브랜드명과 코드·명령·식별자는 원문을 유지한다.
+- 기존 실행의 명세·승인 원문·검증 증거를 번역해서 덮어쓰지 않는다.
+
+## 구현 원칙
+
+- 서버 Codex 개발 작업은 [개발 효율 지침](https://github.com/HyungwonPark/ai-company/blob/0a7468b27a90f10021a3280d4952b291d05ba523/docs/work-reviews/server-codex-efficiency-policy.md)을 따른다. 이는 제품 역할·운영 worker의 모델 설정을 바꾸지 않는다.
+- 작업 ID에 묶인 원래 명세·정책·어댑터 구성을 바꾸어 이전 작업을 합격시키지 않는다.
+- 실제 병합 준비는 현재 원격 커밋과 필수 CI·독립 검수 근거로 판단한다. 모의 결과는 `DEMO_READY`로 표시한다.
+- LangGraph 체크포인트는 진행 상태, 실행 기록은 외부 작업의 사실을 담당한다.
+- 불확실한 실행을 무조건 재시도하지 않는다. 시간 초과 시 종료 확인 여부를 구분한다.
+- 현재 구현은 사용량·rate limit·확인된 일시 통신 오류만 예약 재시도한다. quota는 같은 세션, 컨텍스트 부족은 체크포인트 기반 새 세션 인수인계로 처리한다. 예약 대기시간과 개별 프로세스 실행 제한시간을 분리한다.
+- 후속 구현은 `docs/agent-failover.md`의 사용자 요구사항을 따른다. 역할별 허용 후보와 대체 정책을 고정하고, 사용량 제한 시 적격 대체자로 우선 이관한다. 대체자가 없으면 영속 예약 대기한다. 공유 계정 한도·종료 확인·이관 기록·누적 예산을 유지하며, 최종 검수자를 임의 변경하거나 승인 단계를 건너뛰지 않는다. 배정·복구는 모델 호출 없이 동작해야 한다.
+- 작업 공간 분리와 OS 권한 격리를 구분한다. 자격 증명을 저장소·작업 맥락·공개 로그에 넣지 않는다.
+- 초안 PR을 이용해 검토 가능한 변경을 남긴다. 사용자 지시 없이 자동 병합·배포를 추가하지 않는다.
+- PR의 최종 HEAD와 CI가 준비되면 저장소 밖에 설치해 해시를 확인한 검수기 `python3 ~/.local/libexec/ai-company-pr-review/runner.py <PR 번호> --shared-call-ledger <비공개 장부> --credential-ref <등록 계정 참조> --quota-group <등록 그룹> --adoption-receipt <비공개 전환 기록>`로 별도 Claude Code 검수를 실행한다. 설치 전에는 후보 PR 안의 검수기를 신뢰 경계로 사용하지 않는다. 이 검수는 로컬에 로그인된 Claude Code의 `claude-opus-5-5`와 `ultracode`를 요청하고 실제 적용 설정을 전후에 확인한다. 전체 패치를 정확한 HEAD·SHA-256에 묶어 전달한 근거와 검토 범위가 없으면 PASS로 세지 않는다. 같은 HEAD의 첫 실행·미시작 재시도 예약은 원자적으로 처리한다. 사용자가 PR 검수의 토큰 사용을 허용했으므로 별도 USD 상한이나 턴 수 상한은 두지 않는다. 검수기는 같은 HEAD에서 중복 호출하지 않고 실행 시간 30분을 제한한다. 구독 또는 도구 한도 때문에 범위를 다 보지 못하면 미완료로 보고한다. 보고에는 검수한 정확한 HEAD, Claude 판정·미검토 범위, 실제 Workflow 도구 사용 여부를 구분한다. PM의 실제 응답 내용 검수는 별도의 평가이며 이 코드 검수 PASS로 대신하지 않는다. 기존 역할 배정 모델과 Astra 최종 검수, 운영 승인 정책은 이 추가 검수로 바꾸지 않는다.
+
+신뢰한 검수기 버전은 운영 worker와 무관한 로컬 경로에 두 파일을 함께 설치한다. PR 후보가 이 복사본을 자동 교체하게 하지 않는다.
+공용 호출 장부 후보를 검수할 때는 과거 설치본의 단독 실행을 새 장부 검증으로 간주하지 않는다. 최종 검수 코드·`shared_calls.py`를 신뢰 경로에 별도로 고정하고 모든 모델 호출 경로의 장부 연결·운영 전환 기록을 확인한 뒤, `--shared-call-ledger`·`--credential-ref`·`--quota-group`·`--adoption-receipt`를 지정한다. 연결 전에는 PR 검수 모델을 재호출하지 않고 독립 코드 검토와 CI 근거를 구분해 남긴다. 운영 전환은 별도 승인 대상이다.
+호출 전 거부된 기록은 비공개 `facts.jsonl`의 종료와 `prompt_delivery_started` 부재를 확인한 경우에만 `--retry-unstarted`로 보존 후 재시도한다. 이미 전달한 프롬프트는 같은 HEAD에서 재호출하지 않는다. 예외는 provider의 실제 제한 거부·자식 종료·정확한 HEAD/base/패치 바인딩·reset 경과와 공용 장부 정산이 모두 확인된 뒤 `--resume-quota`로 새 시도를 남기는 경우뿐이다. 불확실한 기존 기록은 지우지 않는다.
+
+```bash
+install -d -m 700 ~/.local/libexec/ai-company-pr-review
+install -m 700 scripts/review_pr_with_claude.py ~/.local/libexec/ai-company-pr-review/runner.py
+install -m 600 src/ai_company/adapters/claude_control.py ~/.local/libexec/ai-company-pr-review/claude_control.py
+install -m 600 src/ai_company/shared_calls.py ~/.local/libexec/ai-company-pr-review/shared_calls.py
+```
+
+## 검증 명령
+
+```bash
+uv sync --frozen
+uv run --frozen python -m unittest discover -s tests -v
+uv run --frozen ai-company demo --task examples/demo-task.json
+```
+
+상태 전이, 증적 판정, 재시작 시 외부 작업의 중복 위험에 맞춘 동작 검증을 작성한다. 로컬 검증과 원격 CI, 모의 실행과 실제 서버 검증 결과를 구분하여 보고한다.
+
+## 프런트엔드 설계와 검수
+
+- PR #15 이후 작업실·역할 그래프·모델 연결·ECC·Archify 후속 작업은 `docs/product-experience/integrated-workspace-ecc-archify-2026-09-16.md`를 통합 명세로 읽는다. 완료된 A/B/C 시안을 재제작하지 않으며 최신 그래프·모델 세부 명세를 함께 따른다. 이 문서는 기존 실행·운영 승인 범위를 확대하지 않는다.
+
+- `src/ai_company/web/`의 화면·스타일·동작 또는 관련 UI 검수를 작업할 때 `.agents/skills/ai-company-frontend/SKILL.md`를 읽고 적용한다. 서버 로직만 수정하는 작업에는 적용하지 않는다.
+- 큰 화면 개편은 기존 B형 배치·카드·색상에 고정하지 않는다. 사용자 과제, 보존할 동작, 비교한 구조와 선택 이유를 먼저 기록한다. 작은 수정은 그 범위에 맞게 진행한다.
+- 첫 적용의 기준과 원본 참고 범위는 `docs/product-experience/frontend-redesign-2026-09-16.md`에 있다. 이전 PR #12의 기능·접근성 조건은 보존하되 특정 배치·토큰은 새로 비교할 수 있다.
+- 화면 변경 완료에는 대상 상태의 실제 렌더링과 핵심 조작 검수 근거가 필요하다. 검사 통과, 작성자의 미감 점수, 스킬 호출 사실만으로 사용성 개선을 완료 처리하지 않는다.
+- 이 연결은 작업 지침이다. 자동 CI 차단이나 현재 운영 worker의 스킬 탑재 완료를 뜻하지 않는다. 배포·실행 권한과 기존 승인 조건은 바꾸지 않는다.

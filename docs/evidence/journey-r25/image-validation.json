@@ -1,0 +1,31 @@
+{
+  "anonymous_api": 401,
+  "api_and_worker_code": "verified by source manifest; no worker/model invocation",
+  "assets": {
+    "/": "54a3627b50e9ddebfada6033961787a0dc57ef264320b991f2ef3a9b28c8dc6e",
+    "/app.js": "f048a9d5f5826ccb8c40868e81256c3a652c0f3e62c3ac41196f1c7e563a0450",
+    "/report-ui.js": "1a7667777b931d2f30900bdb4ae8821ceaebdaa9da10f983083ac4bb0d5bdaaa",
+    "/sw.js": "5037b773be28b001c87d3bafc85d60c42edfc6684d4fbe1cb1cefb14a1dda615",
+    "/workspace-graph-ui.js": "2706d60422eb9b1de99239762f9004afd2cd70ec80603f3ec225ee8f91a762eb"
+  },
+  "foreign_host": 403,
+  "installed_source_files": 113,
+  "isolation": {
+    "network": "none; loopback HTTP only",
+    "production_mounts": false,
+    "root_read_only": true,
+    "state": "temporary tmpfs",
+    "uid": 65532
+  },
+  "limitations": [
+    "not production health",
+    "not physical APK",
+    "not actual model execution"
+  ],
+  "source_manifest_sha256": "be595339189b847266015696461c933ca4ca23dbbcf162e12aeff603024bf26b",
+  "status": "PASS",
+  "product_commit": "14114a71584c65c6dbbd0b33a1a26c7246d1e1ad",
+  "image_id": "sha256:8005ce1fa85a458d17bdf159a0af2774801a9a19b4c14adecff147b1f059ae01",
+  "architecture": "arm64",
+  "image_id_scope": "local Docker image ID; not a registry pull reference"
+}

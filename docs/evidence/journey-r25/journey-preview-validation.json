@@ -1,0 +1,95 @@
+{
+  "status": "PASS",
+  "scope": "actual packaged product UI + frozen synthetic fetch; no real API/models/approvals/APK",
+  "browser": "152.0.7977.82",
+  "sandbox": true,
+  "html_sha256": "606e68539fead877274cd16173f62311614dde87bcfb5413664fb9f7141a4417",
+  "fixture_sha256": "e84cad2748e99067635252184e8e04b3615b5f5eec175de87ad00bde95810d8c",
+  "source_commit": "82c794cd2d511950377a3caef71670e55877dc56",
+  "source_dirty": false,
+  "checks": [
+    {
+      "width": 320,
+      "theme": "light",
+      "project": "b6e3599066d9409492c3e4e74e05190c",
+      "recent_run": "graph-fixture-new-run",
+      "approval_run": "7ba3b840de144b798a13a709fb2a8c14",
+      "approval": "65b54153b88048ce869c4b9e38303a2a",
+      "approval_expired": false,
+      "node": "graph:c8e46c99e598e3931797271f:pm:b6e3599066d9409492c3e4e74e05190c",
+      "edge": "graph:c8e46c99e598e3931797271f:5ae36b5b0e4acf794ad08d25944c2df9aa48a96728ea5fa5798593de445f5e7c",
+      "read_requests": 9,
+      "network_requests": 0
+    },
+    {
+      "width": 320,
+      "theme": "black",
+      "project": "b6e3599066d9409492c3e4e74e05190c",
+      "recent_run": "graph-fixture-new-run",
+      "approval_run": "7ba3b840de144b798a13a709fb2a8c14",
+      "approval": "65b54153b88048ce869c4b9e38303a2a",
+      "approval_expired": false,
+      "node": "graph:c8e46c99e598e3931797271f:pm:b6e3599066d9409492c3e4e74e05190c",
+      "edge": "graph:c8e46c99e598e3931797271f:5ae36b5b0e4acf794ad08d25944c2df9aa48a96728ea5fa5798593de445f5e7c",
+      "read_requests": 9,
+      "network_requests": 0
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "project": "b6e3599066d9409492c3e4e74e05190c",
+      "recent_run": "graph-fixture-new-run",
+      "approval_run": "7ba3b840de144b798a13a709fb2a8c14",
+      "approval": "65b54153b88048ce869c4b9e38303a2a",
+      "approval_expired": false,
+      "node": "graph:c8e46c99e598e3931797271f:pm:b6e3599066d9409492c3e4e74e05190c",
+      "edge": "graph:c8e46c99e598e3931797271f:5ae36b5b0e4acf794ad08d25944c2df9aa48a96728ea5fa5798593de445f5e7c",
+      "read_requests": 9,
+      "network_requests": 0
+    },
+    {
+      "boundary": "real product creation rejected; PUT/PATCH/DELETE rejected; external fetch rejected; project/fixture unchanged"
+    },
+    {
+      "width": 390,
+      "theme": "black",
+      "project": "b6e3599066d9409492c3e4e74e05190c",
+      "recent_run": "graph-fixture-new-run",
+      "approval_run": "7ba3b840de144b798a13a709fb2a8c14",
+      "approval": "65b54153b88048ce869c4b9e38303a2a",
+      "approval_expired": false,
+      "node": "graph:c8e46c99e598e3931797271f:pm:b6e3599066d9409492c3e4e74e05190c",
+      "edge": "graph:c8e46c99e598e3931797271f:5ae36b5b0e4acf794ad08d25944c2df9aa48a96728ea5fa5798593de445f5e7c",
+      "read_requests": 9,
+      "network_requests": 0
+    },
+    {
+      "width": 1440,
+      "theme": "light",
+      "project": "b6e3599066d9409492c3e4e74e05190c",
+      "recent_run": "graph-fixture-new-run",
+      "approval_run": "7ba3b840de144b798a13a709fb2a8c14",
+      "approval": "65b54153b88048ce869c4b9e38303a2a",
+      "approval_expired": false,
+      "node": "graph:c8e46c99e598e3931797271f:pm:b6e3599066d9409492c3e4e74e05190c",
+      "edge": "graph:c8e46c99e598e3931797271f:5ae36b5b0e4acf794ad08d25944c2df9aa48a96728ea5fa5798593de445f5e7c",
+      "read_requests": 9,
+      "network_requests": 0
+    },
+    {
+      "width": 1440,
+      "theme": "black",
+      "project": "b6e3599066d9409492c3e4e74e05190c",
+      "recent_run": "graph-fixture-new-run",
+      "approval_run": "7ba3b840de144b798a13a709fb2a8c14",
+      "approval": "65b54153b88048ce869c4b9e38303a2a",
+      "approval_expired": false,
+      "node": "graph:c8e46c99e598e3931797271f:pm:b6e3599066d9409492c3e4e74e05190c",
+      "edge": "graph:c8e46c99e598e3931797271f:5ae36b5b0e4acf794ad08d25944c2df9aa48a96728ea5fa5798593de445f5e7c",
+      "read_requests": 9,
+      "network_requests": 0
+    }
+  ],
+  "console_errors": [],
+  "network_requests": []
+}

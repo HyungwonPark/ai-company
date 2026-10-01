@@ -1,0 +1,177 @@
+{
+  "schema_version": 1,
+  "scope": "new independent source/local-check review; not a master UI run or full Dispatcher/remote CI gate",
+  "job_id": "d7063990fedee1da650b2b803a90be63b226406d0776a9cbabffcd01151a2c57",
+  "session_id": "fff4a49c-0e8a-44e0-9ca2-a4c07175d24b",
+  "execution_id": "c765658bf7bd3472cda0ff5e0fc7630c3a9836d748cc4f4eae8af5697594802e",
+  "candidate_sha": "fbe6d5651506f412c1d3cb07b0f66a26423ac895",
+  "task_digest": "e89af2ac516f2f9983d59b54472d0172ee20a7069740055b715e31be1740d339",
+  "policy_digest": "336f3d4d3ff976e7c0e537daba134d61e44dea3a0368b54f007e7e6be8908ec7",
+  "verification_digest": "0fc7a7e04d0b6d2d4d3e26739d675054d349c00e3a635456851923b975a22065",
+  "source_manifest": {
+    "src/ai_company/flow_evidence.py": "71c8c241a7a7a15067bed753f188ec5da032ed80c68c53da2bd0069d68257181",
+    "src/ai_company/harness/prompts.py": "703e293d836f53751cf5ef1da0bac978df5a74b9208fcea02d327bc8a93e5a67",
+    "src/ai_company/adapters/session_cli.py": "e8f0725dad97ca40d73f4625d95169318682fc8f763c80dbd9bb8c4faa1ccda1",
+    "src/ai_company/adapters/claude_files.py": "f792d3be20f65a0ba3b8a3da549ec8e5c7f9f46838ce501cf5d867e190319ecd",
+    "src/ai_company/adapters/claude_control.py": "3cb2df160783e80f54dbe4f73f5e1792d4b6c7ceaacb42c247405418a74cdb01",
+    "src/ai_company/adapters/claude_observation.py": "a8ee80cb0bef05b9c93fec20f309a33b0dee9f3301d85c97671a9a32340e563b",
+    "src/ai_company/adapters/workspace_files.py": "edce536888b255ea0f83d193b53a797ae8ab8f7d0b7902c53b11ffb557fd9986",
+    "src/ai_company/adapters/workspace_mcp.py": "6f7f5a4c8d38f29896d625e0d06f486da4465e37733ff5510921584adea852a0"
+  },
+  "queue_source_commit": "15a31a6d71f258109f01d92482310b6fb0b2481a",
+  "after_probe_changes": "Queue messages and system next-action aggregation tested separately after this native success.",
+  "status": "SESSION_COMPLETED",
+  "verdict": "PASS",
+  "report": {
+    "execution_id": "c765658bf7bd3472cda0ff5e0fc7630c3a9836d748cc4f4eae8af5697594802e",
+    "generation": 1,
+    "role": "reviewer",
+    "task_digest": "e89af2ac516f2f9983d59b54472d0172ee20a7069740055b715e31be1740d339",
+    "policy_digest": "336f3d4d3ff976e7c0e537daba134d61e44dea3a0368b54f007e7e6be8908ec7",
+    "candidate_sha": "fbe6d5651506f412c1d3cb07b0f66a26423ac895",
+    "verification_digest": "0fc7a7e04d0b6d2d4d3e26739d675054d349c00e3a635456851923b975a22065",
+    "verdict": "PASS",
+    "findings": [],
+    "resolved_findings": [],
+    "summary": "직접 확인한 증거: 파일 도구로 src/probe.py를 읽었고, next_value는 `return value + 1`(src/probe.py:6) 한 줄 구현입니다. 소스를 직접 따라가면 next_value(0)=1, next_value(-2)=-1로 두 입력 계약을 모두 충족합니다. 파일 전체가 해당 함수뿐이며 분기·부작용·상태 의존이 없습니다(파일 sha256 03d2df77...).\n\n제공된 검사 결과: unit 검사 기록은 success=true, exit_code=0, cases=[[0,1],[-2,-1]], isolation_verified=true이며, 이는 제가 소스에서 직접 유도한 결과와 일치합니다. 저는 이 검사를 재실행하지 않았고 러너 기록으로만 인용합니다.\n\nGit 상태: 러너가 제공한 repository_state에 따르면 HEAD는 fbe6d5651506f412c1d3cb07b0f66a26423ac895, clean=true이며 checkpoint.files는 비어 있어 이번 검수에서 코드 변경이 없습니다. 저는 Git 명령을 실행하지 않았고, snapshot.dirty_digest는 상태와 무관한 지문으로 취급했습니다. 제 작업은 읽기 전용이었습니다.\n\n검증하지 못한 부분: 검사 프로그램 자체의 내용(program_sha256만 제시됨), 테스트 하니스 코드, 그리고 정수 외 입력 동작은 이 시험 범위 밖이라 확인하지 않았습니다. 원격 CI·마스터 확정·Astra 최종 검수는 이 시험에 포함되지 않아 수행하거나 주장하지 않습니다.\n\n비차단 관찰(수정 요구 아님): 파일 첫 줄 주석 \"중단된 작성의 부분 수정\"은 현재 완성된 구현과 맞지 않는 잔여 문구로 보이나, 두 계약과 허용 경로 범위의 결함은 아닙니다.\n\n결론: 두 수용 기준(계약 충족, 소스와 제공된 로컬 검사 결과 일치)이 독립 검토로 확인되고 읽기 전용 조건도 유지되어 PASS. 미해결 지적 사항은 없었습니다."
+  },
+  "independent_session": true,
+  "repository_state": {
+    "source": "runner_git_status",
+    "snapshot_digest": "dcd1e5d96a00b4b69b4e7732f765f39f91da3abeee82d2147f7a5420ad727549",
+    "head_commit": "fbe6d5651506f412c1d3cb07b0f66a26423ac895",
+    "clean": true
+  },
+  "repository_unchanged": true,
+  "local_check": {
+    "execution_mechanism": "trusted probe using WorkspaceFiles._run; not Verifier.check or remote CI",
+    "record": {
+      "name": "unit",
+      "success": true,
+      "exit_code": 0,
+      "source": "runner_bwrap_check",
+      "program_sha256": "59a26729ddb253ce24c450b90cf889c244eaedc1a5e4824c493b1303c49c4cc1",
+      "result": {
+        "checked": true,
+        "cases": [
+          [
+            0,
+            1
+          ],
+          [
+            -2,
+            -1
+          ]
+        ],
+        "isolation_verified": true
+      }
+    }
+  },
+  "native_tools": [
+    "StructuredOutput",
+    "mcp__company_files__read_file"
+  ],
+  "applied": [
+    {
+      "request_id": "cb3db8cf6fc5b0874b915d2317b0d5ae-before",
+      "applied": {
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "ultracode": true
+      },
+      "has_errors": false
+    },
+    {
+      "request_id": "cb3db8cf6fc5b0874b915d2317b0d5ae-after",
+      "applied": {
+        "model": "claude-opus-5",
+        "effort": "xhigh",
+        "ultracode": true
+      },
+      "has_errors": false
+    }
+  ],
+  "cost_usd": 0.11269200000000001,
+  "api_requests": [
+    {
+      "received_at": 1789532690.3203342,
+      "attributes": {
+        "session.id": "fff4a49c-0e8a-44e0-9ca2-a4c07175d24b",
+        "app.version": "2.1.270",
+        "event.name": "api_request",
+        "model": "claude-haiku-4-5-20251001",
+        "output_tokens": 23,
+        "cost_usd": 0.003532,
+        "request_id": "req_011Cf6UwdF89RSbmHvYsUZrc",
+        "query_source": "generate_session_title"
+      }
+    },
+    {
+      "received_at": 1789532691.3842585,
+      "attributes": {
+        "session.id": "fff4a49c-0e8a-44e0-9ca2-a4c07175d24b",
+        "app.version": "2.1.270",
+        "event.name": "api_request",
+        "model": "claude-opus-5",
+        "output_tokens": 87,
+        "cost_usd": 0.043313000000000004,
+        "request_id": "req_011Cf6UwdL5dEK3krnjvouP4",
+        "query_source": "sdk",
+        "effort": "xhigh"
+      }
+    },
+    {
+      "received_at": 1789532728.537225,
+      "attributes": {
+        "session.id": "fff4a49c-0e8a-44e0-9ca2-a4c07175d24b",
+        "app.version": "2.1.270",
+        "event.name": "api_request",
+        "model": "claude-opus-5",
+        "output_tokens": 2365,
+        "cost_usd": 0.065847,
+        "request_id": "req_011Cf6Uwp7yPzF2HrWUTQHJM",
+        "query_source": "sdk",
+        "effort": "xhigh"
+      }
+    }
+  ],
+  "output_token_limit_events": 0,
+  "requested_output_token_limit": 4096,
+  "cgroup_stopped": true,
+  "collector_closed": true,
+  "file_audit_sha256": "8bb48b44f897915c7fffce3762d06ee527b5ff1902e01cb8b03441fed285d3b3",
+  "backend_model_verified": false,
+  "previous_failed_session_unchanged": true,
+  "production_activated": false,
+  "static_activation_draft": {
+    "source": "static configuration preparation; not activation",
+    "original_configuration_digest": "e65c1459c90ba0fa313242bd908a02431e6f0bb9255f0e849053beab4edaa972",
+    "proposed_configuration_digest": "2f925f653446f89b1b0d717f9a42e0d99a9df4660c90283a4cd2ba66a6d66415",
+    "original_file_sha256": "d39c1511876d5331445e5b6bc95c60b66859dbdeaa05dc982aea0d7ec8715b49",
+    "proposed_file_sha256": "d5a8e4d9dbe6ad29fce53fa1bfebe2681cb241a61aa39aa8599eeba470ae3e20",
+    "changes": [
+      "configuration_evidence: cli_configuration -> cli_configuration_v2",
+      "add Claude developer fallback only"
+    ],
+    "selections": {
+      "src/ai_company/pilot_status.py": [
+        "pilot-dev",
+        "pilot-claude-dev"
+      ],
+      "tests/test_pilot_status.py": [
+        "pilot-dev",
+        "pilot-claude-dev"
+      ]
+    },
+    "same_registered_claude_credential_and_quota_group": true,
+    "pm_reviewer_final_unchanged": true,
+    "limits_checks_ci_paths_parallelism_unchanged": true,
+    "operating_config_modified": false,
+    "activation_ready": false,
+    "remaining": [
+      "Freeze a reviewed console/worker release and socat path together.",
+      "Re-audit queued requests and runs; never reuse old configuration-bound plans.",
+      "Obtain approval for the concrete activation; keep c2b3fec rollout proposal separate."
+    ]
+  }
+}

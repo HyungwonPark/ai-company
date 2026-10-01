@@ -1,0 +1,88 @@
+{
+  "source_commit": "c2b3fec4201912432f1f0518e3abb45303af7999",
+  "status": "prepared_not_applied",
+  "console": {
+    "old_image": "sha256:0b335d24f67c3a727a366b63879165ea2b8ef54323cbb5ca267b4d050cb3aaed",
+    "new_image": "sha256:2f404f44b326c9644af1feb33f2e1fd68559554ff122e132dccc32ad84281c13",
+    "original_compose_sha256": "872f8beb446ebdd78df223ea8d9aae03f0b2149ddef00b5ae1931036dc41614b",
+    "changed_field": "services.console.image"
+  },
+  "workers": {
+    "alias": "/home/edward/ai-company/releases/control-plane",
+    "old_release": "/home/edward/ai-company/releases/control-plane-51b911a",
+    "new_release": "/home/edward/ai-company/releases/control-plane-c2b3fec",
+    "units": [
+      "ai-company-automation.service",
+      "ai-company-translation.service"
+    ],
+    "configuration_changed": false,
+    "python_sources_match_final_revision": true
+  },
+  "rollback": "stop two idle workers, restore old release link and console image; retain state and original installation receipt",
+  "approval_10": "pending",
+  "deployed": false,
+  "verification": {
+    "local_python_tests": 321,
+    "remote_ci": "https://github.com/HyungwonPark/ai-company/actions/runs/35046468421",
+    "remote_ui": "https://github.com/HyungwonPark/ai-company/actions/runs/35046468446",
+    "android_build": "https://github.com/HyungwonPark/ai-company/actions/runs/35046468385",
+    "container": {
+      "status": "PASS",
+      "web_assets_verified": 27,
+      "password_login_mode": true,
+      "unauthenticated_api_rejected": true,
+      "wrong_host_rejected": true,
+      "network": "none",
+      "ports_published": 0,
+      "root_filesystem": "read-only",
+      "capabilities": "none",
+      "production_state_mounted": false,
+      "model_or_approval_calls": 0
+    },
+    "actual_master_ui_flow": "not_performed",
+    "independent_model_review_of_this_ux_change": "not_performed",
+    "screenshots_artifact": {
+      "digest": "sha256:4ead8ebe653f2a928c29dc03d608c19af467e16942fdf50661d74eb9f621c006",
+      "expired": false,
+      "id": 10426341180,
+      "name": "console-screenshots",
+      "workflow_run": {
+        "head_branch": "feat/auto-pm-flow",
+        "head_repository_id": 1367833163,
+        "head_sha": "17697208211eff970f60304614cc88efab8ede35",
+        "id": 35043551436,
+        "repository_id": 1367833163
+      }
+    },
+    "screenshots_sha256": {
+      "black-desktop-pm-workspace.png": "f00b1aa1b021b92b0cc25a9bc970fe0d93d30f732e7d35200b738c3a6ceb4998",
+      "black-mobile-manager-team.png": "2a8f7e14445d1ebf39128b0b67fef6bca7ad67c09d6dce5ea7d557658fac475e",
+      "black-mobile-new-project.png": "7d85e913d52c46946d504dbca4eeb441f6d3202d4fdee11751462f950d45606e",
+      "light-desktop-pm-workspace.png": "4f1552539281d2d5f27d7a55339173ad8787755d21b1291afd79b8ee64c2d5a4",
+      "light-mobile-manager-team.png": "07b81eeca4b3351d1ce981814ab0215b6750125587b013b2b55118ac792dd33d",
+      "light-mobile-new-project.png": "3c51e8097bfad7813d97b281920307df5f61b8d1696f26ef810f7e9252afe28f"
+    },
+    "installed_worker": {
+      "status": "PASS",
+      "installed_python_files": 30,
+      "editable_install": false,
+      "temporary_project_pm_requests": 1,
+      "development_runs": 0,
+      "model_calls": 0,
+      "new_parser_path_validation": true
+    },
+    "screenshots_source_commit": "17697208211eff970f60304614cc88efab8ede35",
+    "web_assets_identical_to_screenshot_revision": true
+  },
+  "source_archive_sha256": "61051d74da5d2fc9a828b47aa8b64cef6fbf6422543616efa3ca6e4a90229438",
+  "translation_repair": {
+    "proposal_sha256": "7b0405ba361ae583b1edca634992310a79b377c7f3b3593bc7a466dd4a601a80",
+    "replay_jobs": 2,
+    "bounded_retry_jobs": 4,
+    "maximum_new_model_calls": 4,
+    "operating_applied": false,
+    "original_failed_jobs_preserved": true,
+    "native_replay_new_model_calls": 0,
+    "new_default_policy": false
+  }
+}

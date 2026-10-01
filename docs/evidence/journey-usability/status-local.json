@@ -1,0 +1,1 @@
+{"status":"PASS","cases":26,"checks":["four original states and rejection","backend completion/operator contracts","known running/reserved wait and unknown including WAITING prefix","same-run operator/unknown priority","foreign-run/digest exclusion","raw values and immutable inputs"],"scope":"real JS with synthetic facts; no browser, worker, DB or production calls"}

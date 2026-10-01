@@ -1,0 +1,14 @@
+node:internal/modules/run_main:122
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: current-plan uses the same explicit role classification
+    at [private temp]/r25-aggregate-before-check.mjs:50:9 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: '<section class="panel project-summary" aria-label="프로젝트 종합 보고"><header class="section-line"><h2>종합</h2><span class="badge">시스템 집계</span></header><h3>목표</h3><p>예시 목표</p><p class="small muted">후보 검수 완료 전입니다. 목표 달성 판단과 마스터 수용은 별도입니다.</p><div class="summary-grid"><section><h3>완료 <span>0</span></h3><p class="muted small">없음</p></section><section><h3>진행 <span>1</span></h3><ul class="summary-list"><li><div><strong>담당 역할</strong><b>NEEDS_RECONCILIATION</b></div></li></ul></section><section><h3>차단 <span>0</span></h3><p class="muted small">없음</p></section><section><h3>다음</h3><ul class="summary-list"><li><a href="#progress?project=project">역할별 산출물과 같은 후보의 검사를 이어갑니다.</a></li></ul></section></div><h3>결정</h3><p class="muted small">기록 없음</p><details><summary>근거</summary><dl class="detail-grid"><div><dt>계획</dt><dd class="mono">digest</dd></div><div><dt>실행</dt><dd class="mono">run</dd></div><div><dt>후보</dt><dd class="mono">미생성</dd></div><div><dt>집계</dt><dd class="mono">report-digest</dd></div></dl></details></section><section class="panel pm-report-summary" aria-label="PM 작성 보고"><div class="section-line"><h2>PM</h2><span class="badge">보고 없음</span></div><p class="muted small">PM이 작성한 종합 보고는 아직 없습니다.</p></section>',
+  expected: /<h3>확인 필요 <span>1<\/span>/,
+  operator: 'match'
+}
+
+Node.js v22.13.0

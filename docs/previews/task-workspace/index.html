@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Company · 업무 중심 시안</title>
+<link rel="stylesheet" href="./style.css">
+<script defer src="./preview.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">본문으로</a>
+<header class="brandbar"><a href="#projects" class="brand">AI Company<span>Aigent workspace</span></a><button id="theme" aria-label="Black 테마로 전환">Black</button></header>
+<section class="preview-tools" aria-label="시안 설정">
+<span class="sample">예시 · 운영 연결 없음</span>
+<div class="switch" aria-label="구조 비교"><button data-layout="journey" aria-pressed="true">순서형</button><button data-layout="overview" aria-pressed="false">한눈형</button></div>
+<details><summary>비교</summary><p>같은 업무·팀·기록을 다르게 배치했습니다. 순서형은 한 번에 한 단계, 한눈형은 다음 행동과 진행을 함께 보여 줍니다. 실제 사용성은 사용자 검수가 필요합니다.</p><label>상태 <select id="scenario"><option value="normal">일반</option><option value="empty">빈 목록</option><option value="offline">연결 끊김</option><option value="long">긴 이름</option><option value="quota">모두 한도 대기</option><option value="failure">반복 실패</option></select></label><button id="reset">예시 초기화</button></details>
+</section>
+<div id="app"></div>
+<p id="notice" class="notice" role="status" aria-live="polite"></p>
+<dialog id="detail" aria-labelledby="detail-title"><div id="detail-body"></div><form method="dialog"><button>닫기</button></form></dialog>
+</body>
+</html>

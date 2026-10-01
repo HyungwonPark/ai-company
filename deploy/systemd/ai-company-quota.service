@@ -1,0 +1,10 @@
+[Unit]
+Description=AI Company legacy session queue guard
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/.local/libexec/ai-company-legacy-guard.py --database %h/ai-company/state/sessions/sessions.sqlite
+TimeoutStartSec=10
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=yes

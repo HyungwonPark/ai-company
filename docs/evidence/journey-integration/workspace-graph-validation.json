@@ -1,0 +1,131 @@
+{
+  "status": "PASS",
+  "source": "temporary SQLite + actual ManagementHTTPServer; fixture model facts",
+  "checks": [
+    "Light/Black × 320/390/1440; Korean render; graph visible, no page overflow, 44px controls",
+    "5-second actual API refresh preserves selection, focus, position, zoom; past run switch does not overwrite current view",
+    "graph/list identical artifact; keyboard edge activation; planned vs recorded; exact-run approval; journey navigation retains execution scope",
+    "project isolation, selected run restoration, offline read preservation, reconnect",
+    "mobile details preserve scroll and expanded evidence through real 5-second refresh; focus enters detail and Escape returns to selected node",
+    "Tab reveals a clipped role through transform pan; programmatic focus preserves camera and native viewport scroll stays zero",
+    "sub-threshold pointer wobble keeps placement; drag suppresses only its own click; the next tap opens details",
+    "700px breakpoint restores each width's camera and custom placement; role remains a visible pointer target",
+    "queued response retains drag and mobile tap focus; offline immediately removes held DOM, preserves missing exact scope and requires explicit replacement selection; disconnected state and mounted geometry survive",
+    "mobile drag and normal page scroll; reduced motion; 200% equivalent viewport reflow; dialogue and approval composition",
+    "injected 401 during held drag immediately removes the authenticated graph and clears interaction state"
+  ],
+  "camera_readings": [
+    {
+      "width": 1440,
+      "theme": "light",
+      "viewport": {
+        "left": 40,
+        "right": 1074,
+        "width": 1034
+      },
+      "first": {
+        "left": 454,
+        "right": 660,
+        "width": 206
+      },
+      "clientWidth": 1032,
+      "scrollLeft": 0,
+      "scrollTop": 0,
+      "transform": "translate(278px, 0px) scale(1)"
+    },
+    {
+      "width": 1440,
+      "theme": "black",
+      "viewport": {
+        "left": 40,
+        "right": 1074,
+        "width": 1034
+      },
+      "first": {
+        "left": 454,
+        "right": 660,
+        "width": 206
+      },
+      "clientWidth": 1032,
+      "scrollLeft": 0,
+      "scrollTop": 0,
+      "transform": "translate(278px, 0px) scale(1)"
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "viewport": {
+        "left": 18,
+        "right": 372,
+        "width": 354
+      },
+      "first": {
+        "left": 129,
+        "right": 261,
+        "width": 132
+      },
+      "clientWidth": 352,
+      "scrollLeft": 0,
+      "scrollTop": 0,
+      "transform": "translate(34px, 0px) scale(1)"
+    },
+    {
+      "width": 390,
+      "theme": "black",
+      "viewport": {
+        "left": 18,
+        "right": 372,
+        "width": 354
+      },
+      "first": {
+        "left": 129,
+        "right": 261,
+        "width": 132
+      },
+      "clientWidth": 352,
+      "scrollLeft": 0,
+      "scrollTop": 0,
+      "transform": "translate(34px, 0px) scale(1)"
+    },
+    {
+      "width": 320,
+      "theme": "light",
+      "viewport": {
+        "left": 18,
+        "right": 302,
+        "width": 284
+      },
+      "first": {
+        "left": 94,
+        "right": 226,
+        "width": 132
+      },
+      "clientWidth": 282,
+      "scrollLeft": 0,
+      "scrollTop": 0,
+      "transform": "translate(-1px, 0px) scale(1)"
+    },
+    {
+      "width": 320,
+      "theme": "black",
+      "viewport": {
+        "left": 18,
+        "right": 302,
+        "width": 284
+      },
+      "first": {
+        "left": 94,
+        "right": 226,
+        "width": 132
+      },
+      "clientWidth": 282,
+      "scrollLeft": 0,
+      "scrollTop": 0,
+      "transform": "translate(-1px, 0px) scale(1)"
+    }
+  ],
+  "write_paths": [
+    "/api/login",
+    "/api/password"
+  ]
+}

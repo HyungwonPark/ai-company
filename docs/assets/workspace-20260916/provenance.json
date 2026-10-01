@@ -1,0 +1,13 @@
+{
+  "source_commit": "7a12e65a2ed8cea267dbe0b515e75f727ac2ae81",
+  "base_commit": "f93339134b011cf1359d90697980563add05c981",
+  "skill_commit": "7cc52fe5f671d4aebf3ab25294bf37bafe3fb471",
+  "console_run": 35106364788,
+  "python_run": 35106364808,
+  "preview_artifact": 10450287665,
+  "preview_sha256": "f15e91708f812a409c3ad7b69461fd34e2172cf65ddc6b8038b144fc2578d5e3",
+  "production_deployment": false,
+  "device_validation": false,
+  "independent_review": "PASS within synthetic preview scope",
+  "recommended_direction": "A default, B progress, C approval; not a user design decision"
+}

@@ -1,0 +1,22 @@
+{
+  "source_commit": "cb4cca353efd46cd6f4f56b01816c27a884c4e95",
+  "source_paths": [
+    "docs/previews/task-workspace/index.html",
+    "docs/previews/task-workspace/preview.js",
+    "docs/previews/task-workspace/style.css"
+  ],
+  "source_sha256": {
+    "docs/previews/task-workspace/index.html": "1e0a86afbd96dbbd56b5948ac4005f8076cbb0e9357a5f13fa510d2cbceb21b3",
+    "docs/previews/task-workspace/preview.js": "862fe6f5493f20a08552dac8fd58774a1d95766684ff8336ed6dc5910ec59f47",
+    "docs/previews/task-workspace/style.css": "9bc3e02b4d8cc58624e4a573a2b1d6aef9c896cc74147cfc5aff9a1085209db2"
+  },
+  "created_at_utc": "2026-09-23T15:12:12.519593+00:00",
+  "archive": "AI-Company-task-workspace-cb4cca3.zip",
+  "archive_bytes": 17559,
+  "archive_sha256": "a8afd5eb52878b0aea99621645f9fc5bce0b6d37d7f1a83f8f26024d10425d53",
+  "html": "AI-Company-task-workspace.html",
+  "html_bytes": 59417,
+  "html_sha256": "f29b71bf7692de1e364c1b71489874c05638ff8f20bfbf65c39c71ef9d5f7f49",
+  "scope": "Synthetic standalone design preview; no production connection, model execution, real approvals or user data.",
+  "reference_document_commit": "a446a5146f8cbb06a4f7575e64a17cf530c5ef49"
+}

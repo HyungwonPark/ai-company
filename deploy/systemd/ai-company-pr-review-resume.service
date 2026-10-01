@@ -1,0 +1,11 @@
+[Unit]
+Description=Check one bound Claude PR review quota checkpoint
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 -I -B %h/.local/libexec/ai-company-pr-review/tick.py %h/.local/state/ai-company/claude-pr-reviews/pr35-resume-manifest.json
+WorkingDirectory=%h/ai-company/workspaces/pr34-e2-recovery
+TimeoutStartSec=1900
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=yes

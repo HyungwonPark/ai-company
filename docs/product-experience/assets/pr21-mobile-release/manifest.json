@@ -1,0 +1,13 @@
+{
+  "source": "ephemeral API fixtures; no production conversations or approval text",
+  "product_commit": "2087eccae3f946bc6d676904462a9b2acabd8521",
+  "browser_test_commit": "7eb6e3b9a4378a80130a27adb23cd144a5343fe8",
+  "workflow_run": "https://github.com/HyungwonPark/ai-company/actions/runs/35200902818",
+  "files": {
+    "mobile-entry-light-390-graph.png": "b2dce035f9938288fb1a885edfa581e7fd1b06aad1c254b03f9cc857b58e62cf",
+    "mobile-entry-black-320-approval.png": "d602172d3b3b94fff5f62668ad6a4c1d838006a5e52e8208fb2bc67423f74da9",
+    "workspace-diagram-long-names-list-light-390.png": "fcaea4f170e9e9b653d87cb1dcd370a8bc8d06b959d4105c91923e961e987d5b",
+    "workspace-diagram-long-names-list-black-320.png": "802bc58e1ffb9ad1ad886531b45f0b5f50325fd53595b6460ac1991d7c3d14a4"
+  },
+  "notes": "Full-page captures include fixed navigation at viewport position; screenshots are browser fixtures, not a physical APK."
+}

@@ -1,0 +1,1307 @@
+{
+  "status": "PASS",
+  "reference": "PR23 c802be905656a9421b1c1cfe23c93266e2db1a81",
+  "priorReference": "PR23 a446a5146f8cbb06a4f7575e64a17cf530c5ef49",
+  "browser": "152.0.7977.82",
+  "sandbox": true,
+  "checks": [
+    {
+      "id": "R1",
+      "result": "PASS",
+      "evidence": "Fresh storage: three drafts survive reload, reset clears all drafts, events, decisions and confirmation."
+    },
+    {
+      "id": "F1",
+      "layout": "journey",
+      "width": 320,
+      "theme": "light",
+      "result": "PASS",
+      "evidence": "Arbitrary goal stays a draft until an explicit in-page example choice; works immediately with the closed form retained; original goal and same project preserved, no run, reload retains the choice."
+    },
+    {
+      "id": "F1",
+      "layout": "journey",
+      "width": 320,
+      "theme": "black",
+      "result": "PASS",
+      "evidence": "Arbitrary goal stays a draft until an explicit in-page example choice; works immediately with the closed form retained; original goal and same project preserved, no run, reload retains the choice."
+    },
+    {
+      "id": "F1",
+      "layout": "overview",
+      "width": 390,
+      "theme": "light",
+      "result": "PASS",
+      "evidence": "Arbitrary goal stays a draft until an explicit in-page example choice; works immediately with the closed form retained; original goal and same project preserved, no run, reload retains the choice."
+    },
+    {
+      "id": "F1",
+      "layout": "overview",
+      "width": 390,
+      "theme": "black",
+      "result": "PASS",
+      "evidence": "Arbitrary goal stays a draft until an explicit in-page example choice; works immediately with the closed form retained; original goal and same project preserved, no run, reload retains the choice."
+    },
+    {
+      "id": "R2-R5",
+      "layout": "journey",
+      "width": 320,
+      "theme": "light",
+      "result": "PASS",
+      "evidence": "Previous pending discovered; separate hold/revision decisions; preparation failure/retry/edit invalidation; explicit one-run confirmation; parallel→wait→handoff→checks→review→same-run decision."
+    },
+    {
+      "id": "F2",
+      "layout": "journey",
+      "width": 320,
+      "theme": "light",
+      "result": "PASS",
+      "phases": [
+        {
+          "phase": "parallel",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 두 역할 진행",
+          "next": "다음\n병렬 진행\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "waiting",
+          "taskStatuses": [
+            "한도 대기",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "개발 계정 한도 대기",
+          "next": "다음\n개발 재개 대기\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "handoff",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 이관 후 두 역할 진행",
+          "next": "다음\n병렬 진행\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "checks",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "검수 중"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "화면 개발·검사 작성 완료 · 같은 후보로 두 결과 전달",
+          "remaining": "같은 후보의 격리 검사·원격 CI·독립 검수·Astra Ultra 최종 검수",
+          "blocked": "없음 · 통합 검수 중",
+          "next": "다음\n같은 후보 검수\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "review",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "완료"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "두 업무의 결과와 검사·독립 검수·최종 검수 예시 기록",
+          "remaining": "마스터의 후보 검토. 배포·병합은 포함하지 않습니다.",
+          "blocked": "자동 진행 없음",
+          "next": "다음\n후보 검토\n\n같은 실행의 보고와 검사 근거를 확인하세요.\n\n후보 보기"
+        }
+      ],
+      "blockedChecks": [
+        {
+          "scenario": "quota",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "모든 적격 후보 한도 대기"
+        },
+        {
+          "scenario": "failure",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "자동 재시도 상한에 도달"
+        }
+      ],
+      "evidence": "Progress task IDs/statuses, completed inputs, remaining checks, blockers and next action agree at all five phases; inspection preserves the exact run and event history; waiting/failure cannot create a review result or candidate request."
+    },
+    {
+      "id": "R2-R5",
+      "layout": "journey",
+      "width": 320,
+      "theme": "black",
+      "result": "PASS",
+      "evidence": "Previous pending discovered; separate hold/revision decisions; preparation failure/retry/edit invalidation; explicit one-run confirmation; parallel→wait→handoff→checks→review→same-run decision."
+    },
+    {
+      "id": "F2",
+      "layout": "journey",
+      "width": 320,
+      "theme": "black",
+      "result": "PASS",
+      "phases": [
+        {
+          "phase": "parallel",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 두 역할 진행",
+          "next": "다음\n병렬 진행\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "waiting",
+          "taskStatuses": [
+            "한도 대기",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "개발 계정 한도 대기",
+          "next": "다음\n개발 재개 대기\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "handoff",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 이관 후 두 역할 진행",
+          "next": "다음\n병렬 진행\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "checks",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "검수 중"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "화면 개발·검사 작성 완료 · 같은 후보로 두 결과 전달",
+          "remaining": "같은 후보의 격리 검사·원격 CI·독립 검수·Astra Ultra 최종 검수",
+          "blocked": "없음 · 통합 검수 중",
+          "next": "다음\n같은 후보 검수\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "review",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "완료"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "두 업무의 결과와 검사·독립 검수·최종 검수 예시 기록",
+          "remaining": "마스터의 후보 검토. 배포·병합은 포함하지 않습니다.",
+          "blocked": "자동 진행 없음",
+          "next": "다음\n후보 검토\n\n같은 실행의 보고와 검사 근거를 확인하세요.\n\n후보 보기"
+        }
+      ],
+      "blockedChecks": [
+        {
+          "scenario": "quota",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "모든 적격 후보 한도 대기"
+        },
+        {
+          "scenario": "failure",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "자동 재시도 상한에 도달"
+        }
+      ],
+      "evidence": "Progress task IDs/statuses, completed inputs, remaining checks, blockers and next action agree at all five phases; inspection preserves the exact run and event history; waiting/failure cannot create a review result or candidate request."
+    },
+    {
+      "id": "R2-R5",
+      "layout": "journey",
+      "width": 390,
+      "theme": "light",
+      "result": "PASS",
+      "evidence": "Previous pending discovered; separate hold/revision decisions; preparation failure/retry/edit invalidation; explicit one-run confirmation; parallel→wait→handoff→checks→review→same-run decision."
+    },
+    {
+      "id": "F2",
+      "layout": "journey",
+      "width": 390,
+      "theme": "light",
+      "result": "PASS",
+      "phases": [
+        {
+          "phase": "parallel",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 두 역할 진행",
+          "next": "다음\n병렬 진행\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "waiting",
+          "taskStatuses": [
+            "한도 대기",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "개발 계정 한도 대기",
+          "next": "다음\n개발 재개 대기\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "handoff",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 이관 후 두 역할 진행",
+          "next": "다음\n병렬 진행\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "checks",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "검수 중"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "화면 개발·검사 작성 완료 · 같은 후보로 두 결과 전달",
+          "remaining": "같은 후보의 격리 검사·원격 CI·독립 검수·Astra Ultra 최종 검수",
+          "blocked": "없음 · 통합 검수 중",
+          "next": "다음\n같은 후보 검수\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "review",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "완료"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "두 업무의 결과와 검사·독립 검수·최종 검수 예시 기록",
+          "remaining": "마스터의 후보 검토. 배포·병합은 포함하지 않습니다.",
+          "blocked": "자동 진행 없음",
+          "next": "다음\n후보 검토\n\n같은 실행의 보고와 검사 근거를 확인하세요.\n\n후보 보기"
+        }
+      ],
+      "blockedChecks": [
+        {
+          "scenario": "quota",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "모든 적격 후보 한도 대기"
+        },
+        {
+          "scenario": "failure",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "자동 재시도 상한에 도달"
+        }
+      ],
+      "evidence": "Progress task IDs/statuses, completed inputs, remaining checks, blockers and next action agree at all five phases; inspection preserves the exact run and event history; waiting/failure cannot create a review result or candidate request."
+    },
+    {
+      "id": "R2-R5",
+      "layout": "journey",
+      "width": 390,
+      "theme": "black",
+      "result": "PASS",
+      "evidence": "Previous pending discovered; separate hold/revision decisions; preparation failure/retry/edit invalidation; explicit one-run confirmation; parallel→wait→handoff→checks→review→same-run decision."
+    },
+    {
+      "id": "F2",
+      "layout": "journey",
+      "width": 390,
+      "theme": "black",
+      "result": "PASS",
+      "phases": [
+        {
+          "phase": "parallel",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 두 역할 진행",
+          "next": "다음\n병렬 진행\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "waiting",
+          "taskStatuses": [
+            "한도 대기",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "개발 계정 한도 대기",
+          "next": "다음\n개발 재개 대기\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "handoff",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 이관 후 두 역할 진행",
+          "next": "다음\n병렬 진행\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "checks",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "검수 중"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "화면 개발·검사 작성 완료 · 같은 후보로 두 결과 전달",
+          "remaining": "같은 후보의 격리 검사·원격 CI·독립 검수·Astra Ultra 최종 검수",
+          "blocked": "없음 · 통합 검수 중",
+          "next": "다음\n같은 후보 검수\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "review",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "완료"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "두 업무의 결과와 검사·독립 검수·최종 검수 예시 기록",
+          "remaining": "마스터의 후보 검토. 배포·병합은 포함하지 않습니다.",
+          "blocked": "자동 진행 없음",
+          "next": "다음\n후보 검토\n\n같은 실행의 보고와 검사 근거를 확인하세요.\n\n후보 보기"
+        }
+      ],
+      "blockedChecks": [
+        {
+          "scenario": "quota",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "모든 적격 후보 한도 대기"
+        },
+        {
+          "scenario": "failure",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "자동 재시도 상한에 도달"
+        }
+      ],
+      "evidence": "Progress task IDs/statuses, completed inputs, remaining checks, blockers and next action agree at all five phases; inspection preserves the exact run and event history; waiting/failure cannot create a review result or candidate request."
+    },
+    {
+      "id": "R2-R5",
+      "layout": "journey",
+      "width": 1440,
+      "theme": "light",
+      "result": "PASS",
+      "evidence": "Previous pending discovered; separate hold/revision decisions; preparation failure/retry/edit invalidation; explicit one-run confirmation; parallel→wait→handoff→checks→review→same-run decision."
+    },
+    {
+      "id": "F2",
+      "layout": "journey",
+      "width": 1440,
+      "theme": "light",
+      "result": "PASS",
+      "phases": [
+        {
+          "phase": "parallel",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 두 역할 진행",
+          "next": "다음\n병렬 진행\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "waiting",
+          "taskStatuses": [
+            "한도 대기",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "개발 계정 한도 대기",
+          "next": "다음\n개발 재개 대기\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "handoff",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 이관 후 두 역할 진행",
+          "next": "다음\n병렬 진행\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "checks",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "검수 중"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "화면 개발·검사 작성 완료 · 같은 후보로 두 결과 전달",
+          "remaining": "같은 후보의 격리 검사·원격 CI·독립 검수·Astra Ultra 최종 검수",
+          "blocked": "없음 · 통합 검수 중",
+          "next": "다음\n같은 후보 검수\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "review",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "완료"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "두 업무의 결과와 검사·독립 검수·최종 검수 예시 기록",
+          "remaining": "마스터의 후보 검토. 배포·병합은 포함하지 않습니다.",
+          "blocked": "자동 진행 없음",
+          "next": "다음\n후보 검토\n\n같은 실행의 보고와 검사 근거를 확인하세요.\n\n후보 보기"
+        }
+      ],
+      "blockedChecks": [
+        {
+          "scenario": "quota",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "모든 적격 후보 한도 대기"
+        },
+        {
+          "scenario": "failure",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "자동 재시도 상한에 도달"
+        }
+      ],
+      "evidence": "Progress task IDs/statuses, completed inputs, remaining checks, blockers and next action agree at all five phases; inspection preserves the exact run and event history; waiting/failure cannot create a review result or candidate request."
+    },
+    {
+      "id": "R2-R5",
+      "layout": "journey",
+      "width": 1440,
+      "theme": "black",
+      "result": "PASS",
+      "evidence": "Previous pending discovered; separate hold/revision decisions; preparation failure/retry/edit invalidation; explicit one-run confirmation; parallel→wait→handoff→checks→review→same-run decision."
+    },
+    {
+      "id": "F2",
+      "layout": "journey",
+      "width": 1440,
+      "theme": "black",
+      "result": "PASS",
+      "phases": [
+        {
+          "phase": "parallel",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 두 역할 진행",
+          "next": "다음\n병렬 진행\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "waiting",
+          "taskStatuses": [
+            "한도 대기",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "개발 계정 한도 대기",
+          "next": "다음\n개발 재개 대기\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "handoff",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 이관 후 두 역할 진행",
+          "next": "다음\n병렬 진행\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "checks",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "검수 중"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "화면 개발·검사 작성 완료 · 같은 후보로 두 결과 전달",
+          "remaining": "같은 후보의 격리 검사·원격 CI·독립 검수·Astra Ultra 최종 검수",
+          "blocked": "없음 · 통합 검수 중",
+          "next": "다음\n같은 후보 검수\n\n검수용 단계 재생이며 실제 작업은 실행하지 않습니다.\n\n진행 보기"
+        },
+        {
+          "phase": "review",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "완료"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "두 업무의 결과와 검사·독립 검수·최종 검수 예시 기록",
+          "remaining": "마스터의 후보 검토. 배포·병합은 포함하지 않습니다.",
+          "blocked": "자동 진행 없음",
+          "next": "다음\n후보 검토\n\n같은 실행의 보고와 검사 근거를 확인하세요.\n\n후보 보기"
+        }
+      ],
+      "blockedChecks": [
+        {
+          "scenario": "quota",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "모든 적격 후보 한도 대기"
+        },
+        {
+          "scenario": "failure",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "자동 재시도 상한에 도달"
+        }
+      ],
+      "evidence": "Progress task IDs/statuses, completed inputs, remaining checks, blockers and next action agree at all five phases; inspection preserves the exact run and event history; waiting/failure cannot create a review result or candidate request."
+    },
+    {
+      "id": "R2-R5",
+      "layout": "overview",
+      "width": 320,
+      "theme": "light",
+      "result": "PASS",
+      "evidence": "Previous pending discovered; separate hold/revision decisions; preparation failure/retry/edit invalidation; explicit one-run confirmation; parallel→wait→handoff→checks→review→same-run decision."
+    },
+    {
+      "id": "F2",
+      "layout": "overview",
+      "width": 320,
+      "theme": "light",
+      "result": "PASS",
+      "phases": [
+        {
+          "phase": "parallel",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 두 역할 진행",
+          "next": "다음병렬 진행검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "waiting",
+          "taskStatuses": [
+            "한도 대기",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "개발 계정 한도 대기",
+          "next": "다음개발 재개 대기검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "handoff",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 이관 후 두 역할 진행",
+          "next": "다음병렬 진행검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "checks",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "검수 중"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "화면 개발·검사 작성 완료 · 같은 후보로 두 결과 전달",
+          "remaining": "같은 후보의 격리 검사·원격 CI·독립 검수·Astra Ultra 최종 검수",
+          "blocked": "없음 · 통합 검수 중",
+          "next": "다음같은 후보 검수검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "review",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "완료"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "두 업무의 결과와 검사·독립 검수·최종 검수 예시 기록",
+          "remaining": "마스터의 후보 검토. 배포·병합은 포함하지 않습니다.",
+          "blocked": "자동 진행 없음",
+          "next": "다음후보 검토같은 실행의 보고와 검사 근거를 확인하세요.후보 보기"
+        }
+      ],
+      "blockedChecks": [
+        {
+          "scenario": "quota",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "모든 적격 후보 한도 대기"
+        },
+        {
+          "scenario": "failure",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "자동 재시도 상한에 도달"
+        }
+      ],
+      "evidence": "Progress task IDs/statuses, completed inputs, remaining checks, blockers and next action agree at all five phases; inspection preserves the exact run and event history; waiting/failure cannot create a review result or candidate request."
+    },
+    {
+      "id": "R2-R5",
+      "layout": "overview",
+      "width": 320,
+      "theme": "black",
+      "result": "PASS",
+      "evidence": "Previous pending discovered; separate hold/revision decisions; preparation failure/retry/edit invalidation; explicit one-run confirmation; parallel→wait→handoff→checks→review→same-run decision."
+    },
+    {
+      "id": "F2",
+      "layout": "overview",
+      "width": 320,
+      "theme": "black",
+      "result": "PASS",
+      "phases": [
+        {
+          "phase": "parallel",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 두 역할 진행",
+          "next": "다음병렬 진행검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "waiting",
+          "taskStatuses": [
+            "한도 대기",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "개발 계정 한도 대기",
+          "next": "다음개발 재개 대기검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "handoff",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 이관 후 두 역할 진행",
+          "next": "다음병렬 진행검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "checks",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "검수 중"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "화면 개발·검사 작성 완료 · 같은 후보로 두 결과 전달",
+          "remaining": "같은 후보의 격리 검사·원격 CI·독립 검수·Astra Ultra 최종 검수",
+          "blocked": "없음 · 통합 검수 중",
+          "next": "다음같은 후보 검수검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "review",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "완료"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "두 업무의 결과와 검사·독립 검수·최종 검수 예시 기록",
+          "remaining": "마스터의 후보 검토. 배포·병합은 포함하지 않습니다.",
+          "blocked": "자동 진행 없음",
+          "next": "다음후보 검토같은 실행의 보고와 검사 근거를 확인하세요.후보 보기"
+        }
+      ],
+      "blockedChecks": [
+        {
+          "scenario": "quota",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "모든 적격 후보 한도 대기"
+        },
+        {
+          "scenario": "failure",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "자동 재시도 상한에 도달"
+        }
+      ],
+      "evidence": "Progress task IDs/statuses, completed inputs, remaining checks, blockers and next action agree at all five phases; inspection preserves the exact run and event history; waiting/failure cannot create a review result or candidate request."
+    },
+    {
+      "id": "R2-R5",
+      "layout": "overview",
+      "width": 390,
+      "theme": "light",
+      "result": "PASS",
+      "evidence": "Previous pending discovered; separate hold/revision decisions; preparation failure/retry/edit invalidation; explicit one-run confirmation; parallel→wait→handoff→checks→review→same-run decision."
+    },
+    {
+      "id": "F2",
+      "layout": "overview",
+      "width": 390,
+      "theme": "light",
+      "result": "PASS",
+      "phases": [
+        {
+          "phase": "parallel",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 두 역할 진행",
+          "next": "다음병렬 진행검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "waiting",
+          "taskStatuses": [
+            "한도 대기",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "개발 계정 한도 대기",
+          "next": "다음개발 재개 대기검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "handoff",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 이관 후 두 역할 진행",
+          "next": "다음병렬 진행검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "checks",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "검수 중"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "화면 개발·검사 작성 완료 · 같은 후보로 두 결과 전달",
+          "remaining": "같은 후보의 격리 검사·원격 CI·독립 검수·Astra Ultra 최종 검수",
+          "blocked": "없음 · 통합 검수 중",
+          "next": "다음같은 후보 검수검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "review",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "완료"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "두 업무의 결과와 검사·독립 검수·최종 검수 예시 기록",
+          "remaining": "마스터의 후보 검토. 배포·병합은 포함하지 않습니다.",
+          "blocked": "자동 진행 없음",
+          "next": "다음후보 검토같은 실행의 보고와 검사 근거를 확인하세요.후보 보기"
+        }
+      ],
+      "blockedChecks": [
+        {
+          "scenario": "quota",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "모든 적격 후보 한도 대기"
+        },
+        {
+          "scenario": "failure",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "자동 재시도 상한에 도달"
+        }
+      ],
+      "evidence": "Progress task IDs/statuses, completed inputs, remaining checks, blockers and next action agree at all five phases; inspection preserves the exact run and event history; waiting/failure cannot create a review result or candidate request."
+    },
+    {
+      "id": "R2-R5",
+      "layout": "overview",
+      "width": 390,
+      "theme": "black",
+      "result": "PASS",
+      "evidence": "Previous pending discovered; separate hold/revision decisions; preparation failure/retry/edit invalidation; explicit one-run confirmation; parallel→wait→handoff→checks→review→same-run decision."
+    },
+    {
+      "id": "F2",
+      "layout": "overview",
+      "width": 390,
+      "theme": "black",
+      "result": "PASS",
+      "phases": [
+        {
+          "phase": "parallel",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 두 역할 진행",
+          "next": "다음병렬 진행검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "waiting",
+          "taskStatuses": [
+            "한도 대기",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "개발 계정 한도 대기",
+          "next": "다음개발 재개 대기검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "handoff",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 이관 후 두 역할 진행",
+          "next": "다음병렬 진행검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "checks",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "검수 중"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "화면 개발·검사 작성 완료 · 같은 후보로 두 결과 전달",
+          "remaining": "같은 후보의 격리 검사·원격 CI·독립 검수·Astra Ultra 최종 검수",
+          "blocked": "없음 · 통합 검수 중",
+          "next": "다음같은 후보 검수검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "review",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "완료"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "두 업무의 결과와 검사·독립 검수·최종 검수 예시 기록",
+          "remaining": "마스터의 후보 검토. 배포·병합은 포함하지 않습니다.",
+          "blocked": "자동 진행 없음",
+          "next": "다음후보 검토같은 실행의 보고와 검사 근거를 확인하세요.후보 보기"
+        }
+      ],
+      "blockedChecks": [
+        {
+          "scenario": "quota",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "모든 적격 후보 한도 대기"
+        },
+        {
+          "scenario": "failure",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "자동 재시도 상한에 도달"
+        }
+      ],
+      "evidence": "Progress task IDs/statuses, completed inputs, remaining checks, blockers and next action agree at all five phases; inspection preserves the exact run and event history; waiting/failure cannot create a review result or candidate request."
+    },
+    {
+      "id": "R2-R5",
+      "layout": "overview",
+      "width": 1440,
+      "theme": "light",
+      "result": "PASS",
+      "evidence": "Previous pending discovered; separate hold/revision decisions; preparation failure/retry/edit invalidation; explicit one-run confirmation; parallel→wait→handoff→checks→review→same-run decision."
+    },
+    {
+      "id": "F2",
+      "layout": "overview",
+      "width": 1440,
+      "theme": "light",
+      "result": "PASS",
+      "phases": [
+        {
+          "phase": "parallel",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 두 역할 진행",
+          "next": "다음병렬 진행검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "waiting",
+          "taskStatuses": [
+            "한도 대기",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "개발 계정 한도 대기",
+          "next": "다음개발 재개 대기검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "handoff",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 이관 후 두 역할 진행",
+          "next": "다음병렬 진행검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "checks",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "검수 중"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "화면 개발·검사 작성 완료 · 같은 후보로 두 결과 전달",
+          "remaining": "같은 후보의 격리 검사·원격 CI·독립 검수·Astra Ultra 최종 검수",
+          "blocked": "없음 · 통합 검수 중",
+          "next": "다음같은 후보 검수검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "review",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "완료"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "두 업무의 결과와 검사·독립 검수·최종 검수 예시 기록",
+          "remaining": "마스터의 후보 검토. 배포·병합은 포함하지 않습니다.",
+          "blocked": "자동 진행 없음",
+          "next": "다음후보 검토같은 실행의 보고와 검사 근거를 확인하세요.후보 보기"
+        }
+      ],
+      "blockedChecks": [
+        {
+          "scenario": "quota",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "모든 적격 후보 한도 대기"
+        },
+        {
+          "scenario": "failure",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "자동 재시도 상한에 도달"
+        }
+      ],
+      "evidence": "Progress task IDs/statuses, completed inputs, remaining checks, blockers and next action agree at all five phases; inspection preserves the exact run and event history; waiting/failure cannot create a review result or candidate request."
+    },
+    {
+      "id": "R2-R5",
+      "layout": "overview",
+      "width": 1440,
+      "theme": "black",
+      "result": "PASS",
+      "evidence": "Previous pending discovered; separate hold/revision decisions; preparation failure/retry/edit invalidation; explicit one-run confirmation; parallel→wait→handoff→checks→review→same-run decision."
+    },
+    {
+      "id": "F2",
+      "layout": "overview",
+      "width": 1440,
+      "theme": "black",
+      "result": "PASS",
+      "phases": [
+        {
+          "phase": "parallel",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 두 역할 진행",
+          "next": "다음병렬 진행검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "waiting",
+          "taskStatuses": [
+            "한도 대기",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "개발 계정 한도 대기",
+          "next": "다음개발 재개 대기검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "handoff",
+          "taskStatuses": [
+            "진행",
+            "진행",
+            "선행 대기"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "계획 확정 · 역할별 업무 배정",
+          "remaining": "개발·검사 결과 수집과 같은 후보 검수",
+          "blocked": "없음 · 이관 후 두 역할 진행",
+          "next": "다음병렬 진행검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "checks",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "검수 중"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "화면 개발·검사 작성 완료 · 같은 후보로 두 결과 전달",
+          "remaining": "같은 후보의 격리 검사·원격 CI·독립 검수·Astra Ultra 최종 검수",
+          "blocked": "없음 · 통합 검수 중",
+          "next": "다음같은 후보 검수검수용 단계 재생이며 실제 작업은 실행하지 않습니다.진행 보기"
+        },
+        {
+          "phase": "review",
+          "taskStatuses": [
+            "완료",
+            "완료",
+            "완료"
+          ],
+          "run": "example-new-run-01",
+          "plan": "example-plan-new-v2",
+          "completed": "두 업무의 결과와 검사·독립 검수·최종 검수 예시 기록",
+          "remaining": "마스터의 후보 검토. 배포·병합은 포함하지 않습니다.",
+          "blocked": "자동 진행 없음",
+          "next": "다음후보 검토같은 실행의 보고와 검사 근거를 확인하세요.후보 보기"
+        }
+      ],
+      "blockedChecks": [
+        {
+          "scenario": "quota",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "모든 적격 후보 한도 대기"
+        },
+        {
+          "scenario": "failure",
+          "phase": "checks",
+          "run": "example-new-run-01",
+          "blocked": "자동 재시도 상한에 도달"
+        }
+      ],
+      "evidence": "Progress task IDs/statuses, completed inputs, remaining checks, blockers and next action agree at all five phases; inspection preserves the exact run and event history; waiting/failure cannot create a review result or candidate request."
+    }
+  ],
+  "screenshots": [
+    "task-workspace-f1-converted-journey-light-320.png",
+    "task-workspace-f1-converted-journey-black-320.png",
+    "task-workspace-f1-converted-overview-light-390.png",
+    "task-workspace-f1-converted-overview-black-390.png",
+    "task-workspace-review-journey-light-320.png",
+    "task-workspace-review-journey-black-320.png",
+    "task-workspace-plan-journey-light-390.png",
+    "task-workspace-cycle-journey-light-390.png",
+    "task-workspace-f2-checks-journey-light-390.png",
+    "task-workspace-review-journey-light-390.png",
+    "task-workspace-plan-journey-black-390.png",
+    "task-workspace-cycle-journey-black-390.png",
+    "task-workspace-f2-checks-journey-black-390.png",
+    "task-workspace-review-journey-black-390.png",
+    "task-workspace-review-journey-light-1440.png",
+    "task-workspace-review-journey-black-1440.png",
+    "task-workspace-review-overview-light-320.png",
+    "task-workspace-review-overview-black-320.png",
+    "task-workspace-plan-overview-light-390.png",
+    "task-workspace-cycle-overview-light-390.png",
+    "task-workspace-f2-checks-overview-light-390.png",
+    "task-workspace-review-overview-light-390.png",
+    "task-workspace-plan-overview-black-390.png",
+    "task-workspace-cycle-overview-black-390.png",
+    "task-workspace-f2-checks-overview-black-390.png",
+    "task-workspace-review-overview-black-390.png",
+    "task-workspace-review-overview-light-1440.png",
+    "task-workspace-review-overview-black-1440.png"
+  ],
+  "errors": [],
+  "violations": [],
+  "limits": [
+    "Synthetic preview; no production API, models or approval changes",
+    "No physical APK or novice usability study",
+    "CSS workflow does not replace original graph routing tests"
+  ]
+}
