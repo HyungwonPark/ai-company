@@ -29,9 +29,13 @@ if Path(__file__).name == 'runner.py':
     module_spec.loader.exec_module(trusted_module)
     CapacityUnavailable = trusted_module.CapacityUnavailable
     SharedCallLedger = trusted_module.SharedCallLedger
+    ReviewTarget = trusted_module.ReviewTarget
+    manual_reservation_id = trusted_module.manual_reservation_id
+    validate_approval = trusted_module.validate_approval
     SHARED_CONTROL = trusted_shared
 else:
     from ai_company.shared_calls import CapacityUnavailable, SharedCallLedger
+    from ai_company.manual_unknown_review import ReviewTarget, manual_reservation_id, validate_approval
     SHARED_CONTROL = Path(__file__).resolve().parents[1] / 'src/ai_company/shared_calls.py'
 
 try:
@@ -116,6 +120,26 @@ def write_private(path, content):
         target.write(content)
 
 
+def read_operator_approval(path, target, unknown_reservation_id):
+    """Load an exact operator approval; no generic force or account override."""
+    path = Path(path)
+    if path.stat().st_mode & 0o077:
+        raise RuntimeError('operator approval must be private')
+    try:
+        approval = json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        raise RuntimeError('operator approval is not valid JSON') from exc
+    if not isinstance(approval, dict):
+        raise RuntimeError('operator approval must be an object')
+    try:
+        digest = validate_approval(approval, target,
+                                  unknown_reservation_id=unknown_reservation_id)
+        reservation_id = manual_reservation_id(approval, target)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(str(exc)) from exc
+    return approval, digest, reservation_id
+
+
 def replace_private(path, value):
     """Replace only this attempt's private derived record, never source events."""
     temporary = path.with_name(path.name + '.' + secrets.token_hex(8) + '.tmp')
@@ -138,6 +162,18 @@ def capacity_fact(exc):
         'reason_code': exc.reason_code,
         'recovery_state': exc.recovery_state,
     }
+
+
+def reserve_for_review(shared, reservation_id, owner, *, credential_ref, quota_group,
+                       approval=None, target=None, unknown_reservation_id=None):
+    """Reserve exactly one review slot, using the manual path only when bound."""
+    if approval is None:
+        return shared.reserve(reservation_id, owner, 'claude', credential_ref, quota_group)
+    if target is None or not unknown_reservation_id:
+        raise RuntimeError('manual approval is missing its pinned target or UNKNOWN reservation')
+    return shared.reserve_approved_unknown(
+        reservation_id, owner, 'claude', credential_ref, quota_group,
+        approval, target, unknown_reservation_id)
 
 
 def patch_files(patch):
@@ -1099,6 +1135,10 @@ def main():
     parser.add_argument('pr', type=int)
     parser.add_argument('--retry-unstarted', action='store_true', help='Archive a closed attempt that never sent a prompt')
     parser.add_argument('--resume-quota', action='store_true', help='New attempt after a verified terminal provider quota refusal')
+    parser.add_argument('--operator-approval', type=Path,
+                        help='private exact approval for a new reservation linked to an old UNKNOWN(timeout)')
+    parser.add_argument('--unknown-reservation-id',
+                        help='existing UNKNOWN reservation bound by --operator-approval')
     for name in ('head', 'base', 'diff-sha256', 'pr-url', 'attempt-dir',
                  'previous-attempt', 'previous-reservation-id'):
         parser.add_argument('--expected-' + name)
@@ -1112,6 +1152,10 @@ def main():
         parser.error('PR must be positive')
     if args.resume_quota and args.retry_unstarted:
         parser.error('choose one retry condition')
+    if bool(args.operator_approval) != bool(args.unknown_reservation_id):
+        parser.error('--operator-approval and --unknown-reservation-id must be supplied together')
+    if args.resume_quota and args.operator_approval:
+        parser.error('operator-approved review cannot reuse the quota resume path')
     expected = (args.expected_head, args.expected_base, args.expected_diff_sha256,
                 args.expected_pr_url, args.expected_attempt_dir,
                 args.expected_previous_attempt, args.expected_previous_reservation_id)
@@ -1156,9 +1200,16 @@ def main():
     parent = Path.home() / '.local/state/ai-company/claude-pr-reviews'
     parent.mkdir(parents=True, mode=0o700, exist_ok=True)
     parent.chmod(0o700)
-    directory = parent / f'pr-{args.pr}-{head}'
-    nonce = secrets.token_hex(16)
     diff_sha256 = hashlib.sha256(patch.encode()).hexdigest()
+    approval = approval_digest = manual_reservation = None
+    if args.operator_approval:
+        target = ReviewTarget(args.pr, head, base, diff_sha256)
+        approval, approval_digest, manual_reservation = read_operator_approval(
+            args.operator_approval, target, args.unknown_reservation_id)
+        directory = parent / f'pr-{args.pr}-{head}-manual-{approval_digest[:16]}'
+    else:
+        directory = parent / f'pr-{args.pr}-{head}'
+    nonce = secrets.token_hex(16)
     if args.resume_quota and (diff_sha256 != args.expected_diff_sha256
                               or str(directory) != args.expected_attempt_dir):
         raise RuntimeError('review patch or attempt differs from the pinned target')
@@ -1216,11 +1267,25 @@ def main():
             raise RuntimeError('PR patch and checkpoint exceed complete inline review limit')
         binding = {'nonce': nonce, 'pr': args.pr, 'head': head,
                    'diff_sha256': diff_sha256, 'prompt_sha256': prompt_sha256}
-        reservation_id = hashlib.sha256((str(directory) + ':' + nonce).encode()).hexdigest()
+        reservation_id = (manual_reservation if manual_reservation is not None else
+                          hashlib.sha256((str(directory) + ':' + nonce).encode()).hexdigest())
         if args.resume_quota and not binding_unchanged(args.pr, head, base):
             raise RuntimeError('review target changed before account reservation')
         try:
-            shared.reserve(reservation_id, str(directory), 'claude', args.credential_ref, args.quota_group)
+            if manual_reservation is not None:
+                if reservation_id != manual_reservation:
+                    raise RuntimeError('manual reservation identity differs from approval')
+                reserve_for_review(
+                    shared, reservation_id, str(directory),
+                    credential_ref=args.credential_ref, quota_group=args.quota_group,
+                    approval=approval, target=target,
+                    unknown_reservation_id=args.unknown_reservation_id)
+                write_private(directory / 'operator-approval.json',
+                              json.dumps(approval, ensure_ascii=False, sort_keys=True) + '\n')
+            else:
+                reserve_for_review(shared, reservation_id, str(directory),
+                                   credential_ref=args.credential_ref,
+                                   quota_group=args.quota_group)
         except CapacityUnavailable as exc:
             write_private(directory / 'facts.jsonl', json.dumps(capacity_fact(exc), ensure_ascii=False) + '\n')
             if args.resume_quota:

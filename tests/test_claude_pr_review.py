@@ -34,6 +34,107 @@ class ClaudePRReviewTests(unittest.TestCase):
             'recovery_state': 'UNKNOWN_TIMEOUT_UNRESOLVED',
         })
 
+    def test_runner_uses_approved_reservation_only_with_exact_operator_binding(self):
+        class FakeLedger:
+            def __init__(self):
+                self.calls = []
+
+            def reserve(self, *args):
+                self.calls.append(('normal', args))
+                return {'state': 'RESERVED'}
+
+            def reserve_approved_unknown(self, *args):
+                self.calls.append(('approved', args))
+                return {'state': 'RESERVED'}
+
+        ledger = FakeLedger()
+        target = REVIEW.ReviewTarget(35, HEAD, 'c' * 40, DIFF_SHA)
+        approval = {'approval_id': 'd' * 64, 'pr': 35, 'head': HEAD,
+                    'base': 'c' * 40, 'patch_sha256': DIFF_SHA,
+                    'unknown_reservation_id': 'old-unknown', 'reason': 'operator review',
+                    'approved_by': 'operator', 'approved_at': '2026-10-01T00:00:00Z'}
+        REVIEW.validate_approval(approval, target, unknown_reservation_id='old-unknown')
+        reservation_id = REVIEW.manual_reservation_id(approval, target)
+        REVIEW.reserve_for_review(ledger, reservation_id, 'owner',
+                                  credential_ref='review', quota_group='group',
+                                  approval=approval, target=target,
+                                  unknown_reservation_id='old-unknown')
+        self.assertEqual(ledger.calls[0][0], 'approved')
+        REVIEW.reserve_for_review(ledger, 'normal-id', 'owner',
+                                  credential_ref='review', quota_group='group')
+        self.assertEqual(ledger.calls[1][0], 'normal')
+
+    def test_main_uses_manual_reservation_and_preserves_old_unknown_on_timeout(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            cli = root / 'claude'; cli.write_text('fake-cli')
+            relay = root / 'relay'; relay.write_text('fake-relay')
+            ledger_path = root / 'shared.db'
+            ledger = SharedCallLedger.initialize(ledger_path, [
+                ('claude', 'review', 'account', 'UNKNOWN', None, 'timeout', 4, 12, 3.5, 1)])
+            old_id = 'old-unknown'
+            ledger.db.execute(
+                'INSERT INTO reservations(reservation_id,owner,group_id,state,created_at) VALUES (?,?,?,?,?)',
+                (old_id, 'old-owner', 'account', 'UNKNOWN', 1))
+            patch_text = 'diff --git a/a b/a\n+x\n'
+            diff_sha = hashlib.sha256(patch_text.encode()).hexdigest()
+            approval = {'approval_id': 'd' * 64, 'pr': 31, 'head': HEAD,
+                        'base': 'c' * 40, 'patch_sha256': diff_sha,
+                        'unknown_reservation_id': old_id, 'reason': 'manual review',
+                        'approved_by': 'operator', 'approved_at': '2026-10-01T00:00:00Z'}
+            approval_path = root / 'approval.json'
+            approval_path.write_text(json.dumps(approval))
+            approval_path.chmod(0o600)
+
+            def command(*args):
+                if args == ('git', 'rev-parse', 'HEAD'):
+                    return HEAD
+                if args == ('git', 'status', '--porcelain'):
+                    return ''
+                if args == ('git', 'rev-parse', '--show-toplevel'):
+                    return str(root)
+                if args[0] == 'gh':
+                    return json.dumps({'url': 'https://github.com/example/repo/pull/31',
+                                       'headRefOid': HEAD})
+                if args[-1] == '--version':
+                    return '2.1.283'
+                raise AssertionError(args)
+
+            def invoke(_cmd, _prompt, directory):
+                events = [{'type': 'result', 'is_error': False, 'subtype': 'success',
+                           'terminal_reason': 'completed', 'stop_reason': 'end_turn',
+                           'queued_turn_count': 0,
+                           'subagent_stats': {'spawned': 0, 'completed': 0, 'failed': 0,
+                                              'killed': {}, 'refused': {}},
+                           'modelUsage': {'opus': {'inputTokens': 1, 'outputTokens': 1}},
+                           'result': ''}]
+                stream = ''.join(json.dumps(event) + '\n' for event in events)
+                (directory / 'events.jsonl').write_text(stream)
+                (directory / 'events.live.jsonl').write_text(stream)
+                return -9, events, 'timeout'
+
+            argv = ['review', '31', '--shared-call-ledger', str(ledger_path),
+                    '--credential-ref', 'review', '--quota-group', 'account',
+                    '--adoption-receipt', str(root / 'adoption.json'),
+                    '--operator-approval', str(approval_path),
+                    '--unknown-reservation-id', old_id]
+            with patch('sys.argv', argv), patch.object(Path, 'home', return_value=root), \
+                 patch.object(REVIEW, 'shared_adoption_verified', return_value=True), \
+                 patch.object(REVIEW, 'command', side_effect=command), \
+                 patch.object(REVIEW, 'reviewable', return_value=[]), \
+                 patch.object(REVIEW.shutil, 'which', return_value=str(cli)), \
+                 patch.object(REVIEW, 'CONTROL', relay), \
+                 patch.object(REVIEW, 'complete_pr_patch', return_value=(patch_text, 'c' * 40, 'c' * 40)), \
+                 patch.object(REVIEW, 'invoke', side_effect=invoke), \
+                 patch.object(REVIEW, 'input_delivery_verified', return_value=True), \
+                 patch.object(REVIEW, 'binding_unchanged', return_value=True):
+                self.assertEqual(REVIEW.main(), 1)
+            manual = [row[0] for row in ledger.db.execute(
+                "SELECT reservation_id FROM reservations WHERE reservation_id LIKE 'manual-unknown-%'")]
+            self.assertEqual(len(manual), 1)
+            self.assertEqual(ledger.reservation(old_id)['state'], 'UNKNOWN')
+            self.assertEqual(ledger.reservation(manual[0])['state'], 'UNKNOWN')
+
     def test_timeout_and_scope_failure_remain_distinct_in_saved_receipt(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -12,10 +12,94 @@ from pathlib import Path
 import sqlite3
 import time
 from uuid import uuid4
+from dataclasses import dataclass
+import hashlib
+import re
+from typing import Any, Mapping
 
-from ai_company.timeout_unknown import classify_unknown_recovery
-from ai_company.manual_unknown_review import ReviewTarget, manual_reservation_id, validate_approval
-from ai_company.review_protocol import validate_timeout_evidence
+try:
+    from ai_company.timeout_unknown import classify_unknown_recovery
+    from ai_company.manual_unknown_review import ReviewTarget, manual_reservation_id, validate_approval
+    from ai_company.review_protocol import validate_timeout_evidence
+except ModuleNotFoundError:
+    # The trusted four-file installation is intentionally standalone. Keep the
+    # same fail-closed contracts available without importing the source package.
+    _HEX40 = re.compile(r"^[0-9a-f]{40}$")
+    _HEX64 = re.compile(r"^[0-9a-f]{64}$")
+
+    @dataclass(frozen=True)
+    class ReviewTarget:
+        pr: int
+        head: str
+        base: str
+        patch_sha256: str
+
+    @dataclass(frozen=True)
+    class _UnknownDecision:
+        state: str
+        reason_code: str
+        allows_new_calls: bool = False
+        requires_terminal_evidence: bool = True
+
+    def classify_unknown_recovery(account: Mapping[str, object], reservation=None, *,
+                                  operator_abandoned: bool = False):
+        if operator_abandoned:
+            return _UnknownDecision("ABANDONED_UNKNOWN", "operator_abandoned_unknown")
+        if account.get("state") == "UNKNOWN":
+            if account.get("reason") == "timeout":
+                return _UnknownDecision("UNKNOWN_TIMEOUT_UNRESOLVED", "account_unknown_timeout")
+            return _UnknownDecision("UNKNOWN_ACCOUNT_UNRESOLVED", "account_unknown")
+        if reservation and reservation.get("state") == "UNKNOWN":
+            return _UnknownDecision("UNKNOWN_RESERVATION_UNRESOLVED", "reservation_unknown")
+        return None
+
+    def _target_dict(target):
+        if (not isinstance(target, ReviewTarget) or not isinstance(target.pr, int)
+                or isinstance(target.pr, bool) or target.pr < 1
+                or not _HEX40.fullmatch(target.head) or not _HEX40.fullmatch(target.base)
+                or not _HEX64.fullmatch(target.patch_sha256)):
+            raise ValueError("review target is not pinned")
+        return {"pr": target.pr, "head": target.head, "base": target.base,
+                "patch_sha256": target.patch_sha256}
+
+    def validate_approval(approval: Mapping[str, Any], target: ReviewTarget, *,
+                          unknown_reservation_id: str):
+        expected = {"approval_id", "pr", "head", "base", "patch_sha256",
+                    "unknown_reservation_id", "reason", "approved_by", "approved_at"}
+        if set(approval) != expected:
+            raise ValueError("operator approval is incomplete")
+        expected_target = _target_dict(target)
+        if (approval["pr"], approval["head"], approval["base"], approval["patch_sha256"]) != (
+                expected_target["pr"], expected_target["head"], expected_target["base"],
+                expected_target["patch_sha256"]):
+            raise ValueError("operator approval target differs")
+        if approval["unknown_reservation_id"] != unknown_reservation_id:
+            raise ValueError("operator approval is not bound to the UNKNOWN reservation")
+        if (not isinstance(approval["approval_id"], str)
+                or not _HEX64.fullmatch(approval["approval_id"])
+                or not isinstance(approval["reason"], str) or not approval["reason"].strip()
+                or not isinstance(approval["approved_by"], str) or not approval["approved_by"].strip()
+                or not isinstance(approval["approved_at"], str) or not approval["approved_at"].strip()):
+            raise ValueError("operator approval identity or reason is invalid")
+        return hashlib.sha256(json.dumps(dict(approval), sort_keys=True,
+                                             ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
+
+    def manual_reservation_id(approval, target):
+        payload = {"approval": dict(approval), "target": _target_dict(target)}
+        return "manual-unknown-" + hashlib.sha256(json.dumps(
+            payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
+
+    def validate_timeout_evidence(record: Mapping[str, Any]):
+        required = {"event", "reason", "main_process_state", "child_tasks_terminated",
+                    "workflow_completed", "result_saved", "usage_saved", "reservation_state",
+                    "account_protection_state", "settlement_allowed", "cost_estimate_allowed"}
+        if set(record) != required or record["event"] != "review_timeout" or record["reason"] != "timeout":
+            raise ValueError("timeout evidence fields are incomplete")
+        for key in ("child_tasks_terminated", "workflow_completed", "result_saved", "usage_saved"):
+            if not isinstance(record[key], bool):
+                raise ValueError("timeout evidence flags must be boolean")
+        if record["settlement_allowed"] is not False or record["cost_estimate_allowed"] is not False:
+            raise ValueError("timeout evidence cannot authorize settlement or cost estimation")
 
 
 class SharedCallError(RuntimeError):

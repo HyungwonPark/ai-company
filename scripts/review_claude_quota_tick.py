@@ -20,6 +20,22 @@ TRUSTED_HASHES = {
 }
 
 
+def trusted_hashes(trusted_dir):
+    """Read the installed package's immutable file manifest when present."""
+    manifest = Path(trusted_dir) / 'manifest.json'
+    if not manifest.is_file():
+        return dict(TRUSTED_HASHES)
+    try:
+        value = json.loads(manifest.read_text())
+        files = value['files']
+        result = {name: files[name] for name in TRUSTED_HASHES}
+    except (OSError, ValueError, KeyError, TypeError):
+        raise SystemExit('installed reviewer manifest is invalid') from None
+    if any(not isinstance(item, str) or len(item) != 64 for item in result.values()):
+        raise SystemExit('installed reviewer manifest has invalid hashes')
+    return result
+
+
 def load_runner(path):
     spec = importlib.util.spec_from_file_location('trusted_review_runner', path)
     module = importlib.util.module_from_spec(spec)
@@ -166,15 +182,16 @@ def main():
     trusted_dir = Path.home() / '.local/libexec/ai-company-pr-review'
     if runner_file != (trusted_dir / 'runner.py').resolve():
         raise SystemExit('resume requires the installed trusted runner')
-    for name, expected in TRUSTED_HASHES.items():
+    expected_hashes = trusted_hashes(trusted_dir)
+    for name, expected in expected_hashes.items():
         source = trusted_dir / name
         if (source.is_symlink() or not source.is_file()
                 or hashlib.sha256(source.read_bytes()).hexdigest() != expected):
             raise SystemExit('trusted reviewer code differs from the reviewed package')
     adoption = json.loads(Path(manifest['adoption_receipt']).read_text())
-    if (adoption.get('review_runner_sha256') != TRUSTED_HASHES['runner.py']
-            or adoption.get('review_relay_sha256') != TRUSTED_HASHES['claude_control.py']
-            or adoption.get('shared_calls_sha256') != TRUSTED_HASHES['shared_calls.py']):
+    if (adoption.get('review_runner_sha256') != expected_hashes['runner.py']
+            or adoption.get('review_relay_sha256') != expected_hashes['claude_control.py']
+            or adoption.get('shared_calls_sha256') != expected_hashes['shared_calls.py']):
         raise SystemExit('shared caller adoption receipt differs from the reviewed package')
     runner = load_runner(runner_file)
     if not runner.shared_adoption_verified(Path(manifest['adoption_receipt']), Path(manifest['ledger'])):
