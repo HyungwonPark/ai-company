@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light dark"><title>AI Company · 작업실 비교</title>
+  <link rel="stylesheet" href="./preview.css">
+  <script defer src="./data.js"></script><script defer src="./model.js"></script><script defer src="./preview.js"></script>
+</head>
+<body>
+<div id="workspace-lab" data-theme="light" data-concept="a">
+  <a class="lab-skip" href="#lab-main">본문으로</a>
+  <div class="lab-tools" aria-label="디자인 비교 도구">
+    <div class="lab-tools-label"><strong>구조 비교</strong><span>동일한 예시 데이터 · 운영 연결 없음</span></div>
+    <div class="lab-concepts" role="group" aria-label="시안">
+      <button type="button" data-concept="a" aria-pressed="true">A 작업실 <span>추천</span></button>
+      <button type="button" data-concept="b" aria-pressed="false">B 작업대</button>
+      <button type="button" data-concept="c" aria-pressed="false">C 결정함</button>
+    </div>
+    <details class="lab-options"><summary>상태</summary><div>
+      <label for="lab-scenario">예시 상태</label><select id="lab-scenario"><option value="normal">기본</option><option value="empty">빈 목록</option><option value="waiting">PM 대기</option><option value="error">저장 응답 유실</option><option value="offline">연결 끊김</option><option value="long">긴 한국어</option><option value="translation">번역 대기</option><option value="readonly">읽기 권한</option><option value="missing">잘못된 링크</option></select>
+      <button type="button" data-action="refresh">화면 갱신</button><button type="button" data-action="reset">예시 초기화</button>
+    </div></details>
+  </div>
+  <div id="lab-stage"></div>
+  <p class="lab-notice" id="lab-notice" role="status" aria-live="polite"></p>
+  <dialog id="lab-dialog" aria-labelledby="lab-dialog-title"></dialog>
+</div>
+</body>
+</html>

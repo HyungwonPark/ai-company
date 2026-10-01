@@ -1,0 +1,15 @@
+[Unit]
+Description=ai-company bounded role dispatcher (opt-in)
+
+[Service]
+Type=oneshot
+# Install a reviewed release here; never point this at a mutable development tree.
+WorkingDirectory=%h/ai-company/releases/flow
+Environment=PATH=%h/.local/bin:%h/.nvm/versions/node/v22.13.0/bin:/usr/bin:/bin
+Environment=LANGSMITH_TRACING=false
+Environment=LANGCHAIN_TRACING_V2=false
+ExecStart=%h/ai-company/releases/flow/.venv/bin/ai-company flow worker --state-dir %h/ai-company/state/flows
+TimeoutStartSec=3700
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=yes

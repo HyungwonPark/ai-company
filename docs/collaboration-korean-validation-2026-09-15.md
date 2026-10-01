@@ -1,0 +1,63 @@
+# B형 협업 화면·한글 번역 연결 검증
+
+PR #11의 [고정 명세](https://github.com/HyungwonPark/ai-company/blob/b4410e9b3995013951428ce1fedb1bd88699fd79/docs/collaboration-korean-spec-2026-09-15.md)를 PR #8의 `0be5a17` 위에 반영했다. 기존 변경과 운영 상태를 유지한다. 이 기록은 실제 마스터의 계획 확정, PR #10 후보 수용, 운영 배포를 뜻하지 않는다.
+
+## 구현한 동작
+
+B형 Light·Black과 매니저 / 진행 / 승인 / 프로젝트 메뉴를 유지하고, 진행 안에서 협업과 보고서를 나눈다. 프로젝트에 정의된 역할을 병렬 배치하며 PM·독립 검수·최종 검수·번역·문서 원본을 구분한다. SQLite의 작업·실행·이관·문서 기록에서 방향과 산출물 참조를 조회한다. 모델 이름이나 비슷한 작업 제목으로 전달 관계를 만들지 않는다.
+
+역할별로 요청 모델·effort, 실제 CLI에서 관측한 모델·설정, 근거, 하네스, 세션·실행·generation, 공유 한도 그룹, 대기 사유와 예약 시각을 표시한다. 검사는 모델 실행이 없으므로 현재 후보에 연결된 검사 증거로 완료를 판단한다. 늦게 들어온 과거 역할 기록이나 종료된 시도가 현재 담당자를 바꾸지 않는다.
+
+전달 목록은 키보드로 선택할 수 있다. 새 이벤트만 유한하게 강조하고, 최초 로딩과 재연결에서는 과거 이벤트를 새 업무처럼 재생하지 않는다. 낮은 cursor 응답을 버리되 같은 cursor의 최신 작업 상태는 반영한다. 모바일에서는 역할 요약과 방향 행을 읽는다.
+
+문서는 원문 필드·작성 역할·원본 참조·버전을 canonical digest로 묶는다. 번역은 별도 테이블에 저장하고 한국어/원문 전환을 제공한다. 승인 대상·환경·비용·기한·커밋·검증 근거는 구조화된 원본을 직접 표시한다. 승인 API는 당시 표시한 번역 ID와 원문 digest를 검증해 결정 기록에 연결한다. 번역 결과가 승인이나 작성자·검수자 권한을 만들지 않는다. 이후 생성되는 고정 승인 설명은 코드의 한국어 문구를 사용하며 과거 승인 원문은 수정하지 않는다.
+
+## 번역 실행 경계
+
+명시한 상태 경로에서 `python -m ai_company.translation_worker --state-dir <검증 상태> --config <검토한 로컬 설정> --execute`를 한 번 실행하면 문서 동기화와 번역 큐 처리 한 번을 수행한다. 화면 조회는 번역을 요청하거나 모델을 실행하지 않는다. 운영 타이머 등록·설정 배포는 하지 않았다.
+
+캐시는 원문 digest·모델/CLI 버전·언어·프롬프트/용어집 버전·실행 정책으로 구분한다. 동시 실행 하나, 문서·출력 길이, 총 시간, 재시도 상한과 기존 공유 계정 한도를 적용한다. 프로세스 준비도·종료 확인을 공유 SQLite 쓰기 잠금 밖에서 수행한다. 종료가 확인되지 않은 worker는 임대 시간만으로 재실행하지 않는다. 사용량 대기와 번역 실패가 개발·승인 큐를 잠그지 않는다.
+
+Luna는 로컬 Codex `0.154.0` 모델 목록에 있지만 도구 없는 실행 강제와 실제 호출은 확인하지 못했다. 따라서 자동 실행하지 않는다. 경량 대안으로 기존 Claude 로그인 경로의 `claude-haiku-4-5-20251001`을 명시적으로 선택했다. 자동 상위 모델 전환이나 새 API 키·결제 경로는 없다.
+
+Claude Code `2.1.270`에서 `--tools ''`, `--disallowedTools '*'`, 빈 strict MCP 설정, hook·slash command·Chrome 비활성화, `dontAsk`를 사용한다. [공식 CLI 참조](https://code.claude.com/docs/en/cli-reference)의 도구 제한 옵션과 실제 초기화 이벤트의 빈 도구 목록을 함께 확인한다. 입력은 빈 비Git 작업 공간의 stdin 문서뿐이며 도구·셸·Git·승인 API 권한을 주지 않는다. 독립 systemd cgroup의 종료를 확인한다. 이 경로는 별도의 OS 파일시스템 격리 검증을 대신하지 않는다.
+
+## 실제 호출과 저장 기록 대조
+
+실제 번역 호출은 1건이다. 요청은 Haiku / low, 시간 상한 60초, CLI 비용 상한 USD 0.05였다. 세션 `0e6f766b-6019-49f9-a98a-8cbd238f11ac`의 초기화·assistant 메타데이터에서 Haiku를 관측했고 tools·MCP는 빈 목록이었다. CLI가 보고한 비용은 USD 0.004961이며 청구서의 확정 결제액을 뜻하지 않는다. low 옵션 수용과 실제 추론 설정은 구분한다. 관측 effort는 미확인이며 모델의 자기 설명을 증거로 사용하지 않았다. Ultracode·동적 Workflow가 동작했다는 검증도 아니다.
+
+최초 결과는 JSON 전체를 감싼 코드 블록 때문에 엄격 파서에서 실패했다. 해당 실패 기록과 원문·`pending` 상태를 보존했다. 파서는 응답 전체를 감싼 단일 JSON 블록만 해제하며 앞뒤의 추가 지시나 텍스트는 거부하도록 보완했다. 자연어의 pending은 보류 의미를 허용하되 backtick 코드 식별자는 그대로 보존한다.
+
+추가 호출 없이 같은 CLI 원본을 새 임시 상태에서 재처리해 별도 번역 산출물로 기록했다. 실패 job `182241f2a9e0431bbe1850430685631a`와 재처리 job `03a730e32cc54791bf2624ef8699159d`는 서로 다르다. 원본 stdout SHA-256은 `7cac74c94cb57c92a56d3b6129e172a9f1dc5fb1e893c4a69559257ba99587ff`, 파서는 `translation-json-v2`다. 최초 실행이 바로 완료된 것으로 기록하지 않는다. 독립 agent가 실제 응답과 원문을 대조해 배포 금지, 검사와 마스터 승인 모두를 요구하는 조건, pending, 재시도를 포함한 USD 12.50 상한, 복구 경로·SHA, DB 되감기 금지의 의미 보존을 확인했다. 이는 합성 승인 문서의 실제 Haiku 응답 검토이며 별도의 실제 Astra CLI 최종 검수는 아니다. 일반 번역 품질 전체를 검증한 것으로 확대하지 않는다.
+
+기존 실제 실행 DB는 읽기 전용으로 열고 임시 사본에서 새 조회 규격을 대조했다. 프로젝트 `bec1fc827164488abf2f84a8032b8d04`에서 역할 2개, 노드 10개, 전달 16개, 문서 18개, 관측된 배정 7개를 확인했다. 명세 전달·결과 보고·검수 요청은 기존 이벤트와 후보 참조에 연결됐다. 이 과정의 운영 DB 쓰기와 새 개발 모델 호출은 0건이다. PR #10 승인 `849f6de73d722f1ba2f4c5537111f6a0`은 `pending`이다.
+
+## 검증과 남은 범위
+
+구현 커밋은 `314d991bc15d6846d695d1beda503a1c7129e728`이다. 로컬 최종 회귀 285개가 통과했다. 독립 agent가 작성한 협업·번역 경계 22개도 통과했다. [원격 CI](https://github.com/HyungwonPark/ai-company/actions/runs/34943363038)는 Python 3.11·3.12 각각 285개와 Android 준비 4개, 기존 수정·거부 시뮬레이션을 통과했다.
+
+[브라우저 CI](https://github.com/HyungwonPark/ai-company/actions/runs/34943363040)는 격리를 유지한 Chrome에서 두 테마, 320·360px, 키보드 선택, 감소된 모션, 저장 차단, 재연결·낮은 cursor·중복·늦은 결과를 확인했다. 기존 로그인·비밀번호 변경·계획 확정·승인·프로젝트 격리도 통과했다. 새 모의 시나리오의 전달선은 실제 운영 실행의 증거가 아니며, 저장된 실제 번역 화면 검증도 새 모델 호출을 만들지 않는다.
+
+실제 CLI 번역을 재처리한 문서의 한국어·원문 전환과 표시 출처를 브라우저에서 확인했다. 조회 중 승인·모델·worker 요청은 0건이었다. 합성 승인 원문의 기한이 지난 뒤 찍힌 캡처에는 ‘만료’가 표시된다. 원본 저장 상태 `pending`과 기한은 그대로이며 캡처를 위해 연장하지 않았다. 의미 대조는 별도 검증 기록이고 산출물 자체의 `semantic_validation`을 소급 변경하지 않았다.
+
+테마 변경 직후 찍힌 일부 초기 캡처가 CSS 전환 중간색을 담아 검사 보완 커밋 `bebb204611c51823e59b796ca16ce63f08534b04`에서 선택 상태·계산 색상·전환 종료를 확인한 뒤 촬영하도록 했다. 앱 소스는 바뀌지 않았다. [최종 브라우저 CI](https://github.com/HyungwonPark/ai-company/actions/runs/34944130985)와 [최종 회귀 CI](https://github.com/HyungwonPark/ai-company/actions/runs/34944130967)가 모두 통과했다. 캡처 원본과 SHA-256은 [manifest](assets/collaboration-korean-2026-09-15/manifest.json)에 고정했다.
+
+| 캡처 범위 | Light | Black |
+| --- | --- | --- |
+| 협업 전달 · 응답 모의 | [보기](assets/collaboration-korean-2026-09-15/light-desktop-collaboration-fixture.png) | [보기](assets/collaboration-korean-2026-09-15/black-desktop-collaboration-fixture.png) |
+| 한글 보고서 · 응답 모의 | [보기](assets/collaboration-korean-2026-09-15/light-desktop-korean-report-fixture.png) | [보기](assets/collaboration-korean-2026-09-15/black-desktop-korean-report-fixture.png) |
+| 실제 CLI 번역 기록의 승인 문서 | [보기](assets/collaboration-korean-2026-09-15/light-recorded-cli-reprocessed-korean-approval.png) | [보기](assets/collaboration-korean-2026-09-15/black-recorded-cli-reprocessed-korean-approval.png) |
+| 같은 승인 문서 · 360px | [보기](assets/collaboration-korean-2026-09-15/light-mobile-recorded-cli-reprocessed-korean-approval.png) | [보기](assets/collaboration-korean-2026-09-15/black-mobile-recorded-cli-reprocessed-korean-approval.png) |
+
+공개 관리 화면의 이미지 교체는 실행하지 않았다. 이전 자동 승인 검토는 운영 배포 승인 부재를 이유로 교체를 거부했으며 이번 명세도 배포 승인이 아니라고 명시한다. 새 이미지와 영향·복구안을 준비한 뒤 그 이미지에 대한 승인 경계를 확인해야 한다. 기존 테마 이미지 승인을 다른 내용의 이미지에 재사용하지 않는다. 기존 커플 앱·Caddy·운영 worker·타이머·큐·전역 격리 설정은 이번 기능 적용 대상이 아니다.
+
+## 새 후보 이미지와 복구 범위
+
+- 소스: `314d991bc15d6846d695d1beda503a1c7129e728`
+- 후보 이미지: `sha256:53c342b3e03b64d46868d2ae4cd0a0ef4c8865002b63810943b7bcca6c13ab3f`
+- 기존 공개 이미지: `sha256:ddb2145c5557e4170c537b825b591d36c318544a28f140c93f59fc89ea31f528`
+- 공개 관리 컨테이너: `96bff0d88531630bfa08a5faa4b784f912eb259624e0f028201ed59b3dddd094`, 변경 없음.
+
+후보 이미지는 네트워크·호스트 마운트·Linux capability 없이 읽기 전용 일회성 컨테이너에서 검증했다. 임시 메모리 상태로 패키지·번역 worker import, 추가 테이블, 협업 조회를 확인했으며 모델과 운영 상태에는 접근하지 않았다. 기존 관리 화면·커플 앱·Caddy·DB·백업 컨테이너의 ID·시작 시각·재시작 횟수는 유지됐다. PR #10의 `pending`도 다시 읽기 전용으로 확인했다.
+
+승인 가능한 다음 변경은 이 후보로 관리 화면 컨테이너를 교체하는 1건이다. 실제 대상과 Compose를 재확인·백업하고 HTTPS·로그인·협업 조회·기존 원문·승인 상태를 대조한다. 짧은 재접속과 번역용 추가 테이블·조회 이벤트 trigger 생성이 예상된다. 실패하면 이 컨테이너의 이미지만 기존 digest로 되돌린다. 계정·업무 DB를 되감지 않으며 추가 테이블은 보존한다. 번역 worker의 운영 활성화·계정 매핑·예약 실행은 별도 검토 대상이며 이미지 교체만으로 모델 호출을 시작하지 않는다. 배포·병합·운영 타이머 변경은 수행하지 않았다.

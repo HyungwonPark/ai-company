@@ -1,0 +1,275 @@
+{
+  "project": {
+    "id": "f56e339f183e47b19899fb2d62b606bd",
+    "name": "번역 실사용 검증 — 임시 원문",
+    "goal": "원문 승인 상태를 유지하면서 실제 번역 한 건을 검증합니다.",
+    "status": "PLANNING",
+    "harness_version": 1,
+    "request_revision": 0,
+    "source": "unverified",
+    "created_at": 1789440152.1953118,
+    "harness_content": "{\n  \"goal\": \"원문 승인 상태를 유지하면서 실제 번역 한 건을 검증합니다.\",\n  \"roles\": []\n}"
+  },
+  "approvals": [
+    {
+      "id": "12e555848d68499fab8c009ed9853833",
+      "project_id": "f56e339f183e47b19899fb2d62b606bd",
+      "title": "Translation validation request",
+      "action": "Do not deploy this change. Deploy only if all required checks pass and the master approves.",
+      "environment": "isolated-translation-validation",
+      "artifact_sha": "0be5a17cb13cc842c2420f199af4bdba4f8a02be",
+      "cost_usd": 12.5,
+      "expires_at": 1789447352.1971447,
+      "impact": "The request remains pending; the total cost must not exceed USD 12.50, including retries.",
+      "rollback": "If verification fails, restore `/srv/app/config.json` from commit `0be5a17cb13cc842c2420f199af4bdba4f8a02be` and do not rewind the database.",
+      "verification": "Synthetic approval subject used to validate translation only; no deployment is requested.",
+      "status": "pending",
+      "source": "unverified",
+      "subject_digest": "42acc97b79343c9654cde3de1ecc4a2420c3cbee187a496c7d80db7a5e9316c4",
+      "created_at": 1789440152.197407
+    }
+  ],
+  "reports": [],
+  "messages": [],
+  "roles": [],
+  "tasks": [],
+  "runs": [],
+  "documents": {
+    "approval:12e555848d68499fab8c009ed9853833": {
+      "id": "approval:12e555848d68499fab8c009ed9853833",
+      "kind": "approval",
+      "project_id": "f56e339f183e47b19899fb2d62b606bd",
+      "source_version": "42acc97b79343c9654cde3de1ecc4a2420c3cbee187a496c7d80db7a5e9316c4",
+      "author_role": "unverified",
+      "source_ref": {
+        "approval_id": "12e555848d68499fab8c009ed9853833",
+        "subject_digest": "42acc97b79343c9654cde3de1ecc4a2420c3cbee187a496c7d80db7a5e9316c4"
+      },
+      "fields": {
+        "title": "Translation validation request",
+        "action": "Do not deploy this change. Deploy only if all required checks pass and the master approves.",
+        "impact": "The request remains pending; the total cost must not exceed USD 12.50, including retries.",
+        "rollback": "If verification fails, restore `/srv/app/config.json` from commit `0be5a17cb13cc842c2420f199af4bdba4f8a02be` and do not rewind the database."
+      },
+      "protected": {
+        "subject_digest": "42acc97b79343c9654cde3de1ecc4a2420c3cbee187a496c7d80db7a5e9316c4",
+        "artifact_sha": "0be5a17cb13cc842c2420f199af4bdba4f8a02be",
+        "environment": "isolated-translation-validation",
+        "cost_usd": 12.5,
+        "expires_at": 1789447352.1971447,
+        "verification": "Synthetic approval subject used to validate translation only; no deployment is requested."
+      },
+      "source_digest": "fce81414484e1f04ac561a36eb0d7006b9f8384a7dda86de9f49e6bd3110cbfa",
+      "original_language": "und",
+      "translation": {
+        "id": "03a730e32cc54791bf2624ef8699159d",
+        "status": "completed",
+        "fields": {
+          "title": "번역 유효성 검사 요청",
+          "action": "이 변경 사항을 배포하지 마십시오. 모든 필수 검사를 통과하고 마스터가 승인한 경우에만 배포하십시오.",
+          "impact": "요청은 보류 중이며, 재시도를 포함하여 총 비용이 USD 12.50을 초과하면 안 됩니다.",
+          "rollback": "검증이 실패하면 커밋 `0be5a17cb13cc842c2420f199af4bdba4f8a02be`에서 `/srv/app/config.json`을 복원하고 데이터베이스를 되돌리지 마십시오."
+        },
+        "source_digest": "fce81414484e1f04ac561a36eb0d7006b9f8384a7dda86de9f49e6bd3110cbfa",
+        "reason": null,
+        "resume_at": null,
+        "observed_configuration": {
+          "provider": "claude",
+          "model": "claude-haiku-4-5-20251001",
+          "reasoning_effort": null,
+          "source": "claude_system_init_and_assistant_metadata",
+          "scope": "runtime_model_and_empty_tool_catalog",
+          "status": "observed",
+          "backend_model_verified": false
+        },
+        "semantic_validation": "not_independently_verified",
+        "model": "claude-haiku-4-5-20251001",
+        "requested_configuration": {
+          "provider": "claude",
+          "model": "claude-haiku-4-5-20251001",
+          "reasoning_effort": "low",
+          "model_version": "2.1.270"
+        },
+        "version": "03a730e32cc54791bf2624ef8699159d",
+        "prompt_version": "ko-translation-v1",
+        "glossary_version": "v1",
+        "parser_version": "translation-json-v2",
+        "reprocessing": {
+          "kind": "recorded_cli_reprocessing",
+          "original_failed_job_id": "182241f2a9e0431bbe1850430685631a",
+          "original_failed_status": "failed",
+          "original_failure_reason": "translation_output_not_json",
+          "raw_sha256": "7cac74c94cb57c92a56d3b6129e172a9f1dc5fb1e893c4a69559257ba99587ff",
+          "parser_version": "translation-json-v2",
+          "reprocessed_at": 1789440419.0762973,
+          "new_model_calls": 0,
+          "original_total_cost_usd": 0.004961,
+          "original_scope": "synthetic approval document; one actual model translation"
+        },
+        "substitution_reason": "Explicit lightweight Haiku alternative: Codex Luna tool-free execution is unverified."
+      }
+    }
+  },
+  "translation_summary": {
+    "status": "available",
+    "model": "claude-haiku-4-5-20251001",
+    "candidate_model": "gpt-5.6-luna",
+    "counts": {
+      "completed": 1
+    },
+    "requested_configuration": {
+      "provider": "claude",
+      "model": "claude-haiku-4-5-20251001",
+      "reasoning_effort": "low",
+      "model_version": "2.1.270"
+    },
+    "observed_configuration": {
+      "provider": "claude",
+      "model": "claude-haiku-4-5-20251001",
+      "reasoning_effort": null,
+      "source": "claude_system_init_and_assistant_metadata",
+      "scope": "runtime_model_and_empty_tool_catalog",
+      "status": "observed",
+      "backend_model_verified": false,
+      "job_id": "03a730e32cc54791bf2624ef8699159d",
+      "source_digest": "fce81414484e1f04ac561a36eb0d7006b9f8384a7dda86de9f49e6bd3110cbfa"
+    },
+    "resume_at": null,
+    "reason": null
+  },
+  "collaboration": {
+    "cursor": 3,
+    "source": "persisted_records",
+    "nodes": [
+      {
+        "id": "pm:f56e339f183e47b19899fb2d62b606bd",
+        "name": "Astra Ultra PM",
+        "kind": "pm",
+        "responsibility": "목표·역할·완료 기준 제안",
+        "status": "IDLE",
+        "current_task_id": null,
+        "task_ids": [],
+        "assignment": {
+          "agent_id": null,
+          "provider": null,
+          "session_id": null,
+          "execution_id": null,
+          "generation": null,
+          "requested": {
+            "model": null,
+            "reasoning_effort": null,
+            "ultracode_enabled": null
+          },
+          "observed": {
+            "status": "unavailable",
+            "model": null,
+            "reasoning_effort": null,
+            "source": null,
+            "scope": null,
+            "backend_model_verified": false,
+            "evidence": null
+          },
+          "quota": {
+            "status": "unobserved",
+            "reset_at": null
+          },
+          "harness_version": 1
+        },
+        "wait_reason": null,
+        "resume_at": null,
+        "handoffs": [],
+        "active": true
+      },
+      {
+        "id": "documents:f56e339f183e47b19899fb2d62b606bd",
+        "name": "보고·승인 문서",
+        "kind": "document",
+        "responsibility": "저장된 원문과 실행 근거",
+        "status": "AVAILABLE",
+        "current_task_id": null,
+        "task_ids": [],
+        "assignment": {},
+        "wait_reason": null,
+        "resume_at": null,
+        "handoffs": [],
+        "active": true
+      },
+      {
+        "id": "translator:f56e339f183e47b19899fb2d62b606bd",
+        "name": "한글 번역",
+        "kind": "translator",
+        "responsibility": "원문을 보존하는 번역 전용 · 실행·승인 권한 없음",
+        "status": "available",
+        "current_task_id": null,
+        "task_ids": [],
+        "assignment": {
+          "requested": {
+            "provider": "claude",
+            "model": "claude-haiku-4-5-20251001",
+            "reasoning_effort": "low",
+            "model_version": "2.1.270"
+          },
+          "observed": {
+            "provider": "claude",
+            "model": "claude-haiku-4-5-20251001",
+            "reasoning_effort": null,
+            "source": "claude_system_init_and_assistant_metadata",
+            "scope": "runtime_model_and_empty_tool_catalog",
+            "status": "observed",
+            "backend_model_verified": false,
+            "job_id": "03a730e32cc54791bf2624ef8699159d",
+            "source_digest": "fce81414484e1f04ac561a36eb0d7006b9f8384a7dda86de9f49e6bd3110cbfa"
+          },
+          "agent_id": "document-translator"
+        },
+        "wait_reason": null,
+        "resume_at": null,
+        "handoffs": [],
+        "active": true
+      }
+    ],
+    "transfers": [
+      {
+        "id": "translation:03a730e32cc54791bf2624ef8699159d",
+        "cursor": 1,
+        "kind": "translation_request",
+        "from": "documents:f56e339f183e47b19899fb2d62b606bd",
+        "to": "translator:f56e339f183e47b19899fb2d62b606bd",
+        "task_id": "approval:12e555848d68499fab8c009ed9853833",
+        "run_id": null,
+        "title": "Translation validation request",
+        "reason": "원문에 연결된 번역 전용 큐",
+        "status": "completed",
+        "created_at": 1789440419.0,
+        "started_at": null,
+        "completed_at": null,
+        "artifact_refs": [
+          {
+            "label": "원문 digest",
+            "sha": "fce81414484e1f04ac561a36eb0d7006b9f8384a7dda86de9f49e6bd3110cbfa"
+          }
+        ],
+        "caused_by": "42acc97b79343c9654cde3de1ecc4a2420c3cbee187a496c7d80db7a5e9316c4",
+        "execution_id": null,
+        "generation": null,
+        "source": {
+          "table": "management_events",
+          "id": 1
+        },
+        "mode": "recorded"
+      }
+    ]
+  },
+  "recorded_translation_provenance": {
+    "kind": "recorded_cli_reprocessing",
+    "original_failed_job_id": "182241f2a9e0431bbe1850430685631a",
+    "original_failed_status": "failed",
+    "original_failure_reason": "translation_output_not_json",
+    "raw_sha256": "7cac74c94cb57c92a56d3b6129e172a9f1dc5fb1e893c4a69559257ba99587ff",
+    "parser_version": "translation-json-v2",
+    "reprocessed_at": 1789440419.0762973,
+    "new_model_calls": 0,
+    "original_total_cost_usd": 0.004961,
+    "original_scope": "synthetic approval document; one actual model translation"
+  }
+}

@@ -1,0 +1,305 @@
+{
+  "status": "PASS",
+  "source": "temporary SQLite with actual ManagementHTTPServer; changed/disappearing record injections explicitly synthetic; no model or production operations",
+  "browser": "152.0.7977.82",
+  "sandbox": true,
+  "measurements": [
+    {
+      "width": 320,
+      "theme": "light",
+      "center_error": 0,
+      "viewport": {
+        "left": 18,
+        "right": 302,
+        "width": 284
+      },
+      "group": {
+        "left": 18,
+        "right": 302
+      },
+      "font_sizes": [
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14
+      ],
+      "camera": "translate(-1px, 0px) scale(1)",
+      "scroll_left": 0,
+      "scroll_top": 0
+    },
+    {
+      "width": 320,
+      "theme": "black",
+      "center_error": 0,
+      "viewport": {
+        "left": 18,
+        "right": 302,
+        "width": 284
+      },
+      "group": {
+        "left": 18,
+        "right": 302
+      },
+      "font_sizes": [
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14
+      ],
+      "camera": "translate(-1px, 0px) scale(1)",
+      "scroll_left": 0,
+      "scroll_top": 0
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "center_error": 0,
+      "viewport": {
+        "left": 18,
+        "right": 372,
+        "width": 354
+      },
+      "group": {
+        "left": 53,
+        "right": 337
+      },
+      "font_sizes": [
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14
+      ],
+      "camera": "translate(34px, 0px) scale(1)",
+      "scroll_left": 0,
+      "scroll_top": 0
+    },
+    {
+      "width": 390,
+      "theme": "black",
+      "center_error": 0,
+      "viewport": {
+        "left": 18,
+        "right": 372,
+        "width": 354
+      },
+      "group": {
+        "left": 53,
+        "right": 337
+      },
+      "font_sizes": [
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14
+      ],
+      "camera": "translate(34px, 0px) scale(1)",
+      "scroll_left": 0,
+      "scroll_top": 0
+    },
+    {
+      "width": 1440,
+      "theme": "light",
+      "center_error": 0,
+      "viewport": {
+        "left": 40,
+        "right": 1074,
+        "width": 1034
+      },
+      "group": {
+        "left": 319,
+        "right": 795
+      },
+      "font_sizes": [
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14
+      ],
+      "camera": "translate(278px, 0px) scale(1)",
+      "scroll_left": 0,
+      "scroll_top": 0
+    },
+    {
+      "width": 1440,
+      "theme": "black",
+      "center_error": 0,
+      "viewport": {
+        "left": 40,
+        "right": 1074,
+        "width": 1034
+      },
+      "group": {
+        "left": 319,
+        "right": 795
+      },
+      "font_sizes": [
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14,
+        14,
+        17,
+        14,
+        14
+      ],
+      "camera": "translate(278px, 0px) scale(1)",
+      "scroll_left": 0,
+      "scroll_top": 0
+    }
+  ],
+  "checks": [
+    {
+      "width": 320,
+      "theme": "light",
+      "checks": "main node centering and readable initial scale; page help survives node/mode/theme/real refresh/run switch"
+    },
+    {
+      "width": 320,
+      "theme": "black",
+      "checks": "main node centering and readable initial scale; page help survives node/mode/theme/real refresh/run switch"
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "checks": "main node centering and readable initial scale; page help survives node/mode/theme/real refresh/run switch"
+    },
+    {
+      "width": 390,
+      "theme": "black",
+      "checks": "main node centering and readable initial scale; page help survives node/mode/theme/real refresh/run switch"
+    },
+    {
+      "width": 1440,
+      "theme": "light",
+      "checks": "main node centering and readable initial scale; page help survives node/mode/theme/real refresh/run switch"
+    },
+    {
+      "width": 1440,
+      "theme": "black",
+      "checks": "main node centering and readable initial scale; page help survives node/mode/theme/real refresh/run switch"
+    },
+    {
+      "checks": "changed synthetic read preserves same-target expanded evidence/scroll; resize preserves detail focus; missing selected record stays visible and close returns to a valid control"
+    }
+  ],
+  "write_paths": [
+    "/api/login",
+    "/api/password"
+  ]
+}

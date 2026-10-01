@@ -1,0 +1,162 @@
+{
+  "source_commit": "28404b2885a215ccff15df23d36550b7c67c83bb",
+  "source_archive_sha256": "a3ad1cf9549a64cecaabae6d453c678995958d51497c1b1826399d0c1fa591d8",
+  "image": "sha256:c10c4b99128627552b4a24f2289a44c99d849de1305be3975a539511cc04b33f",
+  "rollback_image": "sha256:399e353b856c71b234c2bd984d9092cfddb789dd1ea6077c4ae84c38da9cc55e",
+  "original_compose_sha256": "5da1d290175b157a4a3966342b556b9be998c6eb2b4428eb562144632cd8f2a9",
+  "proposed_compose_sha256": "ef8c56dd878f51706622e01cee66180f5b80002a41cd7a0ed86850830fe28522",
+  "same_image_layers_and_runtime_config": true,
+  "compose_image_only_delta": true,
+  "status": "verified_not_applied",
+  "scope": "console only; one additive SQLite idempotency table; workers stay on 5594744",
+  "ci": [
+    {
+      "id": 35068287101,
+      "name": "CI",
+      "workflow_id": 356928823,
+      "path": ".github/workflows/ci.yml",
+      "event": "pull_request",
+      "head_sha": "28404b2885a215ccff15df23d36550b7c67c83bb",
+      "run_attempt": 1,
+      "conclusion": "success",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/35068287101"
+    },
+    {
+      "id": 35068287030,
+      "name": "Console UI",
+      "workflow_id": 357711638,
+      "path": ".github/workflows/console.yml",
+      "event": "pull_request",
+      "head_sha": "28404b2885a215ccff15df23d36550b7c67c83bb",
+      "run_attempt": 1,
+      "conclusion": "success",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/35068287030"
+    },
+    {
+      "id": 35068286997,
+      "name": "Android APK",
+      "workflow_id": 358622511,
+      "path": ".github/workflows/android.yml",
+      "event": "pull_request",
+      "head_sha": "28404b2885a215ccff15df23d36550b7c67c83bb",
+      "run_attempt": 1,
+      "conclusion": "success",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/35068286997"
+    },
+    {
+      "id": 35068287001,
+      "name": "Deployed console connectivity",
+      "workflow_id": 357962218,
+      "path": ".github/workflows/public-console.yml",
+      "event": "pull_request",
+      "head_sha": "28404b2885a215ccff15df23d36550b7c67c83bb",
+      "run_attempt": 1,
+      "conclusion": "success",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/35068287001"
+    },
+    {
+      "id": 35068286981,
+      "name": "Android runtime",
+      "workflow_id": 358678729,
+      "path": ".github/workflows/android-runtime.yml",
+      "event": "pull_request",
+      "head_sha": "28404b2885a215ccff15df23d36550b7c67c83bb",
+      "run_attempt": 1,
+      "conclusion": "skipped",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/35068286981"
+    },
+    {
+      "id": 35068287023,
+      "name": "Automation evidence",
+      "workflow_id": 357814570,
+      "path": ".github/workflows/automation-evidence.yml",
+      "event": "pull_request",
+      "head_sha": "28404b2885a215ccff15df23d36550b7c67c83bb",
+      "run_attempt": 1,
+      "conclusion": "skipped",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/35068287023"
+    }
+  ],
+  "screenshots_artifact": {
+    "id": 10435171667,
+    "name": "console-screenshots",
+    "digest": "sha256:682c4866e63aa2157c0f628a490316620129a47e7c4351400141791778563960",
+    "size_in_bytes": 9354902,
+    "workflow_run": {
+      "id": 35068287030,
+      "repository_id": 1367833163,
+      "head_repository_id": 1367833163,
+      "head_branch": "feat/auto-pm-flow",
+      "head_sha": "28404b2885a215ccff15df23d36550b7c67c83bb"
+    }
+  },
+  "image_check": {
+    "status": "PASS",
+    "web_assets_verified": 27,
+    "password_login_mode": true,
+    "unauthenticated_api_rejected": true,
+    "wrong_host_rejected": true,
+    "network": "none",
+    "ports_published": 0,
+    "root_filesystem": "read-only",
+    "capabilities": "none",
+    "production_state_mounted": false,
+    "model_or_approval_calls": 0
+  },
+  "database_copy_check": {
+    "status": "PASS",
+    "existing_tables_preserved": 27,
+    "added_tables": [
+      "management_project_creations"
+    ],
+    "same_intent_projects": 1,
+    "same_intent_pm_requests": 1,
+    "conflicting_payload_rejected": true,
+    "model_calls": 0,
+    "live_state_mounted": false,
+    "database": "private copied snapshot"
+  },
+  "old_worker_reader_check": {
+    "status": "PASS",
+    "reader_release": "5594744",
+    "added_table_ignored": true,
+    "all_snapshot_rows_unchanged": true,
+    "fixture_pm_request_readable": true,
+    "worker_tick_run": false,
+    "model_calls": 0,
+    "live_database_modified": false
+  },
+  "token_contrast": {
+    "light": {
+      "ink/bg": 14.38,
+      "ink/surface": 15.67,
+      "muted/bg": 5.24,
+      "muted/surface": 5.71,
+      "on-accent/accent": 15.08,
+      "success/success-bg": 6.33,
+      "warning/warning-bg": 6.01,
+      "danger/danger-bg": 6.14
+    },
+    "black": {
+      "ink/bg": 15.55,
+      "ink/surface": 13.56,
+      "muted/bg": 7.48,
+      "muted/surface": 6.53,
+      "on-accent/accent": 12.95,
+      "success/success-bg": 7.65,
+      "warning/warning-bg": 7.67,
+      "danger/danger-bg": 7.46
+    }
+  },
+  "user_apk_confirmation": "not_performed",
+  "signing_key_external_restore": "not_performed",
+  "new_production_model_calls_for_ui_validation": 0,
+  "independent_review": {
+    "candidate": "28404b2885a215ccff15df23d36550b7c67c83bb",
+    "verdict": "PASS in code/browser-fixture scope",
+    "unresolved_required_findings": 0,
+    "separate_from_implementation": true,
+    "private_report_sha256": "f5ff2a5f2d35fa5a8084d6861a26cf8d104320a01c14196a8b71942db1121dc4",
+    "product_astra_final_review_invoked": false
+  }
+}

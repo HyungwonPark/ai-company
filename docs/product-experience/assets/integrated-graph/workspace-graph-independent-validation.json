@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "source": "independently authored browser interactions; ephemeral real API plus explicit transport injections",
+  "browser": "152.0.7977.82",
+  "sandbox": true,
+  "checks": [
+    "390px: real pointer hits SVG relationship; same ID and detail remain available in list",
+    "Actual API: historical approval stays in its run; common navigation clears filter; empty project borrows no nodes/documents; synchronous old-view render cannot overwrite pending navigation",
+    "Injected changed response preserves mobile detail scroll/expanded evidence; same-cursor older timestamp rejected, duplicate IDs deduplicated, foreign node binding rejected; selected newest detail retained",
+    "Natural five-second poll inserts first handoff: source evidence stays open/focused and the new handoff section stays closed"
+  ],
+  "write_paths": [
+    "/api/login",
+    "/api/password"
+  ],
+  "violations": [],
+  "page_errors": []
+}

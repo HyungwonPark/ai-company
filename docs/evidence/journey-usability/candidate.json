@@ -1,0 +1,160 @@
+{
+  "product_commit": "6e39dfc0b8ede91c235f681a9b18c2708138ec48",
+  "validation_commit": "6e39dfc0b8ede91c235f681a9b18c2708138ec48",
+  "base_commit": "dec455e63458ef98ac34d8e423463f7d5e30fdad",
+  "product_tree": "2f51582eec724a8cda3668e3b615de5f8f5dfecd",
+  "pr": "https://github.com/HyungwonPark/ai-company/pull/26",
+  "preview": {
+    "zip_sha256": "de7a7616d3537d8fb868ea4cc8fb42bc2deb8f52c0a61bb3204b50209339118c",
+    "html_sha256": "3c9ec98f8b632802aa371efca61e87e4c80de39d45ad3b9d294be74829e15029",
+    "fixture_sha256": "e84cad2748e99067635252184e8e04b3615b5f5eec175de87ad00bde95810d8c",
+    "source_files_matched": 28,
+    "ci_checkout_commit": "b882151bbc8a21b8b03a023c99810bfab3ac09ac"
+  },
+  "image": {
+    "anonymous_api": 401,
+    "api_and_worker_code": "verified by source manifest; no worker/model invocation",
+    "assets": {
+      "/": "54a3627b50e9ddebfada6033961787a0dc57ef264320b991f2ef3a9b28c8dc6e",
+      "/app.js": "af8a886563abe69ca6c8b01c2941e0bfc1542eb8c4a6affbfb6b20b98ca1815a",
+      "/report-ui.js": "4699c3a265a2e92a1a994d47fc5f2789e7cac914d6052f6e61daa393af172a20",
+      "/sw.js": "5037b773be28b001c87d3bafc85d60c42edfc6684d4fbe1cb1cefb14a1dda615",
+      "/workspace-graph-ui.js": "79f7e7708513b128de6401d98826874dd9f5651b200ccb569b251dc431e46692"
+    },
+    "foreign_host": 403,
+    "installed_source_files": 113,
+    "isolation": {
+      "network": "none; loopback HTTP only",
+      "production_mounts": false,
+      "root_read_only": true,
+      "state": "temporary tmpfs",
+      "uid": 65532
+    },
+    "limitations": [
+      "not production health",
+      "not physical APK",
+      "not actual model execution"
+    ],
+    "source_manifest_sha256": "160963c81a5eb26ac94e06345ae61d793ff1a5ff50213d3ade630e5fbc45f510",
+    "status": "PASS",
+    "product_commit": "6e39dfc0b8ede91c235f681a9b18c2708138ec48",
+    "image_id": "sha256:a580921eb1b5b3cf2ee8639d454f3ace8835dc478c24618a38be1fd82b78400c",
+    "revision": "6e39dfc0b8ede91c235f681a9b18c2708138ec48",
+    "tag": "ai-company-preview:journey-usability-6e39dfc",
+    "architecture": "arm64"
+  },
+  "journey_ci": {
+    "id": 36086876188,
+    "head_sha": "6e39dfc0b8ede91c235f681a9b18c2708138ec48",
+    "run_attempt": 1,
+    "workflow_id": 365380671,
+    "path": ".github/workflows/journey.yml",
+    "event": "pull_request",
+    "check_suite_id": 97723321024,
+    "conclusion": "success",
+    "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/36086876188"
+  },
+  "artifacts": [
+    {
+      "id": 10844531778,
+      "name": "journey-evidence",
+      "digest": "sha256:58550f8fe2da9806ec8d1188c440a8153e8569a42602a8b4aa9dab97e5e1f7ba",
+      "size_in_bytes": 22146179,
+      "expired": false,
+      "workflow_run": {
+        "id": 36086876188,
+        "repository_id": 1367833163,
+        "head_repository_id": 1367833163,
+        "head_branch": "feat/journey-usability",
+        "head_sha": "6e39dfc0b8ede91c235f681a9b18c2708138ec48"
+      }
+    }
+  ],
+  "limitations": [
+    "No production deploy, merge, PR10 mutation, signing keys or model execution",
+    "Physical APK/live domain unverified",
+    "Chrome browser-only clock at original deadline is simulated time, not operational expiry observation",
+    "Independent agent authored browser automation and inspected actual evidence; not a novice human study"
+  ],
+  "ci": [
+    {
+      "id": 36086876177,
+      "name": "CI",
+      "head_sha": "6e39dfc0b8ede91c235f681a9b18c2708138ec48",
+      "run_attempt": 1,
+      "workflow_id": 356928823,
+      "path": ".github/workflows/ci.yml",
+      "conclusion": "success",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/36086876177"
+    },
+    {
+      "id": 36086876077,
+      "name": "Automation evidence",
+      "head_sha": "6e39dfc0b8ede91c235f681a9b18c2708138ec48",
+      "run_attempt": 1,
+      "workflow_id": 357814570,
+      "path": ".github/workflows/automation-evidence.yml",
+      "conclusion": "skipped",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/36086876077"
+    },
+    {
+      "id": 36086876188,
+      "name": "Journey UI",
+      "head_sha": "6e39dfc0b8ede91c235f681a9b18c2708138ec48",
+      "run_attempt": 1,
+      "workflow_id": 365380671,
+      "path": ".github/workflows/journey.yml",
+      "conclusion": "success",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/36086876188"
+    },
+    {
+      "id": 36086876022,
+      "name": "Console UI",
+      "head_sha": "6e39dfc0b8ede91c235f681a9b18c2708138ec48",
+      "run_attempt": 1,
+      "workflow_id": 357711638,
+      "path": ".github/workflows/console.yml",
+      "conclusion": "success",
+      "html_url": "https://github.com/HyungwonPark/ai-company/actions/runs/36086876022"
+    }
+  ],
+  "console_artifacts": [
+    {
+      "id": 10843918736,
+      "name": "workspace-preview",
+      "digest": "sha256:32b585ee271f52f92b5c2df282f9dd7272298061afa4b00501962b19594aca15",
+      "size_in_bytes": 66205,
+      "expired": false,
+      "workflow_run": {
+        "id": 36086876022,
+        "repository_id": 1367833163,
+        "head_repository_id": 1367833163,
+        "head_branch": "feat/journey-usability",
+        "head_sha": "6e39dfc0b8ede91c235f681a9b18c2708138ec48"
+      }
+    },
+    {
+      "id": 10843774310,
+      "name": "console-screenshots",
+      "digest": "sha256:9b2ed6c674364ee5f527424507206ee6be6a53e458acdf9e3b025266db98a420",
+      "size_in_bytes": 38230432,
+      "expired": false,
+      "workflow_run": {
+        "id": 36086876022,
+        "repository_id": 1367833163,
+        "head_repository_id": 1367833163,
+        "head_branch": "feat/journey-usability",
+        "head_sha": "6e39dfc0b8ede91c235f681a9b18c2708138ec48"
+      }
+    }
+  ],
+  "python": {
+    "versions": [
+      "3.11",
+      "3.12"
+    ],
+    "tests_per_version": 467,
+    "skipped_per_version": 3,
+    "android_preparation_tests_per_version": 4
+  }
+}

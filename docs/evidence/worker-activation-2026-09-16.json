@@ -1,0 +1,104 @@
+{
+  "runtime_commit": "51b911a68d8c6341a8a93ce90ec6b8a627ab2df5",
+  "installer_commit": "deaeefd",
+  "captured_at": 1789518874.2965279,
+  "units": {
+    "automation": [
+      "MainPID=1673116",
+      "NRestarts=0",
+      "ActiveState=active",
+      "SubState=running",
+      "UnitFileState=enabled"
+    ],
+    "translation": [
+      "MainPID=1670358",
+      "NRestarts=0",
+      "ActiveState=active",
+      "SubState=running",
+      "UnitFileState=enabled"
+    ]
+  },
+  "translation_counts": {
+    "completed": 14,
+    "failed": 6
+  },
+  "translation_issues": [
+    {
+      "document_id": "report:flow-integration-8f3b263fb8915cbade32893520fa19bc0c7bc4dfc4c3e4a5",
+      "kind": "report",
+      "status": "failed",
+      "reason": "protected literal missing or duplicated",
+      "attempts": 1
+    },
+    {
+      "document_id": "report:flow-role-fa176118587f9398f9b7735cb1d95f38b056b82966cf87ca",
+      "kind": "report",
+      "status": "failed",
+      "reason": "translation_output_not_json",
+      "attempts": 1
+    },
+    {
+      "document_id": "review:flow-integration-b4bcb1a0fa2a93d2ed084e50c1cacd87ed1c5a8a758aa375:reviewer",
+      "kind": "review",
+      "status": "failed",
+      "reason": "protected literal missing or duplicated",
+      "attempts": 1
+    },
+    {
+      "document_id": "review:flow-integration-b4bcb1a0fa2a93d2ed084e50c1cacd87ed1c5a8a758aa375:final",
+      "kind": "review",
+      "status": "failed",
+      "reason": "negation, condition, exception, or limit marker missing",
+      "attempts": 1
+    },
+    {
+      "document_id": "project:bec1fc827164488abf2f84a8032b8d04",
+      "kind": "project",
+      "status": "failed",
+      "reason": "protected literal missing or duplicated",
+      "attempts": 1
+    },
+    {
+      "document_id": "plan:53f42fe1bd5a4b36bec1b934fc0c8d66",
+      "kind": "plan",
+      "status": "failed",
+      "reason": "protected literal missing or duplicated",
+      "attempts": 1
+    }
+  ],
+  "preservation": {
+    "neighbors_preserved": true,
+    "records_preserved": true,
+    "caddy_preserved": true,
+    "console_image_preserved": true,
+    "quota_timer_preserved": true
+  },
+  "actual_restart": {
+    "old_pid": 1670357,
+    "new_pid": 1673116,
+    "new_worker_passes": 1,
+    "translation_pid_unchanged": true,
+    "translation_heartbeat_continued": true,
+    "method": "graceful systemctl restart of idle automation only",
+    "host_reboot": false
+  },
+  "startup_queue_simulation": {
+    "model_or_git_calls": 0,
+    "workers": [
+      {
+        "status": "IDLE",
+        "reason": "no executable task; durable reservations retained"
+      },
+      {
+        "status": "IDLE",
+        "reason": "no executable task; durable reservations retained"
+      }
+    ],
+    "existing_run_states": [
+      "blocked",
+      "awaiting_approval"
+    ]
+  },
+  "master_ui_validation_completed": false,
+  "external_signing_key_backup_completed": false
+}

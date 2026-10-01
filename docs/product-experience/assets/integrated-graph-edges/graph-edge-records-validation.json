@@ -1,0 +1,787 @@
+{
+  "source": "real ephemeral fixture API; no graph injection/model/production work",
+  "browser": "152.0.7977.82",
+  "sandbox": true,
+  "checks": [
+    {
+      "width": 1440,
+      "theme": "light",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "edge_ids": [
+        "graph:7741905340f0d165055ac523:25fb1de420806e37b04aa0f68bb04b941e11a8d4f0a6d821303fcb4646972b1a",
+        "graph:7741905340f0d165055ac523:c9c270c5623fd809a82dd377f4dd63aae46cb94a43349582ee1b58ec90f99e2f",
+        "graph:7741905340f0d165055ac523:c34f3a186eb13f79b17f57176b650d28c34751169e70b4a471e92c4e078fd378",
+        "graph:7741905340f0d165055ac523:fb836d13af25ae799778b0f6f4afb5a7ff973b381ba318488d431abedd172b8b",
+        "graph:7741905340f0d165055ac523:b5bd56fdd49b4ebaf451e811989f93ee617ed1f00a56f7c783c83b1e06688f18",
+        "graph:7741905340f0d165055ac523:2a2d62752a52da6001a9c80efc18d61fc209113818b7a78ca445723d8748af0e",
+        "graph:7741905340f0d165055ac523:375adba2f5127beeb85c520138f8b4d26d1dbd3bc3f657a88833699b5cdd353a",
+        "graph:7741905340f0d165055ac523:746ccbd2fbaefec6f040a828a3159ca9694dd0924326deae77c4c77df2a5dc6f"
+      ],
+      "physical": "label centers",
+      "keyboard": "SVG Enter",
+      "list": "same original reference",
+      "selection": "path/arrow/label/endpoints and dim restore"
+    },
+    {
+      "width": 1440,
+      "theme": "light",
+      "run_id": "graph-fixture-new-run",
+      "edge_ids": [
+        "graph:5dd4a2e9e9874a1a1589de11:7987dbddeda189df5becf129c8da02ae226e0925780a63e8ea89ce237a16da6c",
+        "graph:5dd4a2e9e9874a1a1589de11:eb01ae124cb98339de0660f442558c7c361bda8d8c04afa78e2a59e03048207c",
+        "graph:5dd4a2e9e9874a1a1589de11:068bab71f025607d08a7a9fc31542cca7dc23fac35368825353d1798ba9d5692",
+        "graph:5dd4a2e9e9874a1a1589de11:e65c05eb24c5635557b70f214f988be2e08f9b1d3a81b5667b6695191cea8f09",
+        "graph:5dd4a2e9e9874a1a1589de11:f1920bebf9ab28515a726a582c6d0f6b1dcaed4fcd6fbb86a73be2eb3630d35a",
+        "graph:5dd4a2e9e9874a1a1589de11:af39a466dc57eb8cf8fc2914c3830ee9c4b9959779f89a6d74160561787dd52e",
+        "graph:5dd4a2e9e9874a1a1589de11:3da6e96afc892c396296771735a531ad56df5650d8a928f6dd451f7d31ed7a7a",
+        "graph:5dd4a2e9e9874a1a1589de11:fde97abc50307eeaef7baf8b346e547b82d77f17104b94eb09b030f83937244e",
+        "graph:5dd4a2e9e9874a1a1589de11:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0"
+      ],
+      "physical": "label centers",
+      "keyboard": "SVG Enter",
+      "list": "same original reference",
+      "selection": "path/arrow/label/endpoints and dim restore"
+    },
+    {
+      "width": 1440,
+      "theme": "black",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "edge_ids": [
+        "graph:7741905340f0d165055ac523:25fb1de420806e37b04aa0f68bb04b941e11a8d4f0a6d821303fcb4646972b1a",
+        "graph:7741905340f0d165055ac523:c9c270c5623fd809a82dd377f4dd63aae46cb94a43349582ee1b58ec90f99e2f",
+        "graph:7741905340f0d165055ac523:c34f3a186eb13f79b17f57176b650d28c34751169e70b4a471e92c4e078fd378",
+        "graph:7741905340f0d165055ac523:fb836d13af25ae799778b0f6f4afb5a7ff973b381ba318488d431abedd172b8b",
+        "graph:7741905340f0d165055ac523:b5bd56fdd49b4ebaf451e811989f93ee617ed1f00a56f7c783c83b1e06688f18",
+        "graph:7741905340f0d165055ac523:2a2d62752a52da6001a9c80efc18d61fc209113818b7a78ca445723d8748af0e",
+        "graph:7741905340f0d165055ac523:375adba2f5127beeb85c520138f8b4d26d1dbd3bc3f657a88833699b5cdd353a",
+        "graph:7741905340f0d165055ac523:746ccbd2fbaefec6f040a828a3159ca9694dd0924326deae77c4c77df2a5dc6f"
+      ],
+      "physical": "label centers",
+      "keyboard": "SVG Enter",
+      "list": "same original reference",
+      "selection": "path/arrow/label/endpoints and dim restore"
+    },
+    {
+      "width": 1440,
+      "theme": "black",
+      "run_id": "graph-fixture-new-run",
+      "edge_ids": [
+        "graph:5dd4a2e9e9874a1a1589de11:7987dbddeda189df5becf129c8da02ae226e0925780a63e8ea89ce237a16da6c",
+        "graph:5dd4a2e9e9874a1a1589de11:eb01ae124cb98339de0660f442558c7c361bda8d8c04afa78e2a59e03048207c",
+        "graph:5dd4a2e9e9874a1a1589de11:068bab71f025607d08a7a9fc31542cca7dc23fac35368825353d1798ba9d5692",
+        "graph:5dd4a2e9e9874a1a1589de11:e65c05eb24c5635557b70f214f988be2e08f9b1d3a81b5667b6695191cea8f09",
+        "graph:5dd4a2e9e9874a1a1589de11:f1920bebf9ab28515a726a582c6d0f6b1dcaed4fcd6fbb86a73be2eb3630d35a",
+        "graph:5dd4a2e9e9874a1a1589de11:af39a466dc57eb8cf8fc2914c3830ee9c4b9959779f89a6d74160561787dd52e",
+        "graph:5dd4a2e9e9874a1a1589de11:3da6e96afc892c396296771735a531ad56df5650d8a928f6dd451f7d31ed7a7a",
+        "graph:5dd4a2e9e9874a1a1589de11:fde97abc50307eeaef7baf8b346e547b82d77f17104b94eb09b030f83937244e",
+        "graph:5dd4a2e9e9874a1a1589de11:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0"
+      ],
+      "physical": "label centers",
+      "keyboard": "SVG Enter",
+      "list": "same original reference",
+      "selection": "path/arrow/label/endpoints and dim restore"
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "edge_ids": [
+        "graph:7741905340f0d165055ac523:25fb1de420806e37b04aa0f68bb04b941e11a8d4f0a6d821303fcb4646972b1a",
+        "graph:7741905340f0d165055ac523:c9c270c5623fd809a82dd377f4dd63aae46cb94a43349582ee1b58ec90f99e2f",
+        "graph:7741905340f0d165055ac523:c34f3a186eb13f79b17f57176b650d28c34751169e70b4a471e92c4e078fd378",
+        "graph:7741905340f0d165055ac523:fb836d13af25ae799778b0f6f4afb5a7ff973b381ba318488d431abedd172b8b",
+        "graph:7741905340f0d165055ac523:b5bd56fdd49b4ebaf451e811989f93ee617ed1f00a56f7c783c83b1e06688f18",
+        "graph:7741905340f0d165055ac523:2a2d62752a52da6001a9c80efc18d61fc209113818b7a78ca445723d8748af0e",
+        "graph:7741905340f0d165055ac523:375adba2f5127beeb85c520138f8b4d26d1dbd3bc3f657a88833699b5cdd353a",
+        "graph:7741905340f0d165055ac523:746ccbd2fbaefec6f040a828a3159ca9694dd0924326deae77c4c77df2a5dc6f"
+      ],
+      "physical": "label centers",
+      "keyboard": "SVG Enter",
+      "list": "same original reference",
+      "selection": "path/arrow/label/endpoints and dim restore"
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "run_id": "graph-fixture-new-run",
+      "edge_ids": [
+        "graph:5dd4a2e9e9874a1a1589de11:7987dbddeda189df5becf129c8da02ae226e0925780a63e8ea89ce237a16da6c",
+        "graph:5dd4a2e9e9874a1a1589de11:eb01ae124cb98339de0660f442558c7c361bda8d8c04afa78e2a59e03048207c",
+        "graph:5dd4a2e9e9874a1a1589de11:068bab71f025607d08a7a9fc31542cca7dc23fac35368825353d1798ba9d5692",
+        "graph:5dd4a2e9e9874a1a1589de11:e65c05eb24c5635557b70f214f988be2e08f9b1d3a81b5667b6695191cea8f09",
+        "graph:5dd4a2e9e9874a1a1589de11:f1920bebf9ab28515a726a582c6d0f6b1dcaed4fcd6fbb86a73be2eb3630d35a",
+        "graph:5dd4a2e9e9874a1a1589de11:af39a466dc57eb8cf8fc2914c3830ee9c4b9959779f89a6d74160561787dd52e",
+        "graph:5dd4a2e9e9874a1a1589de11:3da6e96afc892c396296771735a531ad56df5650d8a928f6dd451f7d31ed7a7a",
+        "graph:5dd4a2e9e9874a1a1589de11:fde97abc50307eeaef7baf8b346e547b82d77f17104b94eb09b030f83937244e",
+        "graph:5dd4a2e9e9874a1a1589de11:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0"
+      ],
+      "physical": "label centers",
+      "keyboard": "SVG Enter",
+      "list": "same original reference",
+      "selection": "path/arrow/label/endpoints and dim restore"
+    },
+    {
+      "width": 390,
+      "theme": "black",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "edge_ids": [
+        "graph:7741905340f0d165055ac523:25fb1de420806e37b04aa0f68bb04b941e11a8d4f0a6d821303fcb4646972b1a",
+        "graph:7741905340f0d165055ac523:c9c270c5623fd809a82dd377f4dd63aae46cb94a43349582ee1b58ec90f99e2f",
+        "graph:7741905340f0d165055ac523:c34f3a186eb13f79b17f57176b650d28c34751169e70b4a471e92c4e078fd378",
+        "graph:7741905340f0d165055ac523:fb836d13af25ae799778b0f6f4afb5a7ff973b381ba318488d431abedd172b8b",
+        "graph:7741905340f0d165055ac523:b5bd56fdd49b4ebaf451e811989f93ee617ed1f00a56f7c783c83b1e06688f18",
+        "graph:7741905340f0d165055ac523:2a2d62752a52da6001a9c80efc18d61fc209113818b7a78ca445723d8748af0e",
+        "graph:7741905340f0d165055ac523:375adba2f5127beeb85c520138f8b4d26d1dbd3bc3f657a88833699b5cdd353a",
+        "graph:7741905340f0d165055ac523:746ccbd2fbaefec6f040a828a3159ca9694dd0924326deae77c4c77df2a5dc6f"
+      ],
+      "physical": "label centers",
+      "keyboard": "SVG Enter",
+      "list": "same original reference",
+      "selection": "path/arrow/label/endpoints and dim restore"
+    },
+    {
+      "width": 390,
+      "theme": "black",
+      "run_id": "graph-fixture-new-run",
+      "edge_ids": [
+        "graph:5dd4a2e9e9874a1a1589de11:7987dbddeda189df5becf129c8da02ae226e0925780a63e8ea89ce237a16da6c",
+        "graph:5dd4a2e9e9874a1a1589de11:eb01ae124cb98339de0660f442558c7c361bda8d8c04afa78e2a59e03048207c",
+        "graph:5dd4a2e9e9874a1a1589de11:068bab71f025607d08a7a9fc31542cca7dc23fac35368825353d1798ba9d5692",
+        "graph:5dd4a2e9e9874a1a1589de11:e65c05eb24c5635557b70f214f988be2e08f9b1d3a81b5667b6695191cea8f09",
+        "graph:5dd4a2e9e9874a1a1589de11:f1920bebf9ab28515a726a582c6d0f6b1dcaed4fcd6fbb86a73be2eb3630d35a",
+        "graph:5dd4a2e9e9874a1a1589de11:af39a466dc57eb8cf8fc2914c3830ee9c4b9959779f89a6d74160561787dd52e",
+        "graph:5dd4a2e9e9874a1a1589de11:3da6e96afc892c396296771735a531ad56df5650d8a928f6dd451f7d31ed7a7a",
+        "graph:5dd4a2e9e9874a1a1589de11:fde97abc50307eeaef7baf8b346e547b82d77f17104b94eb09b030f83937244e",
+        "graph:5dd4a2e9e9874a1a1589de11:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0"
+      ],
+      "physical": "label centers",
+      "keyboard": "SVG Enter",
+      "list": "same original reference",
+      "selection": "path/arrow/label/endpoints and dim restore"
+    },
+    {
+      "width": 320,
+      "theme": "light",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "edge_ids": [
+        "graph:7741905340f0d165055ac523:25fb1de420806e37b04aa0f68bb04b941e11a8d4f0a6d821303fcb4646972b1a",
+        "graph:7741905340f0d165055ac523:c9c270c5623fd809a82dd377f4dd63aae46cb94a43349582ee1b58ec90f99e2f",
+        "graph:7741905340f0d165055ac523:c34f3a186eb13f79b17f57176b650d28c34751169e70b4a471e92c4e078fd378",
+        "graph:7741905340f0d165055ac523:fb836d13af25ae799778b0f6f4afb5a7ff973b381ba318488d431abedd172b8b",
+        "graph:7741905340f0d165055ac523:b5bd56fdd49b4ebaf451e811989f93ee617ed1f00a56f7c783c83b1e06688f18",
+        "graph:7741905340f0d165055ac523:2a2d62752a52da6001a9c80efc18d61fc209113818b7a78ca445723d8748af0e",
+        "graph:7741905340f0d165055ac523:375adba2f5127beeb85c520138f8b4d26d1dbd3bc3f657a88833699b5cdd353a",
+        "graph:7741905340f0d165055ac523:746ccbd2fbaefec6f040a828a3159ca9694dd0924326deae77c4c77df2a5dc6f"
+      ],
+      "physical": "label centers",
+      "keyboard": "SVG Enter",
+      "list": "same original reference",
+      "selection": "path/arrow/label/endpoints and dim restore"
+    },
+    {
+      "width": 320,
+      "theme": "light",
+      "run_id": "graph-fixture-new-run",
+      "edge_ids": [
+        "graph:5dd4a2e9e9874a1a1589de11:7987dbddeda189df5becf129c8da02ae226e0925780a63e8ea89ce237a16da6c",
+        "graph:5dd4a2e9e9874a1a1589de11:eb01ae124cb98339de0660f442558c7c361bda8d8c04afa78e2a59e03048207c",
+        "graph:5dd4a2e9e9874a1a1589de11:068bab71f025607d08a7a9fc31542cca7dc23fac35368825353d1798ba9d5692",
+        "graph:5dd4a2e9e9874a1a1589de11:e65c05eb24c5635557b70f214f988be2e08f9b1d3a81b5667b6695191cea8f09",
+        "graph:5dd4a2e9e9874a1a1589de11:f1920bebf9ab28515a726a582c6d0f6b1dcaed4fcd6fbb86a73be2eb3630d35a",
+        "graph:5dd4a2e9e9874a1a1589de11:af39a466dc57eb8cf8fc2914c3830ee9c4b9959779f89a6d74160561787dd52e",
+        "graph:5dd4a2e9e9874a1a1589de11:3da6e96afc892c396296771735a531ad56df5650d8a928f6dd451f7d31ed7a7a",
+        "graph:5dd4a2e9e9874a1a1589de11:fde97abc50307eeaef7baf8b346e547b82d77f17104b94eb09b030f83937244e",
+        "graph:5dd4a2e9e9874a1a1589de11:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0"
+      ],
+      "physical": "label centers",
+      "keyboard": "SVG Enter",
+      "list": "same original reference",
+      "selection": "path/arrow/label/endpoints and dim restore"
+    },
+    {
+      "width": 320,
+      "theme": "black",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "edge_ids": [
+        "graph:7741905340f0d165055ac523:25fb1de420806e37b04aa0f68bb04b941e11a8d4f0a6d821303fcb4646972b1a",
+        "graph:7741905340f0d165055ac523:c9c270c5623fd809a82dd377f4dd63aae46cb94a43349582ee1b58ec90f99e2f",
+        "graph:7741905340f0d165055ac523:c34f3a186eb13f79b17f57176b650d28c34751169e70b4a471e92c4e078fd378",
+        "graph:7741905340f0d165055ac523:fb836d13af25ae799778b0f6f4afb5a7ff973b381ba318488d431abedd172b8b",
+        "graph:7741905340f0d165055ac523:b5bd56fdd49b4ebaf451e811989f93ee617ed1f00a56f7c783c83b1e06688f18",
+        "graph:7741905340f0d165055ac523:2a2d62752a52da6001a9c80efc18d61fc209113818b7a78ca445723d8748af0e",
+        "graph:7741905340f0d165055ac523:375adba2f5127beeb85c520138f8b4d26d1dbd3bc3f657a88833699b5cdd353a",
+        "graph:7741905340f0d165055ac523:746ccbd2fbaefec6f040a828a3159ca9694dd0924326deae77c4c77df2a5dc6f"
+      ],
+      "physical": "label centers",
+      "keyboard": "SVG Enter",
+      "list": "same original reference",
+      "selection": "path/arrow/label/endpoints and dim restore"
+    },
+    {
+      "width": 320,
+      "theme": "black",
+      "run_id": "graph-fixture-new-run",
+      "edge_ids": [
+        "graph:5dd4a2e9e9874a1a1589de11:7987dbddeda189df5becf129c8da02ae226e0925780a63e8ea89ce237a16da6c",
+        "graph:5dd4a2e9e9874a1a1589de11:eb01ae124cb98339de0660f442558c7c361bda8d8c04afa78e2a59e03048207c",
+        "graph:5dd4a2e9e9874a1a1589de11:068bab71f025607d08a7a9fc31542cca7dc23fac35368825353d1798ba9d5692",
+        "graph:5dd4a2e9e9874a1a1589de11:e65c05eb24c5635557b70f214f988be2e08f9b1d3a81b5667b6695191cea8f09",
+        "graph:5dd4a2e9e9874a1a1589de11:f1920bebf9ab28515a726a582c6d0f6b1dcaed4fcd6fbb86a73be2eb3630d35a",
+        "graph:5dd4a2e9e9874a1a1589de11:af39a466dc57eb8cf8fc2914c3830ee9c4b9959779f89a6d74160561787dd52e",
+        "graph:5dd4a2e9e9874a1a1589de11:3da6e96afc892c396296771735a531ad56df5650d8a928f6dd451f7d31ed7a7a",
+        "graph:5dd4a2e9e9874a1a1589de11:fde97abc50307eeaef7baf8b346e547b82d77f17104b94eb09b030f83937244e",
+        "graph:5dd4a2e9e9874a1a1589de11:4d7da80cc88319fea5d63ed7976d56a746fe0e89e26bc4d6f516d484ed4f19c0"
+      ],
+      "physical": "label centers",
+      "keyboard": "SVG Enter",
+      "list": "same original reference",
+      "selection": "path/arrow/label/endpoints and dim restore"
+    }
+  ],
+  "captures": [
+    {
+      "filename": "graph-record-previous-light-1440-result_report-1.png",
+      "edge_id": "graph:7741905340f0d165055ac523:c9c270c5623fd809a82dd377f4dd63aae46cb94a43349582ee1b58ec90f99e2f",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:81b8462688204305ba523185980fc5b2",
+      "to": "graph:7741905340f0d165055ac523:pm:418dc1e739a64dc8966fc1208db403e0",
+      "kind": "result_report",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-previous-light-1440-result_report-4.png",
+      "edge_id": "graph:7741905340f0d165055ac523:b5bd56fdd49b4ebaf451e811989f93ee617ed1f00a56f7c783c83b1e06688f18",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:05311c613de24a46883563d367463637",
+      "to": "graph:7741905340f0d165055ac523:pm:418dc1e739a64dc8966fc1208db403e0",
+      "kind": "result_report",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-previous-light-1440-result_report-5.png",
+      "edge_id": "graph:7741905340f0d165055ac523:2a2d62752a52da6001a9c80efc18d61fc209113818b7a78ca445723d8748af0e",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:05311c613de24a46883563d367463637",
+      "to": "graph:7741905340f0d165055ac523:check:3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "kind": "result_report",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-previous-light-1440-result_report-6.png",
+      "edge_id": "graph:7741905340f0d165055ac523:375adba2f5127beeb85c520138f8b4d26d1dbd3bc3f657a88833699b5cdd353a",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:81b8462688204305ba523185980fc5b2",
+      "to": "graph:7741905340f0d165055ac523:check:3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "kind": "result_report",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-recent-light-1440-revision_return-1.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:eb01ae124cb98339de0660f442558c7c361bda8d8c04afa78e2a59e03048207c",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:reviewer:graph-fixture-new-run",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "kind": "revision_return",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-recent-light-1440-handoff-2.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:068bab71f025607d08a7a9fc31542cca7dc23fac35368825353d1798ba9d5692",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "kind": "handoff",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-recent-light-1440-handoff-5.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:af39a466dc57eb8cf8fc2914c3830ee9c4b9959779f89a6d74160561787dd52e",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "kind": "handoff",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-recent-light-1440-result_report-6.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:3da6e96afc892c396296771735a531ad56df5650d8a928f6dd451f7d31ed7a7a",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:check:graph-fixture-new-run",
+      "kind": "result_report",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-recent-light-1440-result_report-7.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:fde97abc50307eeaef7baf8b346e547b82d77f17104b94eb09b030f83937244e",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:check:graph-fixture-new-run",
+      "kind": "result_report",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-previous-black-1440-result_report-1.png",
+      "edge_id": "graph:7741905340f0d165055ac523:c9c270c5623fd809a82dd377f4dd63aae46cb94a43349582ee1b58ec90f99e2f",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:81b8462688204305ba523185980fc5b2",
+      "to": "graph:7741905340f0d165055ac523:pm:418dc1e739a64dc8966fc1208db403e0",
+      "kind": "result_report",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-previous-black-1440-result_report-4.png",
+      "edge_id": "graph:7741905340f0d165055ac523:b5bd56fdd49b4ebaf451e811989f93ee617ed1f00a56f7c783c83b1e06688f18",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:05311c613de24a46883563d367463637",
+      "to": "graph:7741905340f0d165055ac523:pm:418dc1e739a64dc8966fc1208db403e0",
+      "kind": "result_report",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-previous-black-1440-result_report-5.png",
+      "edge_id": "graph:7741905340f0d165055ac523:2a2d62752a52da6001a9c80efc18d61fc209113818b7a78ca445723d8748af0e",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:05311c613de24a46883563d367463637",
+      "to": "graph:7741905340f0d165055ac523:check:3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "kind": "result_report",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-previous-black-1440-result_report-6.png",
+      "edge_id": "graph:7741905340f0d165055ac523:375adba2f5127beeb85c520138f8b4d26d1dbd3bc3f657a88833699b5cdd353a",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:81b8462688204305ba523185980fc5b2",
+      "to": "graph:7741905340f0d165055ac523:check:3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "kind": "result_report",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-recent-black-1440-revision_return-1.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:eb01ae124cb98339de0660f442558c7c361bda8d8c04afa78e2a59e03048207c",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:reviewer:graph-fixture-new-run",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "kind": "revision_return",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-recent-black-1440-handoff-2.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:068bab71f025607d08a7a9fc31542cca7dc23fac35368825353d1798ba9d5692",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "kind": "handoff",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-recent-black-1440-handoff-5.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:af39a466dc57eb8cf8fc2914c3830ee9c4b9959779f89a6d74160561787dd52e",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "kind": "handoff",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-recent-black-1440-result_report-6.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:3da6e96afc892c396296771735a531ad56df5650d8a928f6dd451f7d31ed7a7a",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:check:graph-fixture-new-run",
+      "kind": "result_report",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-recent-black-1440-result_report-7.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:fde97abc50307eeaef7baf8b346e547b82d77f17104b94eb09b030f83937244e",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:check:graph-fixture-new-run",
+      "kind": "result_report",
+      "zoom": "92%",
+      "framing": "selected endpoints, path and label bounds"
+    },
+    {
+      "filename": "graph-record-previous-light-390-result_report-1.png",
+      "edge_id": "graph:7741905340f0d165055ac523:c9c270c5623fd809a82dd377f4dd63aae46cb94a43349582ee1b58ec90f99e2f",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:81b8462688204305ba523185980fc5b2",
+      "to": "graph:7741905340f0d165055ac523:pm:418dc1e739a64dc8966fc1208db403e0",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-previous-light-390-result_report-4.png",
+      "edge_id": "graph:7741905340f0d165055ac523:b5bd56fdd49b4ebaf451e811989f93ee617ed1f00a56f7c783c83b1e06688f18",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:05311c613de24a46883563d367463637",
+      "to": "graph:7741905340f0d165055ac523:pm:418dc1e739a64dc8966fc1208db403e0",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-previous-light-390-result_report-5.png",
+      "edge_id": "graph:7741905340f0d165055ac523:2a2d62752a52da6001a9c80efc18d61fc209113818b7a78ca445723d8748af0e",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:05311c613de24a46883563d367463637",
+      "to": "graph:7741905340f0d165055ac523:check:3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-previous-light-390-result_report-6.png",
+      "edge_id": "graph:7741905340f0d165055ac523:375adba2f5127beeb85c520138f8b4d26d1dbd3bc3f657a88833699b5cdd353a",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:81b8462688204305ba523185980fc5b2",
+      "to": "graph:7741905340f0d165055ac523:check:3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-light-390-revision_return-1.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:eb01ae124cb98339de0660f442558c7c361bda8d8c04afa78e2a59e03048207c",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:reviewer:graph-fixture-new-run",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "kind": "revision_return",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-light-390-handoff-2.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:068bab71f025607d08a7a9fc31542cca7dc23fac35368825353d1798ba9d5692",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "kind": "handoff",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-light-390-handoff-5.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:af39a466dc57eb8cf8fc2914c3830ee9c4b9959779f89a6d74160561787dd52e",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "kind": "handoff",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-light-390-result_report-6.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:3da6e96afc892c396296771735a531ad56df5650d8a928f6dd451f7d31ed7a7a",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:check:graph-fixture-new-run",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-light-390-result_report-7.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:fde97abc50307eeaef7baf8b346e547b82d77f17104b94eb09b030f83937244e",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:check:graph-fixture-new-run",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-previous-black-390-result_report-1.png",
+      "edge_id": "graph:7741905340f0d165055ac523:c9c270c5623fd809a82dd377f4dd63aae46cb94a43349582ee1b58ec90f99e2f",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:81b8462688204305ba523185980fc5b2",
+      "to": "graph:7741905340f0d165055ac523:pm:418dc1e739a64dc8966fc1208db403e0",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-previous-black-390-result_report-4.png",
+      "edge_id": "graph:7741905340f0d165055ac523:b5bd56fdd49b4ebaf451e811989f93ee617ed1f00a56f7c783c83b1e06688f18",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:05311c613de24a46883563d367463637",
+      "to": "graph:7741905340f0d165055ac523:pm:418dc1e739a64dc8966fc1208db403e0",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-previous-black-390-result_report-5.png",
+      "edge_id": "graph:7741905340f0d165055ac523:2a2d62752a52da6001a9c80efc18d61fc209113818b7a78ca445723d8748af0e",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:05311c613de24a46883563d367463637",
+      "to": "graph:7741905340f0d165055ac523:check:3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-previous-black-390-result_report-6.png",
+      "edge_id": "graph:7741905340f0d165055ac523:375adba2f5127beeb85c520138f8b4d26d1dbd3bc3f657a88833699b5cdd353a",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:81b8462688204305ba523185980fc5b2",
+      "to": "graph:7741905340f0d165055ac523:check:3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-black-390-revision_return-1.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:eb01ae124cb98339de0660f442558c7c361bda8d8c04afa78e2a59e03048207c",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:reviewer:graph-fixture-new-run",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "kind": "revision_return",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-black-390-handoff-2.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:068bab71f025607d08a7a9fc31542cca7dc23fac35368825353d1798ba9d5692",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "kind": "handoff",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-black-390-handoff-5.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:af39a466dc57eb8cf8fc2914c3830ee9c4b9959779f89a6d74160561787dd52e",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "kind": "handoff",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-black-390-result_report-6.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:3da6e96afc892c396296771735a531ad56df5650d8a928f6dd451f7d31ed7a7a",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:check:graph-fixture-new-run",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-black-390-result_report-7.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:fde97abc50307eeaef7baf8b346e547b82d77f17104b94eb09b030f83937244e",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:check:graph-fixture-new-run",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-previous-light-320-result_report-1.png",
+      "edge_id": "graph:7741905340f0d165055ac523:c9c270c5623fd809a82dd377f4dd63aae46cb94a43349582ee1b58ec90f99e2f",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:81b8462688204305ba523185980fc5b2",
+      "to": "graph:7741905340f0d165055ac523:pm:418dc1e739a64dc8966fc1208db403e0",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-previous-light-320-result_report-4.png",
+      "edge_id": "graph:7741905340f0d165055ac523:b5bd56fdd49b4ebaf451e811989f93ee617ed1f00a56f7c783c83b1e06688f18",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:05311c613de24a46883563d367463637",
+      "to": "graph:7741905340f0d165055ac523:pm:418dc1e739a64dc8966fc1208db403e0",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-previous-light-320-result_report-5.png",
+      "edge_id": "graph:7741905340f0d165055ac523:2a2d62752a52da6001a9c80efc18d61fc209113818b7a78ca445723d8748af0e",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:05311c613de24a46883563d367463637",
+      "to": "graph:7741905340f0d165055ac523:check:3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-previous-light-320-result_report-6.png",
+      "edge_id": "graph:7741905340f0d165055ac523:375adba2f5127beeb85c520138f8b4d26d1dbd3bc3f657a88833699b5cdd353a",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:81b8462688204305ba523185980fc5b2",
+      "to": "graph:7741905340f0d165055ac523:check:3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-light-320-revision_return-1.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:eb01ae124cb98339de0660f442558c7c361bda8d8c04afa78e2a59e03048207c",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:reviewer:graph-fixture-new-run",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "kind": "revision_return",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-light-320-handoff-2.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:068bab71f025607d08a7a9fc31542cca7dc23fac35368825353d1798ba9d5692",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "kind": "handoff",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-light-320-handoff-5.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:af39a466dc57eb8cf8fc2914c3830ee9c4b9959779f89a6d74160561787dd52e",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "kind": "handoff",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-light-320-result_report-6.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:3da6e96afc892c396296771735a531ad56df5650d8a928f6dd451f7d31ed7a7a",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:check:graph-fixture-new-run",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-light-320-result_report-7.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:fde97abc50307eeaef7baf8b346e547b82d77f17104b94eb09b030f83937244e",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:check:graph-fixture-new-run",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-previous-black-320-result_report-1.png",
+      "edge_id": "graph:7741905340f0d165055ac523:c9c270c5623fd809a82dd377f4dd63aae46cb94a43349582ee1b58ec90f99e2f",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:81b8462688204305ba523185980fc5b2",
+      "to": "graph:7741905340f0d165055ac523:pm:418dc1e739a64dc8966fc1208db403e0",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-previous-black-320-result_report-4.png",
+      "edge_id": "graph:7741905340f0d165055ac523:b5bd56fdd49b4ebaf451e811989f93ee617ed1f00a56f7c783c83b1e06688f18",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:05311c613de24a46883563d367463637",
+      "to": "graph:7741905340f0d165055ac523:pm:418dc1e739a64dc8966fc1208db403e0",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-previous-black-320-result_report-5.png",
+      "edge_id": "graph:7741905340f0d165055ac523:2a2d62752a52da6001a9c80efc18d61fc209113818b7a78ca445723d8748af0e",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:05311c613de24a46883563d367463637",
+      "to": "graph:7741905340f0d165055ac523:check:3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-previous-black-320-result_report-6.png",
+      "edge_id": "graph:7741905340f0d165055ac523:375adba2f5127beeb85c520138f8b4d26d1dbd3bc3f657a88833699b5cdd353a",
+      "run_id": "3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "from": "graph:7741905340f0d165055ac523:81b8462688204305ba523185980fc5b2",
+      "to": "graph:7741905340f0d165055ac523:check:3ef98f14c6344aa6aa6e736ca7acf7eb",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-black-320-revision_return-1.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:eb01ae124cb98339de0660f442558c7c361bda8d8c04afa78e2a59e03048207c",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:reviewer:graph-fixture-new-run",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "kind": "revision_return",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-black-320-handoff-2.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:068bab71f025607d08a7a9fc31542cca7dc23fac35368825353d1798ba9d5692",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "kind": "handoff",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-black-320-handoff-5.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:af39a466dc57eb8cf8fc2914c3830ee9c4b9959779f89a6d74160561787dd52e",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "kind": "handoff",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-black-320-result_report-6.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:3da6e96afc892c396296771735a531ad56df5650d8a928f6dd451f7d31ed7a7a",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:81b8462688204305ba523185980fc5b2",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:check:graph-fixture-new-run",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    },
+    {
+      "filename": "graph-record-recent-black-320-result_report-7.png",
+      "edge_id": "graph:5dd4a2e9e9874a1a1589de11:fde97abc50307eeaef7baf8b346e547b82d77f17104b94eb09b030f83937244e",
+      "run_id": "graph-fixture-new-run",
+      "from": "graph:5dd4a2e9e9874a1a1589de11:05311c613de24a46883563d367463637",
+      "to": "graph:5dd4a2e9e9874a1a1589de11:check:graph-fixture-new-run",
+      "kind": "result_report",
+      "zoom": "98%",
+      "framing": "enlarged relationship segment and readable detail; use fit for full overview"
+    }
+  ],
+  "writes": [
+    "/api/login",
+    "/api/password"
+  ]
+}

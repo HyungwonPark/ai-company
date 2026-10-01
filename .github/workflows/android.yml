@@ -1,0 +1,51 @@
+name: Android APK
+on:
+  pull_request:
+    paths: ['android/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Reject mismatched compiled domain associations
+        run: python3 -m unittest discover -s android/tests -v
+      - name: Prepare the hosted Android toolchain
+        run: |
+          echo "JAVA_HOME=$JAVA_HOME_17_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_17_X64/bin" >> "$GITHUB_PATH"
+          "$JAVA_HOME_17_X64/bin/java" -version
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-36' 'build-tools;36.0.0' > "$RUNNER_TEMP/sdk-install.log"
+          echo '81a82aaea5abcc8ff68b3dfcb58b3c3c429378efd98e7433460610fecd7ae45f  android/gradle/wrapper/gradle-wrapper.jar' | sha256sum -c -
+      - name: Build and lint the unsigned release
+        working-directory: android
+        run: ./gradlew --no-daemon --console=plain :app:assembleRelease :app:lintRelease
+      - name: Inspect the actual APK and preserve build provenance
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/android-apk"
+          python3 android/verify_unsigned.py --apk android/app/build/outputs/apk/release/app-release-unsigned.apk --build-tools "$ANDROID_HOME/build-tools/36.0.0" --apkanalyzer "$ANDROID_HOME/cmdline-tools/latest/bin/apkanalyzer" --source-commit "$SOURCE_SHA" --output "$RUNNER_TEMP/android-apk"
+      - name: Save unsigned APK and nonsecret verification evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: android-unsigned-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/android-apk/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve lint diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: android-lint-${{ github.event.pull_request.head.sha || github.sha }}
+          path: android/app/build/reports/lint-results-release.*
+          if-no-files-found: ignore
+          retention-days: 14

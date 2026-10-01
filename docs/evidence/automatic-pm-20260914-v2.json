@@ -1,0 +1,473 @@
+{
+  "date": "2026-09-14",
+  "preserved_base": "352a31a79223fb77f377dbec578651ac665001f2",
+  "implementation_pr": 8,
+  "configuration_digest": "e65c1459c90ba0fa313242bd908a02431e6f0bb9255f0e849053beab4edaa972",
+  "run_state": "blocked",
+  "candidate_pr": 9,
+  "candidate_sha": "1afe788cecfebf7c08246eb5120e459067ed491b",
+  "dispatcher_status": "BLOCKED",
+  "verification": {
+    "head_sha": "1afe788cecfebf7c08246eb5120e459067ed491b",
+    "task_digest": "8f2de1e947bb51f64752bce12b9aa57e191d94c4215c9a8bf64709ceb23f1260",
+    "policy_digest": "65a7c536b1c097ed2f363b4647dbc3d2a579e09317b61787029361b90c267a5c",
+    "checks": [
+      {
+        "name": "pilot-unit",
+        "success": true,
+        "exit_code": 0
+      }
+    ],
+    "passed": true,
+    "runtime_seconds": 0.19799188594333827,
+    "remote": {
+      "base_sha": "e4eb29dd62ded0e587b35a3eab6d35f4c2b44529",
+      "environment": {
+        "python": "3.12.14",
+        "runner_os": "Linux",
+        "source": "github-actions"
+      },
+      "head_sha": "1afe788cecfebf7c08246eb5120e459067ed491b",
+      "policy_digest": "65a7c536b1c097ed2f363b4647dbc3d2a579e09317b61787029361b90c267a5c",
+      "run_attempt": 1,
+      "run_id": 34845452000,
+      "task_digest": "8f2de1e947bb51f64752bce12b9aa57e191d94c4215c9a8bf64709ceb23f1260",
+      "tested_sha": "1afe788cecfebf7c08246eb5120e459067ed491b",
+      "workflow_ref": "HyungwonPark/ai-company/.github/workflows/automation-evidence.yml@refs/pull/9/merge",
+      "workflow_sha": "0e705dbcb48fc62358bf6469293e90e4497bf693",
+      "source": "github",
+      "workflow_id": 357814570,
+      "workflow_digest": "b8cf72b47b143ea7e84227c122e5ba2a9a2b3406ebdcdd881681ed3a3ca09b14",
+      "artifact_id": 10347029450,
+      "check_ids": [
+        103980169545
+      ]
+    }
+  },
+  "reviews": {
+    "reviewer": {
+      "execution_id": "b5e306466e9b5af21ad10cf5f2dc33f0db873fee2e1e139e75e6fc129faa6eaa",
+      "generation": 1,
+      "role": "reviewer",
+      "task_digest": "8f2de1e947bb51f64752bce12b9aa57e191d94c4215c9a8bf64709ceb23f1260",
+      "policy_digest": "65a7c536b1c097ed2f363b4647dbc3d2a579e09317b61787029361b90c267a5c",
+      "candidate_sha": "1afe788cecfebf7c08246eb5120e459067ed491b",
+      "verification_digest": "4970cf2a93d1a6cc334dc8e46eab2b985700def2c611bc897bf88339833a3fdc",
+      "verdict": "PASS",
+      "findings": [],
+      "resolved_findings": [],
+      "summary": "Independently inspected candidate identity, clean working tree, changed paths, matching file hashes, implementation, tests, and persisted plan confirmation. Implementation and coverage satisfy the contract; changes stay within task.allowed_paths. The saved pilot-unit log reports eight passing tests, and supplied remote evidence binds to this candidate and task/policy digests. No commands reran tests or modified files. Remote results were not independently fetched; designated final review remains pending. This PASS applies only to the independent reviewer stage."
+    },
+    "final": {
+      "execution_id": "0f549aa211ef99718d47535457e6a861a4f687af5512e7f547aaede096d6019b",
+      "generation": 2,
+      "role": "final",
+      "task_digest": "8f2de1e947bb51f64752bce12b9aa57e191d94c4215c9a8bf64709ceb23f1260",
+      "policy_digest": "65a7c536b1c097ed2f363b4647dbc3d2a579e09317b61787029361b90c267a5c",
+      "candidate_sha": "1afe788cecfebf7c08246eb5120e459067ed491b",
+      "verification_digest": "4970cf2a93d1a6cc334dc8e46eab2b985700def2c611bc897bf88339833a3fdc",
+      "verdict": "BLOCK",
+      "findings": [
+        {
+          "finding_id": "master-confirmation-evidence-missing",
+          "detail": "Explicit master confirmation before execution is unverified. Provide contemporaneous master approval or explicit delegation authorizing the validation actor for this plan.",
+          "evidence": "Persisted runner /home/edward/ai-company/workspaces/auto-pm-flow/.ai-company/automatic-pm-20260914-v2/run.py:76–86 automatically confirms after structural checks; events.jsonl:3 records validation_actor_confirmed_plan for plan 4062ae815eb9becc85139ab54063e6551293b85068809287eab46e461f9bc6eb. These establish automated confirmation, but do not establish the required master decision or delegation."
+        }
+      ],
+      "resolved_findings": [],
+      "summary": "Inspected matching HEAD, clean worktree, file hashes, scoped contributions, implementation, tests, and prior review; no code defects found. Saved pilot-unit log reports eight passing tests; supplied remote evidence binds to this candidate. Master-confirmation provenance remains missing. No files changed or tests rerun; remote results were not independently fetched."
+    }
+  },
+  "executions": [
+    {
+      "logical_task": "pm-46e98b39dcc142e58c8af73ff96c28d3",
+      "role": "pm",
+      "status": "SESSION_COMPLETED",
+      "session_id": "01a09ff2-74de-7142-bfd9-0f018428e3f3",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "ultra",
+      "configuration_evidence": {
+        "source": "codex_rollout",
+        "scope": "cli_turn_configuration",
+        "status": "observed",
+        "session_id": "01a09ff2-74de-7142-bfd9-0f018428e3f3",
+        "cli_version": "0.154.0",
+        "contexts": [
+          {
+            "turn_id": "01a09ff2-7552-7800-9be4-cc77a0caa336",
+            "model": "gpt-6-astra",
+            "reasoning_effort": "ultra",
+            "recorded_at": 1789389864.521
+          }
+        ],
+        "backend_model_verified": false
+      },
+      "duration_seconds": 107.50832640007138,
+      "cgroup_stopped": true,
+      "original_report": {
+        "execution_id": "314c9185b2b50e899f6c3dc6106609e91be33e2e04877137c1c405ae3f9cd962",
+        "generation": 1,
+        "role": "pm",
+        "task_digest": "48b5a7362f991bcb38ebb29bf9ccf0470b2872efbcfb41ebc03277651d4eecbd",
+        "policy_digest": "40e0d5eb2ab4446a2768a24c44e8f1526d308bba3e8f8846f7f3dfb5de5c54bf",
+        "candidate_sha": "e4eb29dd62ded0e587b35a3eab6d35f4c2b44529",
+        "verification_digest": null,
+        "verdict": "PASS",
+        "findings": [],
+        "resolved_findings": [],
+        "summary": "Confirmed candidate HEAD and a clean worktree; inspected its commit, repository instructions, package configuration, and unittest conventions. Neither target file exists. Supplied verification is null; implementation, tests, CI, and review remain unverified. PASS applies only to this complete proposed plan, which awaits explicit master confirmation. No files changed or checks executed.",
+        "plan": {
+          "summary": "After explicit master confirmation, two independent roles may work in parallel using the shared public interface ai_company.pilot_status.summarize_role_states(states: Mapping[str, str]) -> dict[str, int]. Implementation owns only the source file; tests owns only the test file. The existing runner retains responsibility for isolated checks, approved remote CI, independent review, and the designated Astra Ultra final review.",
+          "roles": [
+            {
+              "key": "implementation",
+              "name": "Implement role-state summary",
+              "responsibility": "Create the public function exclusively in src/ai_company/pilot_status.py using the fixed contract.",
+              "goal": "Summarize mapping values into exactly total, completed, waiting, blocked, and active integer counts without mutating input.",
+              "acceptance": [
+                "Expose summarize_role_states(states: Mapping[str, str]) -> dict[str, int] from ai_company.pilot_status.",
+                "Return exactly total, completed, waiting, blocked, and active; total equals the number of mapping entries.",
+                "Count CONTRIBUTION_READY, MERGE_READY, and DEMO_READY as completed.",
+                "Count every string starting with WAITING_ as waiting.",
+                "Count BLOCKED, NO_ELIGIBLE_AGENT, and NEEDS_RECONCILIATION as blocked.",
+                "Count all remaining string statuses as active, with each entry counted in exactly one category.",
+                "Empty input returns all five counts as zero; support Mapping inputs without modifying them.",
+                "Modify only src/ai_company/pilot_status.py; add no dependencies or unrelated behavior."
+              ],
+              "allowed_paths": [
+                "src/ai_company/pilot_status.py"
+              ],
+              "depends_on": []
+            },
+            {
+              "key": "tests",
+              "name": "Author independent unittest coverage",
+              "responsibility": "Create contract-based unittest coverage exclusively in tests/test_pilot_status.py, independently of implementation details.",
+              "goal": "Verify the shared public function's exact output, status classification, empty-input behavior, and nonmutation.",
+              "acceptance": [
+                "Use unittest and import summarize_role_states directly from ai_company.pilot_status; do not replace or mock the function under test.",
+                "Assert exact dictionaries and integer counts, including all-zero empty input and no additional output keys.",
+                "Cover every specified completed and blocked status individually and a mixed input containing all categories.",
+                "Cover WAITING_, representative WAITING_ statuses, and an unfamiliar WAITING_ suffix.",
+                "Verify unknown strings, empty strings, lowercase variants, WAITING without the underscore, and embedded WAITING_ text are active.",
+                "Verify repeated statuses across distinct role keys count separately and category counts sum to total.",
+                "Verify an ordinary input mapping remains unchanged and a read-only Mapping input is accepted.",
+                "Keep all coverage in tests/test_pilot_status.py and derive expected results from the contract without importing implementation internals."
+              ],
+              "allowed_paths": [
+                "tests/test_pilot_status.py"
+              ],
+              "depends_on": []
+            }
+          ],
+          "completion_criteria": [
+            "Propose a bounded plan for explicit master confirmation",
+            "Obtain explicit master confirmation before executing the proposed plan; this report is neither execution approval nor code-review approval.",
+            "Both roles have disjoint allowed paths and empty dependency lists, permitting independent parallel authorship against the shared interface.",
+            "The integrated implementation satisfies the complete function contract, with independent coverage for empty input, all categories, unknown states, and nonmutation.",
+            "Changes remain confined to src/ai_company/pilot_status.py and tests/test_pilot_status.py.",
+            "The existing runner records results for the unchanged required check pilot-unit, approved remote CI, independent review, and designated final review against the resulting candidate; missing evidence is not treated as success.",
+            "Preserve the existing task, policy, model assignments, and maximum of two repairs. Do not change CI or server configuration, add files beyond the allowed paths, push, merge, or deploy under this proposal."
+          ]
+        }
+      },
+      "runner_commit": null
+    },
+    {
+      "logical_task": "role-907a57e0a2a47730b5008458b4d879cc12274c8f8290b5cb",
+      "role": "developer",
+      "status": "SESSION_COMPLETED",
+      "session_id": "01a09ff4-22e9-7dd0-b6d4-1a75280196f6",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "high",
+      "configuration_evidence": {
+        "source": "codex_rollout",
+        "scope": "cli_turn_configuration",
+        "status": "observed",
+        "session_id": "01a09ff4-22e9-7dd0-b6d4-1a75280196f6",
+        "cli_version": "0.154.0",
+        "contexts": [
+          {
+            "turn_id": "01a09ff4-23be-7853-9bd7-6406b6e26b1e",
+            "model": "gpt-6-astra",
+            "reasoning_effort": "high",
+            "recorded_at": 1789389974.131
+          }
+        ],
+        "backend_model_verified": false
+      },
+      "duration_seconds": 64.21405987511389,
+      "cgroup_stopped": true,
+      "original_report": {
+        "execution_id": "9dc852747bc9d538e8118097d3930e2fb813c74c1b914a9b37437094c5629383",
+        "generation": 1,
+        "role": "developer",
+        "task_digest": "82c01274148d7e244a5a1bcaee0cf587ffd6a831c04f201511a816947aaf9c3e",
+        "policy_digest": "65a7c536b1c097ed2f363b4647dbc3d2a579e09317b61787029361b90c267a5c",
+        "candidate_sha": "e4eb29dd62ded0e587b35a3eab6d35f4c2b44529",
+        "verification_digest": null,
+        "verdict": "DONE",
+        "findings": [
+          {
+            "finding_id": "local-verification-unavailable",
+            "detail": "The documented unittest command could not start because dependency download failed. Required pilot-unit verification remains pending.",
+            "evidence": "/tmp/role-status-unittest.log: uv run --frozen python -m unittest discover -s tests -v exited 1 while downloading anyio==4.15.1 due to DNS resolution failure."
+          }
+        ],
+        "resolved_findings": [],
+        "summary": "Inspected a clean worktree and created only src/ai_company/pilot_status.py. Implementation provides the exact five counts, specified classifications, empty-input behavior, and read-only Mapping access. Ready for the runner's scoped commit; HEAD is unchanged. No supplied verification results; tests, remote CI, and independent review remain unverified.",
+        "commit_requested": true
+      },
+      "runner_commit": {
+        "source": "runner_commit",
+        "input_sha": "e4eb29dd62ded0e587b35a3eab6d35f4c2b44529",
+        "report_digest": "92f1b7c5fbc2e0dc011bc1bcb58d9dd500f39a98d931443db3187796648355db",
+        "spec_digest": "d37fd6cfa20ed33b5c4e14f537e7cb94a3c7b5e22657cff91c940a74c29a33d1",
+        "execution_id": "9dc852747bc9d538e8118097d3930e2fb813c74c1b914a9b37437094c5629383",
+        "candidate_sha": "d14127abf1888beca303c0b93f790bf0baf1b414",
+        "tree_sha": "c54a2912b185529954d84d5e23d9c5f7d53ab185",
+        "paths": [
+          "src/ai_company/pilot_status.py"
+        ]
+      }
+    },
+    {
+      "logical_task": "role-69547d4aa82ac78d1a7296d1ee3e579e4ecc26dd0d7741a5",
+      "role": "developer",
+      "status": "SESSION_COMPLETED",
+      "session_id": "01a09ff4-2408-7a23-bca7-50309d018a24",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "high",
+      "configuration_evidence": {
+        "source": "codex_rollout",
+        "scope": "cli_turn_configuration",
+        "status": "observed",
+        "session_id": "01a09ff4-2408-7a23-bca7-50309d018a24",
+        "cli_version": "0.154.0",
+        "contexts": [
+          {
+            "turn_id": "01a09ff4-24a3-7d40-a4c6-d29b874a5f15",
+            "model": "gpt-6-astra",
+            "reasoning_effort": "high",
+            "recorded_at": 1789389973.901
+          }
+        ],
+        "backend_model_verified": false
+      },
+      "duration_seconds": 125.73840973689221,
+      "cgroup_stopped": true,
+      "original_report": {
+        "execution_id": "7dfb915f049fccd9778cf96c97a681137e399ba7cd2fbad8c9e42ba57624c0ce",
+        "generation": 1,
+        "role": "developer",
+        "task_digest": "27a50ac32ecbefe643189edf7e2e2052153cb812c70968caa5c4d28114c10e5c",
+        "policy_digest": "65a7c536b1c097ed2f363b4647dbc3d2a579e09317b61787029361b90c267a5c",
+        "candidate_sha": "e4eb29dd62ded0e587b35a3eab6d35f4c2b44529",
+        "verification_digest": null,
+        "verdict": "DONE",
+        "findings": [
+          {
+            "finding_id": "verification-missing-implementation",
+            "detail": "Focused unittest execution cannot load the public function until the separate implementation contribution is integrated.",
+            "evidence": "tests/test_pilot_status.py:5 directly imports summarize_role_states; unittest discovery failed with ModuleNotFoundError: No module named 'ai_company.pilot_status'. The source module is absent."
+          },
+          {
+            "finding_id": "verification-dependency-download",
+            "detail": "The documented unittest command failed during dependency setup; no full-suite pass is established.",
+            "evidence": "uv run --frozen python -m unittest discover -s tests -v exited 1 because downloading anyio==4.15.1 failed with a DNS resolution error."
+          }
+        ],
+        "resolved_findings": [],
+        "summary": "Inspected the clean worktree and added eight contract-based unittest methods exclusively in tests/test_pilot_status.py. Syntax parsing passed. Tests cover exact dictionaries, integer counts, all specified classifications, repeated entries, totals, nonmutation, and read-only Mapping input. Ready for scoped commit; pilot-unit, integration, remote CI, and independent review remain unverified. HEAD is unchanged.",
+        "commit_requested": true
+      },
+      "runner_commit": {
+        "source": "runner_commit",
+        "input_sha": "e4eb29dd62ded0e587b35a3eab6d35f4c2b44529",
+        "report_digest": "18053287b64c423e98e755d77359bf074930d0606403b290356ae17a5a76dc18",
+        "spec_digest": "26d70c7e71dbfb459273118296baab5f9d4869938c4d8aa82e72775eade76cab",
+        "execution_id": "7dfb915f049fccd9778cf96c97a681137e399ba7cd2fbad8c9e42ba57624c0ce",
+        "candidate_sha": "d7a95879d43e506e0f8f6e9cb4035ab70e02dc92",
+        "tree_sha": "912a3575b9b77c19f0f96a67c679ea4286383ed8",
+        "paths": [
+          "tests/test_pilot_status.py"
+        ]
+      }
+    },
+    {
+      "logical_task": "integration-8f3b263fb8915cbade32893520fa19bc0c7bc4dfc4c3e4a5",
+      "role": "reviewer",
+      "status": "SESSION_COMPLETED",
+      "session_id": "01a09ff8-3fd0-71d1-9b6e-028d41e8f4df",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "high",
+      "configuration_evidence": {
+        "source": "codex_rollout",
+        "scope": "cli_turn_configuration",
+        "status": "observed",
+        "session_id": "01a09ff8-3fd0-71d1-9b6e-028d41e8f4df",
+        "cli_version": "0.154.0",
+        "contexts": [
+          {
+            "turn_id": "01a09ff8-4045-7f10-b719-153c25237996",
+            "model": "gpt-6-astra",
+            "reasoning_effort": "high",
+            "recorded_at": 1789390243.173
+          }
+        ],
+        "backend_model_verified": false
+      },
+      "duration_seconds": 90.01411889400333,
+      "cgroup_stopped": true,
+      "original_report": {
+        "execution_id": "b5e306466e9b5af21ad10cf5f2dc33f0db873fee2e1e139e75e6fc129faa6eaa",
+        "generation": 1,
+        "role": "reviewer",
+        "task_digest": "8f2de1e947bb51f64752bce12b9aa57e191d94c4215c9a8bf64709ceb23f1260",
+        "policy_digest": "65a7c536b1c097ed2f363b4647dbc3d2a579e09317b61787029361b90c267a5c",
+        "candidate_sha": "1afe788cecfebf7c08246eb5120e459067ed491b",
+        "verification_digest": "4970cf2a93d1a6cc334dc8e46eab2b985700def2c611bc897bf88339833a3fdc",
+        "verdict": "PASS",
+        "findings": [],
+        "resolved_findings": [],
+        "summary": "Independently inspected candidate identity, clean working tree, changed paths, matching file hashes, implementation, tests, and persisted plan confirmation. Implementation and coverage satisfy the contract; changes stay within task.allowed_paths. The saved pilot-unit log reports eight passing tests, and supplied remote evidence binds to this candidate and task/policy digests. No commands reran tests or modified files. Remote results were not independently fetched; designated final review remains pending. This PASS applies only to the independent reviewer stage."
+      },
+      "runner_commit": null
+    },
+    {
+      "logical_task": "integration-8f3b263fb8915cbade32893520fa19bc0c7bc4dfc4c3e4a5",
+      "role": "final",
+      "status": "SESSION_COMPLETED",
+      "session_id": "01a09ff9-a889-7370-ad22-5061364fc901",
+      "requested_model": "gpt-6-astra",
+      "requested_effort": "ultra",
+      "configuration_evidence": {
+        "source": "codex_rollout",
+        "scope": "cli_turn_configuration",
+        "status": "observed",
+        "session_id": "01a09ff9-a889-7370-ad22-5061364fc901",
+        "cli_version": "0.154.0",
+        "contexts": [
+          {
+            "turn_id": "01a09ff9-a918-7fa1-84a4-b80105b422af",
+            "model": "gpt-6-astra",
+            "reasoning_effort": "ultra",
+            "recorded_at": 1789390336.433
+          }
+        ],
+        "backend_model_verified": false
+      },
+      "duration_seconds": 218.7928078591358,
+      "cgroup_stopped": true,
+      "original_report": {
+        "execution_id": "0f549aa211ef99718d47535457e6a861a4f687af5512e7f547aaede096d6019b",
+        "generation": 2,
+        "role": "final",
+        "task_digest": "8f2de1e947bb51f64752bce12b9aa57e191d94c4215c9a8bf64709ceb23f1260",
+        "policy_digest": "65a7c536b1c097ed2f363b4647dbc3d2a579e09317b61787029361b90c267a5c",
+        "candidate_sha": "1afe788cecfebf7c08246eb5120e459067ed491b",
+        "verification_digest": "4970cf2a93d1a6cc334dc8e46eab2b985700def2c611bc897bf88339833a3fdc",
+        "verdict": "BLOCK",
+        "findings": [
+          {
+            "finding_id": "master-confirmation-evidence-missing",
+            "detail": "Explicit master confirmation before execution is unverified. Provide contemporaneous master approval or explicit delegation authorizing the validation actor for this plan.",
+            "evidence": "Persisted runner /home/edward/ai-company/workspaces/auto-pm-flow/.ai-company/automatic-pm-20260914-v2/run.py:76–86 automatically confirms after structural checks; events.jsonl:3 records validation_actor_confirmed_plan for plan 4062ae815eb9becc85139ab54063e6551293b85068809287eab46e461f9bc6eb. These establish automated confirmation, but do not establish the required master decision or delegation."
+          }
+        ],
+        "resolved_findings": [],
+        "summary": "Inspected matching HEAD, clean worktree, file hashes, scoped contributions, implementation, tests, and prior review; no code defects found. Saved pilot-unit log reports eight passing tests; supplied remote evidence binds to this candidate. Master-confirmation provenance remains missing. No files changed or tests rerun; remote results were not independently fetched."
+      },
+      "runner_commit": null
+    }
+  ],
+  "parallel": {
+    "independent_git_common_dirs": true,
+    "intervals": [
+      {
+        "task_id": "role-907a57e0a2a47730b5008458b4d879cc12274c8f8290b5cb",
+        "started_at": 1789389971.7550707,
+        "finished_at": 1789390036.0625985
+      },
+      {
+        "task_id": "role-69547d4aa82ac78d1a7296d1ee3e579e4ecc26dd0d7741a5",
+        "started_at": 1789389972.027191,
+        "finished_at": 1789390097.8538406
+      }
+    ],
+    "overlap_seconds": 64.03540754318237
+  },
+  "master_approval": [],
+  "cli_unit_states": {
+    "ai-company-run-33c73fd6a34e43fd8ca8f1996b43ca70.service": {
+      "MainPID": "0",
+      "LoadState": "not-found",
+      "ActiveState": "inactive"
+    },
+    "ai-company-run-1d7dbd012d3647119ac29f7f86e64426.service": {
+      "MainPID": "0",
+      "LoadState": "not-found",
+      "ActiveState": "inactive"
+    },
+    "ai-company-run-9deb5990e2014f26b060f53ba5423387.service": {
+      "MainPID": "0",
+      "LoadState": "not-found",
+      "ActiveState": "inactive"
+    },
+    "ai-company-run-4bd72a1c00714690bd58d2e34374a572.service": {
+      "MainPID": "0",
+      "LoadState": "not-found",
+      "ActiveState": "inactive"
+    },
+    "ai-company-run-c0b57d459f28476bbfdec6c1c6772c87.service": {
+      "MainPID": "0",
+      "LoadState": "not-found",
+      "ActiveState": "inactive"
+    }
+  },
+  "host_preservation": {
+    "baseline_unchanged": true,
+    "queue_count": 0,
+    "timer": "ActiveState=active\nUnitFileState=enabled\n",
+    "services": {
+      "app": {
+        "status": "running",
+        "health": "healthy",
+        "restarts": 0
+      },
+      "caddy": {
+        "status": "running",
+        "health": "healthy",
+        "restarts": 0
+      },
+      "db": {
+        "status": "running",
+        "health": "healthy",
+        "restarts": 0
+      },
+      "backup": {
+        "status": "running",
+        "health": null,
+        "restarts": 0
+      }
+    },
+    "restrictions": {
+      "kernel.unprivileged_userns_clone": "1",
+      "kernel.apparmor_restrict_unprivileged_userns": "1"
+    },
+    "apparmor_profile_sha256": "11d39094f044f0cda0febb3ad517b830301da6b2ce929664af09ee9e4dd264f9"
+  },
+  "validation_actor": "Authenticated local API client submitted goal and confirmed the bounded PM plan; no browser used for real run",
+  "browser_validation": "Separate fixture: sandboxed Chrome desktop/mobile and PM wait/report/approval regressions",
+  "unverified": [
+    "Claude applied effort/Ultracode and dynamic Workflow",
+    "Backend model verification",
+    "Public domain and Android device connection"
+  ],
+  "deployment_performed": false,
+  "merge_performed": false,
+  "verification_redacted_fields": [
+    "checks[].log (local private log pathname)"
+  ],
+  "verification_digest": "4970cf2a93d1a6cc334dc8e46eab2b985700def2c611bc897bf88339833a3fdc"
+}

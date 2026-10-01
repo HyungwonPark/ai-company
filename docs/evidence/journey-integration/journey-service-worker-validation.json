@@ -1,0 +1,22 @@
+{
+  "status": "PASS",
+  "baseline": "75227480d27d3eb1cd57fa43a07a0ab986be3eb5",
+  "browser": "152.0.7977.82",
+  "sandbox": true,
+  "origin": "isolated localhost only",
+  "checks": [
+    "baseline v8 controls two old tabs",
+    "new worker waits while old tabs remain usable",
+    "closed old tabs; v9 activates with matching current app and journey module",
+    "API and logout are not cached or replayed; offline reload has no private navigation",
+    "rollback v8 removes v9 resources and restores baseline app bytes"
+  ],
+  "hashes": {
+    "baseline_app": "8a4e097b5c0815e9a75e65050ac577a03a91e59aaaaa80beb396a7d6887bab7b",
+    "candidate_app": "fbb6b9524aa304f910209cd198fdd8841bd753b3d6bd2c428e2c9add9eef4935"
+  },
+  "limitations": [
+    "Synthetic unauthenticated API, not real login verification",
+    "No operational cache or physical APK was touched"
+  ]
+}

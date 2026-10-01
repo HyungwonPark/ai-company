@@ -1,0 +1,34 @@
+{
+  "status": "PASS",
+  "source": "temporary SQLite and actual ManagementHTTPServer; execution facts are synthetic; delayed read/offline/401 injections explicitly simulated",
+  "browser": "152.0.7977.82",
+  "sandbox": true,
+  "checks": [
+    "project search, five journey links, real recent-run entry",
+    "Light/Black × 320/390/1440 actual navigation, selected-run result, no foreign pending approval, no horizontal overflow",
+    "snapshot selection updates URL; older exact reports/approval preserved through navigation, real back and reload",
+    "unconfirmed planned snapshot is explicit and never borrows execution reports",
+    "unknown/out-of-scope run and project fail closed, without silently opening latest records",
+    "deliberately delayed actual API response cannot replace a subsequently selected project",
+    "offline reads retain last selected execution; actual automatic read of injected 401 removes private views"
+  ],
+  "write_paths": [
+    "/api/login",
+    "/api/password"
+  ],
+  "artifacts": [
+    "journey-light-320-progress.png",
+    "journey-light-320-result.png",
+    "journey-black-320-progress.png",
+    "journey-black-320-result.png",
+    "journey-light-390-progress.png",
+    "journey-light-390-result.png",
+    "journey-black-390-progress.png",
+    "journey-black-390-result.png",
+    "journey-light-1440-progress.png",
+    "journey-light-1440-result.png",
+    "journey-black-1440-progress.png",
+    "journey-black-1440-result.png",
+    "journey-old-run-approval.png"
+  ]
+}

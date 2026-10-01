@@ -1,0 +1,26 @@
+{
+  "source": "isolated synthetic browser",
+  "browser": "152.0.7977.82",
+  "sandbox": true,
+  "checks": [
+    "A/B/C × Light/Black × 320/390/1440: render, overflow, screenshots",
+    "PM reply → spec save (0 runs) → fresh plan (0 runs) → reviewed confirmation (1 run), reload stable",
+    "artifact run/commit, requested/unverified model, modal Escape focus, candidate digest receipt",
+    "creation response loss/reload/retry: one project, no execution, no cross-project roles/approvals",
+    "review regression: lost PM answer after v1 → reload/recover → fresh spec v2, no old receipt loop",
+    "empty, waiting, offline, long Korean, translation pending, read-only, bad link",
+    "keyboard creation, 200% text stress, 44px stage controls, actual Korean glyph font",
+    "reduced motion retains the PM answer action without active animation",
+    "downloadable single-file preview opens via file://, replies work, zero external requests"
+  ],
+  "fonts": [
+    {
+      "familyName": "Noto Sans CJK KR",
+      "postScriptName": "NotoSansCJKkr-Regular",
+      "isCustomFont": false,
+      "glyphCount": 18
+    }
+  ],
+  "api_requests": 0,
+  "page_errors": []
+}

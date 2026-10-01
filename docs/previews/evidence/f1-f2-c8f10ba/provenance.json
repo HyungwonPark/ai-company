@@ -1,0 +1,18 @@
+{
+  "source_commit": "c8f10ba61551be2e75e139c9538f20b8030846b2",
+  "workflow": ".github/workflows/console.yml",
+  "run_id": 35884801170,
+  "job_id": 107262099173,
+  "event": "pull_request",
+  "checkout_commit": "69d8f1b099eaa5b1878e2535352b6c9290357865",
+  "checkout_kind": "PR test merge; not direct head checkout",
+  "status": "success",
+  "files": {
+    "task-workspace-f1-converted-journey-light-320.png": "81ed6c360eca6df61ee07a64e66654df9e3d4b985e7f3d2811ef9181b01104cd",
+    "task-workspace-f1-converted-overview-black-390.png": "3579606846fc0ff98b36ed63dc3b9bccff4afa6935d25c3317502db35fae3b5c",
+    "task-workspace-f2-checks-journey-light-390.png": "d3705267e7f3177a41f77d676a89db98c8ac1e51c6d984d9ae7927298e23d61f",
+    "task-workspace-f2-checks-overview-black-390.png": "03ec47fef05c23ece5dd2a6cc2ba25f8ac887a1dbff18d9aebabee4b0fc80906",
+    "task-workspace-review-validation.json": "cd672eb42f655f82d64e4248589021072bfb83c1d4261dd073de20dbef50ad6c"
+  },
+  "scope": "Synthetic fixture and automated browser actions; no user data, API writes, actual model reviews or APK test."
+}

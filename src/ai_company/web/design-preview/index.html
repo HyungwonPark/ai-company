@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <title>AI Company · 디자인 예시</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../fonts/fonts.css">
+  <link rel="stylesheet" href="./preview.css">
+  <script defer src="./preview.js"></script>
+</head>
+<body>
+  <header class="preview-toolbar">
+    <div class="preview-title"><strong>AI Company</strong><span>디자인 예시</span></div>
+    <nav class="concepts" aria-label="디자인 선택">
+      <button type="button" data-concept="a" aria-pressed="true">A <span>편집형</span></button>
+      <button type="button" data-concept="b" aria-pressed="false">B <span>작업 도구형</span></button>
+      <button type="button" data-concept="c" aria-pressed="false">C <span>브랜드형</span></button>
+    </nav>
+    <div class="preview-controls">
+      <button type="button" data-screen="login" aria-pressed="true">로그인</button>
+      <button type="button" data-screen="workspace" aria-pressed="false">작업 화면</button>
+      <button type="button" id="mobile-toggle" aria-pressed="false">모바일</button>
+    </div>
+  </header>
+  <p class="preview-note">디자인 확인용 예시입니다. 비밀번호 입력 없이 둘러볼 수 있으며 실제 작업·승인은 실행되지 않습니다.</p>
+  <main id="stage" class="stage" data-concept="a" aria-label="디자인 예시 화면"></main>
+  <div id="notice" class="notice" role="status" hidden></div>
+  <noscript>화면 전환을 보려면 JavaScript를 활성화해주세요.</noscript>
+</body>
+</html>

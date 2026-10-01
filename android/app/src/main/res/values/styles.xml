@@ -1,0 +1,11 @@
+<resources>
+    <color name="background">#F5F5F6</color>
+    <color name="launcher_background">#23242A</color>
+    <bool name="light_system_bars">true</bool>
+    <style name="BaseTheme.AICompany" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:colorAccent">#646670</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+    <style name="Theme.AICompany" parent="BaseTheme.AICompany" />
+</resources>

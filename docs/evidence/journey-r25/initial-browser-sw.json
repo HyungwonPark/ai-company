@@ -1,0 +1,16 @@
+{
+  "status": "FAIL",
+  "error": "locator.waitFor: Timeout 12000ms exceeded.\nCall log:\n  - waiting for locator('#login-form') to be visible\n",
+  "checks": [
+    "baseline v8 controls two old tabs",
+    "new worker waits while old tabs remain usable"
+  ],
+  "boundaries": [],
+  "failedRequests": [
+    {
+      "path": "/journey-ui.js",
+      "error": "net::ERR_INTERNET_DISCONNECTED"
+    }
+  ],
+  "errors": []
+}

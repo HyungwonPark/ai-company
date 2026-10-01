@@ -1,0 +1,258 @@
+{
+  "recorded_at": "2026-09-16T12:01:56.624158+00:00",
+  "scope": "implementation_and_isolated_validation_not_production_execution",
+  "code_commit": "23ac8a723f6bfc4d67fe12949c9253e9f8acf04c",
+  "pull_request": 13,
+  "base_commit": "69471e89a43f033939f10ae6eaa3c91f568bb4d1",
+  "stage_complete": true,
+  "production_applied": false,
+  "merged": false,
+  "local": {
+    "python": {
+      "total": 417,
+      "passed": 417,
+      "skipped": 0,
+      "host_bwrap_enabled": true,
+      "log_sha256": "ccbb82d1822e75644b4f38030f5ed987e041952f14ac5d6a320ba213c283b62b"
+    },
+    "android_preparation": {
+      "passed": 4,
+      "device_test": false
+    },
+    "demo": "DEMO_READY",
+    "independent_project_boundary_scenarios": 16,
+    "project_automation_scenarios": 4,
+    "translation_regressions": 47,
+    "model_calls": 0
+  },
+  "remote_ci": [
+    {
+      "workflow": "CI",
+      "run_id": 35093180274,
+      "conclusion": "success",
+      "head_sha": "23ac8a723f6bfc4d67fe12949c9253e9f8acf04c",
+      "python_versions": [
+        "3.11",
+        "3.12"
+      ],
+      "tests_each": 417,
+      "passed_each": 414,
+      "host_specific_skipped_each": 3,
+      "android_preparation_each": 4,
+      "url": "https://github.com/HyungwonPark/ai-company/actions/runs/35093180274"
+    },
+    {
+      "workflow": "Console UI",
+      "run_id": 35093180287,
+      "conclusion": "success",
+      "head_sha": "23ac8a723f6bfc4d67fe12949c9253e9f8acf04c",
+      "browser_sandbox": true,
+      "themes": [
+        "light",
+        "black"
+      ],
+      "execution_view_widths": [
+        320,
+        390,
+        1440
+      ],
+      "url": "https://github.com/HyungwonPark/ai-company/actions/runs/35093180287"
+    },
+    {
+      "workflow": "Automation evidence",
+      "run_id": 35093180280,
+      "conclusion": "skipped",
+      "head_sha": "23ac8a723f6bfc4d67fe12949c9253e9f8acf04c",
+      "product_remote_ci_execution": false
+    }
+  ],
+  "independent_review": {
+    "result": "PASS",
+    "core_scenarios": "tests/test_project_execution_isolation.py",
+    "ui_scenarios": "tests/ui/execution_save_checks.mjs",
+    "ui_mutation_checks": 3,
+    "product_astra_cli_final_review_performed": false,
+    "translation_saved_output_semantic_review": {
+      "passed": 1,
+      "blocked": 1,
+      "production_records_updated": 0
+    },
+    "project_refresh_keyboard_focus": "PASS: fixed stable IDs and forced real refresh regression"
+  },
+  "image": {
+    "image_id": "sha256:0f44d2e0a3706567bafea34c640345264fcace697a5ce317405366380cbfa1f8",
+    "base_image": "python@sha256:ed86c82274b3c69b52fb5820f358f0bd7df0b603332063cb5c6e32bd220c3e6e",
+    "source_archive_sha256": "34e11ba64cefaff9c9f68ff9040d74c0b157903e265196387e4e4dee2e545a89",
+    "source_archive_bytes": 6062080,
+    "dockerfile_sha256": "fc0a7467b665cb146a1c9738e8c34c8d94ba0cb7418010054b9b53caffb009b5",
+    "verification_script_sha256": "11d33d868a6d7e314f005bfcfe6a4b9aab99482546249894e8bde445fea5533e",
+    "verification": {
+      "result": "PASS",
+      "scope": "isolated_local_container_installed_package",
+      "candidate_commit": "23ac8a723f6bfc4d67fe12949c9253e9f8acf04c",
+      "checks": [
+        "nonroot_uid",
+        "capabilities_removed",
+        "no_new_privileges",
+        "memory_limit_256m",
+        "pid_limit_64",
+        "cpu_limit_quarter",
+        "network_only_loopback",
+        "root_filesystem_write_denied",
+        "external_network_denied",
+        "installed_static_files_match_archived_commit",
+        "execution_ui_installed",
+        "installed_cli_and_worker_catalog_options",
+        "installed_catalog_file_validation",
+        "installed_cli_rejects_invalid_catalog_before_start",
+        "temporary_password_at_least_ten_characters",
+        "new_execution_spec_tables_installed",
+        "anonymous_catalog_denied",
+        "wrong_host_denied",
+        "wrong_origin_denied",
+        "temporary_password_login",
+        "secure_cookie_flags",
+        "temporary_password_management_denied",
+        "short_new_password_denied",
+        "required_password_change",
+        "authenticated_catalog_safe_summary",
+        "isolated_project_creation",
+        "csrf_failure_denied",
+        "authenticated_spec_registration",
+        "spec_registration_retry_idempotent",
+        "registered_version_persists",
+        "registration_creates_no_pm_run_or_model_job",
+        "stored_version_update_denied",
+        "http_static_files_match_archived_commit"
+      ],
+      "static_file_count": 28,
+      "model_calls": 0,
+      "production_state_mounted": false,
+      "production_applied": false
+    }
+  },
+  "rollout": {
+    "proposal_sha256": "d7797d7125a3717130f4a3dd57775eee153c708603d5437d2095e81eec66aae3",
+    "proposed_compose_sha256": "8b973c0ddd7bb140cf6997d77c61e5cdc440cfe128b2c75df4f31134d9080b1f",
+    "compose_config_validated": true,
+    "catalog_sha256": "cf5f200f62495262bbdffbc177a9eefddeb6581de48c87d7d0a554bbd4c13153",
+    "configuration_digest": "2f925f653446f89b1b0d717f9a42e0d99a9df4660c90283a4cd2ba66a6d66415",
+    "scope": "existing pilot only",
+    "proposed_release": "/home/edward/ai-company/releases/project-execution-23ac8a723f6b",
+    "proposed_catalog": "/home/edward/ai-company/runtime/project-execution-23ac8a723f6b/catalog.json",
+    "units": {
+      "automation": {
+        "before_sha256": "447cb5c9b56516f0aacda2adb2f86ed656636b3ea5ed8b1f13af78d0fd913de6",
+        "after_sha256": "95fccb5ff43d2329c7a9caddb9f573bd110184da28daf9c743e9a9c4f71a0971",
+        "when_required": "execution_catalog_activation"
+      },
+      "translation": {
+        "before_sha256": "93b58997970e9ca851c88838dbb755d0d460861a78e95cf8b76da2a026d5a094",
+        "after_sha256": "c1f1714ed084cf031b2e9dcaa56c7cc18a0f004136e0abf6c27626439edc9701",
+        "when_required": "only_if_saved_translation_recheck_selection_is_approved"
+      }
+    },
+    "approved": false,
+    "applied": false,
+    "rollback_preserves_database": true,
+    "old_worker_restart_with_bound_work_forbidden": true
+  },
+  "screenshots": [
+    {
+      "name": "light-execution-320.png",
+      "sha256": "e6170d2875b1d9d28f5b29b0dce6a2c47f965dd98b156b0cefd03323a0ae8ee1"
+    },
+    {
+      "name": "light-execution-390.png",
+      "sha256": "6d3f45e0a42ff724ec7b350afca09422853aef46de73ddcce09d81af13324735"
+    },
+    {
+      "name": "light-execution-1440.png",
+      "sha256": "4a9e0275b90f770bf2aaa748c01893d4c1e9a392b9277d2910d7cff990e7f5ad"
+    },
+    {
+      "name": "black-execution-320.png",
+      "sha256": "dc6197a1d051c062238ed9676f50dc3dfeef64ed27ba4da9b9c2f6c339fcacc6"
+    },
+    {
+      "name": "black-execution-390.png",
+      "sha256": "4a6fec1b09eeae552d5cbbce9ea89b9a83ac187165e5926f587e299c0fbc0221"
+    },
+    {
+      "name": "black-execution-1440.png",
+      "sha256": "d49289a587561b274b50f981bf88cd8b75c49d1b21d1279c16c53e80d91b900a"
+    }
+  ],
+  "operating_preservation": {
+    "observed_at": "2026-09-16T11:36:40.884954+00:00",
+    "all_web_couple_containers_preserved": true,
+    "compared_containers": 5,
+    "workers": {
+      "automation": {
+        "pid_preserved": true,
+        "active": true,
+        "restarts": 0,
+        "unit_preserved": true
+      },
+      "translation": {
+        "pid_preserved": true,
+        "active": true,
+        "restarts": 0,
+        "unit_preserved": true
+      }
+    },
+    "configuration_preserved": true,
+    "pr10_pending": true,
+    "management_counts": {
+      "management_projects": 1,
+      "management_runs": 2,
+      "management_pm_requests": 1
+    },
+    "quota_timer_active": true,
+    "operational_mutations_performed": 0
+  },
+  "user_owned_pending": [
+    "APK goal input and plan confirmation",
+    "signing key offsite storage and external restore"
+  ],
+  "browser_ci_followup": {
+    "failed_documentation_commit": "da55b02ace47caf0b8dfa48d16cc7c874be5d129",
+    "failed_run_id": 35092106928,
+    "error": "Route is already handled",
+    "observed_stage": "collaboration fixture later screenshots saved",
+    "correction": "await page.unrouteAll({behavior: wait}) before fixture teardown reload",
+    "independent_review": "PASS",
+    "product_code_changed": true,
+    "internal_duplicate_route_path_fully_determined": false,
+    "followup_results_location": "https://github.com/HyungwonPark/ai-company/pull/13",
+    "teardown_commit": "d1701c67c834923019637434587a1a943fc317c0",
+    "teardown_run_id": 35092681835,
+    "teardown_scenario_passed": true,
+    "subsequent_failure": "Project-list refresh replaced the focused creation button with no stable ID",
+    "product_focus_fix_commit": "23ac8a723f6bfc4d67fe12949c9253e9f8acf04c",
+    "product_focus_fix": "Unique IDs preserve focus through the existing render restoration",
+    "forced_refresh_focus_regression": true,
+    "final_ci_run_id": 35093180287,
+    "final_conclusion": "success"
+  },
+  "prior_candidate_ci": [
+    {
+      "workflow": "CI",
+      "run_id": 35090847194,
+      "conclusion": "success",
+      "head_sha": "9e6c0c18258eb2fa1710957807d2054899ab3fc4"
+    },
+    {
+      "workflow": "Console UI",
+      "run_id": 35090846416,
+      "conclusion": "success",
+      "head_sha": "9e6c0c18258eb2fa1710957807d2054899ab3fc4"
+    },
+    {
+      "workflow": "Automation evidence",
+      "run_id": 35090846396,
+      "conclusion": "skipped",
+      "head_sha": "9e6c0c18258eb2fa1710957807d2054899ab3fc4"
+    }
+  ]
+}
